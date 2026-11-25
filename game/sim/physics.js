@@ -13,9 +13,9 @@ export const K = {
   b: 1.3, // centre to rear axle, m
   alphaPeak: 0.2, // slip angle of the most grip, rad (about 11 degrees)
   fall: 1.2, // the curve falls from its peak to `slide` over this many peaks
-  lockHard: 0.75, // the wheels' mechanical limit, rad; the counter-steer assist may use all of it
-  lockMax: 0.55, // largest wheel angle at standstill, rad (times a bit of agility)
-  lockSpeed: 40, // lock = max / (1 + (v / lockSpeed)^2)
+  lockHard: 1.05, // the wheels' mechanical limit, rad; the counter-steer assist may use all of it
+  lockMax: 0.8, // largest wheel angle at standstill, rad (times a bit of agility)
+  lockSpeed: 70, // lock = max / (1 + (v / lockSpeed)^2)
   steerOn: 4.5, // wheel speed towards the target while the finger is on, rad/s per unit of lock
   steerOff: 9, // wheel speed back to centre when it is let go
   assist: 0.9, // counter-steer: wheel angle added per rad of body slip past the dead zone

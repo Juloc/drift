@@ -20,6 +20,22 @@ Updated 2026-11-26 by the building session. Every session updates this page at t
 - **Not checked:** `docker compose up -d --build` (the machine has no .NET SDK image and there is no network pull; the Dockerfile copies `server/Relay`, `game` and `vendor/three` and `dotnet publish` was run locally to see the layout), sign-in through the hub, a real phone, Safari, the garage with a screen reader, the install as a PWA, a restart of the app with people in the lobby, more than three people at once in the signed-in lobby (the relay itself was tested with 16).
 - **Decided by the orchestrator:** accent 350 stays; 16 connections per address; **without a nickname the others see a neutral name (colour word that follows the car colour + an animal that follows the person's id), never the account name** (the same for one person every time, so a board can show it too).
 
+## More steering angle (2026-11-26, the owner: "the drift game needs more steering angle")
+
+`game/sim/physics.js`: `lockHard` 0.75 to **1.05 rad** (about 60 degrees, the wheels' limit; the counter-steer assist may use all of it), `lockMax` 0.55 to **0.80** (the player's lock at standstill, times the car's agility up to 1.25), `lockSpeed` 40 to **70** (the lock shrinks much less with speed). The wheel speed scales with the limit, so full lock still takes about the same 0.3 s; touch still reaches full lock (the ramp is untouched; the earlier headless two-finger run reads full steering after about a second of holding). The relay's `steer` byte now means +-1.05 rad (it was 0.75; `game/net/world.js` encodes and decodes it, `ARCHITECTURE.md` says so; the relay itself never reads it, so the website's copy is unaffected, only an old and a new page in one world would show each other's wheels at the wrong angle for a moment).
+
+Before and after (`OLD_LOCK=1 node tools/measure.mjs` against `node tools/measure.mjs`):
+
+| car | circle 20 km/h before → after (m) | wheel angle at 80 km/h, full steer (deg) | circle 50 km/h (m) | handbrake turn at 80, max slip (deg) |
+|---|---|---|---|---|
+| Dart | 15 → 14 | 25 → 44 | 32 → 32 | 70 → 71 |
+| Pip | 14 → 14 | 31 → 52 | 33 → 33 | 88 → 88 |
+| Bruno | 15 → 16 | 18 → 31 | 39 → 40 | 43 → 40 |
+| Marlin | 18 → 17 | 24 → 42 | 39 → 39 | 66 → 56 |
+| Ox | 11 → 12 | 16 → 29 | 27 → 27 | 49 → 48 |
+
+What this means, honestly: the wheels now turn about **1.75 times as far at speed** (Dart at 80 km/h: 25 to 44 degrees) and the car can be caught in much deeper slides, but **the turning circles hardly change**: a tyre gives its most sideways force at about 11 degrees of slip (`alphaPeak` 0.2 rad) and less beyond it, so more wheel angle does not turn the car tighter by itself. Only at crawling speed does the angle itself limit the circle (15 to 14 m at 20 km/h). The five-cars test (`the five cars differ in the way their names promise`) passes unchanged and its reasons still hold: they compare cars with each other, and the order of power, top speed, turn-in and cornering grip did not move. If the owner wants the car to *turn tighter* (not just show more wheel angle), the lever is the tyre: a later peak (`alphaPeak` 0.2 to about 0.3) and a gentler fall after it; that changes the whole feel and needs a driver, so it was not done unasked. Picture with the bot drifting: `docs/screenshots/steer-orbit-wide.png` (from behind the wheel angle is hard to see; the bot steers into and against the slide). **Not checked:** a person driving it, a real phone.
+
 ## Milestone 3: races and best times (built 2026-11-26 on the orchestrator's go)
 
 Only in the signed-in app (the public demo has no races). One race at a time, on the car park (the only map so far), up to 8 racers, 1 to 5 laps (the lobby button starts 3).

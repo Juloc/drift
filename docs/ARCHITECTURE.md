@@ -311,7 +311,7 @@ A public demo for the owner's website: the car park, the cars, and **everyone wh
 
 | direction | frame | bytes |
 |---|---|---|
-| client to relay | `POSE`: `1, seq u8, x i16 (1/20 m), z i16, h u16 (2*pi/65536), vf i16 (1/50 m/s), beta i8 (pi/128), steer i8 (0.75 rad = 127), flags u8` (bit 0 handbrake, 1 drifting, 2 hit) | 13 |
+| client to relay | `POSE`: `1, seq u8, x i16 (1/20 m), z i16, h u16 (2*pi/65536), vf i16 (1/50 m/s), beta i8 (pi/128), steer i8 (1.05 rad = 127), flags u8` (bit 0 handbrake, 1 drifting, 2 hit) | 13 |
 | relay to client | `WELCOME 0x80`: my id, world id, hue index | 4 |
 | | `ROSTER 0x81`: count, then per visitor `id, car, hue, name length, name` (sent to the whole world when someone comes or goes) | about 14 per visitor |
 | | `SNAPSHOT 0x82`: count, server time u16 (ms, wraps), then per other visitor `id` and 11 pose bytes (the POSE without type and seq) | 4 + 12 per other |

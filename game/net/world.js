@@ -15,7 +15,7 @@ export function encodePose(seq, s, beta, flags) {
   v.setUint16(6, Math.round(((((s.h % TAU) + TAU) % TAU) / TAU) * 65536) & 0xffff, true);
   v.setInt16(8, c16(s.vf * 50), true);
   v.setInt8(10, Math.max(-127, Math.min(127, Math.round(beta / (Math.PI / 128)))));
-  v.setInt8(11, Math.max(-127, Math.min(127, Math.round((s.steer / 0.75) * 127))));
+  v.setInt8(11, Math.max(-127, Math.min(127, Math.round((s.steer / 1.05) * 127))));
   v.setUint8(12, flags);
   return b;
 }
@@ -24,7 +24,7 @@ export function encodePose(seq, s, beta, flags) {
 export function decodeEntry(v, o) {
   return {
     x: v.getInt16(o, true) / 20, z: v.getInt16(o + 2, true) / 20, h: (v.getUint16(o + 4, true) * TAU) / 65536,
-    vf: v.getInt16(o + 6, true) / 50, beta: (v.getInt8(o + 8) * Math.PI) / 128, steer: (v.getInt8(o + 9) / 127) * 0.75, flags: v.getUint8(o + 10),
+    vf: v.getInt16(o + 6, true) / 50, beta: (v.getInt8(o + 8) * Math.PI) / 128, steer: (v.getInt8(o + 9) / 127) * 1.05, flags: v.getUint8(o + 10),
   };
 }
 
