@@ -12,7 +12,7 @@
   <ItemGroup>
     <!-- The game page's files (game/, vendor/three/) travel in the published app, next to it, and are served under /play and /vendor -->
     <Content Include="..\..\game\**" Exclude="..\..\game\**\*.test.mjs;..\..\game\index.html;..\..\game\demo.html" Link="game\%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="Never" ExcludeFromSingleFile="true" />
-    <Content Include="..\..\vendor\three\*" Link="vendor\three\%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="Never" ExcludeFromSingleFile="true" />
+    <Content Include="..\..\vendor\three\**" Link="vendor\three\%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="Never" ExcludeFromSingleFile="true" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\base\src\Base.Web\Base.Web.csproj" />

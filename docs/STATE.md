@@ -107,6 +107,18 @@ Per hour on a phone with 16 in the world: about 10 MB down, 1 MB up. With three 
 - Play in headless Chromium and write numbers and a picture: `node tools/play.mjs <w> <h> <name> [--touch] [--tier=..] [--secs=8] [--dpr=2]` (software graphics; it picks its own free DevTools port and kills its browser). Single pictures: `chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist --window-size=W,H --virtual-time-budget=15000 --screenshot=out.png "http://127.0.0.1:8150/game/index.html?tier=high&demo=orbit&t=6"`.
 - The map JSON is written by `node tools/make-map.mjs`.
 
+## Probe car: Nissan Silvia S15 (style sample, not final)
+
+`game/view/s15.js` (model, code only), `game/view/studio.js` (RoomEnvironment + PMREM, lights, contact shadow), `game/showroom.html` (`?car=s15|dart|both&view=front|rear|side&kit=1&tier=low&info=1`), and `?model=s15[&kit=1]` on the game page for the drift picture. Other cars, physics, `cars.json` and the relay are untouched. Pictures: `docs/screenshots/s15-*.png` (software-rendered, so only the look, not the speed).
+
+| | draw calls | triangles |
+|---|---|---|
+| S15 high tier | 13 (14 with kit) | 10 984 (12 280 with kit) |
+| S15 phone tier | 13 (14 with kit) | 5 036 (6 332 with kit) |
+| old Dart (clay) | 1 body + pooled wheels | about 1 508 desktop, about 308 phone |
+
+Honest state: materials read apart (clearcoat paint, dark glass, chrome rims, matt tyres, carbon, lights), but the shape is still a rounded "bathtub" and some small parts (grille, lamps, wing posts) are only roughly placed. Needs a design talk with the owner before the other 13 cars. Not checked: real GPU frame time on a phone, the look on a real phone screen.
+
 ## Numbers
 
 **Driving model** (`node tools/measure.mjs`, asphalt, 2026-11-25, node on this machine):

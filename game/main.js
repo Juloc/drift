@@ -67,6 +67,14 @@ const carGroup = new THREE.Group();
 const bodyMesh = new THREE.Mesh(parts.body, makeClay());
 bodyMesh.castShadow = true;
 carGroup.add(bodyMesh, new THREE.Mesh(parts.lights, makeGlow()));
+// ?model=s15[&kit=1]: the probe car (own materials, own wheels) instead of the clay body; only for looking at it
+let probe = null;
+if (params.get('model') === 's15') {
+  const [{ buildS15 }, { makeEnvironment }] = await Promise.all([import('./view/s15.js'), import('./view/studio.js')]);
+  probe = buildS15({ paint: new THREE.Color().setHSL(car.colour / 360, 0.62, 0.42).getHex(), kit: params.get('kit') === '1', tier: lite ? 'low' : 'high', env: makeEnvironment(renderer, lite ? 64 : 256) });
+  carGroup.clear(); carGroup.add(probe.group);
+  scene.environment = null;
+}
 const pool = new WheelPool(16);
 const smoke = new Smoke(160);
 const skids = new Skids(1500);
@@ -296,7 +304,8 @@ function frame(now) {
   glowPool.begin();
   if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost());
   pool.begin();
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) pool.wheel(carGroup.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -cur.steer : 0, spin);
+  if (probe) probe.setWheels(cur.steer, spin);
+  else for (const sx of [-1, 1]) for (const sz of [-1, 1]) pool.wheel(carGroup.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -cur.steer : 0, spin);
   pool.blob(X(drawn.x), drawn.z, BLOB[carIndex][0], BLOB[carIndex][1], HEAD(drawn.h));
   if (net) {
     const moving = speedOf(cur) > 0.3 || input.read().throttle > 0;
