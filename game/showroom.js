@@ -7,6 +7,7 @@ import { buildCar, WHEEL } from './view/carmodel.js';
 import { makeClay } from './core/materials.js';
 import { loadCarModel } from './view/carmodel.js';
 import { carMaterials } from './view/carmaterials.js';
+import { dressCar, carFx } from './view/carfx.js';
 
 const q = new URLSearchParams(location.search);
 const tier = q.get('tier') === 'low' ? 'low' : 'high';
@@ -54,7 +55,12 @@ if (q.has('glb')) {
   if (loaded) {
     loaded.loadMs = Math.round(performance.now() - t0);
     loaded.bytes = +(await fetch(loaded.url, { method: 'HEAD' }).then((r) => r.headers.get('content-length')) ?? 0);
-    const sh = contactShadow(4.3, 8.4); scene.add(loaded.group, sh); cars.push(loaded.group); probe = loaded;
+    // the car's own parts as in the game (view/carfx.js); ?pop=1 holds an exhaust pop, ?brake=1 lights the brake lights, ?glow=0..23 the underglow
+    const spec = (await fetch('data/cars.json').then((r) => r.json())).cars.find((c) => c.model === q.get('glb'))?.fx ?? {};
+    dressCar(loaded.group, spec, { lite: !high }); loaded.fx = carFx(loaded, spec, { lite: !high, listen: false });
+    if (q.has('pop')) loaded.fx.pop(1, 1e6);
+    if (q.has('glow')) loaded.fx.setGlow(+q.get('glow'));
+    scene.add(loaded.group); cars.push(loaded.group); probe = loaded;
   } else console.warn('no model file: the code model stays');
 }
 if (loaded) { /* shown */ }
@@ -80,7 +86,8 @@ const info = document.getElementById('info');
 let frames = 0;
 function frame(t) {
   if (q.get('spin') === '1') place(az + t / 60);
-  probe?.setWheels(0.0, t / 400);
+  probe?.setWheels(+(q.get('steer') ?? 0), t / 400);
+  probe?.fx?.update(0.016, { brake: q.has('brake') ? 1 : 0, groundAt: () => 0 });
   renderer.render(scene, camera);
   frames++;
   const r = renderer.info.render;

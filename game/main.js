@@ -483,7 +483,7 @@ function simStep(i) {
   if (simSteps % 3 === 0 && !paused) {
     const slid = (Math.abs(bodySlip(cur)) > 0.2 || inp.handbrake > 0) && speedOf(cur) > 3, S = look.smoke, t = Math.atan2(cur.vx, cur.vz), push = S.drift ?? 0, out = S.offset ?? 0;
     if (slid) for (const sx of [-1, 1]) {
-      const ry = HEAD(cur.h), c = Math.cos(ry), sn = Math.sin(ry), lx = sx * CAR_DIMS.wheelX, lz = -CAR_DIMS.wheelZ, wx = X(cur.x) + lx * c + lz * sn, wz = cur.z - lx * sn + lz * c;
+      const ry = HEAD(cur.h), c = Math.cos(ry), sn = Math.sin(ry), lx = sx * (fleet.dims ?? CAR_DIMS).wheelX, lz = -(fleet.dims ?? CAR_DIMS).wheelZ, wx = X(cur.x) + lx * c + lz * sn, wz = cur.z - lx * sn + lz * c;
       stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + stage.field.groundY(cur.x, cur.z), wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
     }
   }
@@ -586,7 +586,7 @@ function frame(now) {
   stage.smoke.car.value.set(X(drawn.x), gy, drawn.z);
   spin += (vf * dt) / WHEEL_R;
   glowPool.begin();
-  if (mineFx) { mineFx.setGlow(glowHue); mineFx.update(paused ? 0 : dt, { brake: lastInp.brake }); }   // a model car: strips along the sills, not a patch
+  if (mineFx) { mineFx.setGlow(glowHue); mineFx.update(paused ? 0 : dt, { brake: lastInp.brake, groundAt: (wx, wz) => stage.field.groundY(X(wx), wz) });   // X: the view's x is the physics' x mirrored (space.js) }   // a model car: strips along the sills, not a patch
   else if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy);
   pool.begin();
   mine.setWheels(cur.steer, spin);
@@ -615,7 +615,7 @@ function frame(now) {
   const { smoke, skids } = stage;
   for (let i = 0; i < 2; i++) {
     const sx = i ? 1 : -1;
-    const wp = new THREE.Vector3(sx * CAR_DIMS.wheelX, 0, -CAR_DIMS.wheelZ).applyMatrix4(carGroup.matrix);
+    const wp = new THREE.Vector3(sx * (fleet.dims ?? CAR_DIMS).wheelX, 0, -(fleet.dims ?? CAR_DIMS).wheelZ).applyMatrix4(carGroup.matrix);   // the model's own rear wheels
     skids.mark(i, wp.x, wp.z, 0, 0, sliding, gy);
   }
   // damage: the paint darkens with it, smoke comes from the nose over half, and a small readout

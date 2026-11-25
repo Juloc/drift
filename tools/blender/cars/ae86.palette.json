@@ -1,10 +1,75 @@
 [
-  { "about": "The AE86's own_palette in car_normalize.py's order (the material names sorted), values from materials.py; two changed: the glass (Material.011, was metal 1, rough 0.35, colour 0.07: a matt brown plate in the game) is dark tinted smooth glass, the rims (Material.003, was colour 0.04, metal 0.75, rough 0.48) gun metal with a shine. Used by tools/glb-palette.mjs; ae86.json has the same changes for the next Blender export." },
-  { "name": "own_Material.002", "color": [0.01, 0.01, 0.01], "metal": 0.0, "rough": 0.45 },
-  { "name": "own_Material.003", "color": [0.22, 0.22, 0.235], "metal": 1.0, "rough": 0.26 },
-  { "name": "own_Material.004", "color": [0.03, 0.03, 0.03], "metal": 1.0, "rough": 1.0 },
-  { "name": "own_Material.005_reverse", "color": [1.0, 1.0, 1.0], "metal": 1.0, "rough": 0.6 },
-  { "name": "own_Material.011", "color": [0.006, 0.008, 0.011], "metal": 0.0, "rough": 0.05 },
-  { "name": "own_Material.013", "color": [0.0, 0.0, 0.0], "metal": 1.0, "rough": 1.0 },
-  { "name": "own_Material.020", "color": [0.04, 0.04, 0.04], "metal": 1.0, "rough": 1.0 }
+  {
+    "about": "The AE86's own_palette in car_normalize.py's order (the material names sorted), values from materials.py; changed: the glass (Material.011, was metal 1, rough 0.35, colour 0.07: a matt brown plate in the game) is dark tinted smooth glass, the rims (Material.003, was colour 0.04, metal 0.75, rough 0.48) gun metal with a shine. Used by tools/glb-palette.mjs; ae86.json has the same changes for the next Blender export. Tyres (Material.004, was metal 1): matt rubber, metal 0, rough 0.9. Rims settled on gun metal with less metal (0.7) so that the sunset sky does not turn them orange."
+  },
+  {
+    "name": "own_Material.002",
+    "color": [
+      0.01,
+      0.01,
+      0.01
+    ],
+    "metal": 0.0,
+    "rough": 0.45
+  },
+  {
+    "name": "own_Material.003",
+    "color": [
+      0.16,
+      0.165,
+      0.175
+    ],
+    "metal": 0.7,
+    "rough": 0.3
+  },
+  {
+    "name": "own_Material.004",
+    "color": [
+      0.035,
+      0.035,
+      0.037
+    ],
+    "metal": 0.0,
+    "rough": 0.9
+  },
+  {
+    "name": "own_Material.005_reverse",
+    "color": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "metal": 1.0,
+    "rough": 0.6
+  },
+  {
+    "name": "own_Material.011",
+    "color": [
+      0.006,
+      0.008,
+      0.011
+    ],
+    "metal": 0.0,
+    "rough": 0.05
+  },
+  {
+    "name": "own_Material.013",
+    "color": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "metal": 1.0,
+    "rough": 1.0
+  },
+  {
+    "name": "own_Material.020",
+    "color": [
+      0.04,
+      0.04,
+      0.04
+    ],
+    "metal": 1.0,
+    "rough": 1.0
+  }
 ]

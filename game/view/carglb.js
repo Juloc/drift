@@ -29,7 +29,7 @@ function keepOwn(m, kind, materials) {
   if (kind !== 'own' && k.emissive) {
     if (!k.emissiveMap && k.map) k.emissiveMap = k.map;
     if (k.emissive.getHex() === 0) k.emissive.set(k.emissiveMap ? 0xffffff : k.color);
-    k.emissiveIntensity = kind === 'lamp_front' ? 2.6 : 2.0;
+    k.emissiveIntensity = kind === 'lamp_front' ? 2.6 : 3.2;   // well over 1: only the lamps reach the bloom's threshold
   }
   return k;
 }

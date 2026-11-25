@@ -22,8 +22,8 @@ export function carMaterials({ tier = 'high', paint = 0x1d3f8a, env = null } = {
   const M = (cls, o) => new cls({ ...(env ? { envMap: env } : {}), ...o });
   return {
     paint: high
-      ? M(THREE.MeshPhysicalMaterial, { color: paint, metalness: 0.4, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 1.1 })
-      : M(THREE.MeshStandardMaterial, { color: paint, metalness: 0.45, roughness: 0.32, envMapIntensity: 1.0 }),
+      ? M(THREE.MeshPhysicalMaterial, { color: paint, metalness: 0.05, roughness: 0.45, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.2 })   // solid paint under a clear coat: the coat mirrors the sky, the colour stays (three.js car example)
+      : M(THREE.MeshStandardMaterial, { color: paint, metalness: 0.1, roughness: 0.22, envMapIntensity: 1.1 }),
     glass: M(THREE.MeshStandardMaterial, { color: 0x04070b, metalness: 0.0, roughness: 0.06, envMapIntensity: 0.35 }),   // tinted: dark, with the room in it at a glancing angle
     chrome: M(THREE.MeshStandardMaterial, { color: 0xe3e7ee, metalness: 1, roughness: 0.1, envMapIntensity: 1.3 }),
     rubber: M(THREE.MeshStandardMaterial, { vertexColors: true, metalness: 0, roughness: 0.92 }),

@@ -18,7 +18,7 @@ export class Fleet {
     const { stage } = this;
     this.tpl = await this.make(MAGIC, { model: this.model, kit: false });
     this.file = !!this.tpl.url; this.url = this.tpl.url ?? null;
-    if (this.file) dressCar(this.tpl.group, this.fx, { lite: stage.carTier !== 'high' });   // underbody, contact shadow, headlight pool: every copy has them
+    if (this.file) { const m = dressCar(this.tpl.group, this.fx, { lite: stage.carTier !== 'high' }); this.dims = { wheelX: m.halfTrack, wheelZ: -m.rear }; }   // the skid marks at the model's rear wheels   // underbody, contact shadow, headlight pool: every copy has them
     this.uniforms = paintCar(this.tpl.group, stage.sun, stage.look.car);
     this.paintMat = this.tpl.materials?.paint ?? null;
     return this;

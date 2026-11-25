@@ -55,13 +55,13 @@
     "overrides": {
       "^material\\.003$": {
         "color": [
-          0.22,
-          0.22,
-          0.235
+          0.16,
+          0.165,
+          0.175
         ],
-        "metal": 1.0,
-        "rough": 0.26,
-        "about": "the rims: gun metal with a shine instead of near black"
+        "metal": 0.7,
+        "rough": 0.3,
+        "about": "the rims: gun metal"
       },
       "^material\\.011$": {
         "color": [
@@ -72,6 +72,16 @@
         "metal": 0.0,
         "rough": 0.05,
         "about": "the glass: dark tinted and smooth instead of a matt metal plate"
+      },
+      "^material\\.004$": {
+        "color": [
+          0.035,
+          0.035,
+          0.037
+        ],
+        "metal": 0.0,
+        "rough": 0.9,
+        "about": "the tyres: matt rubber"
       }
     }
   }

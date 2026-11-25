@@ -59,7 +59,7 @@ export class Remotes {
       if (gl !== undefined && gl >= 0) this.glowPool.add(X(o.x), o.z, HEAD(o.h), gl, this.glowBoost?.() ?? 1);
       const drifting = (o.flags & 2) !== 0 || (o.flags & 1) !== 0;
       for (let i = 0; i < 2; i++) {
-        const wp = this.v.set((i ? 1 : -1) * CAR_DIMS.wheelX, 0, -CAR_DIMS.wheelZ).applyMatrix4(g.matrix);
+        const wp = this.v.set((i ? 1 : -1) * (this.fleet?.dims ?? CAR_DIMS).wheelX, 0, -(this.fleet?.dims ?? CAR_DIMS).wheelZ).applyMatrix4(g.matrix);
         if (drifting && this.frame % 3 === 0) smoke.emit(wp.x, 0.35 + gy, wp.z, 0, 0, 0.5);
         skids.mark(2 + o.id * 2 + i, wp.x, wp.z, 0, 0, drifting, gy);
       }

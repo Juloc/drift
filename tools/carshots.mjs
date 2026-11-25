@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { homedir } from 'node:os';
 
-const [name, out = 'docs/screenshots', viewList = 'front,rear,side,phone', paint = 'e8e8ea'] = process.argv.slice(2);
+const [name, out = 'docs/screenshots', viewList = 'front,rear,side,phone', paint = 'e8e8ea', extra = ''] = process.argv.slice(2);   // extra: more address options, e.g. '&pop=1&brake=1'
 if (!name) { console.error('usage: node tools/carshots.mjs <glb name> <out dir> [views] [paint]'); process.exit(2); }
 const root = path.resolve(new URL('..', import.meta.url).pathname);
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.glb': 'model/gltf-binary', '.png': 'image/png', '.webp': 'image/webp' };
@@ -42,14 +42,14 @@ for (const v of viewList.split(',')) {
   const phone = v === 'phone';
   const [w, h] = phone ? [844, 390] : [1200, 800];
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: phone });
-  const url = `${web}/game/showroom.html?glb=${encodeURIComponent(name)}&view=${phone ? 'front' : v}&tier=${phone ? 'low' : 'high'}&dpr=1&info=1&paint=${paint}`;
+  const url = `${web}/game/showroom.html?glb=${encodeURIComponent(name)}&view=${phone ? 'front' : v}&tier=${phone ? 'low' : 'high'}&dpr=1&info=1&paint=${paint}${extra}`;
   const t0 = Date.now();
   await send('Page.navigate', { url });
   let info = null;
   for (let t = 0; t < 120 && !info?.glb; t++) { await sleep(500); info = await ev('window.__showroom && JSON.parse(JSON.stringify(window.__showroom))'); }
   await sleep(1500);
   info = await ev('JSON.parse(JSON.stringify(window.__showroom))');
-  const file = path.join(out, `${name}-${v}.png`);
+  const file = path.join(out, `${name}-${v}${extra ? '-fx' : ''}.png`);
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   fs.writeFileSync(file, Buffer.from(shot.result.data, 'base64'));
   console.log(JSON.stringify({ view: v, file, pageMs: Date.now() - t0, ...info }));

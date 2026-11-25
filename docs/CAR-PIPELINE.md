@@ -127,6 +127,25 @@ The model has **no interior** (opaque black glass) and its pop-up lamps are **fi
 possible without remodelling). In the game: `?model=ae86` (the car is not in `cars.json` yet). Pictures
 `docs/screenshots/cars/ae86-{front,rear,side,phone,drift-phone,drift-wide}.png`.
 
+### Round for the touge acceptance list (G1 to G8), 2026-11-26
+
+- Headlight pool (G6): a flat 5 x 11 m sheet (2 x 6 segments) with a fan texture (hard near edge, fading far ahead), laid on
+  the road every frame (each point 1.5 cm over `field.groundY`), warm white, additive, no depth writes.
+- Lamps (G3): rear lamps glow at 3.2 (brake 2.5 times that), a soft camera-facing halo of 35 to 40 cm at each lamp (depth tested,
+  bigger and brighter when braking), the front lamps warm white halos.
+- Exhaust (G7): two crossed 16 x 30 cm quads (20 to 40 cm with the pop's strength), 60 to 120 ms, white-blue core, orange edge,
+  a weak pop smaller and bluish, a small flash at the tip and a warm flash on the road under the rear.
+- Tyres and rims (G5): the tyres matt rubber (were "metal 1" in the download), the rims gun metal (metal 0.7, rough 0.3, so the
+  sunset does not turn them orange); skid marks at the model's own rear wheels (`fleet.dims`, also for the other visitors' cars).
+- Paint (G1, G2): the game's paint is a solid colour under a clear coat (metal 0.05, rough 0.45, coat 1, coat rough 0.05) on the
+  high tier, rough 0.22 on phones. A calm reflection of the dusk sky needs an environment map made from the look's own sky:
+  `stage.js` (the look session's).
+- Underglow: one soft pad of light under the whole car (zero at every edge) plus the thin sill strips; the floor pan only
+  between the axles, the silencer an oval drum.
+- Pictures: the look probe takes `?model=ae86&paint=ffffff&pop=1` and dresses a model car with the same effects
+  (`ae86-probe-touge.png`, `ae86-probe-touge-phone.png`); the showroom takes `&pop=1&brake=1&glow=16&steer=0.3`
+  (`ae86-rear-fx.png`). C# tests 227 green, Node tests 158 green.
+
 ### The AE86 as car 1, and its effects (2026-11-26)
 
 - Car 1 ("Pip") is now the **AE86** (`game/data/cars.json`: mass 940, power 7.6, top 33, grip 1.05, slide 0.78, agility 1.25,
