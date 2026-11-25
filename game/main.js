@@ -75,6 +75,13 @@ if (params.get('model') === 's15') {
   carGroup.clear(); carGroup.add(probe.group);
   scene.environment = null;
 }
+// ?glb=name: a model file (game/assets/cars/<name>.glb, docs/CAR-MODELS.md) with the garage colour; without it (404, broken file) the code model above stays
+if (params.has('glb') && !probe) {
+  const [{ loadCarModel }, { carMaterials }, { makeEnvironment }] = await Promise.all([import('./view/carmodel.js'), import('./view/carmaterials.js'), import('./view/studio.js')]);
+  const tier = lite ? 'low' : 'high';
+  const model = await loadCarModel(params.get('glb'), { tier, materials: carMaterials({ tier, paint: new THREE.Color().setHSL(car.colour / 360, 0.62, 0.42).getHex(), env: makeEnvironment(renderer, lite ? 64 : 256) }) });
+  if (model) { probe = model; carGroup.clear(); carGroup.add(model.group); }
+}
 const pool = new WheelPool(16);
 const smoke = new Smoke(160);
 const skids = new Skids(1500);

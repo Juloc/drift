@@ -134,3 +134,19 @@ export function buildCar({ paint = 0x3a7de0, lite = false, model = 0 } = {}) {
   (MODELS[model] ?? dart)(S, L, paint);
   return { body: S.build(), lights: L.build() };
 }
+
+/**
+ * A car from a model file, or `null` (then the caller builds the code model with buildCar): `game/assets/cars/<name>.glb`,
+ * on the high tier `<name>-hi.glb` first. The loader is imported only here, so a page that never asks for a file never loads it.
+ * @param {string} name file name without extension (the car id, or a test name)
+ * @param {{ tier: 'high'|'low', materials: Record<string, object> }} o
+ */
+export async function loadCarModel(name, { tier, materials }) {
+  const [{ GLTFLoader }, { loadCarGlb, modelUrls }] = await Promise.all([import('../../vendor/three/addons/loaders/GLTFLoader.js'), import('./carglb.js')]);
+  const loader = new GLTFLoader();
+  for (const url of modelUrls(new URL('../assets/cars/', import.meta.url), name, tier)) {
+    const car = await loadCarGlb(url, materials, (u) => loader.loadAsync(u));
+    if (car) return { ...car, url };
+  }
+  return null;
+}

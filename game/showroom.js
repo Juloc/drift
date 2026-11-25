@@ -1,10 +1,12 @@
 // The showroom: one car (or two side by side) in a studio. Address options:
-//   ?car=s15|dart|both   ?kit=1 (body kit and wing)   ?view=front|rear|side|top|front-low   ?tier=high|low   ?dpr=2   ?paint=1d3f8a   ?spin=1 (turntable)   ?info=1
+//   ?glb=s15-test (a model file from game/assets/cars/, the loading path of the game; -hi on the high tier)   ?car=s15|dart|both   ?kit=1 (body kit and wing)   ?view=front|rear|side|top|front-low   ?tier=high|low   ?dpr=2   ?paint=1d3f8a   ?spin=1 (turntable)   ?info=1
 import * as THREE from '../vendor/three/three.module.js';
 import { buildS15 } from './view/s15.js';
 import { makeEnvironment, contactShadow, studio } from './view/studio.js';
 import { buildCar, WHEEL } from './view/carmodel.js';
 import { makeClay } from './core/materials.js';
+import { loadCarModel } from './view/carmodel.js';
+import { carMaterials } from './view/carmaterials.js';
 
 const q = new URLSearchParams(location.search);
 const tier = q.get('tier') === 'low' ? 'low' : 'high';
@@ -45,8 +47,18 @@ const s15At = (x) => {
   cars.push(car.group);
   return car;
 };
-let probe = null;
-if (which === 'both') { probe = s15At(-2.7); dartAt(2.7); }
+let probe = null, loaded = null;
+if (q.has('glb')) {
+  const t0 = performance.now();
+  loaded = await loadCarModel(q.get('glb'), { tier, materials: carMaterials({ tier, paint, env }) });
+  if (loaded) {
+    loaded.loadMs = Math.round(performance.now() - t0);
+    loaded.bytes = +(await fetch(loaded.url, { method: 'HEAD' }).then((r) => r.headers.get('content-length')) ?? 0);
+    const sh = contactShadow(4.3, 8.4); scene.add(loaded.group, sh); cars.push(loaded.group); probe = loaded;
+  } else console.warn('no model file: the code model stays');
+}
+if (loaded) { /* shown */ }
+else if (which === 'both') { probe = s15At(-2.7); dartAt(2.7); }
 else if (which === 'dart') dartAt(0);
 else probe = s15At(0);
 
@@ -72,8 +84,8 @@ function frame(t) {
   renderer.render(scene, camera);
   frames++;
   const r = renderer.info.render;
-  window.__showroom = { tier, calls: r.calls, triangles: r.triangles, probeTriangles: probe?.triangles, probeDrawCalls: probe?.drawCalls, dpr };
-  if (q.get('info') === '1') info.textContent = `${tier} tier, pixel ratio ${dpr}\nwhole scene: ${r.calls} draw calls, ${r.triangles} triangles (shadow pass included)\n${probe ? `the S15 alone: ${probe.drawCalls} draw calls, ${probe.triangles} triangles` : ''}`;
+  window.__showroom = { tier, calls: r.calls, triangles: r.triangles, probeTriangles: probe?.triangles, probeDrawCalls: probe?.drawCalls, dpr, glb: loaded && { url: loaded.url, loadMs: loaded.loadMs, bytes: loaded.bytes, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures } };
+  if (q.get('info') === '1') info.textContent = `${tier} tier, pixel ratio ${dpr}\nwhole scene: ${r.calls} draw calls, ${r.triangles} triangles (shadow pass included)\n${loaded ? `file ${loaded.url.split('/').pop()}: ${(loaded.bytes / 1024).toFixed(0)} KB, loaded in ${loaded.loadMs} ms, ${renderer.info.memory.geometries} geometries, ${renderer.info.memory.textures} textures\n` : ''}${probe ? `${loaded ? 'the model' : 'the S15'} alone: ${probe.drawCalls} draw calls, ${probe.triangles} triangles` : ''}`;
   if (q.get('spin') === '1' || frames < 4) requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

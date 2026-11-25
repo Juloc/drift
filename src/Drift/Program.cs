@@ -57,10 +57,13 @@ static string? Find(string folder)
         if (Directory.Exists(Path.Combine(d.FullName, folder)) && Directory.Exists(Path.Combine(d.FullName, "base"))) return Path.Combine(d.FullName, folder);
     return null;
 }
+// the car models are .glb files, a type the static file server does not know
+var mime = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+mime.Mappings[".glb"] = "model/gltf-binary";
 void Serve(string path, string folder)
 {
     if (Find(folder) is { } dir)
-        app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(dir), RequestPath = path, OnPrepareResponse = c => c.Context.Response.Headers.CacheControl = "no-cache" });
+        app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(dir), RequestPath = path, ContentTypeProvider = mime, OnPrepareResponse = c => c.Context.Response.Headers.CacheControl = "no-cache" });
 }
 Serve("/play", "game");
 Serve("/vendor/three", Path.Combine("vendor", "three"));

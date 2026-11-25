@@ -24,3 +24,7 @@ The owner states that he holds licences for the vehicles and their names (2026-1
 ## Libraries (not assets)
 
 three.js 0.186.0 (MIT), vendored in `vendor/three/` with licence and checksums (including `RoomEnvironment.js`, one import line changed, both hashes in the table), see [../vendor/README.md](../vendor/README.md).
+
+## Model-file loading (GLTFLoader)
+
+`GLTFLoader.js`, its helpers `BufferGeometryUtils.js` and `SkeletonUtils.js`, and `GLTFExporter.js` (Node tool only) are vendored from `three@0.186.0` next to three itself, each with its one changed import line and both hashes in `vendor/README.md`. Meshopt/KTX2/Draco decoders are not vendored. The test models `game/assets/cars/s15-test*.glb` are written by our own `tools/export-s15.mjs` from the code model (own work, no outside file). The rules for real models are in `docs/CAR-MODELS.md`.

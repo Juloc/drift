@@ -107,6 +107,21 @@ Per hour on a phone with 16 in the world: about 10 MB down, 1 MB up. With three 
 - Play in headless Chromium and write numbers and a picture: `node tools/play.mjs <w> <h> <name> [--touch] [--tier=..] [--secs=8] [--dpr=2]` (software graphics; it picks its own free DevTools port and kills its browser). Single pictures: `chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist --window-size=W,H --virtual-time-budget=15000 --screenshot=out.png "http://127.0.0.1:8150/game/index.html?tier=high&demo=orbit&t=6"`.
 - The map JSON is written by `node tools/make-map.mjs`.
 
+## Real 3D models: the path is ready (test model only)
+
+Owner's decision: cars become real 3D models (made outside with image-to-model and Blender), not code models. Prepared here, no physics touched:
+- `docs/CAR-MODELS.md`: the rules for a `.glb` (axes, origin, wheel names, slots, budgets, two files per car).
+- `game/view/carglb.js` (slots, wheels, fallback; pure logic) and `loadCarModel` in `game/view/carmodel.js`; `game/view/carmaterials.js` (the materials by slot). GLTFLoader vendored (`vendor/README.md`). Try with `?glb=s15-test` on the game page or `game/showroom.html?glb=s15-test&info=1`. A missing or broken file keeps the code model (shown with `?glb=nope`).
+- `tools/export-s15.mjs` writes `game/assets/cars/s15-test.glb` and `s15-test-hi.glb` from the S15 code model; `tools/blender/prepare_car.py` checks and exports a Blender scene (**written, not run**: no Blender here).
+- The app serves `.glb` as `model/gltf-binary` (`Program.cs`).
+
+| test model | file | draw calls | triangles | load (software GL) |
+|---|---|---|---|---|
+| phone | 199 KB | 10 | 5 036 | 409 ms, 12 geometries, 3 textures in the scene |
+| high (kit) | 449 KB | 15 | 12 280 | 2 270 ms incl. loader import, 17 geometries |
+
+Not done / not checked: the garage has no 3D view (colour swatches only), the game does not pick a file by car id yet (only `?glb=`), real phone load time and memory, the Blender script, meshopt/KTX2 (not vendored: inline WebAssembly vs. the content policy).
+
 ## Probe car: Nissan Silvia S15 (style sample, not final)
 
 `game/view/s15.js` (model, code only), `game/view/studio.js` (RoomEnvironment + PMREM, lights, contact shadow), `game/showroom.html` (`?car=s15|dart|both&view=front|rear|side&kit=1&tier=low&info=1`), and `?model=s15[&kit=1]` on the game page for the drift picture. Other cars, physics, `cars.json` and the relay are untouched. Pictures: `docs/screenshots/s15-*.png` (software-rendered, so only the look, not the speed).
