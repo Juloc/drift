@@ -29,8 +29,7 @@
   },
   "targets": {
     "smooth": 12000,
-    "smooth-hi": 0,
-    "lowpoly": 4000
+    "smooth-hi": 0
   },
   "cut": {
     "radius": 0.365,

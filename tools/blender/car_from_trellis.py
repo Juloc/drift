@@ -1,7 +1,7 @@
 """Turns a raw TRELLIS.2 car (.glb, one textured mesh with its own wheels) into a game car after docs/CAR-MODELS.md.
 
 Usage (headless Blender 4.5; see docs/CAR-PIPELINE.md):
-    blender -b -P car_from_trellis.py -- --raw raw.glb --car cars/s15.json --wheels s15-test.glb --variant smooth|smooth-hi|lowpoly --out OUT.glb
+    blender -b -P car_from_trellis.py -- --raw raw.glb --car cars/s15.json --wheels s15-test.glb --variant smooth|smooth-hi --out OUT.glb
 
 What it does, in this order:
  1. imports the raw mesh, turns it so that the front is -Y (Blender; = +Z in glTF), scales it uniformly to the real length,
@@ -13,9 +13,7 @@ What it does, in this order:
     drops floaters; the cylinders' walls close the shell (a dark wheel well, one does not look into the hollow inside);
  6. decimates to the variant's triangle target (symmetric), sorts every face into a material slot by the colour of the
     texture under it and where it is (paint / glass / plastic / light_front / light_rear), one merged mesh per slot;
- 7. smooth: keeps the UVs and the texture (webp, at most 1024) on paint and plastic, smooth normals with hard edges;
-    lowpoly: no UVs, no texture, flat shading, the texture's colour baked into the vertex colours per face
-    (divided by the slot's typical colour, so the game's slot colour - the garage paint - still decides the colour);
+ 7. keeps the UVs and the texture (webp, at most 1024) on paint and plastic, smooth normals with hard edges;
  8. takes the four wheels of the code model (the wheel_* nodes of `--wheels`, already after the rules), scales them to
     `wheel_radius` and puts them at the found centres;
  9. checks the scene with prepare_car.py and exports.
@@ -36,14 +34,13 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--raw", required=True)
 ap.add_argument("--car", required=True)
 ap.add_argument("--wheels", required=True, help="a .glb with wheel_fl/fr/rl/rr after the rules (the code model's s15-test.glb or -hi)")
-ap.add_argument("--variant", choices=["smooth", "smooth-hi", "lowpoly"], required=True)
+ap.add_argument("--variant", choices=["smooth", "smooth-hi"], required=True)
 ap.add_argument("--out", required=True)
 ap.add_argument("--blend", help="also save the scene as .blend (for looking at it by hand)")
 A = ap.parse_args(argv)
 CFG = json.load(open(A.car))
 R = CFG["regions"]
 T0 = time.time()
-LOW = A.variant == "lowpoly"   # no texture: colours in the vertex colours, flat faces
 TIER = "high" if A.variant.endswith("-hi") else "phone"
 
 
@@ -348,7 +345,7 @@ mats = {}
 for s_ in SLOTS:
     m = bpy.data.materials.new(s_); m.use_nodes = True
     bsdf = m.node_tree.nodes["Principled BSDF"]
-    if not LOW and s_ in ("paint", "plastic"):
+    if s_ in ("paint", "plastic"):
         tex = m.node_tree.nodes.new("ShaderNodeTexImage"); tex.image = img
         m.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
     mats[s_] = m
@@ -357,34 +354,15 @@ for s_ in SLOTS:
     me.materials.append(mats[s_])
 for f in bm.faces:
     f.material_index = SLOTS.index(face_slot[f.index])
-if LOW:
-    # the slot's typical colour = the median of its faces; a face's vertex colour = its colour / that (at most 1)
-    ref = {s_: np.median(np.array([face_col[i] for i in range(len(face_slot)) if face_slot[i] == s_]), axis=0) if counts.get(s_, 1) else np.ones(3) for s_ in SLOTS}
-    ref["plastic"] = np.maximum(ref["plastic"], 0.05)
-    cl = bm.loops.layers.color.new("Color")   # byte colours: smaller in the file than float ones
-    for f in bm.faces:
-        c = np.clip(face_col[f.index] / np.maximum(ref[face_slot[f.index]], 1e-3), 0, 1)
-        if face_slot[f.index] == "paint":   # the paint keeps the light and the dark of the texture, not its tint
-            c = np.full(3, float(np.clip(np.mean(face_col[f.index]) / np.mean(ref["paint"]), 0, 1)))
-        for l in f.loops:
-            l[cl] = (*c, 1.0)
-    while bm.loops.layers.uv:
-        bm.loops.layers.uv.remove(bm.loops.layers.uv[0])
 bm.to_mesh(me); bm.free(); me.update()
-if LOW:
-    me.color_attributes.active_color = me.color_attributes["Color"]
-    me.color_attributes.render_color_index = me.color_attributes.active_color_index   # else the exporter writes it twice (COLOR_0 and COLOR_1)
 sbm.free(); bpy.data.objects.remove(src)
 for m in list(bpy.data.materials):
     if m.users == 0:
         bpy.data.materials.remove(m)
 
-# normals: smooth with hard edges (smooth variant), flat faces (low-poly)
+# normals: smooth with hard edges
 select_only([car])
-if LOW:
-    bpy.ops.object.shade_flat()
-else:
-    bpy.ops.object.shade_smooth_by_angle(angle=math.radians(35))
+bpy.ops.object.shade_smooth_by_angle(angle=math.radians(35))
 bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT")
 bpy.ops.mesh.separate(type="MATERIAL"); bpy.ops.object.mode_set(mode="OBJECT")
 body = [o for o in bpy.context.scene.objects if o.type == "MESH"]
@@ -441,8 +419,8 @@ if problems:
     sys.exit(1)
 bpy.ops.export_scene.gltf(
     filepath=A.out, export_format="GLB", export_yup=True, use_selection=False, export_apply=True,
-    export_normals=True, export_tangents=False, export_texcoords=not LOW, export_vertex_color="ACTIVE",
-    export_materials="EXPORT", export_image_format="WEBP" if not LOW else "NONE", export_image_quality=82,
+    export_normals=True, export_tangents=False, export_texcoords=True, export_vertex_color="ACTIVE",
+    export_materials="EXPORT", export_image_format="WEBP", export_image_quality=82,
     export_cameras=False, export_lights=False, export_animations=False, export_skins=False, export_morph=False,
 )
 kb = os.path.getsize(A.out) / 1024

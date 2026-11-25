@@ -1,6 +1,11 @@
 # Car pipeline: picture -> TRELLIS.2 -> Blender -> game file
 
-Status (first try, Silvia S15): **the pipeline runs end to end, the result is not good enough.** The cars come out recognisable
+Look decided by the owner (2026-11-25): the cars look like the mockup's car, **smooth shaded with glossy paint**, not hard
+faceted low-poly. Only the smooth files are made (`<car>.glb`, `<car>-hi.glb`); the flat low-poly variant was dropped.
+Input from now on: one clean template picture per car (white, three-quarter front, light grey background, no logos), not a
+crop of a mockup. Logos come later as stickers in the game; the models stay without.
+
+Status (first try, Silvia S15, from the mockup crop): **the pipeline runs end to end, the result is not good enough.** The cars come out recognisable
 but lumpy (a scan look), window and lamp edges follow triangles, and smoothing melts the mirrors and the wing. The owner wants
 clean cars that look real in a simple low-poly way; that needs a **new mesh built over the generated one** (retopology), not a
 thinned-out generated mesh. See "Next" at the end. The S15 files of this try are not in the repository (pictures and files are in
@@ -25,12 +30,12 @@ the session notes, `car-s15/`).
    S15: **81 s**, 4.3 MB .glb, the masked input was clean. `ssh gpu "C:\AI\stop-comfyui.cmd"` afterwards.
 3. **Look at the raw model:** `blender -b -P look.py -- raw.glb outdir` (Workbench, six orthographic views; works headless).
 4. **Game files:** `tools/gpu/car_variants.sh <car>` copies the scripts and `tools/blender/cars/<car>.json` to the PC and runs
-   `tools/blender/car_from_trellis.py` once per variant (smooth, smooth-hi, lowpoly), 4 to 8 s each. What the script does is in
+   `tools/blender/car_from_trellis.py` once per variant (smooth, smooth-hi), 4 to 8 s each. What the script does is in
    its header: turn and scale to the real length, find the generated tyres by their contact patches (wheelbase and track),
    centre, mirror one side, cut the generated wheels out with a boolean cylinder per wheel (a clean round wheel well),
    erase lettering boxes in the texture, decimate symmetrically, cut the mesh along the edges of windows and lamps in the
    texture (contour cut), sort faces into slots by colour and place (paint, glass, plastic, light_front, light_rear),
-   texture (smooth) or vertex colours (lowpoly), put the code model's wheels at the found centres, check with `prepare_car.py`, export.
+   keep the texture on paint and plastic, put the code model's wheels at the found centres, check with `prepare_car.py`, export.
 5. **Pictures and numbers:** `node tools/carshots.mjs <glb name> <dir> front,rear,side,phone` (showroom, one headless browser,
    nice 10) and `node tools/glbinfo.mjs file.glb` (triangles, vertices, bytes per primitive).
 
@@ -43,10 +48,10 @@ generated tyre's radius and axle height (one side slice, `cut`), the boxes for l
 |---|---|---|---|---|
 | smooth, phone (`s15.glb`) | 14 653 | 9 | 592 KB | 0.7 s |
 | smooth, high (`s15-hi.glb`, no decimation) | 29 191 | 13 | 954 KB | 2.9 to 3.9 s |
-| lowpoly (`s15-lowpoly.glb`, flat, vertex colours) | 6 265 | 9 | 506 KB | 1.1 to 3.9 s |
+| (dropped) lowpoly, flat, vertex colours | 6 265 | 9 | 506 KB | 1.1 to 3.9 s |
 
 Sizes from the scaled model: 4.445 m long, 1.26 m high (real 1.285), 1.91 m wide with mirrors, wheelbase 2.49 m (real 2.525),
-track 1.55 m. Flat shading needs three vertices per triangle, so the lowpoly file is large for its triangles.
+track 1.55 m. (The dropped flat variant needed three vertices per triangle, so its file was large for its triangles.)
 
 What went wrong and what was learnt:
 - Cutting the tyres face by face leaves a saw tooth; a boolean cylinder gives a clean wheel well (kept).
@@ -67,6 +72,6 @@ colour (so the garage paint still decides the paint), on one shared copy of the 
 
 A clean body built over the generated shell, by script: cross-sections along the car (about 20 to 30 rings, 16 to 24 points
 each, symmetric) found by casting rays at the TRELLIS shell, lofted into one even quad mesh; windows and lamps as their own
-flat inset parts at the contour lines; wing and mirrors as simple separate parts fitted to the shell; smooth or flat shading.
+inset parts at the contour lines; wing and mirrors as simple separate parts fitted to the shell; smooth shading, glossy paint.
 TRELLIS stays the blueprint for proportions; the mesh the game sees is regular. Needs the owner's yes first.
 Not checked in this try: a drift on the car park with the files, a real phone, the website's copy.
