@@ -401,8 +401,9 @@ public class RaceHubTests
         Assert.True(rows[0].GetProperty("drift").GetInt32() > 100, "a drifting car earns points");
         Assert.True(rows.All(r => r.GetProperty("clean").GetBoolean()));
         // the best times were written, for each finished person: a best lap and a best race
-        Assert.Equal(4, rig.Best.Written.Count);
+        Assert.Equal(6, rig.Best.Written.Count);                                         // for each of the two: a best lap, a best race and a best drift
         Assert.Equal(2, rig.Best.Written.Count(w => w.Kind == RaceStore.Race));
+        Assert.Equal(2, rig.Best.Written.Count(w => w.Kind == RaceStore.Drift));
         // after the result time everybody is sent back, and the pause starts
         rig.Pass(16);
         Assert.NotNull(rig.Racing["anna"].Peer.Last("back"));
@@ -428,7 +429,23 @@ public class RaceHubTests
         Assert.False(rows[0].GetProperty("dnf").GetBoolean());
         Assert.True(rows[1].GetProperty("dnf").GetBoolean());
         Assert.Equal(0.0, rows[1].GetProperty("points").GetDouble(), 1);
-        Assert.Equal(2, rig.Best.Written.Count);                                         // only anna's lap and race
+        Assert.Equal(3, rig.Best.Written.Count);                                         // anna's lap, race and drift; ben did not drift
+    }
+
+    [Fact]
+    public void A_time_trial_is_a_race_of_one_nobody_is_invited_and_the_grid_opens_at_once()
+    {
+        var rig = new Rig("anna", "ben");
+        rig.Say("anna", """{"t":"race.start","solo":true}""");
+        Assert.Null(rig.People["ben"].LobbyPeer.Last("race.invite"));
+        Assert.NotNull(rig.People["ben"].LobbyPeer.Last("race.busy"));
+        rig.Pass(0.5);
+        Assert.Equal(RaceHub.Phase.Grid, rig.Hub.Current);
+        Assert.NotNull(rig.People["anna"].LobbyPeer.Last("race.go"));
+        Assert.Null(rig.People["ben"].LobbyPeer.Last("race.go"));
+        rig.Connect("anna"); rig.Pass(5);
+        Assert.Equal(RaceHub.Phase.Racing, rig.Hub.Current);
+        Assert.Equal(1, rig.Racing["anna"].Peer.Last("grid")!.Value.GetProperty("n").GetInt32());
     }
 
     [Fact]
@@ -628,5 +645,69 @@ public class RaceSecurityTests
         Assert.True(car.Obstacles.Count >= 10);
         var mountain = RaceTrack.FromJson(File.ReadAllText(Path.Combine(Repo.Root, "game", "data", "maps", "03-mountain.json")));
         Assert.True(mountain.Segments.Length > 400 * 4);                    // two long walls along the road
+    }
+}
+
+public class BoardTests
+{
+    static async Task Person(TestDb db, Guid id, string name, string? nick = null, int colour = 5)
+    {
+        await using (var u = db.Data.CreateCommand("insert into users (id, name, password_hash, totp_secret, roles) values ($1, $2, 'x', 'x', '{member}')")) { u.Parameters.AddWithValue(id); u.Parameters.AddWithValue(name); await u.ExecuteNonQueryAsync(); }
+        await using var p = db.Data.CreateCommand("insert into drift_profile (user_id, car_id, colour, nick) values ($1, 0, $2, $3)");
+        p.Parameters.AddWithValue(id); p.Parameters.AddWithValue((short)colour); p.Parameters.AddWithValue((object?)nick ?? DBNull.Value); await p.ExecuteNonQueryAsync();
+    }
+
+    [Fact]
+    public async Task The_board_orders_laps_by_time_and_drifts_by_points_keeps_only_a_better_value_and_names_people_safely()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        await app.SignedInAsync(app.Http());                         // runs the migrations
+        var store = new RaceStore(db.Data);
+        var a = Guid.NewGuid(); var b = Guid.NewGuid(); var c = Guid.NewGuid();
+        await Person(db, a, "real-name-a", "Alpha"); await Person(db, b, "real-name-b"); await Person(db, c, "real-name-c", "Gamma");
+        Assert.True(await store.RecordAsync(a, 1, RaceStore.Lap, 61000, 0));
+        Assert.True(await store.RecordAsync(b, 1, RaceStore.Lap, 59000, 1));
+        Assert.True(await store.RecordAsync(c, 1, RaceStore.Lap, 60000, 2));
+        Assert.False(await store.RecordAsync(b, 1, RaceStore.Lap, 59500, 1));           // slower than the own best: not written
+        Assert.True(await store.RecordAsync(b, 1, RaceStore.Lap, 58000, 1));            // faster: written
+        Assert.True(await store.RecordAsync(a, 1, RaceStore.Drift, 800, 0));
+        Assert.True(await store.RecordAsync(b, 1, RaceStore.Drift, 1500, 1));
+        Assert.False(await store.RecordAsync(b, 1, RaceStore.Drift, 1200, 1));          // fewer points: not written
+        Assert.True(await store.RecordAsync(b, 1, RaceStore.Drift, 1600, 1));           // more: written
+        var laps = await store.TopAsync(1, RaceStore.Lap, 10, a);
+        Assert.Equal([58000, 60000, 61000], laps.Select(r => r.Ms));                     // fastest first
+        var drifts = await store.TopAsync(1, RaceStore.Drift, 10, a);
+        Assert.Equal([1600, 800], drifts.Select(r => r.Ms));                             // most points first
+        Assert.Equal(["Alpha"], laps.Where(r => r.Mine).Select(r => r.Name));
+        Assert.DoesNotContain(laps, r => r.Name.Contains("real-name"));                  // never the account name
+        Assert.Contains(laps, r => r.Name.Split(' ').Length == 2 && WorldRelay.Colours.Contains(r.Name.Split(' ')[0]));   // b has no nickname: a neutral name
+        Assert.Empty(await store.TopAsync(2, RaceStore.Lap, 10));                         // another map has its own board
+        Assert.Equal(new Standing(61000, 3), await store.StandingAsync(1, RaceStore.Lap, a));
+        Assert.Equal(new Standing(800, 2), await store.StandingAsync(1, RaceStore.Drift, a));
+        Assert.Null(await store.StandingAsync(2, RaceStore.Lap, a));
+    }
+
+    [Fact]
+    public async Task The_board_api_gives_ten_a_place_of_your_own_and_works_read_only_for_guests()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        var c = app.Http();
+        var admin = await app.SignedInAsync(c);
+        var store = new RaceStore(db.Data);
+        Guid me;
+        await using (var q = db.Data.CreateCommand("select id from users limit 1")) me = (Guid)(await q.ExecuteScalarAsync())!;
+        for (var i = 0; i < 12; i++) { var id = Guid.NewGuid(); await Person(db, id, "p" + i); await store.RecordAsync(id, 0, RaceStore.Lap, 50000 + i * 100, 0); }
+        await store.RecordAsync(me, 0, RaceStore.Lap, 99000, 0);                                  // slower than all twelve
+        var r = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=0", admin)));
+        Assert.Equal(10, r.GetProperty("lap").GetProperty("top").GetArrayLength());
+        Assert.Equal(13, r.GetProperty("lap").GetProperty("mine").GetProperty("place").GetInt32());   // not among the ten, but told its place
+        Assert.Equal(5, r.GetProperty("maps").GetArrayLength());
+        Assert.Equal(0, r.GetProperty("drift").GetProperty("top").GetArrayLength());
+        var guest = await TestApp.GuestCookieAsync(await app.JoinAsync(c, await app.GuestLinkAsync(c, admin), "Ann"));
+        var g = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/guest/times?map=0", guest)));
+        Assert.Equal(10, g.GetProperty("lap").GetProperty("top").GetArrayLength());
+        Assert.False(g.GetProperty("lap").TryGetProperty("mine", out var m) && m.ValueKind != System.Text.Json.JsonValueKind.Null);   // a guest has no place
     }
 }

@@ -101,6 +101,14 @@ public sealed class RaceHub
                     parts.Clear(); answered.Clear();
                     parts.Add(new Part(me));
                     starter = person; phase = Phase.Invite; phaseStart = Now;
+                    // a time trial is a race of one: nobody is invited, the grid opens at the next tick, the times count like any
+                    var solo = r.TryGetProperty("solo", out var so) && so.ValueKind == JsonValueKind.True;
+                    if (solo)
+                    {
+                        phaseStart = Now - InviteSeconds;
+                        foreach (var m in lobby.Values) Send(m.Session, m.Person == person ? new { t = "race.wait", by = me.Name, tuned = me.Tuned, map = track.MapId, mapName = track.Name, laps, ms = 0 } : new { t = "race.busy", n = 1 });
+                        break;
+                    }
                     foreach (var m in lobby.Values)
                         Send(m.Session, m.Person == person ? new { t = "race.wait", by = me.Name, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) } : new { t = "race.invite", by = me.Name, tuned = me.Tuned, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) });
                     break;
@@ -272,12 +280,14 @@ public sealed class RaceHub
     async Task Finish(List<Runner> order, RaceRun finishedRun)
     {
         // the best times, in the database (outside the lock); then the result goes out
-        var flags = new Dictionary<Guid, (bool Lap, bool Race)>();
+        var flags = new Dictionary<Guid, (bool Lap, bool Race, bool Drift)>();
         foreach (var r in order)
         {
-            bool lap = false, race = false;
+            bool lap = false, race = false, drift = false;
             try
             {
+                var bestDrift = Math.Max(r.Drift.Best, r.Drift.Pending);   // the chain still running at the end counts
+                if (r.CleanLaps && !r.Guest && bestDrift >= 1) drift = await store.RecordAsync(r.Person, track.MapId, RaceStore.Drift, (int)bestDrift, r.Car);
                 if (r.Finished && r.CleanLaps && !r.Guest)   // a guest's time is shown in the result, never stored
                 {
                     if (r.BestLap is { } bl) lap = await store.RecordAsync(r.Person, track.MapId, RaceStore.Lap, (int)Math.Round(bl), r.Car);
@@ -285,7 +295,7 @@ public sealed class RaceHub
                 }
             }
             catch (Exception) { /* a database problem must not stop the result from reaching the racers */ }
-            flags[r.Person] = (lap, race);
+            flags[r.Person] = (lap, race, drift);
         }
         lock (gate)
         {
@@ -294,7 +304,7 @@ public sealed class RaceHub
                 pos = i + 1, name = r.Name, car = r.Car, hue = r.Hue,
                 ms = r.FinishMs is { } f ? (int?)(int)f : null,
                 bestLap = r.BestLap is { } b ? (int?)(int)b : null,
-                drift = (int)r.Drift.Total,
+                drift = (int)r.Drift.Total, bestDrift = (int)Math.Max(r.Drift.Best, r.Drift.Pending), newDrift = flags[r.Person].Drift,
                 points = Math.Round((r.Finished && i < PositionPoints.Length ? PositionPoints[i] : 0) + r.Drift.Total / 100, 1),
                 dnf = r.Dnf, clean = r.CleanLaps, tuned = r.Tuned,
                 newLap = flags[r.Person].Lap, newRace = flags[r.Person].Race,

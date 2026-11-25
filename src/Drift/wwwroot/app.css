@@ -44,3 +44,6 @@
 .tune-val { font-variant-numeric: tabular-nums; color: var(--accent); }
 .tune-row input[type=range] { width: 100%; min-height: var(--touch); accent-color: var(--accent); }
 .tune-ends { display: flex; justify-content: space-between; font-size: var(--text-s); color: var(--text-2); }
+
+.board li.mine { font-weight: 750; color: var(--accent); }
+.board-mine { margin: var(--s2) 0 0; font-size: var(--text-s); color: var(--text-2); }

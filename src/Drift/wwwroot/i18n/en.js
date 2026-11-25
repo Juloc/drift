@@ -62,5 +62,7 @@ export default {
   'tune.power': 'Power and weight', 'tune.power.neg': 'light, more grip', 'tune.power.pos': 'more power, less grip',
   'tune.handbrake': 'Handbrake', 'tune.handbrake.neg': 'gentle, holds a slide', 'tune.handbrake.pos': 'bites hard, slide harder to hold',
   'err.tuning.budget': 'That is more than ten points.',
+  'board.drift': 'Best single drift',
+  'board.yours': 'Your place: {place} ({value})',
   'settings.title': 'Settings',
 };

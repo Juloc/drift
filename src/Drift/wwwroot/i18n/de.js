@@ -62,5 +62,7 @@ export default {
   'tune.power': 'Leistung und Gewicht', 'tune.power.neg': 'leicht, mehr Grip', 'tune.power.pos': 'mehr Leistung, weniger Grip',
   'tune.handbrake': 'Handbremse', 'tune.handbrake.neg': 'sanft, hält den Drift', 'tune.handbrake.pos': 'beißt zu, Drift schwerer zu halten',
   'err.tuning.budget': 'Das sind mehr als zehn Punkte.',
+  'board.drift': 'Bester einzelner Drift',
+  'board.yours': 'Dein Platz: {place} ({value})',
   'settings.title': 'Einstellungen',
 };

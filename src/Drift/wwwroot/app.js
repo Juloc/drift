@@ -131,12 +131,19 @@ function boardCard(first) {
   const title = h('h2', { class: 'card-title' });
   const select = h('select', { class: 'select', 'aria-label': t('board.map') }, first.maps.map((m) => h('option', { value: String(m.id), text: m.name })));
   select.value = String(first.mapId);
-  const list = (rows) => rows.length
-    ? h('ol', { class: 'board' }, rows.map((r, i) => h('li', null, h('span', { class: 'board-pos', text: String(i + 1) }), h('span', { class: 'board-name', text: r.name }), h('span', { class: 'board-car', text: CARS[r.car]?.name || '' }), h('span', { class: 'board-time', text: mmss(r.ms) }))))
-    : h('p', { class: 'muted', text: t('board.none') });
+  const show = (kind, v) => (kind === 'drift' ? String(v) : mmss(v));
+  const list = (kind, b) => h('div', null,
+    b.top.length
+      ? h('ol', { class: 'board' }, b.top.map((r, i) => h('li', { class: r.mine ? 'mine' : '' }, h('span', { class: 'board-pos', text: String(i + 1) }), h('span', { class: 'board-name', text: r.name }), h('span', { class: 'board-car', text: CARS[r.car]?.name || '' }), h('span', { class: 'board-time', text: show(kind, r.value) }))))
+      : h('p', { class: 'muted', text: t('board.none') }),
+    // your own place, when you are not among the first ten
+    b.mine && !b.top.some((r) => r.mine) ? h('p', { class: 'board-mine', text: t('board.yours', { place: b.mine.place, value: show(kind, b.mine.value) }) }) : null);
   const draw = (b) => {
     title.textContent = t('board.title', { map: b.map });
-    body.replaceChildren(h('div', null, h('h3', { class: 'board-head', text: t('board.lap') }), list(b.lap)), h('div', null, h('h3', { class: 'board-head', text: t('board.race', { laps: b.laps }) }), list(b.race)));
+    body.replaceChildren(
+      h('div', null, h('h3', { class: 'board-head', text: t('board.lap') }), list('lap', b.lap)),
+      h('div', null, h('h3', { class: 'board-head', text: t('board.race', { laps: b.laps }) }), list('race', b.race)),
+      h('div', null, h('h3', { class: 'board-head', text: t('board.drift') }), list('drift', b.drift)));
   };
   select.addEventListener('change', async () => draw(await api('GET', '/api/times?map=' + select.value)));
   draw(first);
