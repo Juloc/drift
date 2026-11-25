@@ -33,6 +33,7 @@ builder.AddBase(new BaseAppOptions("drift", "Drift", typeof(Program).Assembly)
 builder.Services.AddSingleton<GarageStore>();
 builder.Services.AddSingleton<GuestService>();
 builder.Services.AddSingleton<PersonSockets>();
+builder.Services.AddSingleton<SessionLife>();
 builder.Services.AddSingleton(new WorldRelay(TimeProvider.System, PlayEndpoint.Options));
 // the race has a world of its own (at most 8 racers), the same relay class
 builder.Services.AddKeyedSingleton("race", (_, _) => new WorldRelay(TimeProvider.System, new RelayOptions { MaxPerWorld = RaceHub.MaxRacers, MaxWorlds = 1, MaxPerAddress = 16, JoinsPerMinutePerAddress = 120, FramesPerSecondPerAddress = 400 }));
@@ -63,6 +64,7 @@ Serve("/vendor/three", Path.Combine("vendor", "three"));
 app.MapBase();
 app.MapGarage();
 app.MapPlay();
+{ var t0 = app.Services.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>()[0]; app.Services.GetRequiredService<WorldRelay>().SetGeometry(t0.Segments, t0.Obstacles); }   // the lobby is the car park: its walls count for the checks
 app.MapGuests();
 app.MapRace();
 app.Run();

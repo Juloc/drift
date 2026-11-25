@@ -10,6 +10,8 @@ public sealed class DriftScore
 {
     public const double MinSlip = 0.26, MinSpeed = 8, Rate = 0.35, Exponent = 0.8, SecondsPerStep = 2, Grace = 1.5, Spin = 1.9;
     public const int MaxMult = 5;
+    /// <summary>The server's own ceiling on points per second (a perfect drift at the top multiplier earns about 2300); the browser's score has none. A faked stream cannot earn more.</summary>
+    public const double MaxPointsPerSecond = 2500;
 
     public double Pending { get; private set; }
     public double Banked { get; private set; }
@@ -42,7 +44,7 @@ public sealed class DriftScore
             ChainTime += dt;
             GraceLeft = Grace;
             Mult = Math.Min(MaxMult, 1 + (int)Math.Floor(ChainTime / SecondsPerStep));
-            Pending += Rate * speed * Math.Pow(deg, Exponent) * Mult * dt;
+            Pending += Math.Min(Rate * speed * Math.Pow(deg, Exponent) * Mult, MaxPointsPerSecond) * dt;
         }
         else if (ChainTime > 0)
         {

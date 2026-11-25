@@ -21,6 +21,9 @@ public sealed class RaceTrack
     public double LoopLength { get; }
     public int Laps { get; }
     public int MapId { get; }
+    /// <summary>Walls as a flat list x1, z1, x2, z2 (the bounds' edges too) and the round obstacles: what a car cannot drive through.</summary>
+    public double[] Segments { get; init; } = [];
+    public IReadOnlyList<(double X, double Z, double R)> Obstacles { get; init; } = [];
     /// <summary>Half the size of the map's area plus 3 m: what a pose must stay inside.</summary>
     public double HalfX { get; init; } = 113;
     public double HalfZ { get; init; } = 78;
@@ -49,7 +52,22 @@ public sealed class RaceTrack
         return new RaceTrack(gates, grid, N(r.GetProperty("loopLength")), r.GetProperty("laps").GetInt32(), r.GetProperty("id").GetInt32(), r.GetProperty("name").GetString() ?? "")
         {
             HalfX = b.Max(p => Math.Abs(p.X)) + 3, HalfZ = b.Max(p => Math.Abs(p.Z)) + 3,
+            Segments = Segs(r),
+            Obstacles = r.TryGetProperty("obstacles", out var ob) ? [.. ob.EnumerateArray().Select(o => (N(o.GetProperty("x")), N(o.GetProperty("z")), N(o.GetProperty("r"))))] : [],
         };
+    }
+
+    static double[] Segs(JsonElement r)
+    {
+        var o = new List<double>();
+        void Line(JsonElement pts, bool closed)
+        {
+            var p = pts.EnumerateArray().Select(e => (X: e[0].GetDouble(), Z: e[1].GetDouble())).ToList();
+            for (var i = 0; i < p.Count - (closed ? 0 : 1); i++) { var a = p[i]; var b = p[(i + 1) % p.Count]; o.AddRange([a.X, a.Z, b.X, b.Z]); }
+        }
+        Line(r.GetProperty("bounds"), true);
+        if (r.TryGetProperty("walls", out var w)) foreach (var wall in w.EnumerateArray()) Line(wall.GetProperty("pts"), !wall.TryGetProperty("closed", out var c) || c.GetBoolean());
+        return [.. o];
     }
 
     /// <summary>

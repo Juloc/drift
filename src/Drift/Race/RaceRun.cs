@@ -64,8 +64,11 @@ public sealed class RaceRun(RaceTrack track, int laps)
             double dt = Math.Min(0.25, t - r.LastT);
             if (dt > 0)
             {
-                var speed = Math.Abs(vf) / Math.Max(0.3, Math.Cos(beta));
-                r.Drift.Step(beta, speed, (flags & 4) != 0 ? 5 : 0, Math.Abs(beta), dt);
+                // the browser says how fast and at what angle; the server trusts neither beyond what the car really did: the speed is capped by the movement
+                // between the two poses and by the car's top speed, the angle by 1.4 rad (80 degrees)
+                var implied = double.Hypot(x - r.LastX, z - r.LastZ) / (t - r.LastT);
+                var speed = Math.Min(Math.Min(Math.Abs(vf) / Math.Max(0.3, Math.Cos(beta)), implied * 1.25 + 1), 1.15 * r.Top + 2);
+                r.Drift.Step(Math.Clamp(beta, -1.4, 1.4), speed, (flags & 4) != 0 ? 5 : 0, Math.Abs(beta), dt);
             }
             if (Track.Crosses(r.NextGate, r.LastX, r.LastZ, x, z, out var at))
             {

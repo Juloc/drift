@@ -8,6 +8,13 @@ using Drift.Relay;
 
 namespace Drift.Play;
 
+/// <summary>Is a base session still alive (by its id, which survives the rotation of the cookie value)? The same rule as the base's own check: not too old, not idle, the person active.</summary>
+public sealed class SessionLife(Npgsql.NpgsqlDataSource db)
+{
+    public Task<bool> AliveAsync(Guid sessionId) => Base.Data.Db.ScalarAsync<bool>(db,
+        "select exists (select 1 from sessions s join users u on u.id = s.user_id where s.id = $1 and s.created_at > now() - interval '180 days' and s.last_seen > now() - interval '30 days' and u.state = 'active' and (u.totp_confirmed or u.hub_sub is not null))", CancellationToken.None, sessionId);
+}
+
 /// <summary>Who is playing: a signed-in person or a guest, with what the others see and the check that the session still lives.</summary>
 public sealed record Player(Guid Id, string Name, int Car, int Colour, bool Guest, Func<Task<bool>> StillValid);
 
@@ -37,11 +44,11 @@ public static class PlayEndpoint
             return new Player(g.Id, g.Name, g.Car, g.Colour, true, async () => cookie is not null && await guests.ValidateAsync(cookie, CancellationToken.None) is not null);
         }
         var me = ctx.Person();
-        var token = sp.GetRequiredService<SessionCookie>().Read(ctx.Request);
-        var accounts = sp.GetRequiredService<AccountService>();
+        var life = sp.GetRequiredService<SessionLife>();
+        var sessionId = me.Id;   // the id stays the same when the cookie value is rotated: a socket must not be thrown out by a rotation
         var profile = await sp.GetRequiredService<GarageStore>().GetAsync(me.UserId, ctx.RequestAborted);
         return new Player(me.UserId, GarageStore.DisplayName(me.UserId, profile), profile.Car, profile.Colour, false,
-            async () => token is not null && await accounts.ResolveSessionAsync(token, false, CancellationToken.None) is not null);
+            () => life.AliveAsync(sessionId));
     }
 
     public static void MapPlay(this WebApplication app)
@@ -57,6 +64,6 @@ public static class PlayEndpoint
                 left: s => { sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); });
         app.Map(Path, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         app.Map(GuestPath, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
-        RelayEndpoint.RunTicker(relay, app.Lifetime.ApplicationStopping);
+        RelayEndpoint.RunTicker(relay, app.Lifetime.ApplicationStopping, app.Logger);
     }
 }

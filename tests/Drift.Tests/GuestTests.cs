@@ -235,9 +235,10 @@ public class GuestRaceTests
         Pass(4);
         var track = RaceTrack.FromJson(RaceTrackTests.MapJson);
         var path = RaceTrackTests.Way(track, 1, 22.0 / 15, 30, -46);
+        var seqG = 0;
         foreach (var p in path)
         {
-            var f = new byte[13]; f[0] = 1;
+            var f = new byte[13]; f[0] = 1; f[1] = (byte)++seqG;
             Wire.Put16(f, 2, (int)Math.Round(p.X * 20)); Wire.Put16(f, 4, (int)Math.Round(p.Z * 20));
             Wire.Put16(f, 6, (int)Math.Round(((p.H % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI) * 65536) & 0xFFFF); Wire.Put16(f, 8, 22 * 50);
             raceWorld.OnMessage(rs, f);

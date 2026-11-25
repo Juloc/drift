@@ -208,6 +208,7 @@ public class RaceHubTests
         public Dictionary<string, (Guid Id, Session Lobby, TextPeer LobbyPeer)> People = [];
         public Dictionary<string, (Session Race, TextPeer Peer)> Racing = [];
         public double[] Tops = [35, 31, 39, 36, 28];
+        int seq;
 
         public Rig(params string[] names)
         {
@@ -251,7 +252,7 @@ public class RaceHubTests
         /// <summary>A pose frame on the race socket, through the race relay's own checks.</summary>
         public void Pose(string who, double x, double z, double h, double vf, double beta = 0, byte flags = 0)
         {
-            var f = new byte[13]; f[0] = 1;
+            var f = new byte[13]; f[0] = 1; f[1] = (byte)++seq;
             Wire.Put16(f, 2, (int)Math.Round(x * 20)); Wire.Put16(f, 4, (int)Math.Round(z * 20));
             Wire.Put16(f, 6, (int)Math.Round(((h % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI) * 65536) & 0xFFFF); Wire.Put16(f, 8, (int)Math.Round(vf * 50));
             f[10] = (byte)(sbyte)Math.Round(beta / (Math.PI / 128)); f[12] = flags;
@@ -531,12 +532,101 @@ public class MapFileTests
             relay.SetBounds(t.HalfX, t.HalfZ);
             var peer = new FakePeer(); var s = relay.Join(peer, "a", 0)!;
             var far = t.Grid[0];
-            byte[] Pose(double x, double z) { var f = new byte[13]; f[0] = 1; Wire.Put16(f, 2, (int)Math.Round(x * 20)); Wire.Put16(f, 4, (int)Math.Round(z * 20)); return f; }
+            byte n = 0;
+            byte[] Pose(double x, double z) { var f = new byte[13]; f[0] = 1; f[1] = ++n; Wire.Put16(f, 2, (int)Math.Round(x * 20)); Wire.Put16(f, 4, (int)Math.Round(z * 20)); return f; }
             relay.OnMessage(s, Pose(far.X, far.Z));
             Assert.Equal(1, relay.Stats.Accepted);
             time.Advance(0.07);
             relay.OnMessage(s, Pose(t.HalfX + 40, 0));
             Assert.Equal(1, peer.Count(Wire.Fix));
         }
+    }
+}
+
+public class RaceSecurityTests
+{
+    [Fact]
+    public void Faked_drift_points_earn_next_to_nothing()
+    {
+        var track = RaceTrack.FromJson(RaceTrackTests.MapJson);
+        var run = new RaceRun(track, 3); var r = new Runner(Guid.NewGuid(), "A", 0, 0, 35); run.Runners.Add(r); run.Start(0);
+        // standing still at the grid, claiming 46.8 m/s at 1.8 rad for ten seconds
+        for (var i = 0; i < 150; i++) run.Pose(r, 30, -46, 46.8, 1.8, 0, i / 15.0);
+        Assert.True(r.Drift.Total < 50, $"{r.Drift.Total} points for nothing");
+        // a car that really moves at 20 m/s, claiming a wild 60 m/s and 1.8 rad: the speed is the movement's, the angle is 80 degrees at most
+        var run2 = new RaceRun(track, 3); var r2 = new Runner(Guid.NewGuid(), "B", 0, 0, 35); run2.Runners.Add(r2); run2.Start(0);
+        for (var i = 0; i < 150; i++) run2.Pose(r2, 30 + i * 20.0 / 15, -46, 60, 1.8, 0, i / 15.0);
+        Assert.True(r2.Drift.Total < DriftScore.MaxPointsPerSecond * 10, "the ceiling holds");
+        Assert.True(r2.Drift.Total < 0.35 * (20 * 1.25 + 1) * Math.Pow(80, 0.8) * 5 * 10 + 1, $"{r2.Drift.Total}");
+    }
+
+    [Fact]
+    public void The_ceiling_is_far_above_an_honest_drift_so_the_shared_vectors_still_hold()
+    {
+        // 28 m/s at 40 degrees at the top multiplier is about 930 a second; the ceiling is 2500
+        Assert.True(0.35 * 28 * Math.Pow(40, 0.8) * 5 < DriftScore.MaxPointsPerSecond);
+    }
+
+    sealed class RigLike
+    {
+        public FakeTime Time = new();
+        public WorldRelay RaceWorld;
+        public RaceHub Hub;
+        public Guid Anna = Guid.NewGuid();
+        public Session AnnaLobby;
+        public RigLike()
+        {
+            RaceWorld = new WorldRelay(Time, new RelayOptions { MaxPerWorld = 8, MaxWorlds = 1, MaxPerAddress = 99, JoinsPerMinutePerAddress = 99 });
+            Hub = new RaceHub(Time, RaceTrack.FromJson(RaceTrackTests.MapJson), new FakeBest(), RaceWorld, [35, 31, 39, 36, 28]);
+            var lobby = new WorldRelay(Time, new RelayOptions { MaxPerAddress = 99, JoinsPerMinutePerAddress = 99 });
+            AnnaLobby = lobby.Join(new TextPeer(), "l", 0, "anna", 3)!;
+            Hub.LobbyJoined(new LobbyMember(Anna, "anna", 2, 3, AnnaLobby));
+        }
+        public void Pass(double secs) { for (double t = 0; t < secs; t += 0.1) { Time.Advance(0.1); Hub.Tick(); } }
+    }
+
+    [Fact]
+    public void A_second_race_socket_of_the_same_person_is_dropped_and_no_ghost_stays_in_the_race_world()
+    {
+        var rig = new RigLike();
+        rig.Hub.OnLobbyText(rig.Anna, """{"t":"race.start"}""");
+        rig.Pass(2);
+        var first = new TextPeer(); var second = new TextPeer();
+        var s1 = rig.RaceWorld.Join(first, "a1", 0, "anna", 3)!; var s2 = rig.RaceWorld.Join(second, "a2", 0, "anna", 3)!;
+        Assert.True(rig.Hub.RaceConnected(rig.Anna, s1));
+        Assert.False(rig.Hub.RaceConnected(rig.Anna, s2));                 // a parallel handshake of the same person
+        Assert.Equal(Wire.ByeReplaced, second.Closed);
+        Assert.Equal(1, rig.RaceWorld.Visitors);                            // one place used, not two
+        // the race goes on and ends; afterwards nobody is left in the race world
+        rig.Pass(5);                                                        // the countdown runs, the race is on
+        rig.Hub.OnRaceText(rig.Anna, """{"t":"leave"}""");
+        rig.Pass(30);
+        Assert.Equal(RaceHub.Phase.Idle, rig.Hub.Current);
+        Assert.Equal(0, rig.RaceWorld.Visitors);
+    }
+
+    [Fact]
+    public void Nobody_opening_the_race_socket_ends_with_a_pause_not_an_invitation_flood()
+    {
+        var rig = new RigLike();
+        rig.Hub.OnLobbyText(rig.Anna, """{"t":"race.start"}""");
+        rig.Pass(2);                                                        // grid: anna never connects
+        rig.Pass(11);
+        Assert.Equal(RaceHub.Phase.Idle, rig.Hub.Current);
+        rig.Hub.OnLobbyText(rig.Anna, """{"t":"race.start"}""");
+        Assert.Equal(RaceHub.Phase.Idle, rig.Hub.Current);                  // the pause holds
+        rig.Pass(21);
+        rig.Hub.OnLobbyText(rig.Anna, """{"t":"race.start"}""");
+        Assert.Equal(RaceHub.Phase.Invite, rig.Hub.Current);
+    }
+
+    [Fact]
+    public void The_track_gives_the_relay_the_walls_and_obstacles_of_its_map()
+    {
+        var car = RaceTrack.FromJson(RaceTrackTests.MapJson);
+        Assert.Equal((4 + 3 * 4) * 4, car.Segments.Length);                 // the four edges of the bounds and three islands of four edges
+        Assert.True(car.Obstacles.Count >= 10);
+        var mountain = RaceTrack.FromJson(File.ReadAllText(Path.Combine(Repo.Root, "game", "data", "maps", "03-mountain.json")));
+        Assert.True(mountain.Segments.Length > 400 * 4);                    // two long walls along the road
     }
 }

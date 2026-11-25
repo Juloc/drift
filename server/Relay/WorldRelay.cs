@@ -64,6 +64,7 @@ public sealed class Session
     internal byte[] Last = new byte[Wire.PoseLength]; // last accepted POSE frame
     internal double X, Z, H;
     internal long LastMsg, LastMove, LastPoseAt;
+    internal byte LastSeq;
     internal double Budget, Tokens = 8;
     internal long TokenAt;
     internal int Dropped; internal long DroppedSince;
@@ -85,6 +86,36 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
 
     readonly RelayOptions o = options ?? new();
     double halfX = (options ?? new()).HalfX, halfZ = (options ?? new()).HalfZ;
+
+    double[] wallSegs = [];
+    (double X, double Z, double R)[] obstacles = [];
+
+    /// <summary>
+    /// The solid things of the map (flat list x1, z1, x2, z2 per wall segment, and round obstacles): a pose whose way from the last one crosses a wall or
+    /// cuts through an obstacle is refused like a jump, so shortcuts through them count for nothing. Without it (the public world) only the bounds are checked.
+    /// </summary>
+    public void SetGeometry(double[] segments, IEnumerable<(double X, double Z, double R)> round) { lock (gate) { wallSegs = segments; obstacles = [.. round]; } }
+
+    bool Blocked(double x0, double z0, double x1, double z1)
+    {
+        for (var i = 0; i < wallSegs.Length; i += 4)
+        {
+            double ax = wallSegs[i], az = wallSegs[i + 1], bx = wallSegs[i + 2], bz = wallSegs[i + 3];
+            double d1 = (bx - ax) * (z0 - az) - (bz - az) * (x0 - ax), d2 = (bx - ax) * (z1 - az) - (bz - az) * (x1 - ax);
+            double d3 = (x1 - x0) * (az - z0) - (z1 - z0) * (ax - x0), d4 = (x1 - x0) * (bz - z0) - (z1 - z0) * (bx - x0);
+            if (d1 * d2 < 0 && d3 * d4 < 0) return true;
+        }
+        double mx = x1 - x0, mz = z1 - z0, l2 = mx * mx + mz * mz;
+        foreach (var (ox, oz, r) in obstacles)
+        {
+            var t = l2 > 0 ? Math.Clamp(((ox - x0) * mx + (oz - z0) * mz) / l2, 0, 1) : 0;
+            if (double.Hypot(ox - (x0 + mx * t), oz - (z0 + mz * t)) < r) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Ends every connection from the outside (a race is over): each is told why.</summary>
+    public void DropAll(byte reason) { lock (gate) foreach (var members in worlds.ToArray()) foreach (var s in members.ToArray()) if (!s.Gone) Kick(s, reason); }
 
     /// <summary>Changes the size of the map the poses must stay inside (a race on another map).</summary>
     public void SetBounds(double newHalfX, double newHalfZ) { lock (gate) { halfX = newHalfX; halfZ = newHalfZ; } }
@@ -214,6 +245,9 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
         double x = Wire.I16(f, 2) / 20.0, z = Wire.I16(f, 4) / 20.0, h = Wire.U16(f, 6) * (2 * Math.PI / 65536), vf = Wire.I16(f, 8) / 50.0;
         double top = o.Top[s.Car];
         bool ok = Math.Abs(x) <= halfX && Math.Abs(z) <= halfZ && Math.Abs(vf) <= 1.15 * top + 2;
+        // a frame must be newer than the last one (the number wraps at 256): a replayed or reordered frame is dropped
+        if (s.HasPose) { var ahead = (byte)(f[1] - s.LastSeq); if (ahead == 0 || ahead > 127) { Stats.Rejected++; return; } }
+        s.LastSeq = f[1];
         if (ok && s.HasPose)
         {
             double dt = Math.Min(0.5, Seconds(now - s.LastPoseAt));
@@ -221,7 +255,10 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             s.Budget = Math.Min(0.5 * rate, s.Budget + dt * rate);
             double d = double.Hypot(x - s.X, z - s.Z);
             double dh = Math.Abs(h - s.H); if (dh > Math.PI) dh = 2 * Math.PI - dh;
-            if (d > s.Budget + 0.5 || dh > 12 * Math.Max(dt, 0.02) + 0.5) ok = false;
+            var span = Seconds(now - s.LastPoseAt);
+            // a claimed speed the car did not move at (a fake angle at a standstill earns drift points): over a second look at least, it must have moved
+            bool standing = span >= 0.12 && Math.Abs(vf) > 8 && d < 0.08 * Math.Abs(vf) * span - 0.5;
+            if (d > s.Budget + 0.5 || dh > 12 * Math.Max(dt, 0.02) + 0.5 || standing || Blocked(s.X, s.Z, x, z)) ok = false;
             else { s.Budget = Math.Max(0, s.Budget - d); if (d > 0.1 || Math.Abs(vf) > 0.3) s.LastMove = now; }
         }
         else if (ok) s.LastMove = now; // the first pose

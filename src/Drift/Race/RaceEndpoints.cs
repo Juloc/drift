@@ -19,19 +19,29 @@ public static class RaceEndpoints
         {
             var p = await PlayEndpoint.WhoAsync(ctx);
             if (!hub.CanRace(p.Id)) { ctx.Response.StatusCode = StatusCodes.Status409Conflict; return; }
-            await RelayEndpoint.Serve(ctx, raceRelay, ctx.ClientIp(), p.Car, p.Name, p.Colour,
+            var m = hub.Member(p.Id);   // the car, name and colour the person came to the lobby with: the same in the race and in the result
+            await RelayEndpoint.Serve(ctx, raceRelay, ctx.ClientIp(), m?.Car ?? p.Car, m?.Name ?? p.Name, m?.Hue ?? p.Colour,
                 stillValid: p.StillValid, checkEvery: PlayEndpoint.SessionCheck,
-                joined: s => { sockets.Register(p.Id, true, raceRelay, s); hub.RaceConnected(p.Id, s); },
+                joined: s => { if (hub.RaceConnected(p.Id, s)) sockets.Register(p.Id, true, raceRelay, s); },
                 left: s => { sockets.Unregister(p.Id, true, s); hub.RaceLeft(p.Id, s); },
                 onText: (_, text) => hub.OnRaceText(p.Id, text));
         }
         app.Map(Path, async (HttpContext ctx) => await RaceSocket(ctx));
         app.Map(GuestPath, async (HttpContext ctx) => await RaceSocket(ctx));
-        RelayEndpoint.RunTicker(raceRelay, app.Lifetime.ApplicationStopping);
+        RelayEndpoint.RunTicker(raceRelay, app.Lifetime.ApplicationStopping, app.Logger);
         _ = Task.Run(async () =>
         {
             using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
-            try { while (await timer.WaitForNextTickAsync(app.Lifetime.ApplicationStopping)) hub.Tick(); } catch (OperationCanceledException) { }
+            var errors = 0;
+            try
+            {
+                while (await timer.WaitForNextTickAsync(app.Lifetime.ApplicationStopping))
+                {
+                    try { hub.Tick(); }
+                    catch (Exception e) when (e is not OperationCanceledException) { if (++errors == 1 || errors % 150 == 0) app.Logger.LogError(e, "race tick failed ({Count} so far)", errors); }   // the next tick runs as usual
+                }
+            }
+            catch (OperationCanceledException) { }
         });
 
         async Task<IResult> Board(int? map, RaceStore store, IReadOnlyDictionary<int, RaceTrack> tracks, CancellationToken ct)

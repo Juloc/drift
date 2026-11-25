@@ -22,10 +22,13 @@ sealed class FakePeer : IPeer
 
 public class RelayTests
 {
-    static byte[] Pose(double x, double z, double h = 0, double vf = 0, byte seq = 0, byte flags = 0)
+    static int nextSeq;
+
+    /// <summary>A pose frame; the frame number counts up by itself (a frame must be newer than the last), or is given.</summary>
+    static byte[] Pose(double x, double z, double h = 0, double vf = 0, int seq = -1, byte flags = 0)
     {
         var f = new byte[Wire.PoseLength];
-        f[0] = Wire.Pose; f[1] = seq;
+        f[0] = Wire.Pose; f[1] = (byte)(seq >= 0 ? seq : ++nextSeq);
         Wire.Put16(f, 2, (int)Math.Round(x * 20)); Wire.Put16(f, 4, (int)Math.Round(z * 20));
         Wire.Put16(f, 6, (int)Math.Round(h / (2 * Math.PI) * 65536) & 0xFFFF); Wire.Put16(f, 8, (int)Math.Round(vf * 50));
         f[12] = flags;
@@ -147,7 +150,7 @@ public class RelayTests
     {
         var (r, t) = Make();
         var (a, _) = Join(r); var (_, pb) = Join(r, "b");
-        for (int i = 0; i < 100; i++) { r.OnMessage(a, Pose(0, 0, 0, 0, (byte)i)); t.Advance(0.005); } // 200 a second for half a second
+        for (int i = 0; i < 100; i++) { r.OnMessage(a, Pose(0, 0, 0, 0)); t.Advance(0.005); } // 200 a second for half a second
         Assert.True(r.Stats.Accepted < 20, $"accepted {r.Stats.Accepted}");
         Assert.True(r.Stats.Rejected > 70);
     }
@@ -284,7 +287,7 @@ public class RelayTests
         Assert.Equal(2, r.KnownAddresses);
         for (var i = 0; i < 20; i++) { t.Advance(1); r.Tick(); }   // 20 s: kept
         Assert.Equal(2, r.KnownAddresses);
-        for (var i = 0; i < 70; i++) { t.Advance(1); r.OnMessage(b, Pose(0, 0, 0, 0, (byte)i)); r.Tick(); }
+        for (var i = 0; i < 70; i++) { t.Advance(1); r.OnMessage(b, Pose(0, 0, 0, 0)); r.Tick(); }
         Assert.Equal(1, r.KnownAddresses);                         // the one with a connection stays
     }
 
@@ -311,5 +314,70 @@ public class RelayTests
         r.TickGuarded();
         Assert.Equal(1, r.Visitors);
         Assert.NotNull(pok.Last(Wire.Roster));
+    }
+
+    [Fact]
+    public void A_way_through_a_wall_or_an_obstacle_is_refused()
+    {
+        var (r, t) = Make();
+        // a wall along x = 10 from z = -20 to 20, and a post of radius 2 at (-10, 0)
+        r.SetGeometry([10, -20, 10, 20], [(-10, 0, 2)]);
+        var (a, pa) = Join(r);
+        r.OnMessage(a, Pose(5, 0)); t.Advance(0.5);
+        r.OnMessage(a, Pose(15, 0));                       // through the wall
+        Assert.Equal(1, pa.Count(Wire.Fix));
+        t.Advance(0.5);
+        r.OnMessage(a, Pose(8, 6));                        // along the wall, not through it
+        Assert.Equal(1, pa.Count(Wire.Fix));
+        t.Advance(0.5);
+        r.OnMessage(a, Pose(-10, 6)); t.Advance(0.5);      // across the wall's end, beside the post
+        Assert.Equal(1, pa.Count(Wire.Fix));
+        r.OnMessage(a, Pose(-10, -6));                     // straight through the post
+        Assert.Equal(2, pa.Count(Wire.Fix));
+    }
+
+    [Fact]
+    public void A_frame_that_is_not_newer_than_the_last_is_dropped()
+    {
+        var (r, t) = Make();
+        var (a, _) = Join(r); var (_, pb) = Join(r, "b");
+        r.OnMessage(a, Pose(1, 1, 0, 0, 10));
+        t.Advance(0.5);
+        r.OnMessage(a, Pose(2, 2, 0, 0, 10));              // the same number again: a replay
+        r.OnMessage(a, Pose(3, 3, 0, 0, 9));               // an older one
+        r.Tick();
+        Assert.Equal(1 * 20, Wire.I16(pb.Last(Wire.Snapshot)!, 5));
+        t.Advance(0.5);
+        r.OnMessage(a, Pose(4, 4, 0, 0, 11)); r.Tick();    // a newer one is fine
+        Assert.Equal(4 * 20, Wire.I16(pb.Last(Wire.Snapshot)!, 5));
+        // the number wraps at 256: 11, 120, 200, 250, then 3 (9 ahead through the wrap)
+        foreach (var n in new[] { 120, 200, 250, 3 }) { t.Advance(0.5); r.OnMessage(a, Pose(5, 5, 0, 0, n)); }
+        r.Tick();
+        Assert.Equal(5 * 20, Wire.I16(pb.Last(Wire.Snapshot)!, 5));
+        t.Advance(0.5); r.OnMessage(a, Pose(6, 6, 0, 0, 250)); r.Tick();   // 247 "ahead": really an old frame
+        Assert.Equal(5 * 20, Wire.I16(pb.Last(Wire.Snapshot)!, 5));
+    }
+
+    [Fact]
+    public void A_claimed_speed_the_car_did_not_move_at_is_refused()
+    {
+        var (r, t) = Make();
+        var (a, pa) = Join(r);
+        r.OnMessage(a, Pose(0, 0, 0, 40)); t.Advance(0.3);
+        r.OnMessage(a, Pose(0.1, 0, 0, 40));               // 40 m/s claimed, 10 cm moved in 0.3 s
+        Assert.Equal(1, pa.Count(Wire.Fix));
+        t.Advance(0.3);
+        r.OnMessage(a, Pose(0.1 + 10, 0, 0, 40));          // a car really doing 30 to 40 m/s is fine
+        Assert.Equal(1, pa.Count(Wire.Fix));
+    }
+
+    [Fact]
+    public void DropAll_ends_every_connection_with_a_reason()
+    {
+        var (r, _) = Make();
+        var (_, pa) = Join(r, "a"); var (_, pb) = Join(r, "b");
+        r.DropAll(Wire.ByeSession);
+        Assert.Equal(Wire.ByeSession, pa.Closed); Assert.Equal(Wire.ByeSession, pb.Closed);
+        Assert.Equal(0, r.Visitors);
     }
 }

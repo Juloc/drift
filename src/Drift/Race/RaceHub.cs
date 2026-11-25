@@ -80,10 +80,14 @@ public sealed class RaceHub
         }
     }
 
+    static JsonDocument? ParseOrNull(string text) { try { return JsonDocument.Parse(text); } catch (JsonException) { return null; } }
+
     public void OnLobbyText(Guid person, string text)
     {
         JsonElement r;
-        try { r = JsonDocument.Parse(text).RootElement; } catch (JsonException) { return; }
+        using var doc = ParseOrNull(text);
+        if (doc is null) return;
+        r = doc.RootElement;
         if (r.ValueKind != JsonValueKind.Object || !r.TryGetProperty("t", out var tp) || tp.ValueKind != JsonValueKind.String) return;
         lock (gate)
         {
@@ -118,17 +122,22 @@ public sealed class RaceHub
         lock (gate) return phase == Phase.Grid && parts.Any(p => p.Member.Person == person && p.Race is null);
     }
 
-    public void RaceConnected(Guid person, Session s)
+    /// <summary>A person's race socket is up. False (and the socket is dropped) when they are not in this race, it is not the grid phase, or they already have a race socket.</summary>
+    public bool RaceConnected(Guid person, Session s)
     {
         lock (gate)
         {
             var p = parts.FirstOrDefault(x => x.Member.Person == person);
-            if (p is null || phase != Phase.Grid) { raceRelay.Drop(s, Wire.ByeSession); return; }
+            if (p is null || phase != Phase.Grid || p.Race is not null) { raceRelay.Drop(s, p?.Race is not null ? Wire.ByeReplaced : Wire.ByeSession); return false; }
             p.Race = s;
             var g = track.Grid[p.Slot];
             Send(s, new { t = "grid", map = track.MapId, slot = p.Slot, x = g.X, z = g.Z, h = g.H, laps, n = parts.Count, racers = parts.Select(x => x.Member.Name).ToArray() });
+            return true;
         }
     }
+
+    /// <summary>What the lobby knows about a connected person (the garage's choice at the time they joined the lobby).</summary>
+    public LobbyMember? Member(Guid person) { lock (gate) return lobby.TryGetValue(person, out var m) ? m : null; }
 
     public void RaceLeft(Guid person, Session s)
     {
@@ -166,15 +175,15 @@ public sealed class RaceHub
                 {
                     var others = lobby.Keys.Where(k => k != starter).ToList();
                     if (now >= phaseStart + InviteSeconds || (others.Count == 0 || others.All(answered.Contains)) && now >= phaseStart + 1)
-                        ToGrid(now);
+                        ToGrid(now, after);
                     break;
                 }
                 case Phase.Grid:
-                    if (parts.Count == 0) { phase = Phase.Idle; break; }
+                    if (parts.Count == 0) { Idle(now, after); break; }
                     if (parts.All(p => p.Race is not null) || now >= phaseStart + GridSeconds)
                     {
                         foreach (var p in parts.Where(p => p.Race is null).ToList()) parts.Remove(p);
-                        if (parts.Count == 0) { phase = Phase.Idle; break; }
+                        if (parts.Count == 0) { Idle(now, after); break; }
                         run = new RaceRun(track, laps);
                         foreach (var (p, i) in parts.Select((p, i) => (p, i)))
                         {
@@ -211,7 +220,7 @@ public sealed class RaceHub
                     {
                         Broadcast(new { t = "back" });
                         foreach (var p in parts) if (p.Race is not null) { var s = p.Race; after.Add(() => raceRelay.Drop(s, Wire.ByeSession)); }
-                        parts.Clear(); run = null; phase = Phase.Idle; cooldownUntil = now + CooldownSeconds;
+                        parts.Clear(); run = null; Idle(now, after);
                     }
                     break;
             }
@@ -219,13 +228,21 @@ public sealed class RaceHub
         foreach (var a in after) a();
     }
 
-    void ToGrid(double now)
+    /// <summary>Back to idle with the pause before the next invitation (also when nobody came: no invitation spam), and every race socket that is still open is closed.</summary>
+    void Idle(double now, List<Action> after)
+    {
+        phase = Phase.Idle; cooldownUntil = now + CooldownSeconds;
+        after.Add(() => raceRelay.DropAll(Wire.ByeSession));
+    }
+
+    void ToGrid(double now, List<Action> after)
     {
         // whoever left the lobby before the grid is out
         parts.RemoveAll(p => !lobby.ContainsKey(p.Member.Person));
-        if (parts.Count == 0) { phase = Phase.Idle; return; }
+        if (parts.Count == 0) { Idle(now, after); return; }
         phase = Phase.Grid; phaseStart = now;
-        raceRelay.SetBounds(track.HalfX, track.HalfZ);   // the poses of this race must stay on this map
+        raceRelay.SetBounds(track.HalfX, track.HalfZ);   // the poses of this race must stay on this map, and not go through its walls
+        raceRelay.SetGeometry(track.Segments, track.Obstacles);
         for (var i = 0; i < parts.Count; i++) parts[i].Slot = i;
         foreach (var p in parts) if (lobby.TryGetValue(p.Member.Person, out var m)) Send(m.Session, new { t = "race.go", map = track.MapId, laps });
         foreach (var m in lobby.Values.Where(m => parts.All(p => p.Member.Person != m.Person))) Send(m.Session, new { t = "race.busy", n = parts.Count });
