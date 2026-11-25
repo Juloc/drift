@@ -161,10 +161,11 @@ function volcanoes(S, scene, look) {
   // big lone cones far away (scene.volcanoes: [x, z, radius, height, layer]): a crater on top, the layer's colour, a lighter rim on the sun's side
   const haze = C(look.fog.colour);
   for (const [x, z, r, h, k] of scene.volcanoes ?? []) {
-    const base = C(look.ridges[Math.min(look.ridges.length - 1, k ?? 0)]), top = base.clone().lerp(haze, 0.15);
+    // air between: the farther layer the more of the haze; a lighter crater rim (snow or bare rock, look.volcano.rim) at the top
+    const V = look.volcano ?? {}, base = C(look.ridges[Math.min(look.ridges.length - 1, k ?? 0)]).lerp(haze, V.haze ?? 0.35), top = base.clone().lerp(C(V.rim ?? '#ffffff'), V.rimMix ?? 0.15);
     const g = new THREE.CylinderGeometry(r * 0.12, r, h, 28, 3, true);
     const p = g.attributes.position, col = new Float32Array(p.count * 3), c = new THREE.Color();
-    for (let i = 0; i < p.count; i++) { const t = (p.getY(i) + h / 2) / h, a = Math.atan2(p.getZ(i), p.getX(i)); p.setY(i, p.getY(i) + noise2(a * 3 + x, t * 4) * h * 0.04 * (1 - t)); c.copy(base).lerp(top, t).lerp(haze, (1 - t) * 0.35); col.set([c.r, c.g, c.b], i * 3); }
+    for (let i = 0; i < p.count; i++) { const t = (p.getY(i) + h / 2) / h, a = Math.atan2(p.getZ(i), p.getX(i)); p.setY(i, p.getY(i) + noise2(a * 3 + x, t * 4) * h * 0.04 * (1 - t)); c.copy(base).lerp(top, smoothstep(0.75, 0.95, t)).lerp(haze, (1 - t) * 0.45); col.set([c.r, c.g, c.b], i * 3); }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
     S.add(g, null, { m: trs(X(x), h / 2 - h * 0.12, z), keepColors: true, jitter: 0, wobble: 0 });
   }

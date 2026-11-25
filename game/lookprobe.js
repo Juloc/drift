@@ -19,8 +19,8 @@ import { ProbeHud } from './view/probehud.js';
 const params = new URLSearchParams(location.search);
 const lang = (params.get('lang') ?? (navigator.language?.startsWith('de') ? 'de' : 'en')) === 'de' ? 'de' : 'en';
 const T = {
-  en: { lap: 'Lap', time: 'Time', best: 'Best', score: 'Drift score', position: 'Position', angle: 'Drift angle', gear: 'Gear', gas: 'Throttle', brake: 'Brake', hand: 'Handbrake', lost: 'Lost!', handBtn: 'HAND', brakeBtn: 'BRAKE', gasBtn: 'GAS' },
-  de: { lap: 'Runde', time: 'Zeit', best: 'Beste', score: 'Drift-Score', position: 'Position', angle: 'Driftwinkel', gear: 'Gang', gas: 'Gas', brake: 'Bremse', hand: 'Handbremse', lost: 'Verloren!', handBtn: 'HAND', brakeBtn: 'BREMSE', gasBtn: 'GAS' },
+  en: { lap: 'Lap', time: 'Time', best: 'Best', score: 'Drift score', position: 'Position', angle: 'Drift angle', gear: 'Gear', gas: 'Throttle', brake: 'Brake', hand: 'Handbrake', lost: 'Lost!', online: 'Online', bestDrift: 'Best drift', handBtn: 'HAND', brakeBtn: 'BRAKE', gasBtn: 'GAS' },
+  de: { lap: 'Runde', time: 'Zeit', best: 'Beste', score: 'Drift-Score', position: 'Position', angle: 'Driftwinkel', gear: 'Gang', gas: 'Gas', brake: 'Bremse', hand: 'Handbremse', lost: 'Verloren!', online: 'Online', bestDrift: 'Bester Drift', handBtn: 'HAND', brakeBtn: 'BREMSE', gasBtn: 'GAS' },
 }[lang];
 document.documentElement.lang = lang;
 for (const e of document.querySelectorAll('[data-t]')) e.textContent = T[e.dataset.t];
@@ -149,7 +149,7 @@ function draw(now) {
   halos.resize(renderer.domElement.height, camera.fov);
   const kmh = speedOf(cur) * 3.6;
   const H = scene0.hud;
-  hud.update({ lap: H.lap, laps: H.laps, ms: simTime * 1000, best: H.best, pos: 1, of: H.of },
+  hud.update({ lap: H.lap, laps: H.laps, ms: simTime * 1000, best: H.best, pos: 1, of: H.of, free: H.mode === 'run', online: H.online ?? 1, bestDrift: H.bestDrift ?? 18460 },
     { kmh, forward: Math.sign(vf) || 1, slip: bodySlip(cur), x: X(s.x), z: s.z, h: s.h }, lastInp, score,
     scene0.parked.map((p) => [X(p.x), p.z]), running ? dt : 0.016);
   camera.updateMatrixWorld(); smoke.aim?.(camera);   // the smoke keeps the car in sight

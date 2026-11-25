@@ -4,13 +4,27 @@
   "note": "A piece of the touge for the look: the meeting place at the top, the narrow road winding down a steep wooded hillside with two hairpins, a crater lake far below, volcanoes far away. The road's drawn height follows the hillside ('slope' mode); the physics stays flat.",
   "plaza": {
     "pts": [[-40, -6], [26, -6], [30, -2], [30, 30], [-40, 30], [-44, 24], [-44, 0]],
-    "bays": { "x0": -36, "x1": 14, "z0": 20, "z1": 28, "pitch": 5.5 },
+    "bays": {
+      "x0": -36,
+      "x1": 14,
+      "z0": 20,
+      "z1": 28,
+      "pitch": 5.5
+    },
     "rail": false,
     "lamps": [[-30, -4], [-6, -4], [18, -4]],
     "benches": [],
     "trees": []
   },
-  "road": { "halfWidth": 3.6, "bendMin": 0.35, "bendSpan": 30, "ctrl": [[30, 0], [55, -3], [85, -8], [110, -16], [124, -28], [122, -42], [106, -50], [80, -54], [50, -58], [22, -64], [6, -76], [10, -92], [30, -100], [60, -104], [100, -110], [140, -118], [180, -124]], "grade": "slope", "cut": 0.6, "lamps": 38 },
+  "road": {
+    "halfWidth": 3.6,
+    "bendMin": 0.35,
+    "bendSpan": 30,
+    "ctrl": [[30, 0], [55, -3], [85, -8], [110, -16], [124, -28], [122, -42], [106, -50], [80, -54], [50, -58], [22, -64], [6, -76], [10, -92], [30, -100], [60, -104], [100, -110], [140, -118], [180, -124]],
+    "grade": "slope",
+    "cut": 0.6,
+    "lamps": 38
+  },
   "terrain": {
     "mode": "slope",
     "dir": [0, -1],
@@ -23,28 +37,105 @@
     "openValley": 60,
     "noise": 4,
     "shore": 30,
-    "hills": { "amp": 0, "from": 0, "to": -1, "near": 0 }
+    "hills": {
+      "amp": 0,
+      "from": 0,
+      "to": -1,
+      "near": 0
+    }
   },
-  "lake": { "x": 80, "z": -420, "rx": 260, "rz": 110, "y": -114 },
-  "volcanoes": [[-260, -1500, 520, 330, 2], [620, -1750, 640, 380, 3], [1300, -1100, 420, 190, 1], [-1100, -1200, 380, 170, 1]],
-  "ridges": { "centre": [60, -600], "rings": [[1500, 10, 70], [1900, 30, 120], [2300, 50, 150]], "sharp": 2 },
+  "lake": {
+    "x": 80,
+    "z": -420,
+    "rx": 260,
+    "rz": 110,
+    "y": -114
+  },
+  "volcanoes": [[-500, -2150, 560, 300, 2], [700, -2250, 640, 330, 3], [1600, -1500, 420, 170, 1], [-1500, -1600, 380, 160, 1]],
+  "ridges": {
+    "centre": [60, -600],
+    "rings": [[1500, 10, 70], [1900, 30, 120], [2300, 50, 150]],
+    "sharp": 2
+  },
   "mist": [[80, -420, 520, 200, -108], [-120, -380, 380, 160, -104], [300, -460, 420, 180, -106], [80, -300, 500, 140, -96]],
   "trees": [],
   "marks": [
-    { "type": "gate", "x": 33, "z": -0.5, "ry": 1.5708, "width": 8.6, "height": 6.2 },
-    { "type": "lantern", "x": 38, "z": 5.6, "ry": 0 },
-    { "type": "lantern", "x": 38, "z": -6.4, "ry": 0 },
-    { "type": "lantern", "x": 50, "z": 5.6, "ry": 0 },
-    { "type": "lantern", "x": 50, "z": -6.4, "ry": 0 },
-    { "type": "lantern", "x": 62, "z": 5.6, "ry": 0 },
-    { "type": "lantern", "x": 62, "z": -6.4, "ry": 0 },
-    { "type": "lantern", "x": 74, "z": 5.6, "ry": 0 },
-    { "type": "lantern", "x": 74, "z": -10, "ry": 0 }
+    {
+      "type": "gate",
+      "x": 33,
+      "z": -0.5,
+      "ry": 1.5708,
+      "width": 8.6,
+      "height": 6.2
+    },
+    {
+      "type": "lantern",
+      "x": 38,
+      "z": 5.6,
+      "ry": 0
+    },
+    {
+      "type": "lantern",
+      "x": 38,
+      "z": -6.4,
+      "ry": 0
+    },
+    {
+      "type": "lantern",
+      "x": 50,
+      "z": 5.6,
+      "ry": 0
+    },
+    {
+      "type": "lantern",
+      "x": 50,
+      "z": -6.4,
+      "ry": 0
+    },
+    {
+      "type": "lantern",
+      "x": 62,
+      "z": 5.6,
+      "ry": 0
+    },
+    {
+      "type": "lantern",
+      "x": 62,
+      "z": -6.4,
+      "ry": 0
+    },
+    {
+      "type": "lantern",
+      "x": 74,
+      "z": 5.6,
+      "ry": 0
+    },
+    {
+      "type": "lantern",
+      "x": 74,
+      "z": -10,
+      "ry": 0
+    }
   ],
   "parked": [
-    { "x": -20, "z": 24, "h": 0, "paint": "#d23a64" },
-    { "x": -9, "z": 24, "h": 0, "paint": "#2f9a9a" },
-    { "x": 2, "z": 24, "h": 0, "paint": "#8a7fd0" }
+    {
+      "x": -20,
+      "z": 24,
+      "h": 0,
+      "paint": "#d23a64"
+    },
+    {
+      "x": -9,
+      "z": 24,
+      "h": 0,
+      "paint": "#2f9a9a"
+    },
+    {
+      "x": 2,
+      "z": 24,
+      "h": 0,
+      "paint": "#8a7fd0"
+    }
   ],
   "driver": {
     "x": 34,
@@ -52,12 +143,25 @@
     "h": 1.6,
     "paint": "#f4f1ec",
     "kit": true,
-    "bot": { "closed": false, "corner": 10, "kick": 0.3 },
+    "bot": {
+      "closed": false,
+      "corner": 10,
+      "kick": 0.3
+    },
     "t": 9.0,
     "model": "rx7"
   },
-  "hud": { "lap": 1, "laps": 3, "best": 72400, "of": 4 },
+  "hud": {
+    "lap": 1,
+    "laps": 3,
+    "best": 72400,
+    "of": 4,
+    "mode": "run"
+  },
   "views": {
-    "overview": { "pos": [-40, 60, 60], "look": [60, -40, -80] }
+    "overview": {
+      "pos": [-40, 60, 60],
+      "look": [60, -40, -80]
+    }
   }
 }

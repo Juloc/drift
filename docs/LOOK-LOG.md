@@ -313,3 +313,21 @@ Biggest open points:
 3. The smoke is grey and covers the left third; at dusk it should be lit by the lamps, lighter and smaller.
 4. The meeting place at the top is big, dark and empty (no lanterns, no people, no torii seen from it).
 5. Cedars only on the valley side of the picture; the uphill slope should be a dark cedar wall with lanterns along the road.
+
+## Touge round 2 (2026-11-26): the owner's new list (smoke, rendering), the orchestrator's review
+
+Done in the shared modules (the game takes them with it):
+- Smoke (`billows.js`, data in `look.smoke`): trails behind the rear wheels that grow with the drift angle (`start`, `spread`, the
+  angle scales each puff), thin out fast (`life`, `lifeGrow`, `fade` < 1), a little more for the first `burstTime` s of a slide
+  (`burst`), half the old size on the touge. `stage.render()` now keeps the car free of its own smoke in the game too
+  (`Billows.aim` is called there).
+- Contact shadow under the car (`wheels.js`): a soft gradient that is dark right under the car and fades to its edge, not a flat disc.
+- Volcanoes: hazier by layer, a lighter crater rim (`look.volcano`); farther away.
+- Touge look: warmer and brighter (exposure, sun, fill), green cedars and grey road kept, bloom only above 2.4 (lamps, chevrons),
+  smaller lamp halos. Probe HUD in the touge's free-run mode (no lap or position: run time, drift score, best drift).
+Numbers: high tier 995k triangles / 50 calls, phone tier about 81k / 21.
+
+Still open: the game has no touge map yet (the drift chat builds it), so no game picture of the touge; volcano faces lie in their
+own shade (dark flat triangles); a bright highlight on the car's roof; real shadows of trees and rails need the shadow box to reach
+farther; foliage from outside sources waits for the owner's yes to download (a list went to the orchestrator); automatic quality
+tiers are next.

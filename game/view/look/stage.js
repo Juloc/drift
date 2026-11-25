@@ -101,7 +101,8 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
       stage.halos?.resize(renderer.domElement.height, camera.fov);
       post?.setSize(renderer.domElement.width, renderer.domElement.height);
     },
-    render() { renderer.info.reset(); if (post) post.render(scene, camera); else renderer.render(scene, camera); },
+    render() { renderer.info.reset(); camera.updateMatrixWorld(); stage.smoke?.aim?.(camera);   // the smoke keeps the car in sight (also in the game)
+      if (post) post.render(scene, camera); else renderer.render(scene, camera); },
     /** The sun's shadow box and the sun itself follow a point (drawing axes: x already mirrored). */
     aimSun(cx, cy, cz) { const d = stage.sunDir; sun.target.position.set(cx, cy, cz); sun.position.set(cx + d.x * 120, cy + d.y * 120 + 30, cz + d.z * 120); },
     /** Points the environment map of every material under `root` that has one at the stage's reflection (after another map was loaded). */
