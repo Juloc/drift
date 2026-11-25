@@ -11,15 +11,47 @@ export function slotOf(materialName) {
   return SLOTS.includes(n) ? n : null;
 }
 
+/** A material the file keeps as it is ('own_<name>'), or keeps and lets glow ('lamp_front_<name>', 'lamp_rear_<name>'). */
+export function ownOf(materialName) {
+  const n = String(materialName ?? '').toLowerCase();
+  return n.startsWith('lamp_front_') ? 'lamp_front' : n.startsWith('lamp_rear_') ? 'lamp_rear' : n.startsWith('own_') ? 'own' : null;
+}
+
 /**
- * Replaces the material of every mesh by the game's material of its slot. Meshes with several primitives (a material array) are handled per entry.
- * What a file may bring along and keeps: a base colour texture (`map`) and vertex colours (COLOR_0). Both multiply the slot's
- * colour (so the garage paint still decides the paint), on a copy of the slot's material that all meshes with the same texture share.
- * @returns {{ unknown: string[], used: Set<string> }} material names that are no slot (they get the plastic material, so nothing is left unlit) and the slots in use
+ * The file's own material, made ready for the game: the game's room (envMap) for its reflections; a lamp glows with its own
+ * colour or texture (emissive), as bright as the game's lamps.
+ */
+function keepOwn(m, kind, materials) {
+  const k = m.clone();
+  k.name = m.name;
+  const env = materials.paint?.envMap ?? null;
+  if (env && 'envMap' in k) { k.envMap = env; k.envMapIntensity = kind === 'own' ? 1.0 : 0.6; }
+  if (kind !== 'own' && k.emissive) {
+    if (!k.emissiveMap && k.map) k.emissiveMap = k.map;
+    if (k.emissive.getHex() === 0) k.emissive.set(k.emissiveMap ? 0xffffff : k.color);
+    k.emissiveIntensity = kind === 'lamp_front' ? 2.6 : 3.2;   // well over 1: only the lamps reach the bloom's threshold
+  }
+  return k;
+}
+
+/**
+ * Gives every mesh its material by the material's name (docs/CAR-MODELS.md). Meshes with several primitives (a material array) are handled per entry.
+ * - a slot name ('paint', 'glass', ...): the game's material of that slot (the garage colour goes on 'paint'). A base colour
+ *   texture (`map`) and vertex colours (COLOR_0) of the file multiply the slot's colour, on one shared copy per texture.
+ * - 'own_<name>': the file's material as it is (PBR, its textures), with the game's room for reflections.
+ * - 'lamp_front_<name>', 'lamp_rear_<name>': the file's material, glowing in its own colour or texture.
+ * - anything else: the plastic material, and the name is reported.
+ * @returns {{ unknown: string[], used: Set<string> }} material names that are none of these, and the slots and kinds in use
  */
 export function applySlots(root, materials) {
   const unknown = [], used = new Set(), copies = new Map();
   const pick = (m, geometry) => {
+    const own = ownOf(m?.name);
+    if (own) {
+      used.add(own);
+      if (!copies.has(m)) copies.set(m, keepOwn(m, own, materials));
+      return copies.get(m);
+    }
     const slot = slotOf(m?.name);
     if (!slot) unknown.push(m?.name ?? '(none)'); else used.add(slot);
     const base = materials[slot ?? 'plastic'], map = m?.map ?? null, vc = !!geometry.attributes.color && !base.vertexColors;

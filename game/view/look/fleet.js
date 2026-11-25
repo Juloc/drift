@@ -1,6 +1,7 @@
 // The cars of the game in the look of the stage: one RX-7 model (docs/CAR-MODELS.md) is loaded once per look, patched with the painted car style (paint.js), and every car on the road
 // (yours, the other visitors', the practice bot) is a clone that shares the geometry and the materials and has only its own paint. When the model file cannot be used the code S15 is built
 // instead (and again for every car: it is cheap). Nothing here knows about the network or the rules.
+import { dressCar } from '../carfx.js';
 import * as THREE from '../../../vendor/three/three.module.js';
 import { carMaker } from './stage.js';
 import { paintCar } from './paint.js';
@@ -11,12 +12,13 @@ export const CAR_DIMS = { wheelX: 0.8, wheelZ: 1.27 };   // the model's wheels (
 
 export class Fleet {
   /** @param stage createStage()'s result  @param {{ model?: string }} o the model file's name (data in game/assets/cars/) */
-  constructor(stage, { model = 'rx7' } = {}) { this.stage = stage; this.model = model; this.make = carMaker(stage); this.tpl = null; this.uniforms = null; this.file = false; this.url = null; }
+  constructor(stage, { model = 'rx7', fx = {} } = {}) { this.stage = stage; this.model = model; this.fx = fx; this.make = carMaker(stage); this.tpl = null; this.uniforms = null; this.file = false; this.url = null; }
   /** Loads the model (or builds the code car); call again after the stage's look changed. */
   async load() {
     const { stage } = this;
     this.tpl = await this.make(MAGIC, { model: this.model, kit: false });
     this.file = !!this.tpl.url; this.url = this.tpl.url ?? null;
+    if (this.file) { const m = dressCar(this.tpl.group, this.fx, { lite: stage.carTier !== 'high' }); this.dims = { wheelX: m.halfTrack, wheelZ: -m.rear }; }   // the skid marks at the model's rear wheels   // underbody, contact shadow, headlight pool: every copy has them
     this.uniforms = paintCar(this.tpl.group, stage.sun, stage.look.car);
     this.paintMat = this.tpl.materials?.paint ?? null;
     return this;

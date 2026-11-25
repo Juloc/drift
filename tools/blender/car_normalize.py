@@ -11,6 +11,10 @@ The car file (`tools/blender/cars/<car>.json`) gives the real sizes and a "sourc
                 "wheels": "game",       "game": the game's wheels (code model) at the model's wheel centres; "model": its own
                 "slots": { "regex": "slot", ... },   material name -> slot, tried before the built-in list
                 "drop": ["regex", ...], objects or materials to throw away (a driver, a number plate, a ground plane)
+                "drop_boxes": [{"material": "regex", "lo": [x, y, z], "hi": [x, y, z], "about": "..."}],   faces of a material
+                                        inside a box of the model's own coordinates (as materials.py / parts.py print them)
+                "slot_boxes": [{"material": "regex", "slot": "light_rear", "lo": [...], "hi": [...]}],   another slot for the faces
+                                        of a material inside a box (a lamp material shared by the front and the rear)
                 "targets": { "phone": 14000, "high": 40000 } }
 
 What it does, in this order:
@@ -47,6 +51,7 @@ A = ap.parse_args(argv)
 CFG = json.load(open(A.car))
 SRC = CFG.get("source", {})
 HIGH = A.tier == "high"
+OWN = SRC.get("materials") == "own"   # keep the model's own materials and textures; only "paint" (and slots named in "slots") are the game's
 T0 = time.time()
 
 
@@ -118,7 +123,43 @@ for o in meshes:
         bm = bmesh.new(); bm.from_mesh(o.data)
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in bad], context="FACES")
         bm.to_mesh(o.data); bm.free()
-meshes = [o for o in meshes if len(o.data.polygons)]
+# boxes: faces of one material inside a box of the model's own coordinates (emblems that share a material with lamps or trim)
+for box in SRC.get("drop_boxes", []):
+    lo_, hi_, n_ = Vector(box["lo"]), Vector(box["hi"]), 0
+    for o in meshes:
+        idx = [i for i, ms in enumerate(o.material_slots) if ms.material and re.search(box["material"], ms.material.name, re.I)]
+        if not idx:
+            continue
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        gone = [f for f in bm.faces if f.material_index in idx and all(lo_[k] <= f.calc_center_median()[k] <= hi_[k] for k in range(3))]
+        n_ += len(gone)
+        bmesh.ops.delete(bm, geom=gone, context="FACES")
+        bm.to_mesh(o.data); bm.free()
+    log("dropped %d faces of %s in the box %s .. %s (%s)" % (n_, box["material"], box["lo"], box["hi"], box.get("about", "")))
+# slot boxes: faces of a material inside a box get another slot (a lamp material shared by the front and the rear lamps)
+for box in SRC.get("slot_boxes", []):
+    lo_, hi_, n_ = Vector(box["lo"]), Vector(box["hi"]), 0
+    target = None
+    if "slot" in box:
+        target = bpy.data.materials.get(box["slot"]) or bpy.data.materials.new(box["slot"])   # its name is the slot
+    for o in meshes:
+        idx = [i for i, ms in enumerate(o.material_slots) if ms.material and re.search(box["material"], ms.material.name, re.I)]
+        hits = [p for p in o.data.polygons if p.material_index in idx and all(lo_[k] <= (p.center)[k] <= hi_[k] for k in range(3))]
+        if not hits:
+            continue
+        if target is None:   # "as": a copy of the faces' own material under a new name (for "slots" or to stay "own")
+            target = bpy.data.materials.get(box["as"]) or o.material_slots[hits[0].material_index].material.copy()
+            target.name = box["as"]
+        if target.name not in [ms.material.name for ms in o.material_slots if ms.material]:
+            o.data.materials.append(target)
+        ti = [ms.material.name if ms.material else None for ms in o.material_slots].index(target.name)
+        for p in hits:
+            p.material_index = ti
+        n_ += len(hits)
+    log("gave %d faces of %s in the box %s .. %s %s" % (n_, box["material"], box["lo"], box["hi"], ("the slot " + box["slot"]) if "slot" in box else ("the material " + box["as"])))
+for o in [o for o in meshes if not len(o.data.polygons)]:   # emptied by a dropped material: away with the object too
+    bpy.data.objects.remove(o)
+meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
 tris0 = sum(len(p.vertices) - 2 for o in meshes for p in o.data.polygons)
 log("imported %s: %d meshes, %d triangles, %d materials" % (os.path.basename(A.model), len(meshes), tris0, len({ms.material for o in meshes for ms in o.material_slots})))
 
@@ -166,7 +207,7 @@ def find_wheels(objs):
     within its radius belongs to the wheel (rim, disc), except what stays (calipers)."""
     _box.clear()
     found = {}
-    for name, (sx, sy) in zip(WHEELS, ((-1, -1), (1, -1), (-1, 1), (1, 1))):
+    for name, (sx, sy) in zip(WHEELS, ((1, -1), (-1, -1), (1, 1), (-1, 1))):   # Blender: left = +x, front = -y
         cands = []
         for o in objs:
             if STAYS.search(o.name) or any(ms.material and STAYS.search(ms.material.name) for ms in o.material_slots):
@@ -221,9 +262,9 @@ for o in meshes:
 R = sum(r for _, r, _ in wheels.values()) / 4
 yf = (wheels["wheel_fl"][0].y + wheels["wheel_fr"][0].y) / 2 - cy
 yr = (wheels["wheel_rl"][0].y + wheels["wheel_rr"][0].y) / 2 - cy
-xf = (wheels["wheel_fr"][0].x - wheels["wheel_fl"][0].x) / 2
-xr = (wheels["wheel_rr"][0].x - wheels["wheel_rl"][0].x) / 2
-wheel_at = {"wheel_fl": Vector((-xf, yf, R)), "wheel_fr": Vector((xf, yf, R)), "wheel_rl": Vector((-xr, yr, R)), "wheel_rr": Vector((xr, yr, R))}
+xf = (wheels["wheel_fl"][0].x - wheels["wheel_fr"][0].x) / 2
+xr = (wheels["wheel_rl"][0].x - wheels["wheel_rr"][0].x) / 2
+wheel_at = {"wheel_fl": Vector((xf, yf, R)), "wheel_fr": Vector((-xf, yf, R)), "wheel_rl": Vector((xr, yr, R)), "wheel_rr": Vector((-xr, yr, R))}
 log("wheelbase %.3f m (real %.3f), track %.3f / %.3f, tyre radius %.3f" % (yr - yf, CFG["wheelbase"], 2 * xf, 2 * xr, R))
 wheel_parts = {n: p for n, (_, _, p) in wheels.items()}
 in_wheel = {o for p in wheel_parts.values() for o in p}
@@ -246,12 +287,61 @@ for o in meshes:
         name = ms.material.name if ms.material else "(none)"
         if name not in table:
             table[name] = slot_of_name(name)
-log("materials -> slots:")
-for name, (slot, why) in sorted(table.items(), key=lambda t: (t[1][0], t[0])):
-    log("   %-34s %-12s %s" % (name[:34], slot, why))
+if not OWN:
+    log("materials -> slots:")
+    for name, (slot, why) in sorted(table.items(), key=lambda t: (t[1][0], t[0])):
+        log("   %-34s %-12s %s" % (name[:34], slot, why))
+def grey_of(m):
+    """The material's brightness in sRGB (0..1): the base colour, 0.5 with a texture; kept for the wheels' vertex colours."""
+    if not m or not m.use_nodes or "Principled BSDF" not in m.node_tree.nodes:
+        return 0.5
+    inp = m.node_tree.nodes["Principled BSDF"].inputs["Base Color"]
+    if inp.is_linked:
+        return 0.5
+    r, g, b = inp.default_value[:3]
+    return min(0.85, (0.2126 * r + 0.7152 * g + 0.0722 * b) ** (1 / 2.2))
+
+
+KINDS = ("own", "lamp_front", "lamp_rear")
+
+
+def own_material(m, kind):
+    """The model's material kept under '<kind>_<its name>' (the game keeps it; a lamp glows)."""
+    key = "%s_%s" % (kind, m.name if m else "none")
+    if key not in slot_mats:
+        k = m.copy() if m else bpy.data.materials.new(key)
+        k.name = key
+        slot_mats[key] = k
+    return slot_mats[key]
+
+
+# "overrides": {"regex": {"color": [r, g, b] (linear), "metal": x, "rough": y}}: a model's own material made a little better
+# (the AE86's black rims get some metal shine); applied before the palette is made
+for rx, ov in SRC.get("overrides", {}).items():
+    for m in {ms.material for o in meshes for ms in o.material_slots if ms.material and re.search(rx, ms.material.name, re.I)}:
+        b = m.node_tree.nodes.get("Principled BSDF") if m.use_nodes else None
+        if not b:
+            continue
+        if "color" in ov:
+            b.inputs["Base Color"].default_value = (*ov["color"], 1.0)
+        if "metal" in ov:
+            b.inputs["Metallic"].default_value = ov["metal"]
+        if "rough" in ov:
+            b.inputs["Roughness"].default_value = ov["rough"]
+        log("override %s: %s" % (m.name, ov))
+if OWN:   # the car file's "slots" name the game's slots and the lamps; every other material stays the model's own
+    for name in table:
+        hit = next((v for rx, v in SRC.get("slots", {}).items() if re.search(rx, name, re.I)), None)
+        table[name] = (hit or "own", "car file" if hit else "kept")
+    log("materials (own mode):")
+    for name, (slot, why) in sorted(table.items(), key=lambda t: (t[1][0], t[0])):
+        log("   %-34s %-12s %s" % (name[:34], slot, why))
 for o in meshes:
+    if o in in_wheel and not OWN:
+        o["greys"] = [grey_of(ms.material) for ms in o.material_slots]
     for ms in o.material_slots:
-        ms.material = slot_material(table[ms.material.name if ms.material else "(none)"][0])
+        t = table[ms.material.name if ms.material else "(none)"][0]
+        ms.material = own_material(ms.material, t) if (OWN and t in KINDS) else slot_material(t)
 
 body = [o for o in meshes if o not in in_wheel]
 select_only(body)
@@ -263,13 +353,16 @@ bpy.ops.mesh.separate(type="MATERIAL"); bpy.ops.object.mode_set(mode="OBJECT")
 body = [o for o in bpy.context.scene.objects if o.type == "MESH" and o not in in_wheel]
 for o in body:
     select_only([o]); bpy.ops.object.material_slot_remove_unused()
-    slot = o.data.materials[0].name.split(".")[0]
+    mname = o.data.materials[0].name
+    slot = mname.split(".")[0] if not prepare_car.own_of(mname) else mname
     if slot == "interior" and not HIGH:
         bpy.data.objects.remove(o); continue
     o.name = o.data.name = "body_" + slot
-    if slot != "carbon":
+    if slot != "carbon" and not prepare_car.own_of(mname):
         while o.data.uv_layers:
             o.data.uv_layers.remove(o.data.uv_layers[0])
+    while len(o.data.uv_layers) > 1:   # one UV map is all the game reads
+        o.data.uv_layers.remove(o.data.uv_layers[-1])
     while o.data.color_attributes:
         o.data.color_attributes.remove(o.data.color_attributes[0])
 body = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name.startswith("body_")]
@@ -279,9 +372,36 @@ if SRC.get("wheels", "game") == "game":
     for o in in_wheel:
         bpy.data.objects.remove(o)
     carlib.code_wheels(A.wheels, wheel_at, R, log)
+elif OWN:
+    # the model's own wheels with their own materials: one node per wheel at its centre, one mesh per material below it
+    # (the flat materials become one palette material at the end, so a wheel is one draw call there too)
+    for name, parts in wheel_parts.items():
+        at = wheel_at[name]
+        c = wheels[name][0] - Vector((cx, cy, ground))
+        empty = bpy.data.objects.new(name, None); bpy.context.scene.collection.objects.link(empty)
+        empty.location = at
+        for o in parts:
+            o.data.transform(Matrix.Translation(-c))
+            while o.data.color_attributes:
+                o.data.color_attributes.remove(o.data.color_attributes[0])
+            while len(o.data.uv_layers) > 1:
+                o.data.uv_layers.remove(o.data.uv_layers[-1])
+        select_only(parts); bpy.ops.object.join()
+        w = bpy.context.view_layer.objects.active
+        cap = SRC.get("wheel_tris_high", 2500) if HIGH else SRC.get("wheel_tris_phone", 1200)
+        n = sum(len(p.vertices) - 2 for p in w.data.polygons)
+        if n > cap:
+            mod = w.modifiers.new("decimate", "DECIMATE"); mod.ratio = cap / n
+            bpy.ops.object.modifier_apply(modifier="decimate")
+        if w.data.has_custom_normals and not SRC.get("keep_normals"):
+            bpy.ops.mesh.customdata_custom_splitnormals_clear()
+            bpy.ops.object.shade_smooth_by_angle(angle=math.radians(SRC.get("smooth_angle", 35)))
+        w.parent = empty
+        w.name = w.data.name = "%s_own" % name
+        log("%s: the model's wheel at (%.3f, %.3f, %.3f), %d triangles" % (name, at.x, at.y, at.z, sum(len(p.vertices) - 2 for p in w.data.polygons)))
 else:
-    # the model's own wheels: one node per wheel at its centre; rubber (tyre, dark) and the rest (rim: chrome on the high tier,
-    # light grey vertex colours in the single rubber mesh on the phone)
+    # the model's own wheels: one node per wheel at its centre; rubber (tyre, dark) and the rest (rim, disc: chrome on the high
+    # tier, in the single rubber mesh on the phone); every part keeps its own material's brightness in the vertex colours
     for name, parts in wheel_parts.items():
         at = wheel_at[name]
         c = wheels[name][0] - Vector((cx, cy, ground))
@@ -293,8 +413,10 @@ else:
                 if ms.material.name.split(".")[0] != "rubber":
                     ms.material = slot_material("chrome")
             cl = o.data.color_attributes.new("Color", "BYTE_COLOR", "CORNER")
-            for poly in o.data.polygons:
-                g = 0.07 if o.material_slots[poly.material_index].material.name.startswith("rubber") else 0.72   # sRGB, as the code model's
+            greys = list(o.get("greys", []))
+            for poly in o.data.polygons:   # sRGB: the tyre dark as the code model's, the rest as bright as its own material was
+                rub = o.material_slots[poly.material_index].material.name.startswith("rubber")
+                g = 0.07 if rub else (greys[poly.material_index] if poly.material_index < len(greys) else 0.72)
                 for li in poly.loop_indices:
                     cl.data[li].color_srgb = (g, g, g, 1)
             o.data.color_attributes.active_color = cl
@@ -312,16 +434,18 @@ else:
             if n > 800:
                 mod = w.modifiers.new("decimate", "DECIMATE"); mod.ratio = 800 / n
                 bpy.ops.object.modifier_apply(modifier="decimate")
-        else:
+        else:   # the high tier: at most about 2 500 triangles a wheel, so that the body keeps its share of the budget
+            n = sum(len(p.vertices) - 2 for p in w.data.polygons)
+            if n > SRC.get("wheel_tris_high", 2500):
+                mod = w.modifiers.new("decimate", "DECIMATE"); mod.ratio = SRC.get("wheel_tris_high", 2500) / n
+                bpy.ops.object.modifier_apply(modifier="decimate")
             before = set(bpy.context.scene.objects)
             bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT")
             bpy.ops.mesh.separate(type="MATERIAL"); bpy.ops.object.mode_set(mode="OBJECT")
             own += [x for x in bpy.context.scene.objects if x not in before]
         for o in own:
             select_only([o]); bpy.ops.object.material_slot_remove_unused()
-            if o.data.materials[0].name.split(".")[0] != "rubber":   # only the rubber draws vertex colours
-                while o.data.color_attributes:
-                    o.data.color_attributes.remove(o.data.color_attributes[0])
+
             o.parent = empty
             o.name = o.data.name = "%s_%s" % (name, o.data.materials[0].name.split(".")[0])
         log("%s: the model's wheel at (%.3f, %.3f, %.3f)" % (name, at.x, at.y, at.z))
@@ -350,9 +474,115 @@ else:
     log("body %d triangles, within the budget %d: not decimated" % (have, budget))
 for o in body:
     select_only([o])
-    if o.data.has_custom_normals:
+    # new normals: smooth, hard above the angle. The downloads' own normals are often smooth across flat, coarsely cut panels,
+    # which a glossy material shows as crumpled foil (seen on the AE86); "keep_normals": true keeps them
+    if o.data.has_custom_normals and not SRC.get("keep_normals"):
         bpy.ops.mesh.customdata_custom_splitnormals_clear()
-    bpy.ops.object.shade_smooth_by_angle(angle=math.radians(35))
+    if not o.data.has_custom_normals:
+        bpy.ops.object.shade_smooth_by_angle(angle=math.radians(SRC.get("smooth_angle", 35)))
+
+
+def flat_colour(m):
+    """(base colour linear RGBA, metallic, roughness) of a material without textures that counts, or None."""
+    if not m.use_nodes or "Principled BSDF" not in m.node_tree.nodes:
+        return None
+    b = m.node_tree.nodes["Principled BSDF"]
+    if b.inputs["Base Color"].is_linked or b.inputs["Metallic"].is_linked or b.inputs["Roughness"].is_linked or b.inputs["Alpha"].is_linked:
+        return None
+    if b.inputs["Alpha"].default_value < 0.999 or b.inputs["Emission Color"].is_linked:
+        return None
+    return tuple(b.inputs["Base Color"].default_value), b.inputs["Metallic"].default_value, b.inputs["Roughness"].default_value
+
+
+def to_srgb(c):
+    return ((12.92 * c) if c <= 0.0031308 else (1.055 * c ** (1 / 2.4) - 0.055))
+
+
+def palette(kind, mats, meshes_):
+    """All flat materials of one kind become one material with two small textures: colour (sRGB) and metal/roughness
+    (G roughness, B metal), 8 x 8 texels a material; the faces get UVs on their material's field. One draw call instead of many."""
+    cols = max(1, math.ceil(math.sqrt(len(mats))))
+    size = 1
+    while size < cols * 8:
+        size *= 2
+    base = bpy.data.images.new("%s_palette_colour" % kind, size, size, alpha=False)
+    orm = bpy.data.images.new("%s_palette_mr" % kind, size, size, alpha=False)
+    orm.colorspace_settings.name = "Non-Color"
+    bp, op = [0.0] * (size * size * 4), [0.0] * (size * size * 4)
+    uv_of = {}
+    for i, m in enumerate(mats):
+        (r, g, b, _), metal, rough = flat_colour(m)
+        cx_, cy_ = (i % cols) * 8, (i // cols) * 8
+        for y in range(cy_, cy_ + 8):
+            for x in range(cx_, cx_ + 8):
+                k = (y * size + x) * 4
+                bp[k:k + 4] = [to_srgb(r), to_srgb(g), to_srgb(b), 1.0]
+                op[k:k + 4] = [1.0, rough, metal, 1.0]
+        uv_of[m.name] = ((cx_ + 4) / size, (cy_ + 4) / size)
+    base.pixels.foreach_set(bp); orm.pixels.foreach_set(op)
+    for im in (base, orm):
+        im.pack()
+    pm = bpy.data.materials.new("%s_palette" % kind)
+    pm.use_nodes = True
+    nt = pm.node_tree; bsdf = nt.nodes["Principled BSDF"]
+    tb = nt.nodes.new("ShaderNodeTexImage"); tb.image = base; tb.interpolation = "Closest"
+    tm = nt.nodes.new("ShaderNodeTexImage"); tm.image = orm; tm.interpolation = "Closest"
+    sep = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(tb.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(tm.outputs["Color"], sep.inputs["Color"])
+    nt.links.new(sep.outputs["Green"], bsdf.inputs["Roughness"]); nt.links.new(sep.outputs["Blue"], bsdf.inputs["Metallic"])
+    if kind != "own":   # a lamp: it glows in its own colours
+        nt.links.new(tb.outputs["Color"], bsdf.inputs["Emission Color"]); bsdf.inputs["Emission Strength"].default_value = 1.0
+    for o in meshes_:
+        names = [ms.material.name if ms.material else None for ms in o.material_slots]
+        if not any(n in uv_of for n in names):
+            continue
+        if not o.data.uv_layers:
+            o.data.uv_layers.new(name="UVMap")
+        uvl = o.data.uv_layers[0]
+        if pm.name not in names:
+            o.data.materials.append(pm)
+        pi = [ms.material.name if ms.material else None for ms in o.material_slots].index(pm.name)
+        for p in o.data.polygons:
+            n = names[p.material_index] if p.material_index < len(names) else None
+            if n in uv_of:
+                for li in p.loop_indices:
+                    uvl.data[li].uv = uv_of[n]
+                p.material_index = pi
+        select_only([o]); bpy.ops.object.material_slot_remove_unused()
+    return pm
+
+
+if OWN:
+    allm = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    for kind in KINDS:
+        mats = sorted({ms.material for o in allm for ms in o.material_slots if ms.material and ms.material.name.startswith(kind + "_")
+                       and not ms.material.name.endswith("_palette") and flat_colour(ms.material)}, key=lambda m: m.name)
+        if kind == "own":
+            mats = [m for m in mats if not m.name.startswith(("lamp_front_", "lamp_rear_"))]
+        if mats:
+            palette(kind, mats, allm)
+            log("palette %s: %d flat materials in one (%s)" % (kind, len(mats), ", ".join(m.name for m in mats)))
+    # the body: one mesh per material again (the palette joined several)
+    body = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name.startswith("body_")]
+    select_only(body); bpy.ops.object.join()
+    bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.separate(type="MATERIAL"); bpy.ops.object.mode_set(mode="OBJECT")
+    for o in [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name.startswith("body_")]:
+        select_only([o]); bpy.ops.object.material_slot_remove_unused()
+        o.name = o.data.name = "body_" + o.data.materials[0].name
+    # textures: at most 1024 (phone) / 2048 (high); normal maps only on the high tier
+    lim = 2048 if HIGH else 1024
+    for im in bpy.data.images:
+        if im.size[0] > lim or im.size[1] > lim:
+            k_ = lim / max(im.size)
+            im.scale(max(1, int(im.size[0] * k_)), max(1, int(im.size[1] * k_)))
+    if not HIGH:
+        for m in bpy.data.materials:
+            if m.use_nodes:
+                for nd in [nd for nd in m.node_tree.nodes if nd.type == "NORMAL_MAP"]:
+                    m.node_tree.nodes.remove(nd)
+    carlib.drop_unused()
 bpy.context.view_layer.update()
 problems, notes = prepare_car.check(A.tier)
 for n_ in notes:
@@ -363,7 +593,7 @@ if A.blend:
     bpy.ops.wm.save_as_mainfile(filepath=A.blend)
 if problems:
     sys.exit(1)
-carlib.export_glb(A.out)
+carlib.export_glb(A.out, textures=OWN)
 kb = os.path.getsize(A.out) / 1024
 log("wrote %s: %.0f KB (limit %d KB)" % (A.out, kb, prepare_car.LIMITS[A.tier]["kb"]))
 if kb > prepare_car.LIMITS[A.tier]["kb"]:

@@ -28,9 +28,16 @@ def slot_of(name):
     return n if n in SLOTS else None
 
 
+def own_of(name):
+    """'own_<name>' (the file's material, kept by the game) or 'lamp_front_<name>' / 'lamp_rear_<name>' (kept and glowing)."""
+    n = (name or "").lower()
+    return "lamp_front" if n.startswith("lamp_front_") else "lamp_rear" if n.startswith("lamp_rear_") else "own" if n.startswith("own_") else None
+
+
 def to_gltf(v):
-    """Blender (x right, y back, z up) -> glTF (x left, y up, z front): the exporter's +Y up with the car looking along -Y."""
-    return Vector((-v.x, v.z, -v.y))
+    """Blender (z up, the car looking along -Y) -> glTF (y up, z front): the exporter's +Y up keeps x and turns (y, z) into (z, -y).
+    So the car's left is +X in both (the first version flipped x here and named the wheels of every file left for right)."""
+    return Vector((v.x, v.z, -v.y))
 
 
 def triangles(obj):
@@ -102,7 +109,9 @@ def check(tier):
             problems.append("mesh '%s' has no material (no slot)" % o.name)
         for ms in o.material_slots:
             nm = ms.material.name if ms.material else None
-            if slot_of(nm) is None:
+            if own_of(nm):
+                used[own_of(nm)] = used.get(own_of(nm), 0) + 1
+            elif slot_of(nm) is None:
                 problems.append("mesh '%s': material '%s' is no slot name (%s)" % (o.name, nm, ", ".join(SLOTS)))
             else:
                 used[slot_of(nm)] = used.get(slot_of(nm), 0) + 1
@@ -110,10 +119,10 @@ def check(tier):
         if o.modifiers:
             notes.append("mesh '%s' has modifiers: the export applies them" % o.name)
         if not in_wheel:
-            seen = {slot_of(ms.material.name) for ms in o.material_slots if ms.material}
+            seen = {slot_of(ms.material.name) or ms.material.name for ms in o.material_slots if ms.material}
             if len(o.material_slots) > 1 and len(seen) < len(o.material_slots):
                 problems.append("mesh '%s' repeats a slot: merge the parts of one slot into one mesh" % o.name)
-        if o.data.uv_layers and not any(slot_of(ms.material.name) == "carbon" for ms in o.material_slots if ms.material):
+        if o.data.uv_layers and not any(slot_of(ms.material.name) == "carbon" or own_of(ms.material.name) for ms in o.material_slots if ms.material):
             notes.append("mesh '%s' has UVs but no carbon slot: they are dropped by the game" % o.name)
     body_slots = sorted(s for s in used)
     notes.append("slots in use: %s" % ", ".join(body_slots))

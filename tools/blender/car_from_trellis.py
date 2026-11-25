@@ -95,7 +95,7 @@ log("raw %d triangles, scaled x%.3f -> %.3f long, %.3f wide (with mirrors), %.3f
 
 # ---------------------------------------------------------------- 2. the generated tyres: contact patches
 centres = {}
-for name, (sx, sy) in {"wheel_fl": (-1, -1), "wheel_fr": (1, -1), "wheel_rl": (-1, 1), "wheel_rr": (1, 1)}.items():
+for name, (sx, sy) in {"wheel_fl": (1, -1), "wheel_fr": (-1, -1), "wheel_rl": (1, 1), "wheel_rr": (-1, 1)}.items():
     q = co[(np.sign(co[:, 0]) == sx) & (np.sign(co[:, 1]) == sy) & (np.abs(co[:, 1]) > 0.5) & (np.abs(co[:, 0]) > 0.3)]
     zmin = q[:, 2].min()
     patch = q[q[:, 2] < zmin + 0.02]

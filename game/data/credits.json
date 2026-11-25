@@ -109,6 +109,126 @@
         "en": "\"Mazda RX-7 FD\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, emblems removed, reduced",
         "de": "„Mazda RX-7 FD“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, Embleme entfernt, verkleinert"
       }
+    },
+    {
+      "id": "ae86",
+      "kind": "model",
+      "name": "Toyota Corolla AE86 Trueno",
+      "file": [
+        "game/assets/cars/ae86.glb",
+        "game/assets/cars/ae86-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/toyota-corolla-ae86-trueno-fe02fba6302e450ea8424591493341ea",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, its own materials kept (the flat ones combined in one palette texture), the paint takes the garage colour, number plates and door lettering removed",
+      "use": {
+        "en": "\"Toyota Corolla AE86 Trueno\" by Lexyc16, CC BY 4.0; changed: scaled, flat materials combined, paint recoloured by the game, number plates and lettering removed",
+        "de": "„Toyota Corolla AE86 Trueno“ von Lexyc16, CC BY 4.0; verändert: skaliert, einfarbige Materialien zusammengefasst, Lack vom Spiel umgefärbt, Kennzeichen und Schriftzüge entfernt"
+      }
+    },
+    {
+      "id": "r34",
+      "kind": "model",
+      "name": "Nissan Skyline R34 GT-R",
+      "file": [
+        "game/assets/cars/r34.glb",
+        "game/assets/cars/r34-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/nissan-skyline-r34-gt-r-ff8fb2251dfa4bb9979e7022c5a6666c",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, materials replaced, emblems, lettering and the number plate removed, reduced",
+      "use": {
+        "en": "\"Nissan Skyline R34 GT-R\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, emblems, lettering and the number plate removed, reduced",
+        "de": "„Nissan Skyline R34 GT-R“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, Embleme, Schriftzüge und das Kennzeichen entfernt, verkleinert"
+      }
+    },
+    {
+      "id": "s14",
+      "kind": "model",
+      "name": "Nissan 200SX Silvia S14",
+      "file": [
+        "game/assets/cars/s14.glb",
+        "game/assets/cars/s14-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/nissan-200sx-silvia-s14-f2a917a924734a89a020e7f970e55e7c",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, materials replaced, the number plates and their lettering removed, reduced",
+      "use": {
+        "en": "\"Nissan 200SX Silvia S14\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, the number plates and their lettering removed, reduced",
+        "de": "„Nissan 200SX Silvia S14“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, die Kennzeichen und ihre Schrift entfernt, verkleinert"
+      }
+    },
+    {
+      "id": "fc",
+      "kind": "model",
+      "name": "Mazda RX-7 FC",
+      "file": [
+        "game/assets/cars/fc.glb",
+        "game/assets/cars/fc-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/mazda-rx-7-fc-8ac0df459f514950ab83ac37109a06ab",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, materials replaced, the lettering front and rear and a ground plane removed, reduced",
+      "use": {
+        "en": "\"Mazda RX-7 FC\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, the lettering front and rear and a ground plane removed, reduced",
+        "de": "„Mazda RX-7 FC“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, die Schriftzüge vorn und hinten und eine Bodenplatte entfernt, verkleinert"
+      }
+    },
+    {
+      "id": "mx5",
+      "kind": "model",
+      "name": "Mazda Miata MX-5 NA",
+      "file": [
+        "game/assets/cars/mx5.glb",
+        "game/assets/cars/mx5-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/mazda-miata-mx-5-na-d51fcd44b74f4daf8012c41e0400c041",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, materials replaced, reduced",
+      "use": {
+        "en": "\"Mazda Miata MX-5 NA\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, reduced",
+        "de": "„Mazda Miata MX-5 NA“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, verkleinert"
+      }
+    },
+    {
+      "id": "p930",
+      "kind": "model",
+      "name": "Porsche 911 (930) Turbo 1975",
+      "file": [
+        "game/assets/cars/p930.glb",
+        "game/assets/cars/p930-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/porsche-911-930-turbo-1975-de1ffd344c41481892511f7fd332c136",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, materials replaced, the lettering of the rear reflector (a texture) removed, reduced",
+      "use": {
+        "en": "\"Porsche 911 (930) Turbo 1975\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, the lettering of the rear reflector (a texture) removed, reduced",
+        "de": "„Porsche 911 (930) Turbo 1975“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, der Schriftzug im Heckreflektor (eine Textur) entfernt, verkleinert"
+      }
     }
   ]
 }

@@ -15,6 +15,7 @@ import { newZones, zoneStep } from './sim/zones.js';
 import { createStage, loadLook } from './view/look/stage.js';
 import { sceneFromMap } from './view/look/mapscene.js';
 import { Fleet } from './view/look/fleet.js';
+import { carFx } from './view/carfx.js';
 import { readDevice, startTier, TierPicker } from './view/look/autotier.js';
 import { WheelPool } from './view/wheels.js';
 import { CameraRig } from './view/camera.js';
@@ -96,11 +97,15 @@ let qualitySetting = 'auto'; try { qualitySetting = localStorage.getItem('drift.
 const picked = forced ? { tier: tierName, auto: false } : startTier(qualitySetting, readDevice(renderer));
 let picker = picked.auto ? new TierPicker(picked.tier) : null;
 if (picked.tier !== tierName) { stage.setTier(picked.tier); tierName = picked.tier; lite = tierName === 'low'; document.body.classList.toggle('lite', lite); }
-let fleet = await new Fleet(stage, { model: 'rx7' }).load();   // the RX-7 for everybody (the code S15 where the file cannot be used)
+const carModel = /^[a-z0-9-]{1,24}$/.test(params.get('model') ?? '') ? params.get('model') : cars[carIndex]?.model ?? 'rx7';   // ?model=ae86 shows another file (game/assets/cars/)
+let fleet = await new Fleet(stage, { model: carModel, fx: cars[carIndex]?.fx }).load();   // the RX-7 for everybody unless the car or the address names a model (the code S15 where the file cannot be used)
 const ownHue = (car.colour % 360) / 360;
 let ownColour = new THREE.Color().setHSL(ownHue, 0.62, 0.42);
 if (params.has('paint')) ownColour = hueColour(+params.get('paint') || 0);   // ?paint=0..26 for pictures (24 white, 25 black, 26 silver)
+if (/^[0-9a-f]{6}$/i.test(params.get('paint') ?? '')) ownColour = new THREE.Color('#' + params.get('paint'));   // ?paint=ffffff: any colour for pictures
 let mine = fleet.spawn(ownColour);
+const fxFor = (c) => (fleet.file ? carFx(c, cars[carIndex]?.fx, { lite }) : null);   // brake lights, exhaust flames (on the event car.pop that the throttle code below fires), underglow strips
+let mineFx = fxFor(mine);
 const carGroup = new THREE.Group();
 carGroup.add(mine.group);
 const pool = new WheelPool(16);   // (only its shadow blobs are used: the cars bring their own wheels)
@@ -166,9 +171,10 @@ async function ensureMap(id) {
     look = a.look;
     if (newLook || true) {   // the cars are made for the look they are seen in (the sun's strength is in the painted style)
       fleet.dispose();
-      fleet = await new Fleet(stage, { model: 'rx7' }).load();
+      fleet = await new Fleet(stage, { model: carModel, fx: cars[carIndex]?.fx }).load();
       if (remotes) { remotes.fleet = fleet; remotes.clear(); }
       mine = fleet.spawn(ownColour);
+      mineFx = fxFor(mine);
       if (practice) togglePractice(false);
     }
     carGroup.add(mine.group);
@@ -496,7 +502,7 @@ function simStep(i) {
   if (simSteps % 3 === 0 && !paused) {
     const slid = (Math.abs(bodySlip(cur)) > 0.2 || inp.handbrake > 0) && speedOf(cur) > 3, S = look.smoke, t = Math.atan2(cur.vx, cur.vz), push = S.drift ?? 0, out = S.offset ?? 0;
     for (const sx of [-1, 1]) {
-      const ry = HEAD(cur.h), c = Math.cos(ry), sn = Math.sin(ry), lx = sx * CAR_DIMS.wheelX, lz = -CAR_DIMS.wheelZ, wx = X(cur.x) + lx * c + lz * sn, wz = cur.z - lx * sn + lz * c;
+      const ry = HEAD(cur.h), c = Math.cos(ry), sn = Math.sin(ry), lx = sx * (fleet.dims ?? CAR_DIMS).wheelX, lz = -(fleet.dims ?? CAR_DIMS).wheelZ, wx = X(cur.x) + lx * c + lz * sn, wz = cur.z - lx * sn + lz * c;
       stage.skids.mark(sx < 0 ? 0 : 1, wx, wz, 0, 0, slid && speedOf(cur) > 3, stage.field.groundY(cur.x, cur.z));
       if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + stage.field.groundY(cur.x, cur.z), wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
     }
@@ -603,10 +609,11 @@ function frame(now) {
   stage.smoke.car.value.set(X(drawn.x), gy, drawn.z);
   spin += (vf * dt) / WHEEL_R;
   glowPool.begin();
-  if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy);
+  if (mineFx) { mineFx.setGlow(glowHue); mineFx.update(paused ? 0 : dt, { brake: lastInp.brake, groundAt: (wx, wz) => stage.field.groundY(X(wx), wz) }); }   // a model car: strips along the sills, not a patch (X: the view's x is the physics' x mirrored)
+  else if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy);
   pool.begin();
   mine.setWheels(cur.steer, spin);
-  pool.blob(X(drawn.x), drawn.z, BLOB[0], BLOB[1], HEAD(drawn.h), gy);
+  if (!fleet.file) pool.blob(X(drawn.x), drawn.z, BLOB[0], BLOB[1], HEAD(drawn.h), gy);   // a model car brings its own contact shadow
   if (net) {
     const moving = speedOf(cur) > 0.3 || input.read().throttle > 0;
     net.sendPose({ x: cur.x, z: cur.z, h: cur.h, vf, steer: cur.steer }, bodySlip(cur), (input.has('hand') ? 1 : 0) | (cur.slide > 0.3 ? 2 : 0) | (cur.hit > 0 ? 4 : 0), moving, now);
@@ -673,5 +680,5 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
-window.__drift = { showSummary, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; } };
+window.__drift = { showSummary, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; } };
 requestAnimationFrame(frame);

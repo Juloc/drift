@@ -3,7 +3,16 @@
 Updated 2026-11-26 (evening) by the building session. Every session updates this page at the end of its work.
 
 
-## Car models (branch claude/car-s15-pipeline-3b95ba, 2026-11-25)
+## Car models (2026-11-25, batch 1 on branch claude/cars-batch-1, 2026-11-26)
+
+- **Car 1 is the AE86** (was Pip): its own materials, glowing lamps, underbody, contact shadow, headlight pool, brake lights,
+  exhaust flames with the event `car.pop`, underglow strips (`docs/CAR-PIPELINE.md`). Not on a real phone; glass and rims wait
+  for the GPU PC; the C# tests were not run for the renamed car (`scripts/test.sh` needs Docker).
+
+- **Batch 1:** six more downloaded cars (all CC BY 4.0, Lexyc16): AE86 Trueno `ae86`, Skyline GT-R R34 `r34`, Silvia S14
+  `s14`, RX-7 FC `fc`, MX-5 NA `mx5`, 911 930 Turbo `p930`; phone and high file each, emblems removed, own wheels, credits and
+  ASSETS entries, numbers and pictures in `docs/CAR-PIPELINE.md`. **Skipped for their licence (NC/SA):** BMW M3 E30, Honda
+  Integra DB8, BMW M3 CS Touring: the owner decides. Not driven in the game, not on a real phone.
 
 - First real car model in the game: **Mazda RX-7 FD** (download, CC BY 4.0, `docs/ASSETS.md`, credit line in
   `game/data/credits.json`), `game/assets/cars/rx7.glb` / `rx7-hi.glb`, try `?glb=rx7` on the game page or in the showroom.

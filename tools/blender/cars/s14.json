@@ -1,0 +1,82 @@
+{
+  "name": "s14",
+  "about": "Nissan Silvia S14 (200SX). Sizes of the real car; the model is a download (docs/ASSETS.md).",
+  "length": 4.52,
+  "width": 1.73,
+  "height": 1.29,
+  "wheelbase": 2.525,
+  "source": {
+    "file": "C:/AI/work/nissan_200sx_silvia_s14/src/nissan_200sx_silvia_s14/scene.gltf (from nissan_200sx_silvia_s14.zip)",
+    "title": "Nissan 200SX Silvia S14",
+    "author": "Lexyc16 (https://sketchfab.com/Lexyc16)",
+    "url": "https://sketchfab.com/3d-models/nissan-200sx-silvia-s14-f2a917a924734a89a020e7f970e55e7c",
+    "licence": "CC-BY-4.0",
+    "front": "-y",
+    "up": "+z",
+    "scale_by": "length",
+    "wheels": "model",
+    "slots": {
+      "^material\\.003$": "paint",
+      "^material\\.006$": "glass",
+      "^material\\.(007|009|012)$": "light_front",
+      "^material\\.01[01]$": "light_rear",
+      "^material\\.021$": "rubber",
+      "^material\\.(008|015|017|022)$": "chrome",
+      "^material\\.00[245]$": "plastic"
+    },
+    "slot_boxes": [
+      {
+        "material": "^material\\.(007|009|012)$",
+        "slot": "light_rear",
+        "lo": [
+          -9,
+          0.0,
+          -9
+        ],
+        "hi": [
+          9,
+          9,
+          9
+        ],
+        "about": "the same lamp materials at the rear"
+      }
+    ],
+    "drop": [
+      "^material\\.02[06]$"
+    ],
+    "targets": {
+      "phone": 14000,
+      "high": 40000
+    },
+    "drop_boxes": [
+      {
+        "material": "^material\\.002$",
+        "lo": [
+          1.45,
+          -2.5,
+          0.74
+        ],
+        "hi": [
+          1.81,
+          -2.3,
+          0.84
+        ],
+        "about": "the letters of the front number plate"
+      },
+      {
+        "material": "^material\\.002$",
+        "lo": [
+          1.45,
+          0.55,
+          0.74
+        ],
+        "hi": [
+          1.81,
+          0.7,
+          0.84
+        ],
+        "about": "the letters of the rear number plate"
+      }
+    ]
+  }
+}

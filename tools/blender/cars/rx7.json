@@ -1,7 +1,7 @@
 {
   "name": "rx7",
-  "about": "Mazda RX-7 FD (FD3S). Sizes of the real car; the model is a download (docs/ASSETS.md).",
-  "length": 4.30,
+  "about": "Mazda RX-7 FD (FD3S). Sizes of the real car; the model is a download (docs/ASSETS.md). The model's own materials and textures are kept; only the paint is the garage colour.",
+  "length": 4.3,
   "width": 1.76,
   "height": 1.23,
   "wheelbase": 2.425,
@@ -17,16 +17,19 @@
     "wheels": "model",
     "slots": {
       "^material\\.007$": "paint",
-      "^material\\.003$": "glass",
-      "^material\\.00[28]$": "light_front",
-      "^material\\.016$": "light_rear",
-      "^material\\.019$": "interior",
-      "^material\\.009$": "chrome",
-      "^material\\.011$": "rubber",
-      "^material\\.01[45]$": "chrome",
-      "^material(\\.00[156]|\\.017|\\.018)?$": "plastic"
+      "^material\\.002$": "lamp_front",
+      "^material\\.016$": "lamp_rear"
     },
-    "drop": ["^Object_14$"],
-    "targets": { "phone": 14000, "high": 40000 }
+    "drop": [
+      "^Object_14$"
+    ],
+    "targets": {
+      "phone": 14000,
+      "high": 40000
+    },
+    "materials": "own",
+    "wheel_tris_high": 5000,
+    "wheel_tris_phone": 1500,
+    "smooth_angle": 30
   }
 }

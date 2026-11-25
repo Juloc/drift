@@ -6,7 +6,7 @@ import { Builder, glow } from '../core/build.js';
 export const WHEEL = { x: 0.82, z: 1.3, r: 0.36, w: 0.3 };
 /** Half width and half length of the shadow blob under each car, by car id. */
 export const BLOB = [[1.25, 2.1], [1.1, 1.9], [1.35, 2.3], [1.2, 2.0], [1.35, 2.3]];
-export const CAR_NAMES = ['Dart', 'Pip', 'Bruno', 'Marlin', 'Ox'];
+export const CAR_NAMES = ['Dart', 'AE86', 'Bruno', 'Marlin', 'Ox'];   // car 1 was 'Pip'; its code model below stays the fallback when the AE86's file cannot be used
 
 const dark = 0x2a2d36, glass = 0x9cc4e8, cream = 0xece6d6, chrome = 0xb8bcc6;
 const arches = (S, w = 0.84) => { for (const sx of [-1, 1]) for (const sz of [-1, 1]) S.ball(0.5, sx * w, 0.46, sz * WHEEL.z, dark, { detail: 1, sx: 0.3, sy: 0.85, sz: 1.05 }); };
@@ -36,7 +36,7 @@ function dart(S, L, paint) {
   S.box(1.7, 0.07, 0.4, 0, 1.28, -1.7, dark, { r: 0.03, rx: 0.08 });
 }
 
-/** Pip: a short, tall little hatchback with big round lights. */
+/** Pip (now the fallback of car 1, the AE86): a short, tall little hatchback with big round lights. */
 function pip(S, L, paint) {
   S.box(1.72, 0.56, 3.2, 0, 0.62, 0, paint, { r: 0.26, seg: 2 });
   S.box(1.56, 0.7, 2.0, 0, 1.17, -0.25, paint, { r: 0.28, seg: 2 });

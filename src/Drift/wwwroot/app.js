@@ -17,7 +17,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').cat
 /* the five cars as the garage shows them: the stats are 1..5 bars and follow game/data/cars.json */
 const CARS = [
   { name: 'Dart', power: 3, top: 3, grip: 3, slide: 3, agility: 3 },
-  { name: 'Pip', power: 2, top: 2, grip: 3, slide: 2, agility: 5 },
+  { name: 'AE86', power: 2, top: 2, grip: 2, slide: 4, agility: 4 },
   { name: 'Bruno', power: 5, top: 5, grip: 2, slide: 4, agility: 1 },
   { name: 'Marlin', power: 3, top: 4, grip: 5, slide: 1, agility: 3 },
   { name: 'Ox', power: 1, top: 1, grip: 2, slide: 5, agility: 1 },

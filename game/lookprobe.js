@@ -12,6 +12,7 @@ import { WheelPool } from './view/wheels.js';
 import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
 import { createStage, carMaker } from './view/look/stage.js';
+import { dressCar, carFx } from './view/carfx.js';
 import { mergeParked } from './view/look/parked.js';
 import { paintCar } from './view/look/paint.js';
 import { ProbeHud } from './view/probehud.js';
@@ -54,13 +55,21 @@ const picker = autoTier ? new TierPicker(tierName) : null;
 const { renderer, post, scene, camera, sun, sunDir, sky, world, field: f, mist, halos, env, skids, smoke, buildMs } = stage;   // (the probe loads one scene only, so these stay)
 
 // ----- cars: the driver (white, kit) and the parked ones (merged)
-const D = scene0.driver;
+const D = { ...scene0.driver };
+// ?model=ae86&paint=ffffff: another car file and paint for the driver (pictures of a car in the look); ?pop=1 holds an exhaust pop in the picture
+if (/^[a-z0-9-]{1,24}$/.test(params.get('model') ?? '')) D.model = params.get('model');
+if (/^[0-9a-f]{6}$/i.test(params.get('paint') ?? '')) D.paint = '#' + params.get('paint');
 const makeLookCar = carMaker(stage);
 // the cars: a model file (docs/CAR-MODELS.md, here the RX-7) in the paint of the scene; the code S15 when the file cannot be used
 const carModel = (paint, kit) => makeLookCar(paint, { model: D.model, kit });
 const [probe, ...parkedCars] = await Promise.all([carModel(D.paint, D.kit), ...scene0.parked.map((p) => carModel(p.paint, false))]);
 const carGroup = new THREE.Group();
 carGroup.add(probe.group);
+// a model car's own parts (view/carfx.js): underbody, contact shadow in its shape, headlight pool, lamp halos, brake lights, exhaust flames
+const fxSpec = cars.find((c) => c.model === D.model)?.fx ?? {};
+const dims = probe.url ? dressCar(probe.group, fxSpec, { lite: tierName === 'low' }) : null;
+const probeFx = probe.url ? carFx(probe, fxSpec, { lite: tierName === 'low' }) : null;
+if (probeFx && params.has('pop')) probeFx.pop(1, 1e6);
 scene.add(carGroup);
 // CC BY needs the author named wherever the model is seen: the line from data/credits.json, small at the bottom of the page
 if (probe.url) {
@@ -85,7 +94,7 @@ const bot = lineBot(f.road, D.bot ?? { closed: false });
 let cur = makeCar(D.x, D.z, D.h), prev = cur, score = newScore(), lastInp = { steer: 0, throttle: 0, brake: 0, handbrake: 0 }, simTime = 0, spin = 0;
 
 const view = params.get('view') ?? 'drive';
-const rearWheels = (s) => { const ry = HEAD(s.h), c = Math.cos(ry), sn = Math.sin(ry); return [-1, 1].map((sx) => { const lx = sx * S15.wheelX, lz = -S15.wheelZ; return [X(s.x) + lx * c + lz * sn, s.z - lx * sn + lz * c]; }); };
+const rearWheels = (s) => { const ry = HEAD(s.h), c = Math.cos(ry), sn = Math.sin(ry); return [-1, 1].map((sx) => { const lx = sx * (dims ? dims.halfTrack : S15.wheelX), lz = dims ? dims.rear : -S15.wheelZ; return [X(s.x) + lx * c + lz * sn, s.z - lx * sn + lz * c]; }); };
 // the camera of the mockup: the look's chase camera of the game (view/camera.js), on the road's drawn height
 const chase = new LookChase(camera, look.camera, f.groundY);
 const follow = (s, dt) => chase.update(s, 0, dt);
@@ -139,8 +148,9 @@ function draw(now) {
   smoke.car.value.set(X(s.x), gy, s.z);
   carGroup.rotation.set(Math.max(-0.05, Math.min(0.05, -cur.ax * 0.004)) - Math.atan(grade), HEAD(s.h), Math.max(-0.08, Math.min(0.08, -cur.w * vf * 0.0035)), 'YXZ');
   probe.setWheels(cur.steer, spin);
+  probeFx?.update(dt, { brake: lastInp.brake, groundAt: (wx, wz) => f.groundY(X(wx), wz) });
   pool.begin();
-  pool.blob(X(s.x), s.z, 1.15, 2.3, HEAD(s.h), gy);
+  if (!probeFx) pool.blob(X(s.x), s.z, 1.15, 2.3, HEAD(s.h), gy);   // a model car brings its own contact shadow
   for (const p of scene0.parked) pool.blob(X(p.x), p.z, 1.15, 2.3, HEAD(p.h));
   pool.end();
   smoke.sync();
