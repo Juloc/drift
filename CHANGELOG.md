@@ -2,6 +2,10 @@
 
 Versions follow SemVer. The version stands in `Directory.Build.props`.
 
+## 0.2.4
+
+- Look probe rounds 15 to 18 (measured against the mockup): surface noise on land, rocks and trees, softer grade with grain, bloom only on lights, coral sun at the mockup place, rosier sky, darker mauve road, lake with bridge mid-right.
+
 ## 0.2.3
 
 - Look probe rounds 9 to 14: the road on a drawn height profile with a deep valley (view only, physics unchanged), painted car style, detailed road and surroundings, painted billow smoke.
