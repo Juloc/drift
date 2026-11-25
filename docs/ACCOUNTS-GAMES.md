@@ -7,7 +7,7 @@ Status: **decisions of the owner, 2026-11-26** (changes against the first draft 
 2. **Open registration from day one** (the public start, [ROADMAP.md](ROADMAP.md)), protected: limits per address and day, a proof of work of our own (section 3), a name filter, report and block by the administrator. Invitation links stay as a way in for friends but are not the only one.
 3. **A separable module.** All of it lives in its own folder and namespace, `src/Drift/GameAccounts/` / `Drift.GameAccounts`, with its own tables prefixed `games_account_`, its own door (`/api/games`, built as an `ApiDoor`: the base only allows doors under `/api/`) and its own cookie (`__Host-games`, `games` without HTTPS), and **no reference from it to Drift's game code** (the game plugs in through three small interfaces: `IAccountData` delete/export, `IAccountEvents` close sockets, `IPlayerDirectory` name to person; a test fails when the module uses a game namespace or table). The aim: it can be cut out as a service of its own later without a rewrite. Tests of the module live in their own file set and run without the game.
 4. **Family stays on the hub** (JulOS), as base users; their ids and the accounts' ids are both `Guid` and never collide (random v4 / v7), so lobby, races and boards take either.
-5. **Hosting:** the owner's small server through the usual deployment tool, public behind the reverse proxy; the address is the owner's.
+5. **Hosting:** the owner's server through the usual deployment tool, public behind the reverse proxy; the address is the owner's.
 
 ## 1. Where the account lives: proposal A, Drift is the provider
 - **A (proposed):** the accounts are a table in Drift's database; the other games ask Drift to sign people in.
