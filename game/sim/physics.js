@@ -20,6 +20,7 @@ export const K = {
   steerOff: 9, // wheel speed back to centre when it is let go
   assist: 0.9, // counter-steer: wheel angle added per rad of body slip past the dead zone
   assistW: 0.3, // and per rad/s of yaw rate while sliding (the nose is swinging: catch it)
+  assistYield: 0.7, // share of the assist that gives way when the player steers into the turn
   assistDead: 0.12, // body slip below which there is no assist, rad
   hbGrip: 0.2, // rear grip while the handbrake is held
   hbBrake: 0.6 * G, // rear braking by the handbrake
@@ -28,7 +29,7 @@ export const K = {
   rolling: 0.05, // rolling drag, 1/s (a = rolling * v)
   reverse: 0.4, // reverse power, share of forward power
   reverseTop: 10, // m/s
-  inertia: 1.0, // yaw inertia = inertia * a * b / agility
+  inertia: 0.7, // yaw inertia = inertia * a * b / agility
   yawDamp: 1.6, // 1/s
   shift: 0.12, // weight shift per g of longitudinal acceleration (share of the weight)
   circle: 1, // how much of the rear's grip the engine's push eats (1 = all of it: a strict friction circle)
@@ -80,7 +81,10 @@ export function step(s, input, car, mu = 1, dt = DT) {
   const beta = vf > 0.5 ? Math.atan2(vr, vf) : 0;
   const over = Math.max(0, Math.abs(beta) - K.assistDead);
   const assistOn = smooth((av - 3) / 5);
-  const assist = (Math.sign(beta) * over * K.assist - smooth(over / 0.1) * K.assistW * s.w) * assistOn;
+  // the assist steps back while the player steers on purpose in the direction the car is turning (a driver who wants
+  // a big angle gets it); hands off or counter-steering gets all of it
+  const into = clamp(input.steer * Math.sign(s.w || beta), 0, 1);
+  const assist = (Math.sign(beta) * over * K.assist - smooth(over / 0.1) * K.assistW * s.w) * assistOn * (1 - K.assistYield * into);
   const target = clamp(clamp(input.steer, -1, 1) * lock + assist, -K.lockHard, K.lockHard);
   const rate = (Math.abs(target) > Math.abs(s.steer) && Math.sign(target) * Math.sign(s.steer) >= 0 ? K.steerOn : K.steerOff) * K.lockHard * 0.8;
   const steer = clamp(target, s.steer - rate * dt, s.steer + rate * dt);
