@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../../vendor/three/three.module.js';
-import { SLOTS, slotOf, applySlots, findWheels, prepareCar, loadCarGlb, modelUrls, countOf } from './carglb.js';
+import { SLOTS, slotOf, ownOf, applySlots, findWheels, prepareCar, loadCarGlb, modelUrls, countOf } from './carglb.js';
 
 const mats = Object.fromEntries(SLOTS.map((s) => [s, new THREE.MeshBasicMaterial({ name: 'game_' + s })]));
 const mesh = (slot, name = slot) => { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ name: slot })); m.name = name; return m; };
@@ -49,6 +49,27 @@ test('applySlots keeps a texture and vertex colours of the file on a shared copy
   assert.equal(a.material.color.getHex(), mats.paint.color.getHex());   // the slot's colour stays (the garage paint)
   assert.ok(c.material.vertexColors && c.material !== mats.plastic);
   assert.equal(d.material, vcRubber);   // a slot that draws vertex colours anyway needs no copy
+});
+
+test('own_ and lamp_ materials are the file\'s own: kept with the room, a lamp glows in its own colour or texture', () => {
+  const env = new THREE.Texture(), tex = new THREE.Texture();
+  const withEnv = { ...mats, paint: new THREE.MeshStandardMaterial({ name: 'game_paint', envMap: env }) };
+  const own = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ name: 'own_Material.013', color: 0x112233, roughness: 0.4 }));
+  const lampF = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ name: 'lamp_front_Material.007', color: 0xff6600 }));
+  const lampR = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ name: 'lamp_rear_Material.006', map: tex }));
+  const paint = mesh('paint');
+  const root = new THREE.Group(); root.add(own, lampF, lampR, paint);
+  const { unknown, used } = applySlots(root, withEnv);
+  assert.deepEqual(unknown, []);
+  assert.ok(used.has('own') && used.has('lamp_front') && used.has('lamp_rear') && used.has('paint'));
+  assert.equal(own.material.color.getHex(), 0x112233);   // its own colour, not the plastic slot's
+  assert.equal(own.material.roughness, 0.4);
+  assert.equal(own.material.envMap, env);
+  assert.equal(lampF.material.emissive.getHex(), 0xff6600);   // glows in its own colour
+  assert.ok(lampF.material.emissiveIntensity > 1);
+  assert.equal(lampR.material.emissiveMap, tex);   // a textured lamp glows with its texture
+  assert.equal(paint.material, withEnv.paint);   // the paint is still the game's (the garage colour)
+  assert.equal(ownOf('Own_x'), 'own'); assert.equal(ownOf('paint'), null); assert.equal(ownOf('lamp_rear_a'), 'lamp_rear');
 });
 
 test('findWheels: pivot at the wheel centre, meshes below a spin group, nothing lost', () => {
