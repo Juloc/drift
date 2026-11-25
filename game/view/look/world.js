@@ -158,7 +158,8 @@ function ridges(S, scene, look, tier) {
     const N = scene.ridges.notch, na = N ? Math.atan2(N.z - cz, N.x - cx) : 0;
     const open = (a) => { if (!N || k >= N.rings) return 0; let d = Math.abs(a - na) % (Math.PI * 2); if (d > Math.PI) d = Math.PI * 2 - d; return 1 - smoothstep(N.width * 0.5, N.width, d); };
     const lower = (a, h) => (N ? h + (N.floor - h) * open(a) : h);
-    const peak0 = (a) => { const v = 1 - Math.abs(noise2(Math.cos(a) * 2.6 + k * 11, Math.sin(a) * 2.6 - k * 5)); const w = noise2(a * 9 + k * 3, k * 7) * 0.5 + 0.5; return h0 + (h1 - h0) * (v * v * v * 0.85 + w * 0.15); };
+    const sharp = scene.ridges.sharp ?? 2.6;   // how many peaks round the ring (higher: more, steeper peaks)
+    const peak0 = (a) => { const v = 1 - Math.abs(noise2(Math.cos(a) * sharp + k * 11, Math.sin(a) * sharp - k * 5)); const w = noise2(a * 9 + k * 3, k * 7) * 0.5 + 0.5; return h0 + (h1 - h0) * (v * v * v * 0.85 + w * 0.15); };
     const peak = (a) => lower(a, peak0(a));
     const mid = base.clone().lerp(skirt, 0.5);
     const rows = [[-300, (a) => lower(a, -320), skirt], [-150, (a) => lower(a, peak0(a) * 0.15 + noise2(a * 31, k) * 12 - 120), mid], [-70, (a) => lower(a, peak0(a) * 0.5 + noise2(a * 23, k) * 10), base], [25, peak, rim]];

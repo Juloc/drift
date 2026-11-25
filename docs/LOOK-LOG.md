@@ -264,3 +264,21 @@ facet 0.07, blotch 0.10, grain 0.02), the road's grain weaker (`road.grain` 0.12
 "Why is the car model so ugly, it was better in the rx7 folder": the painted car style (toon steps, contour, dust) is off; it is an
 option of the look now (`car.painted`, default off) and the car keeps the game's normal PBR materials with the sky's reflection and
 clear coat. Whether the model file keeps its original textures and rim materials is asked of the car session (the normaliser).
+
+## Round 22 (2026-11-26)
+
+Done: sharp, staggered mountain peaks (`ridges.sharp`: more peaks round each ring, five rings, higher and finer on the high tier); the
+car seen from behind-left with its flank and drift angle as in the mockup (chase camera: 1.5 m to the right, turn 10 degrees, 6 m
+behind); the sun moved back into the right third over the peaks; warmer, rosier and bigger smoke billows (`smoke.size`), and a puff
+in front of the car that would cover it on screen fades out (`Billows.aim(camera)`), so the car is always seen and the smoke beside
+and behind it stays.
+
+Distances: mean 30 (round 20: 28; the new camera trades a little colour match for the mockup's angle); top-left 14, smoke 12,
+middle-left 20, middle-right 22, road-near 26, bottom-left 29, bottom-right 30, top-right 37, sky-top 44, near-sun 62.
+
+Biggest differences left:
+1. Sky top and near the sun: paler cream than the mockup's pink and orange.
+2. Smoke: thinner than the mockup's dense billows at the lower left.
+3. The bridge is not in sight from this camera.
+4. The cherry tree at the top left hangs in front of the drift-score card; the mockup's sits further left.
+5. Car model (RX-7) and HUD values (short drift), as before.

@@ -29,15 +29,18 @@ export class Billows {
     this.car = { value: new THREE.Vector3(0, -999, 0) };
     const S = look.smoke;
     this.material = new THREE.ShaderMaterial({
-      uniforms: { tMap: { value: billowTexture(S.colour, S.shade) }, uCar: this.car, uClear: { value: S.clear ?? 0 }, uNear: { value: S.near ?? 3 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
+      uniforms: { tMap: { value: billowTexture(S.colour, S.shade) }, uCar: this.car, uCarView: { value: new THREE.Vector4(0, 0, 0, 0) }, uClear: { value: S.clear ?? 0 }, uNear: { value: S.near ?? 3 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
       vertexShader: /* glsl */ `
         attribute vec4 aData; attribute vec2 aAlpha;
+        uniform vec4 uCarView;   // the car in view space (xyz) and its radius on screen (w, in view units at its depth)
         varying vec2 vUv; varying float vA; varying vec3 vW; varying float vDist;
         void main() {
           vUv = uv; vA = aAlpha.x; vW = aData.xyz;
           float c = cos(aAlpha.y), s = sin(aAlpha.y);
           vec2 p = vec2(position.x * c - position.y * s, position.x * s + position.y * c) * aData.w;
           vec4 mv = modelViewMatrix * vec4(aData.xyz, 1.0);
+          // a puff in front of the car that would cover it on screen fades out: the car is always seen, the smoke beside and behind it stays
+          if (uCarView.w > 0.0 && -mv.z < -uCarView.z - 0.5) { vec2 onCar = mv.xy * (-uCarView.z / -mv.z) - uCarView.xy; float r = uCarView.w + aData.w * 0.25 * (-uCarView.z / -mv.z); vA *= smoothstep(r * 0.6, r * 1.0, length(onCar)); }
           mv.xy += p; vDist = -mv.z;
           gl_Position = projectionMatrix * mv;
         }`,
@@ -57,6 +60,12 @@ export class Billows {
     this.mesh = new THREE.Mesh(geo, this.material);
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 4;
     this.opacity = S.opacity ?? 0.9;
+    this.scale = S.size ?? 1;   // how big the billows grow
+  }
+  /** The car's place for the fade (drawing space) and the camera: puffs in front of the car that would cover it fade out. */
+  aim(camera, radius = 1.6) {
+    const v = this.material.uniforms.uCarView.value, p = this.car.value.clone().add(new THREE.Vector3(0, 0.7, 0)).applyMatrix4(camera.matrixWorldInverse);
+    v.set(p.x, p.y, p.z, radius);
   }
   rnd() { this.seed = (this.seed * 16807) % 2147483647; return this.seed / 2147483647; }
   emit(x, y, z, vx, vz, strength) {
@@ -78,7 +87,7 @@ export class Billows {
     for (let i = 0; i < this.cap; i++) {
       const k = this.age[i] / this.life[i];
       d[i * 4] = this.pos[i * 3]; d[i * 4 + 1] = this.pos[i * 3 + 1]; d[i * 4 + 2] = this.pos[i * 3 + 2];
-      d[i * 4 + 3] = k >= 1 ? 0 : (2.0 + k * 6.5) * this.grow[i];
+      d[i * 4 + 3] = k >= 1 ? 0 : (2.0 + k * 6.5) * this.grow[i] * this.scale;
       al[i * 2] = k >= 1 ? 0 : this.opacity * Math.sqrt(1 - k) * Math.min(1, k * 5); al[i * 2 + 1] = this.spin[i] + k * 0.6;
     }
     this.data.needsUpdate = true; this.alpha.needsUpdate = true;

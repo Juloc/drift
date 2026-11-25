@@ -149,6 +149,7 @@ function draw(now) {
   hud.update({ lap: H.lap, laps: H.laps, ms: simTime * 1000, best: H.best, pos: 1, of: H.of },
     { kmh, forward: Math.sign(vf) || 1, slip: bodySlip(cur), x: X(s.x), z: s.z, h: s.h }, lastInp, score,
     scene0.parked.map((p) => [X(p.x), p.z]), running ? dt : 0.016);
+  camera.updateMatrixWorld(); smoke.aim?.(camera);   // the smoke keeps the car in sight
   stage.render();
   avg += (Math.min(250, dt * 1000) - avg) * 0.05; frames++;
   if (!$('pdebug').hidden && now - shown > 400) {
