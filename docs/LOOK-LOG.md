@@ -411,3 +411,10 @@ The measure is now `~/projects/drift-mockups/touge.png`: a cool dusk, the warmth
 - Road (F): no yellow centre line (the dashes take the asphalt colour), darker grey-violet; fewer columns on the high tier
   (`look.road.columns: 'mid'`); the road is no shadow receiver (`look.road.receiveShadow: false`).
 Game numbers (`?map=touge&demo=line&t=23`): high 360k triangles / 49 calls (was 546k), phone 133k / 22 (was 147k).
+
+## Touge round 7 (2026-11-26): on master 163f325, pictures from the game (`?map=touge&demo=line`, t 24 = hairpin over the lake, t 12 = drift)
+
+Done: the cedar carpet goes where the camera looks (`terrain.forest`: the hillside between road and lake), no mist patch over the lake
+(so the mirror water shows), a cooler high tier (less sky glow, no warmth in the grade), and the guardrail beams merged into longer
+pieces where the line is nearly straight (with rails on both sides of 2 km of road they were tens of thousands of triangles; the phone
+went from 169k to 130k). Game numbers: high 353k / 48 calls (valley view), 355k / 49 (drift); phone 130k / 22.

@@ -400,8 +400,17 @@ function plaza(S, G, f, scene, look, lite, lampHeads) {
 }
 
 // a guardrail (W-beam on posts) along a polyline in simulation axes
-function railRun(S, G, look, line, every, lite, yAt = () => 0) {
+function railRun(S, G, look, line0, every, lite, yAt = () => 0) {
   const R = look.rail, beam = C(R.beam), light = C(R.beamLight), post = C(R.post);
+  // fewer, longer beam pieces where the line is nearly straight (a 2 km road with rails on both sides is otherwise tens of thousands of triangles)
+  const tol = lite ? 0.06 : 0.025, maxLen = lite ? 14 : 8, line = [line0[0]];
+  for (let i = 1; i < line0.length - 1; i++) {
+    const a = line[line.length - 1], b = line0[i], c = line0[i + 1];
+    const h1 = Math.atan2(b[0] - a[0], b[1] - a[1]), h2 = Math.atan2(c[0] - b[0], c[1] - b[1]);
+    let d = Math.abs(h2 - h1); if (d > Math.PI) d = 2 * Math.PI - d;
+    if (d > tol || Math.hypot(c[0] - a[0], c[1] - a[1]) > maxLen || Math.abs(yAt(c[0], c[1]) - yAt(a[0], a[1])) > 0.8) line.push(b);
+  }
+  line.push(line0[line0.length - 1]);
   let acc = 0;
   for (let i = 0; i < line.length - 1; i++) {
     const [ax, az] = line[i], [bx, bz] = line[i + 1], dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
@@ -535,7 +544,9 @@ function trees(S, f, scene, look, tier, rnd, lite) {
   // a carpet of far trees on the valley floor and the far slope: single cones, cheap, in clumps (from far they read as forest)
   const P = look.pine;
   for (let n = 0, tries = 0; n < (tier.carpet ?? 0) && tries < (tier.carpet ?? 0) * 6; tries++) {
-    const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0), e = f.edge(x, z);
+    // scene.terrain.forest [x0, z0, x1, z1]: where the carpet goes (the hillside between road and lake that the camera sees), else the whole land
+    const FB = scene.terrain.forest ?? [x0, z0, x1, z1];
+    const x = FB[0] + rnd() * (FB[2] - FB[0]), z = FB[1] + rnd() * (FB[3] - FB[1]), e = f.edge(x, z);
     if (e < (tier.carpetNear ?? 120) || f.wet(x, z, 6) || nearLake(x, z) || noise2(x / 90, z / 90) < -0.1) continue;
     const rel = f.relHeight(x, z), y = rel + f.groundY(x, z);
     if (rel < ry + 3 || f.slope(x, z, y) > 0.9) continue;

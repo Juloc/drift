@@ -11,7 +11,7 @@
     "sunGlow": 0.6,
     "glow": "#ff7040",
     "sunSize": 0.01,
-    "glowStrength": 0.7,
+    "glowStrength": 0.35,
     "clouds": { "lit": "#ffb490", "shade": "#9a7aa8", "amount": 0.7, "layer": 0.75, "bright": 1.0 },
     "bands": [
       { "az": -8, "el": 3.5, "w": 40, "h": 2.2 },
@@ -25,7 +25,7 @@
   "fill": { "sky": "#8c8cd0", "ground": "#6a5a58", "intensity": 2.4 },
   "fog": { "colour": "#5c5a90", "near": 260, "far": 3000 },
   "mist": { "colour": "#9a98c8", "opacity": 0.6, "y": -60 },
-  "grade": { "exposure": 1.1, "bloom": 0.8, "threshold": 2.4, "warmth": 0.2, "saturation": 1.08, "contrast": 0.95, "grain": 0, "lift": "#0a0818" },
+  "grade": { "exposure": 1.05, "bloom": 0.5, "threshold": 2.4, "warmth": 0, "saturation": 1.08, "contrast": 0.95, "grain": 0, "lift": "#0a0818" },
   "land": { "valley": "#2e4a44", "mid": "#3a5448", "high": "#6a6658", "warm": "#46583e", "cool": "#2c4a46", "rock": "#6e6a72", "rockDark": "#4a4652", "gravel": "#6e6870", "sand": "#6a6070" },
   "road": { "asphalt": "#3c3a4a", "asphaltLight": "#464454", "edge": "#f4f2f6", "centre": "#3c3a4a", "plaza": "#403a48", "bay": "#cfcad6", "kerb": "#8a8494", "roughness": 0.8, "sheen": 0.12, "edgeWidth": 0.34, "track": "#34323c", "grain": 0.12, "receiveShadow": false, "columns": "mid" },
   "water": { "deep": "#1c1e44", "light": "#6a6aa8", "glint": "#ffc890", "glow": 0.6, "mirror": true, "band": 1.6, "streak": 1.0 },
@@ -66,7 +66,7 @@
       "scale": 1,
       "env": 128,
       "details": { "tufts": 1400, "stones": 500, "bushes": 180, "petals": 70, "poles": 0 },
-      "carpet": 3000,
+      "carpet": 2000,
       "billows": 90,
       "carpetNear": 30
     },
@@ -89,7 +89,7 @@
       "scale": 1,
       "env": 64,
       "details": { "tufts": 700, "stones": 250, "bushes": 90, "petals": 35, "poles": 0 },
-      "carpet": 1800,
+      "carpet": 1300,
       "billows": 70,
       "carpetNear": 30
     },
@@ -112,7 +112,7 @@
       "scale": 1,
       "env": 32,
       "details": { "tufts": 150, "stones": 60, "bushes": 30, "petals": 20, "poles": 0 },
-      "carpet": 700,
+      "carpet": 420,
       "billows": 45,
       "carpetNear": 30
     }
