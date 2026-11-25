@@ -18,13 +18,17 @@ import { Hud } from './view/hud.js';
 import { makeClay, makeGlow } from './core/materials.js';
 import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
+import { WorldClient } from './net/world.js';
+import { Remotes, paintFor } from './view/remotes.js';
 
 const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape',
+    online: 'driving here', you: 'You are', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat',
+    online: 'fahren hier', you: 'Du bist', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
 document.documentElement.lang = de ? 'de' : 'en';
@@ -39,7 +43,9 @@ const [cars, mapJson] = await Promise.all([
   fetch('data/cars.json').then((r) => r.json()).then((j) => j.cars),
   fetch('data/maps/01-car-park.json').then((r) => r.json()),
 ]);
-const car = cars[Math.min(cars.length - 1, +params.get('car') || 0)];
+const online = document.documentElement.dataset.mode === 'online';
+const carIndex = params.has('car') ? Math.min(cars.length - 1, +params.get('car') || 0) : online ? Math.floor(Math.random() * cars.length) : 0;
+const car = cars[carIndex];
 const map = prepareMap(mapJson);
 
 // ----- view
@@ -60,6 +66,32 @@ scene.add(carGroup, pool.mesh, pool.blobs, smoke.points, skids.mesh);
 const cam = new FollowCam(camera, coarse ? { dist: 9.5, height: 4.6, look: 4.5 } : { dist: 11, height: 5.6, look: 5 });
 const input = new Input($('touch'));
 const hud = new Hud(T);
+const remotes = online ? new Remotes({ scene, pool, smoke, skids, camera, tagsEl: $('tags'), lite }) : null;
+let net = null, spawned = false;
+if (online) {
+  const droppedBtn = $('dropped');
+  net = new WorldClient({
+    url: params.get('ws') || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?car=${carIndex}`,
+    onWelcome(me) {
+      if (!spawned) { const g = map.grid[me.id % map.grid.length]; cur = prev = makeCar(g.x, g.z, g.h); score = newScore(); cam.snap(cur); spawned = true; }
+      droppedBtn.hidden = true;
+    },
+    onRoster(roster) {
+      $('online-n').textContent = roster.size;
+      const me = net.me && roster.get(net.me.id);
+      if (me) {
+        $('me').textContent = `${T.you} ${me.name}`;
+        if (bodyMesh.userData.hue !== me.hue) { bodyMesh.userData.hue = me.hue; bodyMesh.geometry = paintFor(me.hue, lite).body; }
+      }
+    },
+    onFix(f) { cur = prev = { ...cur, x: f.x, z: f.z, h: f.h, vx: 0, vz: 0, w: 0 }; },
+    onBye(reason) { droppedBtn.textContent = reason === 5 ? T.full : T.dropped; droppedBtn.hidden = false; },
+    onState(st) { if (st === 'closed') { $('online-n').textContent = 0; $('me').textContent = ''; spawned = false; } },
+  });
+  droppedBtn.addEventListener('click', () => { droppedBtn.hidden = true; net.connect(); });
+  net.connect();
+  window.__net = net;
+}
 
 // ----- state
 let cur, prev, score, spin = 0, simSteps = 0, paused = false;
@@ -131,6 +163,11 @@ function frame(now) {
   pool.begin();
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) pool.wheel(carGroup.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -cur.steer : 0, spin);
   pool.blob(X(drawn.x), drawn.z, 1.25, 2.1, HEAD(drawn.h));
+  if (net) {
+    const moving = speedOf(cur) > 0.3 || input.read().throttle > 0;
+    net.sendPose({ x: cur.x, z: cur.z, h: cur.h, vf, steer: cur.steer }, bodySlip(cur), (input.has('hand') ? 1 : 0) | (cur.slide > 0.3 ? 2 : 0) | (cur.hit > 0 ? 4 : 0), moving, now);
+    remotes.update(net.sample(now), net.roster, dt);
+  }
   pool.end();
 
   // smoke and skid marks from the rear wheels

@@ -2,7 +2,7 @@
 import * as THREE from '../../vendor/three/three.module.js';
 
 export class Smoke {
-  constructor(capacity = 160) {
+  constructor(capacity = 320) {
     this.cap = capacity; this.next = 0;
     this.pos = new Float32Array(capacity * 3); this.vel = new Float32Array(capacity * 3);
     this.age = new Float32Array(capacity).fill(9); this.life = new Float32Array(capacity).fill(1);
@@ -52,20 +52,20 @@ export class Skids {
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 5000);
     this.mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x15161a, transparent: true, opacity: 0.4, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }));
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 2;
-    this.last = [null, null];
+    this.last = new Map();
   }
-  /** wheel 0 or 1, ground position, forward direction (for the width), `on` = marking now. */
+  /** wheel key (a small integer per wheel), ground position, forward direction (for the width), `on` = marking now. */
   mark(wheel, x, z, fx, fz, on) {
-    const prev = this.last[wheel];
-    if (!on) { this.last[wheel] = null; return; }
-    this.last[wheel] = [x, z];
+    const prev = this.last.get(wheel);
+    if (!on) { this.last.delete(wheel); return; }
+    this.last.set(wheel, [x, z]);
     if (!prev) return;
     const dx = x - prev[0], dz = z - prev[1], l = Math.hypot(dx, dz);
-    if (l < 0.15) { this.last[wheel] = prev; return; }
+    if (l < 0.15) { this.last.set(wheel, prev); return; }
     const nx = (-dz / l) * 0.14, nz = (dx / l) * 0.14, i = this.next * 12;
     this.next = (this.next + 1) % this.cap;
     this.pos.set([prev[0] - nx, 0.02, prev[1] - nz, prev[0] + nx, 0.02, prev[1] + nz, x - nx, 0.02, z - nz, x + nx, 0.02, z + nz], i);
     this.mesh.geometry.attributes.position.needsUpdate = true;
   }
-  clear() { this.pos.fill(0); this.last = [null, null]; this.mesh.geometry.attributes.position.needsUpdate = true; }
+  clear() { this.pos.fill(0); this.last = new Map(); this.mesh.geometry.attributes.position.needsUpdate = true; }
 }

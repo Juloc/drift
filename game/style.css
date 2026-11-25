@@ -38,3 +38,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf5; fon
 .btn.small[data-ctl="hand"] { margin-bottom: 0; }
 @media (max-height: 420px) { .btn.steer { width: 84px; height: 84px; } .btn.gas { width: 96px; height: 124px; } .btn.small { width: 64px; height: 64px; } #speed span { font-size: 24px; } #drift .pts { font-size: 26px; } }
 @media (prefers-reduced-motion: reduce) { #drift { transition: none; } }
+
+#online { position: absolute; right: max(14px, env(safe-area-inset-right)); top: 62px; background: var(--card); border-radius: 14px; padding: 5px 12px; font-size: 16px; }
+#online small { font-size: 12px; opacity: 0.7; }
+#me { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 62px; font-size: 12px; opacity: 0.8; background: var(--card); border-radius: 10px; padding: 3px 10px; }
+#me:empty { display: none; }
+#tags { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.tag { position: absolute; left: 0; top: 0; white-space: nowrap; font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.78); border-radius: 8px; padding: 2px 7px; will-change: transform; }
+.tag[hidden] { display: none; }
+#dropped { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 6; border: 0; border-radius: 18px; padding: 18px 26px; font: 800 18px system-ui, sans-serif; background: #fff; color: var(--ink); box-shadow: 0 6px 30px rgba(0,0,0,0.3); min-height: 44px; }
+#dropped[hidden] { display: none; }
