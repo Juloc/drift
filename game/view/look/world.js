@@ -78,7 +78,7 @@ export function buildWorld(scene, look, tierName = 'high') {
   const group = new THREE.Group();
   // facets as in the mockup (land, trees, rocks, mountains): flat shading with the soft colour gradients; the road and the cars stay smooth
   const solid = new THREE.Mesh(S.build(), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: look.facets !== false }));
-  solid.receiveShadow = true;
+  solid.receiveShadow = false;   // three's VSM shadow pass draws every receiver again: with the land and the trees (about 450 k triangles) as receivers the frame cost twice the world; only the road and the car receive the car's shadow
   // surfaces, not flat colour: a little colour noise per facet (from its own normal) and soft blotches over the land (from the world position)
   solid.material.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vLandPos;').replace('#include <project_vertex>', '#include <project_vertex>\nvLandPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');

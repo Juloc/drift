@@ -49,7 +49,7 @@ for (const e of document.querySelectorAll('[data-t]')) e.textContent = T[e.datas
 const $ = (id) => document.getElementById(id);
 const coarse = matchMedia('(pointer: coarse)').matches || params.has('touch');
 if (coarse) $('hint').hidden = true;
-if (params.has('debug')) $('hint').hidden = true;
+if (params.has('debug') || params.has('demo')) $('hint').hidden = true;
 
 const [cars, mapList] = await Promise.all([
   fetch('data/cars.json').then((r) => r.json()).then((j) => j.cars),
@@ -485,6 +485,8 @@ input.onkey.KeyF = () => (document.fullscreenElement ? document.exitFullscreen()
 input.onkey.KeyH = () => hud.cycle();
 input.onkey.KeyG = () => ($('debug').hidden = !$('debug').hidden);
 addEventListener('keydown', () => { $('hint').hidden = true; }, { once: true });
+// Esc goes back to the garage (the same tab; leaving the page closes the lobby socket)
+addEventListener('keydown', (e) => { if (e.code === 'Escape' && !document.fullscreenElement && $('back')) location.href = $('back').href; });
 document.addEventListener('visibilitychange', () => { if (document.hidden) input.clear(); });
 const showTouch = () => {
   $('touch').hidden = false;
@@ -505,6 +507,7 @@ addEventListener('resize', checkRotate); checkRotate();
 // ----- drawing
 const dbg = $('debug');
 dbg.hidden = !params.has('debug');
+let popThrottle = 0, popAt = 0;
 let last = performance.now(), avg = 16, jsAvg = 0, fpsFrames = 0, shown = 0, shownDmg = 0;
 const WHEEL_R = 0.358, BLOB = [1.15, 2.3];
 const drawn = { x: 0, z: 0, h: 0, vx: 0, vz: 0, w: 0 };
@@ -575,6 +578,7 @@ function frame(now) {
   const dmgText = dmg > 0.02 ? `${T.damageLabel} ${Math.round(dmg * 100)} %` : '';
   if (damageEl.textContent !== dmgText) { damageEl.textContent = dmgText; damageEl.hidden = dmgText === ''; }
   smoke.update(paused ? 0 : dt);
+  camera.updateMatrixWorld(); smoke.aim?.(camera);   // smoke that would hide the car on the picture fades out (billows.js)
   smoke.sync();
 
   cam.update(drawn, car.top, dt);
@@ -585,6 +589,9 @@ function frame(now) {
     const others = net ? net.sample(now).map((o) => ({ id: o.id, x: o.x, z: o.z, speed: o.vf, throttle: (o.flags & 2) ? 0.9 : Math.abs(o.vf) > 1 ? 0.6 : 0, slide: (o.flags & 3) ? 0.8 : 0, car: net.roster.get(o.id)?.car ?? 0, top: cars[net.roster.get(o.id)?.car ?? 0]?.top ?? 33 })) : [];
     sound.update({ speed: speedOf(cur), throttle: lastInp.throttle, slide: paused ? 0 : cur.slide, car: carIndex, top: car.top }, others, { x: drawn.x, z: drawn.z, heading: drawn.h });
   }
+  // exhaust pops: lifting off the throttle at speed; the same event goes to the car's flames (window event 'car.pop', detail.strength 0..1)
+  if (lastInp.throttle < 0.2 && popThrottle > 0.7 && speedOf(cur) > 8 && now - popAt > 400) { popAt = now; const strength = Math.min(1, speedOf(cur) / 30); sound.pop(strength); dispatchEvent(new CustomEvent('car.pop', { detail: { strength } })); }
+  popThrottle = lastInp.throttle;
   chShow();
   // the HUD: cards for free driving or the race
   if (!paused) freeMs += dt * 1000;

@@ -103,6 +103,21 @@ export class SoundSystem {
     src.connect(f); f.connect(g); g.connect(this.master);
     src.start(); src.stop?.(t + 0.6);
   }
+  /** An exhaust pop (lifting off the throttle at speed, a gear change): one to three short, dry cracks, a little exaggerated, not loud (behind the limiter like everything else). */
+  pop(strength = 1, now = performance.now()) {
+    if (!this.ctx || this.muted || now - (this.lastPop ?? -1e9) < 150) return;
+    this.lastPop = now;
+    const t0 = this.ctx.currentTime, n = strength > 0.7 ? 3 : strength > 0.4 ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const t = t0 + i * (0.05 + 0.04 * ((i * 7) % 3));
+      const src = this.ctx.createBufferSource(); src.buffer = this.noise;
+      const f = this.ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 520 + 260 * ((i * 5) % 3); f.Q.value = 1.4;
+      const g = this.ctx.createGain(); g.gain.value = 0.22 * Math.min(1, 0.4 + strength) * (1 - i * 0.2);
+      g.gain.setTargetAtTime?.(0, t + 0.012, 0.018);   // a crack: gone in about 60 ms
+      src.connect(f); f.connect(g); g.connect(this.master);
+      src.start(t); src.stop?.(t + 0.15);
+    }
+  }
   get activeOthers() { return this.pool.filter((v) => v.active).length; }
 
   /**
