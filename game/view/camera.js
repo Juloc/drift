@@ -72,7 +72,8 @@ export class LookChase {
     this.yaw += angDiff(this.yaw, aim) * (1 - Math.exp(-4 * dt));
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), rx = fz, rz = -fx;   // forward and right (simulation axes)
     // `turn` (degrees, + = to the right) turns the view away from the road, e.g. into the valley beside it
-    const ty = this.yaw + ((C.turn ?? 0) * Math.PI) / 180;
+    // `turnDrift` (degrees at 0.6 rad of drift angle; negative: the view turns away from the side the car slides to): the car stays towards the left of the picture and the road ahead stays in view in both directions of drift
+    const slip = angDiff(travel, s.h), ty = this.yaw + (((C.turn ?? 0) + (C.turnDrift ?? 0) * Math.max(-1, Math.min(1, slip / 0.6))) * Math.PI) / 180;
     // `swing` (metres per radian of drift angle): the camera swings out to the side the nose points to, so the drift angle is seen; softly
     const swingTo = (C.swing ?? 0) * angDiff(travel, s.h);
     this.sw = (this.sw ?? swingTo) + (swingTo - (this.sw ?? swingTo)) * (1 - Math.exp(-3 * dt));
