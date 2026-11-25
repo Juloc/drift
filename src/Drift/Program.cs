@@ -37,8 +37,8 @@ builder.Services.AddSingleton(new WorldRelay(TimeProvider.System, PlayEndpoint.O
 // the race has a world of its own (at most 8 racers), the same relay class
 builder.Services.AddKeyedSingleton("race", (_, _) => new WorldRelay(TimeProvider.System, new RelayOptions { MaxPerWorld = RaceHub.MaxRacers, MaxWorlds = 1, MaxPerAddress = 16, JoinsPerMinutePerAddress = 120, FramesPerSecondPerAddress = 400 }));
 builder.Services.AddSingleton<RaceStore>();
-builder.Services.AddSingleton(RaceTrack.FromJson(File.ReadAllText(MapFile())));
-builder.Services.AddSingleton(sp => new RaceHub(TimeProvider.System, sp.GetRequiredService<RaceTrack>(), sp.GetRequiredService<RaceStore>(), sp.GetRequiredKeyedService<WorldRelay>("race"), [35, 31, 39, 36, 28]));
+builder.Services.AddSingleton<IReadOnlyDictionary<int, RaceTrack>>(LoadTracks());
+builder.Services.AddSingleton(sp => new RaceHub(TimeProvider.System, sp.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>(), sp.GetRequiredService<RaceStore>(), sp.GetRequiredKeyedService<WorldRelay>("race"), [35, 31, 39, 36, 28]));
 
 var app = builder.Build();
 await app.StartBaseAsync();
@@ -68,15 +68,20 @@ app.MapRace();
 app.Run();
 return 0;
 
-static string MapFile()
+static Dictionary<int, RaceTrack> LoadTracks()
 {
-    // the map file the browser draws is the one the server reads: next to the app when published, in the repository when run from source
-    const string rel = "data/maps/01-car-park.json";
-    var beside = Path.Combine(AppContext.BaseDirectory, "game", rel);
-    if (File.Exists(beside)) return beside;
-    for (var d = new DirectoryInfo(AppContext.BaseDirectory); d is not null; d = d.Parent)
-        if (File.Exists(Path.Combine(d.FullName, "game", rel))) return Path.Combine(d.FullName, "game", rel);
-    throw new FileNotFoundException(rel);
+    // the map files the browser draws are the ones the server reads: next to the app when published, in the repository when run from source
+    var dir = Path.Combine(AppContext.BaseDirectory, "game", "data");
+    if (!Directory.Exists(dir))
+        for (var d = new DirectoryInfo(AppContext.BaseDirectory); d is not null && !Directory.Exists(dir); d = d.Parent) dir = Path.Combine(d.FullName, "game", "data");
+    using var list = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(dir, "maps.json")));
+    var tracks = new Dictionary<int, RaceTrack>();
+    foreach (var m in list.RootElement.GetProperty("maps").EnumerateArray())
+    {
+        var t = RaceTrack.FromJson(File.ReadAllText(Path.Combine(dir, "maps", m.GetProperty("file").GetString()!)));
+        tracks[t.MapId] = t;
+    }
+    return tracks;
 }
 
 public partial class Program;

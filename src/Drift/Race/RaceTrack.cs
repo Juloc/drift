@@ -21,6 +21,9 @@ public sealed class RaceTrack
     public double LoopLength { get; }
     public int Laps { get; }
     public int MapId { get; }
+    /// <summary>Half the size of the map's area plus 3 m: what a pose must stay inside.</summary>
+    public double HalfX { get; init; } = 113;
+    public double HalfZ { get; init; } = 78;
     public string Name { get; }
     /// <summary>Length of the way from the centre of gate i to the next one.</summary>
     public IReadOnlyList<double> Legs { get; }
@@ -42,7 +45,11 @@ public sealed class RaceTrack
             return new Gate(N(a[0]), N(a[1]), N(b[0]), N(b[1]), N(d[0]), N(d[1]));
         }).ToList();
         var grid = r.GetProperty("grid").EnumerateArray().Select(g => new GridSlot(N(g.GetProperty("x")), N(g.GetProperty("z")), N(g.GetProperty("h")))).ToList();
-        return new RaceTrack(gates, grid, N(r.GetProperty("loopLength")), r.GetProperty("laps").GetInt32(), r.GetProperty("id").GetInt32(), r.GetProperty("name").GetString() ?? "");
+        var b = r.GetProperty("bounds").EnumerateArray().Select(p => (X: N(p[0]), Z: N(p[1]))).ToList();
+        return new RaceTrack(gates, grid, N(r.GetProperty("loopLength")), r.GetProperty("laps").GetInt32(), r.GetProperty("id").GetInt32(), r.GetProperty("name").GetString() ?? "")
+        {
+            HalfX = b.Max(p => Math.Abs(p.X)) + 3, HalfZ = b.Max(p => Math.Abs(p.Z)) + 3,
+        };
     }
 
     /// <summary>

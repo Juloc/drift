@@ -6,6 +6,8 @@
 #racebar { position: fixed; left: max(14px, env(safe-area-inset-left)); top: 96px; z-index: 3; }
 #racebar button, #invite button, #rh-leave, #res-back { min-height: 44px; min-width: 44px; padding: 0 16px; border: 2px solid rgba(27,35,48,0.35); border-radius: 14px; background: rgba(255,255,255,0.8); color: #1b2330; font: 800 14px system-ui, sans-serif; }
 #racebar button { background: #fff; }
+#racebar { display: flex; gap: 6px; align-items: center; }
+#mapSel { min-height: 44px; border-radius: 14px; border: 2px solid rgba(27,35,48,0.35); background: rgba(255,255,255,0.85); color: #1b2330; font: 700 14px system-ui, sans-serif; padding: 0 8px; max-width: 150px; }
 #invite { position: fixed; left: 50%; top: 96px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 16px; background: rgba(255,255,255,0.95); font: 700 15px system-ui, sans-serif; color: #1b2330; box-shadow: 0 6px 24px rgba(0,0,0,0.25); max-width: 92vw; flex-wrap: wrap; justify-content: center; }
 #invite[hidden], #racebar[hidden], #count[hidden], #racehud[hidden], #result[hidden], #note[hidden] { display: none; }
 #count { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%); z-index: 5; font: 900 clamp(48px, 14vw, 120px) system-ui, sans-serif; color: #fff; text-shadow: 0 4px 0 rgba(27,35,48,0.5), 0 0 30px rgba(0,0,0,0.3); pointer-events: none; text-align: center; }

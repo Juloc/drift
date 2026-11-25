@@ -48,5 +48,6 @@ export default {
   'guest.endedN': '{n} Gast/Gäste hinausgeworfen',
   'err.guest.range': 'Stunden oder Verwendungen liegen außerhalb des erlaubten Bereichs.',
   'err.guest.too_many_links': 'Es gibt schon so viele Gastlinks wie erlaubt. Beende erst einen.',
+  'board.map': 'Karte',
   'settings.title': 'Einstellungen',
 };

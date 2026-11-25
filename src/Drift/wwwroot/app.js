@@ -96,14 +96,21 @@ async function garagePage(me) {
 
 /* ---------- the best times ---------- */
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}.${String(Math.floor((ms % 1000) / 10)).padStart(2, '0')}`;
-function boardCard(b) {
+function boardCard(first) {
+  const body = h('div', { class: 'boards' });
+  const title = h('h2', { class: 'card-title' });
+  const select = h('select', { class: 'select', 'aria-label': t('board.map') }, first.maps.map((m) => h('option', { value: String(m.id), text: m.name })));
+  select.value = String(first.mapId);
   const list = (rows) => rows.length
     ? h('ol', { class: 'board' }, rows.map((r, i) => h('li', null, h('span', { class: 'board-pos', text: String(i + 1) }), h('span', { class: 'board-name', text: r.name }), h('span', { class: 'board-car', text: CARS[r.car]?.name || '' }), h('span', { class: 'board-time', text: mmss(r.ms) }))))
     : h('p', { class: 'muted', text: t('board.none') });
-  return h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('board.title', { map: b.map }) }),
-    h('div', { class: 'boards' },
-      h('div', null, h('h3', { class: 'board-head', text: t('board.lap') }), list(b.lap)),
-      h('div', null, h('h3', { class: 'board-head', text: t('board.race', { laps: b.laps }) }), list(b.race))));
+  const draw = (b) => {
+    title.textContent = t('board.title', { map: b.map });
+    body.replaceChildren(h('div', null, h('h3', { class: 'board-head', text: t('board.lap') }), list(b.lap)), h('div', null, h('h3', { class: 'board-head', text: t('board.race', { laps: b.laps }) }), list(b.race)));
+  };
+  select.addEventListener('change', async () => draw(await api('GET', '/api/times?map=' + select.value)));
+  draw(first);
+  return h('section', { class: 'card stack' }, title, select, body);
 }
 
 /* ---------- guest links (administrator) ---------- */

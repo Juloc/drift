@@ -4,6 +4,7 @@
 //   walls     [{ pts: [[x,z],...], closed }]  solid polylines and islands
 //   obstacles [{ x, z, r }]               round solid things (poles, planters)
 //   zones     [{ kind, x, z, r } or { kind, x0, z0, x1, z1 }]  ground other than `ground`, first match wins
+//   road      { kind, halfWidth }: the ground within halfWidth of `centre` (the loop) is `kind`, not `ground`
 //   ground    kind of the ground everywhere else
 
 export const SURFACES = {
@@ -29,7 +30,9 @@ export function prepareMap(json) {
   };
   addLine(json.bounds, true);
   for (const w of json.walls ?? []) addLine(w.pts, w.closed !== false);
-  return { ...json, segs: Float64Array.from(segs), obstacles: json.obstacles ?? [], zones: json.zones ?? [] };
+  const roadSegs = [];
+  if (json.road && json.centre) for (let i = 0; i < json.centre.length; i++) { const p = json.centre[i], q = json.centre[(i + 1) % json.centre.length]; roadSegs.push(p[0], p[1], q[0], q[1]); }
+  return { ...json, segs: Float64Array.from(segs), roadSegs: Float64Array.from(roadSegs), obstacles: json.obstacles ?? [], zones: json.zones ?? [] };
 }
 
 /** Ground kind and grip at a point. */
@@ -38,7 +41,16 @@ export function surfaceAt(map, x, z) {
     const hit = zn.r !== undefined ? (x - zn.x) ** 2 + (z - zn.z) ** 2 <= zn.r * zn.r : x >= zn.x0 && x <= zn.x1 && z >= zn.z0 && z <= zn.z1;
     if (hit) return { kind: zn.kind, mu: SURFACES[zn.kind].mu };
   }
+  if (map.road && onRoad(map, x, z)) return { kind: map.road.kind, mu: SURFACES[map.road.kind].mu };
   return { kind: map.ground, mu: SURFACES[map.ground].mu };
+}
+
+const _r = [0, 0];
+/** Is the point within the road's half width of the loop? */
+function onRoad(map, x, z) {
+  const sg = map.roadSegs, r2 = map.road.halfWidth * map.road.halfWidth;
+  for (let i = 0; i < sg.length; i += 4) if (closest(x, z, sg[i], sg[i + 1], sg[i + 2], sg[i + 3], _r) <= r2) return true;
+  return false;
 }
 
 /** Closest point on a segment to p, written into out, returns squared distance. */

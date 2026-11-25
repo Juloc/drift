@@ -34,12 +34,16 @@ public static class RaceEndpoints
             try { while (await timer.WaitForNextTickAsync(app.Lifetime.ApplicationStopping)) hub.Tick(); } catch (OperationCanceledException) { }
         });
 
-        async Task<IResult> Board(RaceStore store, RaceTrack track, CancellationToken ct) => Results.Ok(new
+        async Task<IResult> Board(int? map, RaceStore store, IReadOnlyDictionary<int, RaceTrack> tracks, CancellationToken ct)
         {
-            map = track.Name, laps = track.Laps,
+            var track = tracks.TryGetValue(map ?? 0, out var t) ? t : tracks[tracks.Keys.Min()];
+            return Results.Ok(new
+        {
+            map = track.Name, mapId = track.MapId, laps = track.Laps, maps = tracks.Values.OrderBy(x => x.MapId).Select(x => new { id = x.MapId, name = x.Name }),
             lap = (await store.TopAsync(track.MapId, RaceStore.Lap, 5, ct)).Select(r => new { name = r.Name, ms = r.Ms, car = r.Car }),
             race = (await store.TopAsync(track.MapId, RaceStore.Race, 5, ct)).Select(r => new { name = r.Name, ms = r.Ms, car = r.Car }),
-        });
+            });
+        }
         app.MapGet("/api/times", Board);
         app.MapGet("/api/guest/times", Board);   // read only, for guests
     }

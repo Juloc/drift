@@ -25,10 +25,10 @@ const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
-    online: 'driving here', you: 'You are', race: 'Start a race', invite: '{by} starts a race ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
+    online: 'driving here', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
-    online: 'fahren hier', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
+    online: 'fahren hier', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
 document.documentElement.lang = de ? 'de' : 'en';
@@ -46,14 +46,17 @@ const [cars, mapJson] = await Promise.all([
 const online = document.documentElement.dataset.mode === 'online';
 const carIndex = params.has('car') ? Math.min(cars.length - 1, +params.get('car') || 0) : online ? Math.floor(Math.random() * cars.length) : 0;
 const car = cars[carIndex];
-const map = prepareMap(mapJson);
+let map = prepareMap(mapJson);
+let mapList = null, mapGroup = null, mapId = 0;
+const mapCache = new Map([[0, mapJson]]);
 
 // ----- view
 const forced = params.get('tier');
 const view = createView($('view'), { tier: TIERS[forced] ? forced : coarse ? 'medium' : 'high', auto: !TIERS[forced], sky: map.sky });
 const { renderer, scene, camera } = view;
 const lite = coarse;
-scene.add(buildMap(map, { lite }));
+mapGroup = buildMap(map, { lite });
+scene.add(mapGroup);
 const parts = buildCar({ paint: new THREE.Color().setHSL(car.colour / 360, 0.62, 0.52).getHex(), lite, model: carIndex });
 const carGroup = new THREE.Group();
 const bodyMesh = new THREE.Mesh(parts.body, makeClay());
@@ -74,6 +77,21 @@ const fmt = (ms) => { const t = Math.max(0, Math.round(ms)); return `${Math.floo
 const show = (id, on) => { const el = $(id); if (el) el.hidden = !on; };
 let noteTimer = 0;
 const note = (text) => { const el = $('note'); if (!el) return; el.textContent = text; el.hidden = false; clearTimeout(noteTimer); noteTimer = setTimeout(() => (el.hidden = true), 3500); };
+
+/** Makes the map with this id the one that is drawn and driven on (loads its file the first time). Races are on any of the maps; the lobby is map 0. */
+async function ensureMap(id) {
+  if (id === mapId && mapGroup) return;
+  mapList ??= (await fetch('data/maps.json').then((r) => r.json())).maps;
+  if (!mapCache.has(id)) mapCache.set(id, await fetch('data/maps/' + mapList.find((m) => m.id === id).file).then((r) => r.json()));
+  const json = mapCache.get(id);
+  scene.remove(mapGroup);
+  mapGroup.traverse((o) => { o.geometry?.dispose(); });
+  map = prepareMap(json); mapId = id;
+  mapGroup = buildMap(map, { lite });
+  scene.add(mapGroup);
+  view.look(map);
+  skids.clear();
+}
 
 function openNet(url, inRace) {
   const droppedBtn = $('dropped');
@@ -107,7 +125,7 @@ function openNet(url, inRace) {
 let racing = false;
 function lobbyMessage(j) {
   if (j.t === 'race.invite') {
-    $('invite-text').textContent = T.invite.replace('{by}', j.by).replace('{laps}', j.laps);
+    $('invite-text').textContent = T.invite.replace('{by}', j.by).replace('{laps}', j.laps).replace('{map}', j.mapName ?? '');
     show('invite', true);
     clearTimeout(lobbyMessage.timer); lobbyMessage.timer = setTimeout(() => show('invite', false), j.ms);
   } else if (j.t === 'race.wait') note(T.waiting);
@@ -126,7 +144,8 @@ function startRace() {
 }
 function raceMessage(j) {
   if (j.t === 'grid') {
-    cur = prev = makeCar(j.x, j.z, j.h); score = newScore(); cam.snap(cur); skids.clear(); locked = true;
+    locked = true;
+    ensureMap(j.map ?? 0).then(() => { cur = prev = makeCar(j.x, j.z, j.h); score = newScore(); cam.snap(cur); skids.clear(); });
     $('rh-pos').textContent = `P${j.slot + 1}/${j.n}`; $('rh-lap').textContent = `${T.lap} 1/${j.laps}`; $('rh-time').textContent = fmt(0); $('rh-drift').textContent = '';
     show('racehud', true); $('count').textContent = T.waitOthers;
   } else if (j.t === 'count') $('count').textContent = j.n;
@@ -157,7 +176,8 @@ function endRace() {
   racing = false; locked = false;
   net.close(); remotes.clear();
   show('result', false); show('racehud', false); show('count', false);
-  spawned = false; reset();
+  spawned = false;
+  ensureMap(0).then(() => { reset(); });
   net = openNet(lobbyUrl, false); window.__net = net;
   show('racebar', true);
 }
@@ -168,7 +188,10 @@ if (online) {
   $('dropped').addEventListener('click', () => { $('dropped').hidden = true; net.connect(); });
   if (raceMode) {
     show('racebar', true);
-    $('raceBtn').addEventListener('click', () => net.sendJson({ t: 'race.start', laps: 3 }));
+    mapList ??= (await fetch('data/maps.json').then((r) => r.json())).maps;
+    const sel = $('mapSel');
+    for (const m of mapList) sel.append(Object.assign(document.createElement('option'), { value: m.id, textContent: m.name }));
+    $('raceBtn').addEventListener('click', () => { const m = mapList.find((x) => x.id === +sel.value); net.sendJson({ t: 'race.start', map: m.id, laps: m.laps }); });
     $('invite-yes').addEventListener('click', () => { net.sendJson({ t: 'race.join' }); show('invite', false); });
     $('invite-no').addEventListener('click', () => { net.sendJson({ t: 'race.decline' }); show('invite', false); });
     $('rh-leave').addEventListener('click', () => { net.sendJson({ t: 'leave' }); endRace(); });
@@ -180,7 +203,7 @@ if (online) {
 let cur, prev, score, spin = 0, simSteps = 0, paused = false;
 const loop = new FixedLoop();
 function reset() {
-  const s = map.lobbySpawn;
+  const s = map.lobbySpawn ?? map.grid[0];
   cur = prev = makeCar(s.x, s.z, s.h);
   score = newScore();
   spin = 0;
@@ -188,8 +211,9 @@ function reset() {
   cam.snap(cur);
 }
 reset();
+if (params.has('map')) { await ensureMap(+params.get('map') || 0); reset(); }   // ?map=N: start on that map (for looking at it)
 const demo = params.get('demo') === 'orbit';
-if (demo) { cur = prev = makeCar(66, 48, Math.PI / 2); cam.snap(cur); }
+if (demo) { const o = mapId === 0 ? { x: 66, z: 48, h: Math.PI / 2 } : map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); }
 
 function simStep(i) {
   prev = cur;
@@ -293,5 +317,5 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
-window.__drift = { get state() { return cur; }, get score() { return score; }, view, renderer, info, car, map, reset, input };
+window.__drift = { get state() { return cur; }, get score() { return score; }, view, renderer, info, car, get map() { return map; }, reset, input };
 requestAnimationFrame(frame);

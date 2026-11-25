@@ -22,7 +22,14 @@ export function createView(canvas, { tier, auto, sky }) {
   sun.position.set(-30, 60, 25);
   scene.add(hemi, sun, sun.target);
   const camera = new THREE.PerspectiveCamera(55, 1, 1, 600);
-  const view = { renderer, scene, camera, sun, tier, scale: 1, governor: null };
+  const view = { renderer, scene, camera, sun, hemi, tier, scale: 1, governor: null };
+  /** The look of a map: sky and fog colour, the strength and colour of the light (a night harbour, a bright desert). */
+  view.look = (map) => {
+    const sk = map.sky ?? sky, l = map.light ?? {};
+    scene.background.set(sk.horizon); scene.fog.color.set(sk.horizon);
+    hemi.intensity = l.hemi ?? 1.5; sun.intensity = l.sun ?? 2.6;
+    hemi.color.set(l.hemiSky ?? 0xcfe6ff); hemi.groundColor.set(l.hemiGround ?? 0xe8c9a0); sun.color.set(l.sunColour ?? 0xfff0d0);
+  };
 
   view.resize = () => {
     const t = TIERS[view.tier];

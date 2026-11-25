@@ -27,12 +27,14 @@ public class RaceTrackTests
     static RaceTrack Track() => RaceTrack.FromJson(MapJson);
 
     /// <summary>The way a driver takes: from the first grid slot along the centre line round the loop, `laps` times, ending past the line; sampled every `step` metres.</summary>
-    internal static List<(double X, double Z, double H)> Way(RaceTrack track, int laps, double step, double fromX = 30, double fromZ = -46)
+    internal static List<(double X, double Z, double H)> Way(RaceTrack track, int laps, double step, double fromX = 30, double fromZ = -46) => Way(MapJson, laps, step, fromX, fromZ);
+
+    internal static List<(double X, double Z, double H)> Way(string json, int laps, double step, double fromX, double fromZ, double firstTargetAfter = 0)
     {
-        using var doc = JsonDocument.Parse(MapJson);
+        using var doc = JsonDocument.Parse(json);
         var centre = doc.RootElement.GetProperty("centre").EnumerateArray().Select(p => (X: p[0].GetDouble(), Z: p[1].GetDouble())).ToList();
         var way = new List<(double X, double Z)> { (fromX, fromZ) };
-        way.AddRange(centre.Where((p, i) => i >= 8));                       // the rest of the first lap (the grid stands after the line)
+        way.AddRange(centre.Where((p, i) => i >= (firstTargetAfter > 0 ? (int)firstTargetAfter : 8)));   // the rest of the first lap (the grid stands after the line)
         for (var l = 1; l < laps; l++) way.AddRange(centre);
         way.Add(centre[0]); way.Add(centre[1]); way.Add(centre[2]);        // across the line at the end
         return Sample(way, step);
@@ -270,6 +272,41 @@ public class RaceHubTests
     }
 
     [Fact]
+    public void A_race_can_be_on_another_map_the_grid_message_says_which_and_the_relay_follows_its_size()
+    {
+        var dir = Path.Combine(Repo.Root, "game", "data", "maps");
+        var tracks = new Dictionary<int, RaceTrack> { [0] = RaceTrack.FromJson(RaceTrackTests.MapJson), [3] = RaceTrack.FromJson(File.ReadAllText(Path.Combine(dir, "04-desert.json"))) };
+        var rig = new Rig("anna");
+        rig.Hub = new RaceHub(rig.Time, tracks, rig.Best, rig.RaceWorld, rig.Tops);
+        rig.Arrive("zed");   // arrives after the hub is made
+        rig.Hub.LobbyJoined(new LobbyMember(rig.People["anna"].Id, "anna", 0, 3, rig.People["anna"].Lobby));
+        rig.Say("anna", """{"t":"race.start","map":3,"laps":2}""");
+        Assert.Equal("Desert", rig.People["anna"].LobbyPeer.Last("race.wait")!.Value.GetProperty("mapName").GetString());
+        Assert.Equal("Desert", rig.People["zed"].LobbyPeer.Texts.Select(t => JsonDocument.Parse(t).RootElement).Last(j => j.GetProperty("t").GetString() == "race.invite").GetProperty("mapName").GetString());
+        rig.Say("zed", """{"t":"race.decline"}""");
+        rig.Pass(2);
+        Assert.Equal(3, rig.People["anna"].LobbyPeer.Last("race.go")!.Value.GetProperty("map").GetInt32());
+        rig.Connect("anna");
+        var grid = rig.Racing["anna"].Peer.Last("grid")!.Value;
+        Assert.Equal(3, grid.GetProperty("map").GetInt32());
+        Assert.Equal(tracks[3].Grid[0].X, grid.GetProperty("x").GetDouble(), 3);
+        Assert.Equal(2, grid.GetProperty("laps").GetInt32());
+        // a pose far off the car park but on the desert map is fine for the race relay now
+        rig.Pose("anna", tracks[3].Grid[0].X, tracks[3].Grid[0].Z, 0, 0);
+        Assert.Equal(1, rig.RaceWorld.Stats.Accepted);
+        // an unknown map falls back to the default
+        rig.Pass(40);
+    }
+
+    [Fact]
+    public void A_race_on_an_unknown_map_runs_on_the_default_one()
+    {
+        var rig = new Rig("anna");
+        rig.Say("anna", """{"t":"race.start","map":99}""");
+        Assert.Equal(0, rig.People["anna"].LobbyPeer.Last("race.wait")!.Value.GetProperty("map").GetInt32());
+    }
+
+    [Fact]
     public void A_race_starts_with_an_invitation_that_the_others_answer()
     {
         var rig = new Rig("anna", "ben", "cleo");
@@ -426,5 +463,80 @@ public class RaceHubTests
         rig.ToTheStart("anna");
         Assert.False(rig.Hub.CanRace(rig.People["ben"].Id));
         Assert.False(rig.Hub.CanRace(rig.People["anna"].Id));
+    }
+}
+
+
+public class MapFileTests
+{
+    static readonly string Dir = Path.Combine(Repo.Root, "game", "data");
+    static IEnumerable<(int Id, string File, string Name, string Json)> Maps()
+    {
+        using var list = JsonDocument.Parse(File.ReadAllText(Path.Combine(Dir, "maps.json")));
+        return [.. list.RootElement.GetProperty("maps").EnumerateArray().Select(m => (m.GetProperty("id").GetInt32(), m.GetProperty("file").GetString()!, m.GetProperty("name").GetString()!, File.ReadAllText(Path.Combine(Dir, "maps", m.GetProperty("file").GetString()!))))];
+    }
+
+    [Fact]
+    public void There_are_five_maps_with_their_own_ids_and_every_one_is_a_track()
+    {
+        var maps = Maps().ToList();
+        Assert.Equal([0, 1, 2, 3, 4], maps.Select(m => m.Id));
+        Assert.Equal(5, maps.Select(m => m.Name).Distinct().Count());
+        foreach (var m in maps)
+        {
+            var t = RaceTrack.FromJson(m.Json);
+            Assert.Equal(m.Id, t.MapId);
+            Assert.Equal(m.Name, t.Name);
+            Assert.Equal(8, t.Gates.Count);
+            Assert.True(t.Grid.Count >= 8);
+            Assert.InRange(t.LoopLength, 350, 1500);
+            Assert.InRange(t.Laps, 1, 5);
+            var g0 = t.Gates[0];
+            Assert.All(t.Grid, s => Assert.True((s.X - g0.Cx) * g0.Dx + (s.Z - g0.Cz) * g0.Dz > 0, $"{m.Name}: a grid slot is behind the line"));
+        }
+    }
+
+    [Fact]
+    public void A_driver_on_the_centre_line_completes_a_lap_on_every_map_and_the_wrong_way_counts_for_nothing()
+    {
+        foreach (var m in Maps())
+        {
+            var track = RaceTrack.FromJson(m.Json);
+            var run = new RaceRun(track, 1); var r = new Runner(Guid.NewGuid(), "A", 0, 0, 35); run.Runners.Add(r); run.Start(0);
+            using var doc = JsonDocument.Parse(m.Json);
+            var centre = doc.RootElement.GetProperty("centre");
+            var spacing = track.LoopLength / centre.GetArrayLength();
+            var from = track.Grid[0];
+            var way = RaceTrackTests.Way(m.Json, 1, 20.0 / 15, from.X, from.Z, Math.Ceiling(34 / spacing));
+            var events = new List<RaceEvent>();
+            for (var i = 0; i < way.Count; i++) events.AddRange(run.Pose(r, way[i].X, way[i].Z, 20, 0, 0, i / 15.0));
+            Assert.True(r.Finished, $"{m.Name}: the lap did not count");
+            Assert.InRange(r.FinishMs!.Value / 1000, (track.LoopLength - 40) / 20 - 3, (track.LoopLength + 40) / 20 + 3);
+
+            var back = new RaceRun(track, 1); var rb = new Runner(Guid.NewGuid(), "B", 0, 0, 35); back.Runners.Add(rb); back.Start(0);
+            var reversed = Enumerable.Reverse(way).ToList();
+            for (var i = 0; i < reversed.Count; i++) back.Pose(rb, reversed[i].X, reversed[i].Z, 20, 0, 0, i / 15.0);
+            Assert.Equal(0, rb.LapsDone);
+        }
+    }
+
+    [Fact]
+    public void The_race_relay_accepts_poses_on_every_map_and_refuses_those_outside()
+    {
+        foreach (var m in Maps())
+        {
+            var t = RaceTrack.FromJson(m.Json);
+            var time = new FakeTime();
+            var relay = new WorldRelay(time, new RelayOptions { MaxPerAddress = 99, JoinsPerMinutePerAddress = 99 });
+            relay.SetBounds(t.HalfX, t.HalfZ);
+            var peer = new FakePeer(); var s = relay.Join(peer, "a", 0)!;
+            var far = t.Grid[0];
+            byte[] Pose(double x, double z) { var f = new byte[13]; f[0] = 1; Wire.Put16(f, 2, (int)Math.Round(x * 20)); Wire.Put16(f, 4, (int)Math.Round(z * 20)); return f; }
+            relay.OnMessage(s, Pose(far.X, far.Z));
+            Assert.Equal(1, relay.Stats.Accepted);
+            time.Advance(0.07);
+            relay.OnMessage(s, Pose(t.HalfX + 40, 0));
+            Assert.Equal(1, peer.Count(Wire.Fix));
+        }
     }
 }

@@ -83,6 +83,10 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     public static readonly string[] Animals = ["Otter", "Fox", "Heron", "Badger", "Lynx", "Gecko", "Falcon", "Wombat", "Marmot", "Ibis", "Newt", "Panda", "Moose", "Stoat", "Puffin", "Koala"];
 
     readonly RelayOptions o = options ?? new();
+    double halfX = (options ?? new()).HalfX, halfZ = (options ?? new()).HalfZ;
+
+    /// <summary>Changes the size of the map the poses must stay inside (a race on another map).</summary>
+    public void SetBounds(double newHalfX, double newHalfZ) { lock (gate) { halfX = newHalfX; halfZ = newHalfZ; } }
     readonly Random rnd = random ?? Random.Shared;
     readonly object gate = new();
     readonly List<List<Session>> worlds = [];
@@ -197,7 +201,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     {
         double x = Wire.I16(f, 2) / 20.0, z = Wire.I16(f, 4) / 20.0, h = Wire.U16(f, 6) * (2 * Math.PI / 65536), vf = Wire.I16(f, 8) / 50.0;
         double top = o.Top[s.Car];
-        bool ok = Math.Abs(x) <= o.HalfX && Math.Abs(z) <= o.HalfZ && Math.Abs(vf) <= 1.15 * top + 2;
+        bool ok = Math.Abs(x) <= halfX && Math.Abs(z) <= halfZ && Math.Abs(vf) <= 1.15 * top + 2;
         if (ok && s.HasPose)
         {
             double dt = Math.Min(0.5, Seconds(now - s.LastPoseAt));

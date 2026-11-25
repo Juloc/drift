@@ -31,7 +31,8 @@ public sealed class RaceHub
     }
 
     readonly TimeProvider time;
-    readonly RaceTrack track;
+    readonly IReadOnlyDictionary<int, RaceTrack> tracks;
+    RaceTrack track;
     readonly IBestTimes store;
     readonly WorldRelay raceRelay;
     readonly double[] tops;
@@ -48,8 +49,12 @@ public sealed class RaceHub
     bool resulting;
 
     public RaceHub(TimeProvider time, RaceTrack track, IBestTimes store, WorldRelay raceRelay, double[] tops)
+        : this(time, new Dictionary<int, RaceTrack> { [track.MapId] = track }, store, raceRelay, tops) { }
+
+    /// <param name="tracks">every map a race can be on, by id; the one with the lowest id is the default</param>
+    public RaceHub(TimeProvider time, IReadOnlyDictionary<int, RaceTrack> tracks, IBestTimes store, WorldRelay raceRelay, double[] tops)
     {
-        this.time = time; this.track = track; this.store = store; this.raceRelay = raceRelay; this.tops = tops;
+        this.time = time; this.tracks = tracks; this.track = tracks[tracks.Keys.Min()]; this.store = store; this.raceRelay = raceRelay; this.tops = tops;
         raceRelay.PoseAccepted = p => poses.Enqueue(p);
     }
 
@@ -62,7 +67,7 @@ public sealed class RaceHub
         lock (gate)
         {
             lobby[m.Person] = m;
-            if (phase == Phase.Invite && parts.All(p => p.Member.Person != m.Person)) Send(m.Session, new { t = "race.invite", by = parts[0].Member.Name, laps, ms = Math.Max(0, (int)((phaseStart + InviteSeconds - Now) * 1000)) });
+            if (phase == Phase.Invite && parts.All(p => p.Member.Person != m.Person)) Send(m.Session, new { t = "race.invite", by = parts[0].Member.Name, map = track.MapId, mapName = track.Name, laps, ms = Math.Max(0, (int)((phaseStart + InviteSeconds - Now) * 1000)) });
             else if (phase != Phase.Idle) Send(m.Session, new { t = "race.busy", n = parts.Count });
         }
     }
@@ -87,12 +92,13 @@ public sealed class RaceHub
             {
                 case "race.start":
                     if (phase != Phase.Idle || Now < cooldownUntil) { Send(me.Session, new { t = "race.busy", n = parts.Count, wait = Math.Max(0, (int)Math.Ceiling(cooldownUntil - Now)) }); return; }
+                    track = r.TryGetProperty("map", out var mp) && mp.TryGetInt32(out var mi) && tracks.TryGetValue(mi, out var chosen) ? chosen : tracks[tracks.Keys.Min()];
                     laps = r.TryGetProperty("laps", out var l) && l.TryGetInt32(out var li) ? Math.Clamp(li, 1, 5) : track.Laps;
                     parts.Clear(); answered.Clear();
                     parts.Add(new Part(me));
                     starter = person; phase = Phase.Invite; phaseStart = Now;
                     foreach (var m in lobby.Values)
-                        Send(m.Session, m.Person == person ? new { t = "race.wait", by = me.Name, laps, ms = (int)(InviteSeconds * 1000) } : new { t = "race.invite", by = me.Name, laps, ms = (int)(InviteSeconds * 1000) });
+                        Send(m.Session, m.Person == person ? new { t = "race.wait", by = me.Name, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) } : new { t = "race.invite", by = me.Name, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) });
                     break;
                 case "race.join":
                     if (phase == Phase.Invite && parts.Count < MaxRacers && parts.All(p => p.Member.Person != person)) { parts.Add(new Part(me)); Send(me.Session, new { t = "race.joined" }); }
@@ -120,7 +126,7 @@ public sealed class RaceHub
             if (p is null || phase != Phase.Grid) { raceRelay.Drop(s, Wire.ByeSession); return; }
             p.Race = s;
             var g = track.Grid[p.Slot];
-            Send(s, new { t = "grid", slot = p.Slot, x = g.X, z = g.Z, h = g.H, laps, n = parts.Count, racers = parts.Select(x => x.Member.Name).ToArray() });
+            Send(s, new { t = "grid", map = track.MapId, slot = p.Slot, x = g.X, z = g.Z, h = g.H, laps, n = parts.Count, racers = parts.Select(x => x.Member.Name).ToArray() });
         }
     }
 
@@ -219,8 +225,9 @@ public sealed class RaceHub
         parts.RemoveAll(p => !lobby.ContainsKey(p.Member.Person));
         if (parts.Count == 0) { phase = Phase.Idle; return; }
         phase = Phase.Grid; phaseStart = now;
+        raceRelay.SetBounds(track.HalfX, track.HalfZ);   // the poses of this race must stay on this map
         for (var i = 0; i < parts.Count; i++) parts[i].Slot = i;
-        foreach (var p in parts) if (lobby.TryGetValue(p.Member.Person, out var m)) Send(m.Session, new { t = "race.go", laps });
+        foreach (var p in parts) if (lobby.TryGetValue(p.Member.Person, out var m)) Send(m.Session, new { t = "race.go", map = track.MapId, laps });
         foreach (var m in lobby.Values.Where(m => parts.All(p => p.Member.Person != m.Person))) Send(m.Session, new { t = "race.busy", n = parts.Count });
     }
 

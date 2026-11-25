@@ -2,23 +2,7 @@
 // The JSON is committed; this script is how it was made (and how the loop's centre line is sampled).
 import { writeFileSync } from 'node:fs';
 
-const rect = (cx, cz, w, h) => [[cx - w / 2, cz - h / 2], [cx + w / 2, cz - h / 2], [cx + w / 2, cz + h / 2], [cx - w / 2, cz + h / 2]];
-
-/** Closed Catmull-Rom spline through control points, `per` samples per segment. */
-function spline(ctrl, per) {
-  const out = [];
-  const n = ctrl.length;
-  for (let i = 0; i < n; i++) {
-    const p0 = ctrl[(i + n - 1) % n], p1 = ctrl[i], p2 = ctrl[(i + 1) % n], p3 = ctrl[(i + 2) % n];
-    for (let k = 0; k < per; k++) {
-      const t = k / per, t2 = t * t, t3 = t2 * t;
-      out.push([0, 1].map((a) => 0.5 * (2 * p1[a] + (-p0[a] + p2[a]) * t + (2 * p0[a] - 5 * p1[a] + 4 * p2[a] - p3[a]) * t2 + (-p0[a] + 3 * p1[a] - 3 * p2[a] + p3[a]) * t3)));
-    }
-  }
-  return out;
-}
-
-const round = (v) => Math.round(v * 100) / 100;
+import { rect, spline, round } from './maplib.mjs';
 const centre = spline([[0, -42], [42, -42], [70, -26], [74, 4], [60, 36], [16, 44], [-30, 38], [-62, 18], [-74, -8], [-52, -34]], 8).map((p) => p.map(round));
 let length = 0;
 for (let i = 0; i < centre.length; i++) { const a = centre[i], b = centre[(i + 1) % centre.length]; length += Math.hypot(b[0] - a[0], b[1] - a[1]); }

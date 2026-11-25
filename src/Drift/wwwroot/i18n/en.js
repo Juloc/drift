@@ -48,5 +48,6 @@ export default {
   'guest.endedN': '{n} guest(s) sent out',
   'err.guest.range': 'Hours or uses are out of range.',
   'err.guest.too_many_links': 'There are already as many guest links as allowed. End one first.',
+  'board.map': 'Map',
   'settings.title': 'Settings',
 };
