@@ -16,8 +16,9 @@ export class Puffs {
     this.opacity = look.smoke.opacity ?? 0.45;
     mat.onBeforeCompile = (sh) => {
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aAlpha;\nvarying float vAlpha;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvAlpha = aAlpha;');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAlpha;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a *= vAlpha;')
-        .replace('#include <opaque_fragment>', '#include <opaque_fragment>\ngl_FragColor.a *= smoothstep(0.05, 0.75, abs(dot(normalize(vNormal), normalize(vViewPosition)))) * smoothstep(3.0, 8.5, length(vViewPosition));');
+      sh.uniforms.uNear = { value: look.smoke.near ?? 3 };
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAlpha;\nuniform float uNear;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a *= vAlpha;')
+        .replace('#include <opaque_fragment>', '#include <opaque_fragment>\ngl_FragColor.a *= smoothstep(0.0, 0.5, abs(dot(normalize(vNormal), normalize(vViewPosition)))) * smoothstep(uNear, uNear + 2.5, length(vViewPosition));');
     };
     this.mesh = new THREE.InstancedMesh(geo, mat, capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

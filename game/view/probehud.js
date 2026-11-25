@@ -22,6 +22,8 @@ export function fmtTime(ms) {
 }
 /** Whole numbers with the language's thousands separator (18.460 in German, 18,460 in English). */
 export function fmtNum(n, lang) { return new Intl.NumberFormat(lang === 'de' ? 'de-DE' : 'en-GB', { maximumFractionDigits: 0 }).format(Math.floor(n)); }
+/** The chain multiplier with one decimal in the language's style: ×4,2 in German, ×4.2 in English. */
+export function fmtMult(m, lang) { return '\u00d7' + new Intl.NumberFormat(lang === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(m); }
 
 const el = (tag, cls, text) => Object.assign(document.createElement(tag), { className: cls ?? '', textContent: text ?? '' });
 const svg = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
@@ -123,7 +125,7 @@ export class ProbeHud {
     this.set('best', race.best ? fmtTime(race.best) : '–', (v) => (this.bestV.textContent = v));
     this.set('pos', `${race.pos} / ${race.of}`, (v) => (this.posV.textContent = v));
     this.set('score', fmtNum(sc.banked + sc.pending, this.lang), (v) => (this.scoreV.textContent = v));
-    this.set('mult', sc.mult, (v) => (this.pill.textContent = '×' + v));
+    this.set('mult', sc.mult, (v) => (this.pill.textContent = fmtMult(v, this.lang)));
     const live = sc.pending > 0 || sc.chainTime > 0;
     this.set('live', live, (v) => this.scoreCard.classList.toggle('live', v));
     const prog = sc.drifting ? (sc.mult >= 5 ? 1 : (sc.chainTime % 2) / 2) : Math.max(0, sc.grace) / 1.5;

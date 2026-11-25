@@ -3,15 +3,16 @@
 import * as THREE from '../../../vendor/three/three.module.js';
 import { mergeGeometries } from '../../../vendor/three/addons/utils/BufferGeometryUtils.js';
 
-/** cars: [{ probe (from buildS15), matrix (THREE.Matrix4 of its place), paint (THREE.Color) }]. Returns a group of merged meshes. */
+/** cars: [{ probe (from buildS15 or a model file, with its `materials` by slot), matrix (THREE.Matrix4 of its place), paint (THREE.Color) }]. Returns a group of merged meshes. */
 export function mergeParked(cars) {
   const bySlot = new Map();
   for (const { probe, matrix, paint } of cars) {
-    const slots = new Map(Object.entries(probe.materials).map(([k, m]) => [m, k]));
+    const slots = new Map(Object.entries(probe.materials ?? {}).map(([k, m]) => [m, k]));
     probe.group.updateMatrixWorld(true);
     probe.group.traverse((o) => {
       if (!o.isMesh) return;
-      const slot = slots.get(o.material) ?? 'other';
+      // a model file's loader may hand out copies of a slot's material (with the file's texture): those keep their own group
+      const slot = slots.get(o.material) ?? (o.material.name ? `${o.material.name}:${o.material.uuid}` : o.material.uuid);
       const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
       g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(matrix, o.matrixWorld));
       const n = g.attributes.position.count, col = new Float32Array(n * 3), own = g.attributes.color;

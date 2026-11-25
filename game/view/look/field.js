@@ -93,7 +93,9 @@ export function profileAt(profile, z) {
 export function makeField(scene, { cell = 6 } = {}) {
   const road = sampleOpen(scene.road.ctrl, 2), info = pathInfo(road), hw = scene.road.halfWidth;
   const T = scene.terrain, R = scene.river;
-  const wave = (x) => T.wave[0] * Math.sin(x / T.wave[1]);
+  // the valley's line: either a gentle wave, or `shift` ([[x, dz], ...]: the profile moved along z with x, so that the valley follows the road)
+  const wave = T.shift ? (x) => { const P = T.shift; if (x <= P[0][0]) return P[0][1]; for (let i = 1; i < P.length; i++) if (x <= P[i][0]) return P[i - 1][1] + ((P[i][1] - P[i - 1][1]) * (x - P[i - 1][0])) / (P[i][0] - P[i - 1][0]); return P[P.length - 1][1]; }
+    : (x) => T.wave[0] * Math.sin(x / T.wave[1]);
   const riverZ = (x) => R.z + wave(x);
   const shelf = T.flat + cell * 1.45;   // up to here from the edge of the road the land stays just under the road
   /** the land without the road: the valley's profile, gently waving, and some noise that is quiet near the river */
@@ -120,7 +122,7 @@ export function makeField(scene, { cell = 6 } = {}) {
   const slope = (x, z, h = height(x, z)) => Math.hypot(height(x + 1, z) - h, height(x, z + 1) - h);
   /** is a point on water (river or lake)? */
   const wet = (x, z, margin = 0) => (Math.abs(z - riverZ(x)) < R.width / 2 + margin && x < (R.x1 ?? Infinity)) || (scene.lake && Math.hypot((x - scene.lake.x) / (scene.lake.rx + margin), (z - scene.lake.z) / (scene.lake.rz + margin)) < 1);
-  return { road, info, hw, shelf, base, edge, height, slope, riverZ, wave, wet };
+  return { road, info, hw, shelf, base, edge, height, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20 };
 }
 
 /** Bends of a road: places where the heading turns by more than `min` rad over `span` metres; the sign is the turn (+ = right). */

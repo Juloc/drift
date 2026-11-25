@@ -6,8 +6,9 @@ import { step, makeCar, bodySlip, bodyVelocity, speedOf, turnedAngle, DT } from 
 import { newScore, scoreStep } from './sim/score.js';
 import { lineBot } from './sim/linebot.js';
 import { FixedLoop } from './sim/loop.js';
-import { FollowCam } from './view/camera.js';
 import { buildS15, S15 } from './view/s15.js';
+import { loadCarModel } from './view/carmodel.js';
+import { carMaterials } from './view/carmaterials.js';
 import { WheelPool } from './view/wheels.js';
 import { Skids } from './view/fx.js';
 import { Halos } from './core/materials.js';
@@ -83,13 +84,26 @@ const buildMs = performance.now() - t0;
 
 // ----- cars: the driver (white, kit) and the parked ones (merged)
 const env = makeSkyEnvironment(renderer, look, tier.env);
+world.road.material.envMap = env;   // the road shines in the low sun
 const carTier = tierName === 'high' ? 'high' : 'low';
 const D = scene0.driver;
-const probe = buildS15({ paint: new THREE.Color(D.paint).getHex(), kit: D.kit, tier: carTier, env });
+// the cars: a model file (docs/CAR-MODELS.md, here the RX-7) in the paint of the scene; the code S15 when the file cannot be used
+const carModel = async (paint, kit) => {
+  const materials = carMaterials({ tier: carTier, paint: new THREE.Color(paint).getHex(), env });
+  const m = D.model ? await loadCarModel(D.model, { tier: carTier, materials }) : null;
+  return m ? { ...m, materials } : buildS15({ paint: new THREE.Color(paint).getHex(), kit, tier: carTier, env });
+};
+const [probe, ...parkedCars] = await Promise.all([carModel(D.paint, D.kit), ...scene0.parked.map((p) => carModel(p.paint, false))]);
 const carGroup = new THREE.Group();
 carGroup.add(probe.group);
 scene.add(carGroup);
-const parkedSrc = scene0.parked.map((p) => ({ probe: buildS15({ paint: new THREE.Color(p.paint).getHex(), tier: carTier, env }), matrix: new THREE.Matrix4().compose(new THREE.Vector3(X(p.x), 0, p.z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, HEAD(p.h), 0)), new THREE.Vector3(1, 1, 1)), paint: new THREE.Color(p.paint) }));
+// CC BY needs the author named wherever the model is seen: the line from data/credits.json, small at the bottom of the page
+if (probe.url) {
+  const credits = await fetch('data/credits.json').then((r) => r.json()).catch(() => null);
+  const c = credits?.models.find((m) => m.files.some((f) => probe.url.endsWith(f)));
+  if (c) document.body.append(Object.assign(document.createElement('p'), { id: 'credit', textContent: c.line }));
+}
+const parkedSrc = scene0.parked.map((p, i) => ({ probe: parkedCars[i], matrix: new THREE.Matrix4().compose(new THREE.Vector3(X(p.x), 0, p.z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, HEAD(p.h), 0)), new THREE.Vector3(1, 1, 1)), paint: new THREE.Color(p.paint) }));
 const parked = mergeParked(parkedSrc);
 for (const p of parkedSrc) p.probe.group.traverse((o) => o.geometry?.dispose?.());
 scene.add(parked);
@@ -104,10 +118,21 @@ scene.add(skids.mesh, smoke.mesh);
 const spec = cars[0];
 const bot = lineBot(f.road, D.bot ?? { closed: false });
 let cur = makeCar(D.x, D.z, D.h), prev = cur, score = newScore(), lastInp = { steer: 0, throttle: 0, brake: 0, handbrake: 0 }, simTime = 0, spin = 0;
-// the camera of the mockup: low and close behind the car (the game's own follow camera, only other distances)
-const cam = new FollowCam(camera, look.camera);
+
 const view = params.get('view') ?? 'drive';
 const rearWheels = (s) => { const ry = HEAD(s.h), c = Math.cos(ry), sn = Math.sin(ry); return [-1, 1].map((sx) => { const lx = sx * S15.wheelX, lz = -S15.wheelZ; return [X(s.x) + lx * c + lz * sn, s.z - lx * sn + lz * c]; }); };
+// the camera of the mockup: low (just over the roof), close behind the car and a little to its right, looking along where the car
+// is going (between its nose and its travel) and so down the road; it follows softly
+const C = look.camera, camAt = { yaw: D.h, ready: false };
+function follow(s, dt) {
+  const travel = speedOf(s) > 4 ? Math.atan2(s.vx, s.vz) : s.h;
+  const aim = s.h + angDiff(s.h, travel) * C.travel;
+  if (!camAt.ready) { camAt.yaw = aim; camAt.ready = true; }
+  camAt.yaw += angDiff(camAt.yaw, aim) * (1 - Math.exp(-4 * dt));
+  const fx = Math.sin(camAt.yaw), fz = Math.cos(camAt.yaw), rx = fz, rz = -fx;   // forward and right (simulation axes)
+  camera.position.set(X(s.x - fx * C.dist + rx * C.side), C.height, s.z - fz * C.dist + rz * C.side);
+  camera.lookAt(X(s.x + fx * C.look), C.lookY, s.z + fz * C.look);
+}
 function simStep(i) {
   prev = cur;
   const inp = bot(i * DT, cur);
@@ -123,11 +148,10 @@ function simStep(i) {
     skids.mark(k, x, z, 0, 0, sliding);
   });
   smoke.update(DT);
-  if (view === 'drive') cam.update(cur, spec.top, DT);
+  if (view === 'drive') follow(cur, DT);
 }
 const loop = new FixedLoop();
 const preT = params.has('t') ? +params.get('t') : D.t;
-cam.snap(cur);
 for (let i = 0, n = Math.round(preT / DT); i < n; i++) loop.advance(DT, simStep);
 const running = params.get('run') === '1';
 
@@ -161,7 +185,7 @@ function draw(now) {
   for (const p of scene0.parked) pool.blob(X(p.x), p.z, 1.15, 2.3, HEAD(p.h));
   pool.end();
   smoke.sync();
-  if (view === 'drive' && look.camera.fov) { camera.fov = look.camera.fov; camera.updateProjectionMatrix(); }   // the mockup's narrower lens
+  if (camera.fov !== C.fov) { camera.fov = C.fov; camera.updateProjectionMatrix(); }
   if (view !== 'drive') {
     // ?view=overview, or ?view=cam&cam=x,y,z,lookX,lookY,lookZ (simulation axes) for any other place
     const o = view === 'cam' ? ((c) => ({ pos: c.slice(0, 3), look: c.slice(3, 6) }))((params.get('cam') ?? '0,80,80,0,0,0').split(',').map(Number)) : scene0.views.overview;
@@ -193,7 +217,7 @@ function bench(n = 10) {
   for (let i = 0; i < n; i++) { renderer.info.reset(); if (post) post.render(scene, camera); else renderer.render(scene, camera); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); }
   return (performance.now() - a) / n;
 }
-window.__probe = { renderer, scene, camera, parts: { sky, world: world.group, mist, halos: halos.points, car: carGroup, parked, blobs: pool.blobs, skids: skids.mesh, smoke: smoke.mesh }, get frames() { return frames; }, bench, buildMs, worldTriangles: world.triangles, get t() { return simTime; }, get slip() { return bodySlip(cur) * 57.3; },
+window.__probe = { renderer, scene, camera, model: probe.url ?? 'code S15', parts: { sky, world: world.group, mist, halos: halos.points, car: carGroup, parked, blobs: pool.blobs, skids: skids.mesh, smoke: smoke.mesh }, get frames() { return frames; }, bench, buildMs, worldTriangles: world.triangles, get t() { return simTime; }, get slip() { return bodySlip(cur) * 57.3; },
   /** where the sun is on the screen (-1..1 both ways), to frame pictures */
   /** where a point (simulation axes) is on the screen */
   screen(x, y, z) { const v = new THREE.Vector3(X(x), y, z).project(camera); return [+v.x.toFixed(2), +v.y.toFixed(2), v.z < 1]; },

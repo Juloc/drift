@@ -62,7 +62,9 @@ export function buildWorld(scene, look, tierName = 'high') {
   ridges(S, scene, look, tier);
   const water = river(f, scene, look);
   bridge(S, f, scene, look, lite);
-  road(S, f, look, onPlaza);
+  // the road has its own mesh: a slightly glossy material that shines in the low sun (the page gives it the sky as reflection)
+  const Rb = new Builder({ seed: 7, jitter: 0, wobble: 0, bake: false });
+  road(Rb, f, look, onPlaza);
   plaza(S, G, f, scene, look, lite, lampHeads);
   roadside(S, G, f, look, tier, sideInfo, onPlaza);
   trees(S, f, scene, look, tier, rnd, lite);
@@ -72,8 +74,10 @@ export function buildWorld(scene, look, tierName = 'high') {
   const solid = new THREE.Mesh(S.build(), new THREE.MeshLambertMaterial({ vertexColors: true }));
   solid.receiveShadow = true;
   const lights = new THREE.Mesh(G.build(), makeGlow());
-  group.add(solid, lights, water);
-  return { group, field: f, lampHeads, triangles: (solid.geometry.index.count + lights.geometry.index.count + water.geometry.index.count) / 3 };
+  const roadMesh = new THREE.Mesh(Rb.build(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: look.road.roughness ?? 0.5, metalness: 0, envMapIntensity: look.road.sheen ?? 0.8 }));
+  roadMesh.receiveShadow = true;
+  group.add(solid, lights, water, roadMesh);
+  return { group, field: f, lampHeads, road: roadMesh, triangles: [solid, lights, water, roadMesh].reduce((n, m) => n + m.geometry.index.count / 3, 0) };
 }
 
 // ---------------------------------------------------------------- the land: a grid over the extent, fine near the road (the core), coarser
@@ -106,7 +110,7 @@ function land(S, f, scene, look, tier) {
     const n = noise2(x / 45, z / 45);
     k.lerp(n > 0 ? warm : cool, Math.abs(n) * 0.55);
     r.copy(rock).lerp(rockDark, 0.5 + 0.5 * noise2(x / 13, z / 13));
-    k.lerp(r, smoothstep(0.55, 1.1, slope));
+    k.lerp(r, smoothstep(0.75, 1.3, slope) * (0.55 + 0.45 * Math.max(0, noise2(x / 9 + 5, z / 9))));   // rock shows in patches on steep ground
     k.lerp(gravel, 1 - smoothstep(1.5, 4.5, e));
     k.lerp(sand, smoothstep(ry + 4, ry + 0.8, h));
     // a little irregularity in the grid away from the road, so the facets do not look like a chessboard
@@ -204,7 +208,8 @@ function road(S, f, look, onPlaza) {
   strip(S, f, hw, hw + 2.6, 0.0, -0.25, gravel, off);
   strip(S, f, -hw - 2.6, -hw, -0.25, 0.0, gravel, off);
   const edge = C(R.edge), centre = C(R.centre);
-  for (const s of [-1, 1]) strip(S, f, s * (hw - 0.45) - 0.08, s * (hw - 0.45) + 0.08, 0.04, 0.04, edge, off);
+  const ew = (R.edgeWidth ?? 0.16) / 2;
+  for (const s of [-1, 1]) strip(S, f, s * (hw - 0.45) - ew, s * (hw - 0.45) + ew, 0.04, 0.04, edge, off);
   for (let d = 4; d < f.info.length - 4; d += 7.5) {
     const p = pointAt(f.road, f.info, d), q = pointAt(f.road, f.info, d + 3);
     if (onPlaza(p.x, p.z)) continue;
@@ -299,18 +304,18 @@ function roadside(S, G, f, look, tier, sideInfo, onPlaza) {
   // chevrons: three pink boards with a white arrow on the outside of each bend, facing the driver coming from the plaza
   const Cv = look.chevron, board = C(Cv.board), post = C(Cv.post);
   const pts = [[-0.17, 0.26], [0.0, 0.26], [0.19, 0], [0.0, -0.26], [-0.17, -0.26], [0.02, 0]], hot = glow(Cv.arrow, 2.2);
-  for (const b of bends(f.info)) {
+  for (const b of bends(f.info, { min: f.bendMin, span: f.bendSpan })) {
     const out = b.turn > 0 ? -1 : 1, mirror = b.turn > 0 ? 1 : -1;
     for (const ds of [-11, 0, 11]) {
-      const p = pointAt(f.road, f.info, b.s + ds), r = right(p.dir), o = hw + 2.0;
+      const p = pointAt(f.road, f.info, b.s + ds), r = right(p.dir), o = hw + 1.7;
       const x = p.x + r[0] * out * o, z = p.z + r[1] * out * o;
       // the board's front (+z of its own) looks back along the road, towards the driver
       S.push(trs(X(x), 0, z, 0, Math.atan2(-X(p.dir[0]), -p.dir[1]), 0));
-      for (const sx of [-0.32, 0.32]) S.box(0.07, 1.5, 0.07, sx, 0.4, -0.06, post, { r: 0 });
-      S.box(1.25, 0.7, 0.07, 0, 1.25, 0, board, { r: 0.05, jitter: 0 });
+      for (const sx of [-0.55, 0.55]) S.box(0.09, 2.2, 0.09, sx, 0.6, -0.07, post, { r: 0 });
+      S.box(1.9, 1.0, 0.08, 0, 1.6, 0, board, { r: 0.06, jitter: 0 });
       // the glowing double chevron is in the unlit mesh, placed through the same transform
       G.push(S.top.clone());
-      for (const ox of [-0.24, 0.2]) G.prism(pts.map(([a, c]) => [a * mirror, c]), 0.03, ox * mirror, 1.25, 0.05, hot, { bevel: 0, jitter: 0 });
+      for (const ox of [-0.38, 0.32]) G.prism(pts.map(([a, c]) => [a * 1.5 * mirror, c * 1.5]), 0.03, ox * mirror, 1.6, 0.055, hot, { bevel: 0, jitter: 0 });
       G.pop();
       S.pop();
     }
@@ -356,14 +361,14 @@ function trees(S, f, scene, look, tier, rnd, lite) {
       if (f.wet(x, z, 4)) continue;
       // away from the road, cherries stay low by the river and pines thin out on the valley floor
       if (!near && kind === 'cherry' && y > ry + 14 && rnd() > 0.1) continue;
-      if (kind === 'pine' && y < ry + 8 && rnd() > 0.35) continue;
+      if (kind === 'pine' && y < ry + 3 && rnd() > 0.35) continue;
       const h = kind === 'pine' ? 7 + rnd() * 8 : 8 + rnd() * 4;
       (kind === 'pine' ? pine : cherry)(S, look, x, y - 0.3, z, h, rnd, lite);
       made++;
     }
   };
   // trees the scene places itself (they frame the pictures the same way on every tier)
-  for (const [x, z, kind] of scene.trees ?? []) (kind === 'pine' ? pine : cherry)(S, look, x, f.height(x, z) - 0.3, z, kind === 'pine' ? 13 : 11, mulberry32(Math.abs(x * 7 + z * 13)), lite);
+  for (const [x, z, kind, size] of scene.trees ?? []) (kind === 'pine' ? pine : cherry)(S, look, x, f.height(x, z) - 0.3, z, size ?? (kind === 'pine' ? 13 : 11), mulberry32(Math.abs(x * 7 + z * 13)), lite);
   place(tier.nearCherries ?? 0, 'cherry', true);
   place(tier.nearPines ?? 0, 'pine', true);
   place(tier.cherries, 'cherry', false);
