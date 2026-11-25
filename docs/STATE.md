@@ -6,7 +6,7 @@ Updated 2026-11-25 by the building session. Every session updates this page at t
 
 - **Scope agreed:** [SCOPE.md](SCOPE.md). **Architecture draft written:** [ARCHITECTURE.md](ARCHITECTURE.md) (waits for the orchestrator's reading and its 13 open points).
 - **Milestone 1 (driving feels good, alone) runs**, no server, no base: `game/` is one static page. One car (Dart) on one map (the car park, also the future lobby map), drift model with fixed step 1/120 s, follow camera, keys (arrows or WASD, Space = handbrake, Shift = brake, R restart, F fullscreen, Q quality, P pause, G debug line) and touch buttons in landscape (steer left and right on the left, handbrake, brake and a big gas button on the right, multi-touch), drift score with chain multiplier, tyre smoke and skid marks, a "turn your phone" hint in portrait. English and German texts.
-- Nothing is committed to GitHub; the repository is local; **no push**. The commits carry a placeholder author (`drift builder`, `builder@example.invalid`) because this machine has no git identity set for the repository; the owner or orchestrator should set one (and may rewrite the three commits' author).
+- Nothing is committed to GitHub; the repository is local; **no push**. The commits carry a placeholder author (`drift builder`, `builder@example.invalid`) because this machine has no git identity set for the repository; the owner or orchestrator should set one (and may rewrite the commits' author).
 
 ## How to run and check
 
