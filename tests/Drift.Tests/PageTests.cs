@@ -60,7 +60,7 @@ public class PageTests
         // every t('...') key used by the pages is defined
         var defined = Keys("en").Split('\n').ToHashSet();
         var baseKeys = Regex.Matches(File.ReadAllText(Path.Combine(Repo.Root, "base", "ui", "i18n", "en.js")), @"^\s*'([^']+)':", RegexOptions.Multiline).Select(m => m.Groups[1].Value).ToHashSet();
-        foreach (Match m in Regex.Matches(File.ReadAllText(Path.Combine(Repo.Root, "src", "Drift", "wwwroot", "app.js")), @"\bt\('([a-zA-Z0-9_.]+[a-zA-Z0-9_])'")) Assert.True(defined.Contains(m.Groups[1].Value) || baseKeys.Contains(m.Groups[1].Value), m.Groups[1].Value);
+        foreach (var file in new[] { "app.js", "games-admin.js" }) foreach (Match m in Regex.Matches(File.ReadAllText(Path.Combine(Repo.Root, "src", "Drift", "wwwroot", file)), @"\bt\('([a-zA-Z0-9_.]+[a-zA-Z0-9_])'")) Assert.True(defined.Contains(m.Groups[1].Value) || baseKeys.Contains(m.Groups[1].Value), m.Groups[1].Value);
         await Task.CompletedTask;
     }
 }

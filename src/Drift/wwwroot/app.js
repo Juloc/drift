@@ -5,6 +5,7 @@ import { h, icon, api, shell, router, toast, field, confirmDialog, formValues, s
 import { start } from '/base/auth.js';
 import { appearanceCard, securityCard, devicesCard, historyCard, installationCard, aboutCard } from '/base/account.js';
 import { peopleCard } from '/base/people.js';
+import { gamesAdminCard } from '/games-admin.js';
 import { hubCard } from '/base/hub.js';
 import de from '/i18n/de.js';
 import en from '/i18n/en.js';
@@ -223,6 +224,7 @@ function settingsPage(me) {
     title: t('settings.title'),
     body: h('div', { class: 'page narrow stack l' }, appearanceCard(), securityCard(me), devicesCard(), historyCard(),
       me.roles.includes('admin') ? guestCard() : null,
+      me.roles.includes('admin') ? gamesAdminCard() : null,
       me.roles.includes('admin') ? peopleCard(me) : null, me.roles.includes('admin') ? hubCard(me) : null,
       me.roles.includes('admin') ? installationCard() : null, aboutCard(me)),
   };
