@@ -13,7 +13,7 @@ export function paintCar(root, sun, o = {}) {
     for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
       if (done.has(mat) || mat.isMeshBasicMaterial || !mat.isMeshStandardMaterial) continue;
       done.add(mat);
-      if (mat.metalness > 0.9) { mat.roughness = Math.max(mat.roughness, 0.28); mat.envMapIntensity = 0.7; }   // rims: satin, not a mirror
+      if (mat.metalness > 0.9) { mat.roughness = Math.max(mat.roughness, 0.32); mat.envMapIntensity = 0.45; if (o.rims) mat.color.set(o.rims); }   // rims: satin grey metal, not a mirror
       else if (mat.clearcoat !== undefined && mat.clearcoat > 0 || mat.metalness > 0.3) { mat.metalness = 0.15; mat.roughness = 0.42; mat.envMapIntensity = o.gloss ?? 0.5; if (mat.clearcoat) mat.clearcoatRoughness = 0.12; }
       const c = mat.color ?? new THREE.Color(1, 1, 1), key = Math.max(0.05, sunLum * (c.r + c.g + c.b) / 3);
       const steps = o.steps ?? true;

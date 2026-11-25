@@ -29,15 +29,18 @@ export class Billows {
     this.car = { value: new THREE.Vector3(0, -999, 0) };
     const S = look.smoke;
     this.material = new THREE.ShaderMaterial({
-      uniforms: { tMap: { value: billowTexture(S.colour, S.shade) }, uCar: this.car, uClear: { value: S.clear ?? 0 }, uNear: { value: S.near ?? 3 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
+      uniforms: { tMap: { value: billowTexture(S.colour, S.shade) }, uCar: this.car, uCarView: { value: new THREE.Vector4(0, 0, 0, 0) }, uClear: { value: S.clear ?? 0 }, uNear: { value: S.near ?? 3 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
       vertexShader: /* glsl */ `
         attribute vec4 aData; attribute vec2 aAlpha;
+        uniform vec4 uCarView;   // the car in view space (xyz) and its radius on screen (w, in view units at its depth)
         varying vec2 vUv; varying float vA; varying vec3 vW; varying float vDist;
         void main() {
           vUv = uv; vA = aAlpha.x; vW = aData.xyz;
           float c = cos(aAlpha.y), s = sin(aAlpha.y);
           vec2 p = vec2(position.x * c - position.y * s, position.x * s + position.y * c) * aData.w;
           vec4 mv = modelViewMatrix * vec4(aData.xyz, 1.0);
+          // a puff in front of the car that would cover it on screen fades out: the car is always seen, the smoke beside and behind it stays
+          if (uCarView.w > 0.0 && -mv.z < -uCarView.z - 0.5) { vec2 onCar = mv.xy * (-uCarView.z / -mv.z) - uCarView.xy; float r = uCarView.w + aData.w * 0.25 * (-uCarView.z / -mv.z); vA *= smoothstep(r * 0.6, r * 1.0, length(onCar)); }
           mv.xy += p; vDist = -mv.z;
           gl_Position = projectionMatrix * mv;
         }`,
@@ -57,15 +60,30 @@ export class Billows {
     this.mesh = new THREE.Mesh(geo, this.material);
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 4;
     this.opacity = S.opacity ?? 0.9;
+    this.scale = S.size ?? 1;   // how big the billows grow
+    // the mockups' smoke: soft trails behind the rear wheels that grow with the drift angle and thin out fast; a little more at the start
+    // of a slide (`burst` times as big for `burstTime` s after a pause of more than 0.4 s), never a wall over the picture
+    this.life0 = S.life ?? 2.0; this.lifeK = S.lifeGrow ?? 1.6; this.grow0 = S.start ?? 2.0; this.growK = S.spread ?? 6.5;
+    this.burst = S.burst ?? 1; this.burstTime = S.burstTime ?? 0.5; this.fade = S.fade ?? 0.5;
+    this.clock = 0; this.lastEmit = -9; this.slideStart = 0;
+  }
+  /** The car's place for the fade (drawing space) and the camera: puffs in front of the car that would cover it fade out. */
+  aim(camera, radius = 1.6) {
+    const v = this.material.uniforms.uCarView.value, p = this.car.value.clone().add(new THREE.Vector3(0, 0.7, 0)).applyMatrix4(camera.matrixWorldInverse);
+    v.set(p.x, p.y, p.z, radius);
   }
   rnd() { this.seed = (this.seed * 16807) % 2147483647; return this.seed / 2147483647; }
   emit(x, y, z, vx, vz, strength) {
     const i = this.next; this.next = (this.next + 1) % this.cap;
     this.pos.set([x, y + 0.3, z], i * 3);
     this.vel.set([vx + (this.rnd() - 0.5) * 1.4, 0.35 + strength * 0.4, vz + (this.rnd() - 0.5) * 1.4], i * 3);
-    this.age[i] = 0; this.life[i] = 1.6 + strength * 1.4; this.grow[i] = 0.8 + this.rnd() * 0.6; this.spin[i] = this.rnd() * 6.28;
+    if (this.clock - this.lastEmit > 0.4) this.slideStart = this.clock;
+    this.lastEmit = this.clock;
+    const fresh = this.clock - this.slideStart < this.burstTime ? this.burst : 1;
+    this.age[i] = 0; this.life[i] = (this.life0 + strength * this.lifeK) * (fresh > 1 ? 1.2 : 1); this.grow[i] = (0.8 + this.rnd() * 0.6) * (0.45 + strength * 0.75) * fresh; this.spin[i] = this.rnd() * 6.28;
   }
   update(dt) {
+    this.clock += dt;
     for (let i = 0; i < this.cap; i++) {
       if (this.age[i] >= this.life[i]) continue;
       this.age[i] += dt;
@@ -78,8 +96,8 @@ export class Billows {
     for (let i = 0; i < this.cap; i++) {
       const k = this.age[i] / this.life[i];
       d[i * 4] = this.pos[i * 3]; d[i * 4 + 1] = this.pos[i * 3 + 1]; d[i * 4 + 2] = this.pos[i * 3 + 2];
-      d[i * 4 + 3] = k >= 1 ? 0 : (1.6 + k * 5.5) * this.grow[i];
-      al[i * 2] = k >= 1 ? 0 : this.opacity * Math.sqrt(1 - k) * Math.min(1, k * 5); al[i * 2 + 1] = this.spin[i] + k * 0.6;
+      d[i * 4 + 3] = k >= 1 ? 0 : (this.grow0 + k * this.growK) * this.grow[i] * this.scale;
+      al[i * 2] = k >= 1 ? 0 : this.opacity * Math.pow(1 - k, 1 / this.fade) * Math.min(1, k * 5);   // fade < 1: thins out sooner al[i * 2 + 1] = this.spin[i] + k * 0.6;
     }
     this.data.needsUpdate = true; this.alpha.needsUpdate = true;
   }

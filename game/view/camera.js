@@ -57,12 +57,12 @@ export class DriverCam {
 }
 
 /**
- * The chase camera of a look (look.camera: dist, height, side, look, lookY, travel, fov): low, close behind the car and a little to its right, looking along where the car is going (between
+ * The chase camera of a look (look.camera: dist, height, side, look, lookY, travel, fov, turn, swing): low, close behind the car and a little to its right, looking along where the car is going (between
  * its nose and its travel) and so down the road; it follows softly and sits on the road's drawn height (`ground(x, z)`, the physics underneath is flat).
  */
 export class LookChase {
   constructor(camera, C, ground = null) { this.camera = camera; this.C = C; this.ground = ground; this.yaw = 0; this.ready = false; this.fov = C.fov; }
-  snap(s) { this.ready = false; this.update(s, 0, 0); }
+  snap(s) { this.ready = false; this.sw = undefined; this.update(s, 0, 0); }
   update(s, top, dt) {
     const C = this.C, g = this.ground ?? (() => 0);
     const reversing = s.vx * Math.sin(s.h) + s.vz * Math.cos(s.h) < -1;
@@ -71,7 +71,13 @@ export class LookChase {
     if (!this.ready) { this.yaw = aim; this.ready = true; }
     this.yaw += angDiff(this.yaw, aim) * (1 - Math.exp(-4 * dt));
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), rx = fz, rz = -fx;   // forward and right (simulation axes)
-    const cx = s.x - fx * C.dist + rx * C.side, cz = s.z - fz * C.dist + rz * C.side, lx = s.x + fx * C.look, lz = s.z + fz * C.look;
+    // `turn` (degrees, + = to the right) turns the view away from the road, e.g. into the valley beside it
+    const ty = this.yaw + ((C.turn ?? 0) * Math.PI) / 180;
+    // `swing` (metres per radian of drift angle): the camera swings out to the side the nose points to, so the drift angle is seen; softly
+    const swingTo = (C.swing ?? 0) * angDiff(travel, s.h);
+    this.sw = (this.sw ?? swingTo) + (swingTo - (this.sw ?? swingTo)) * (1 - Math.exp(-3 * dt));
+    const side = C.side + this.sw;
+    const cx = s.x - fx * C.dist + rx * side, cz = s.z - fz * C.dist + rz * side, lx = s.x + Math.sin(ty) * C.look, lz = s.z + Math.cos(ty) * C.look;
     this.camera.position.set(X(cx), C.height + Math.max(g(cx, cz), g(s.x, s.z)), cz);
     this.camera.lookAt(X(lx), C.lookY + g(lx, lz), lz);
     if (this.camera.fov !== C.fov) { this.camera.fov = C.fov; this.camera.updateProjectionMatrix(); }

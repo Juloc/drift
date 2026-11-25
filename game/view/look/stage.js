@@ -6,7 +6,7 @@ import * as THREE from '../../../vendor/three/three.module.js';
 import { Halos } from '../../core/materials.js';
 import { Skids } from '../fx.js';
 import { buildWorld } from './world.js';
-import { makeSky, makeMist, makeSkyEnvironment, sunDirection } from './sky.js';
+import { makeSky, makeMist, makeSkyEnvironment, sunDirection, makeClouds } from './sky.js';
 import { Puffs } from './puffs.js';
 import { Billows } from './billows.js';
 import { Post } from './post.js';
@@ -40,27 +40,34 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
   const hemi = new THREE.HemisphereLight(0xffffff, 0x888888, 1);
   const sun = new THREE.DirectionalLight(0xffffff, 1);
   scene.add(hemi, sun, sun.target);
-  const tier0 = look.tiers[tierName];
-  if (tier0.shadows) {
-    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.VSMShadowMap;   // soft shadows
-    sun.castShadow = true; sun.shadow.mapSize.set(tier0.shadows, tier0.shadows);
+  // a look may lack a tier (older looks have high and low only): medium falls back to low
+  const tierOf = (lk, name) => lk.tiers[name] ?? lk.tiers[name === 'medium' ? 'low' : 'high'];
+  const tier0 = tierOf(look, tierName);
+  /** shadows of a tier (soft, VSM); off when the tier has none */
+  const setShadows = (t) => {
+    renderer.shadowMap.enabled = !!t.shadows; sun.castShadow = !!t.shadows;
+    if (!t.shadows) return;
+    renderer.shadowMap.type = THREE.VSMShadowMap;
+    sun.shadow.map?.dispose(); sun.shadow.map = null;
+    sun.shadow.mapSize.set(t.shadows, t.shadows);
     const c = sun.shadow.camera; c.left = -shadowSpan; c.right = shadowSpan; c.top = shadowSpan; c.bottom = -shadowSpan; c.near = 1; c.far = 260;
     sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.06; sun.shadow.radius = 6; sun.shadow.blurSamples = 10;
-  }
+  };
+  setShadows(tier0);
   const post = tier0.post ? new Post(renderer, look.grade) : null;
 
   const stage = {
-    renderer, post, scene, camera, tierName, sun, hemi, carTier: tierName === 'high' ? 'high' : 'low',
-    tier: tier0, look, scene0, sunDir: null, sky: null, world: null, field: null, mist: null, halos: null, env: null, skids: null, smoke: null, buildMs: 0,
+    renderer, post, scene, camera, tierName, sun, hemi, carTier: tierName === 'low' ? 'low' : 'high',
+    usePost: !!tier0.post, tier: tier0, look, scene0, sunDir: null, sky: null, clouds: null, world: null, field: null, mist: null, halos: null, env: null, skids: null, smoke: null, buildMs: 0,
     /** Builds (or rebuilds) everything that belongs to a look and a scene. */
     load(newLook, newScene) {
       const t0 = performance.now();
-      for (const o of [stage.sky, stage.world?.group, stage.mist, stage.halos?.points, stage.skids?.mesh, stage.smoke?.mesh]) if (o) { scene.remove(o); disposeTree(o); }
+      for (const o of [stage.sky, stage.clouds, stage.world?.group, stage.mist, stage.halos?.points, stage.skids?.mesh, stage.smoke?.mesh]) if (o) { scene.remove(o); disposeTree(o); }
       stage.env?.dispose?.();
-      const tier = newLook.tiers[tierName];
+      const tier = tierOf(newLook, tierName);
       Object.assign(stage, { look: newLook, scene0: newScene, tier });
       renderer.toneMappingExposure = newLook.grade.exposure;
-      post?.setGrade(newLook.grade);
+      stage.post?.setGrade(newLook.grade);
       scene.fog = new THREE.Fog(newLook.fog.colour, newLook.fog.near, newLook.fog.far);
       scene.background = new THREE.Color(newLook.fog.colour);
       stage.sunDir = sunDirection(newLook);
@@ -68,12 +75,15 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
       sun.color.set(newLook.sun.colour); sun.intensity = newLook.sun.intensity;
       stage.sky = makeSky(newLook, 2200);
       scene.add(stage.sky);
+      // the cloud bands of their own (in front of the dome, so the bloom does not wash them out)
+      stage.clouds = newLook.sky.bands ? makeClouds(newLook, newLook.sky.bands, 2100) : null;
+      if (stage.clouds) scene.add(stage.clouds);
       // the world of the scene, with the sky's reflection on the road
       stage.world = buildWorld(newScene, newLook, tierName);
       scene.add(stage.world.group);
       stage.field = stage.world.field;
       // low mist over the valley floor and the lake (places from the scene; the phone tier takes the first few); it lies relative to the road's height nearby
-      const patches = (newScene.mist ?? []).slice(0, tier.mist).map(([x, z, w, d]) => [x, z, w, d, stage.field.groundY(x, z) + newLook.mist.y]);
+      const patches = (newScene.mist ?? []).slice(0, tier.mist).map(([x, z, w, d, y]) => [x, z, w, d, y ?? stage.field.groundY(x, z) + newLook.mist.y]);   // a patch may give its own absolute height
       stage.mist = patches.length ? makeMist(newLook, patches) : new THREE.Group();
       scene.add(stage.mist);
       stage.halos = new Halos(64);
@@ -96,9 +106,26 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
       renderer.setSize(Math.max(2, Math.round(innerWidth * tier.scale)), Math.max(2, Math.round(innerHeight * tier.scale)), false);
       camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
       stage.halos?.resize(renderer.domElement.height, camera.fov);
-      post?.setSize(renderer.domElement.width, renderer.domElement.height);
+      stage.post?.setSize(renderer.domElement.width, renderer.domElement.height);
     },
-    render() { renderer.info.reset(); if (post) post.render(scene, camera); else renderer.render(scene, camera); },
+    /**
+     * Another quality tier (high, medium, low): shadows, the after-pass and the density of the world follow; the world is built again.
+     * The cars are the caller's (their materials depend on stage.carTier): build them again when `carTier` changed. Returns true when it changed.
+     */
+    setTier(name) {
+      if (name === tierName || !['high', 'medium', 'low'].includes(name)) return false;
+      tierName = name; stage.tierName = name; stage.carTier = name === 'low' ? 'low' : 'high';
+      const t = tierOf(stage.look, name);
+      setShadows(t);
+      if (t.post && !stage.post) stage.post = new Post(renderer, stage.look.grade);
+      stage.usePost = !!t.post;
+      scene.traverse((o) => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
+      stage.load(stage.look, stage.scene0);
+      stage.post?.setSize(renderer.domElement.width, renderer.domElement.height);
+      return true;
+    },
+    render() { renderer.info.reset(); camera.updateMatrixWorld(); stage.smoke?.aim?.(camera);   // the smoke keeps the car in sight (also in the game)
+      if (stage.post && stage.usePost) stage.post.render(scene, camera); else renderer.render(scene, camera); },
     /** The sun's shadow box and the sun itself follow a point (drawing axes: x already mirrored). */
     aimSun(cx, cy, cz) { const d = stage.sunDir; sun.target.position.set(cx, cy, cz); sun.position.set(cx + d.x * 120, cy + d.y * 120 + 30, cz + d.z * 120); },
     /** Points the environment map of every material under `root` that has one at the stage's reflection (after another map was loaded). */

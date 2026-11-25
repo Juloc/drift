@@ -72,12 +72,28 @@ export function buildWorld(scene, look, tierName = 'high') {
   trees(S, f, scene, look, tier, rnd, lite);
   rocks(S, f, look, tier, rnd, sideInfo, lite);
   details(S, G, f, scene, look, tier, mulberry32(29), lite, sideInfo, onPlaza);
+  if (scene.road.lamps) roadLamps(S, G, f, scene, look, sideInfo, lampHeads);
   if (scene.props) props(S, G, f, scene, look, lite, lampHeads);
 
   const group = new THREE.Group();
   // facets as in the mockup (land, trees, rocks, mountains): flat shading with the soft colour gradients; the road and the cars stay smooth
   const solid = new THREE.Mesh(S.build(), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: look.facets !== false }));
-  solid.receiveShadow = true;
+  solid.receiveShadow = false;   // three's VSM shadow pass draws every receiver again: with the land and the trees (about 450 k triangles) as receivers the frame cost twice the world; only the road and the car receive the car's shadow
+  // surfaces, not flat colour: a little colour noise per facet (from its own normal) and soft blotches over the land (from the world position)
+  solid.material.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vLandPos;').replace('#include <project_vertex>', '#include <project_vertex>\nvLandPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vLandPos;
+      float lh(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+      float ln(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(lh(i), lh(i + vec3(1, 0, 0)), f.x), mix(lh(i + vec3(0, 1, 0)), lh(i + vec3(1, 1, 0)), f.x), f.y),
+                   mix(mix(lh(i + vec3(0, 0, 1)), lh(i + vec3(1, 0, 1)), f.x), mix(lh(i + vec3(0, 1, 1)), lh(i + vec3(1, 1, 1)), f.x), f.y), f.z); }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      vec3 facet = normalize(cross(dFdx(vLandPos), dFdy(vLandPos)));
+      float tone = (lh(floor(facet * 23.0) + floor(vLandPos * 0.25)) - 0.5) * ${(look.surface?.facet ?? 0.12).toFixed(3)}
+        + (ln(vLandPos * 0.08) - 0.5) * ${(look.surface?.blotch ?? 0.2).toFixed(3)} + (ln(vLandPos * 1.3) - 0.5) * ${(look.surface?.grain ?? 0.08).toFixed(3)};
+      diffuseColor.rgb *= 1.0 + tone;`);
+  };
   const lights = new THREE.Mesh(G.build(), makeGlow());
   const roadMesh = new THREE.Mesh(Rb.build(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: look.road.roughness ?? 0.5, metalness: 0, envMapIntensity: look.road.sheen ?? 0.8 }));
   roadMesh.receiveShadow = true;
@@ -90,7 +106,7 @@ export function buildWorld(scene, look, tierName = 'high') {
       float rn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(rh(i), rh(i + vec2(1, 0)), f.x), mix(rh(i + vec2(0, 1)), rh(i + vec2(1, 1)), f.x), f.y); }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
       float grain = rh(floor(vRoadPos.xz * 22.0)) * 0.55 + rn(vRoadPos.xz * 3.0) * 0.3 + rn(vRoadPos.xz * 0.35) * 0.45;
-      diffuseColor.rgb *= 0.78 + grain * 0.32;`);
+      diffuseColor.rgb *= ${(1 - (look.road.grain ?? 0.32) * 0.7).toFixed(3)} + grain * ${(look.road.grain ?? 0.32).toFixed(3)};`);   // look.road.grain: how strong
   };
   group.add(solid, lights, roadMesh);
   if (water) group.add(water);
@@ -141,7 +157,23 @@ function land(S, f, scene, look, tier) {
 }
 
 // ---------------------------------------------------------------- mountains far away: rings of jagged ridges, each layer lighter and hazier
+function volcanoes(S, scene, look) {
+  // big lone cones far away (scene.volcanoes: [x, z, radius, height, layer]): a crater on top, the layer's colour, a lighter rim on the sun's side
+  const haze = C(look.fog.colour);
+  for (const [x, z, r, h, k] of scene.volcanoes ?? []) {
+    // air between: the farther layer the more of the haze; a lighter crater rim (snow or bare rock, look.volcano.rim) at the top
+    const V = look.volcano ?? {}, base = C(look.ridges[Math.min(look.ridges.length - 1, k ?? 0)]).lerp(haze, V.haze ?? 0.35), top = base.clone().lerp(C(V.rim ?? '#ffffff'), V.rimMix ?? 0.15);
+    const g = new THREE.CylinderGeometry(r * 0.12, r, h, 28, 3, true);
+    const p = g.attributes.position, col = new Float32Array(p.count * 3), c = new THREE.Color();
+    for (let i = 0; i < p.count; i++) { const t = (p.getY(i) + h / 2) / h, a = Math.atan2(p.getZ(i), p.getX(i)); p.setY(i, p.getY(i) + noise2(a * 3 + x, t * 4) * h * 0.04 * (1 - t)); c.copy(base).lerp(top, smoothstep(0.75, 0.95, t)).lerp(haze, (1 - t) * 0.45); col.set([c.r, c.g, c.b], i * 3); }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
+    S.add(g, null, { m: trs(X(x), h / 2 - h * 0.12, z), keepColors: true, jitter: 0, wobble: 0 });
+  }
+}
+
 function ridges(S, scene, look, tier) {
+  if (scene.volcanoes) volcanoes(S, scene, look);
+  if (!scene.ridges) return;
   const [cx, cz] = scene.ridges.centre, sky = C(look.sky.glow), haze = C(look.fog.colour);
   scene.ridges.rings.forEach(([rad, h0, h1], k) => {
     const base = C(look.ridges[k]), rim = base.clone().lerp(sky, 0.3), skirt = base.clone().lerp(haze, 0.45), n = tier.ridge;
@@ -149,7 +181,8 @@ function ridges(S, scene, look, tier) {
     const N = scene.ridges.notch, na = N ? Math.atan2(N.z - cz, N.x - cx) : 0;
     const open = (a) => { if (!N || k >= N.rings) return 0; let d = Math.abs(a - na) % (Math.PI * 2); if (d > Math.PI) d = Math.PI * 2 - d; return 1 - smoothstep(N.width * 0.5, N.width, d); };
     const lower = (a, h) => (N ? h + (N.floor - h) * open(a) : h);
-    const peak0 = (a) => { const v = 1 - Math.abs(noise2(Math.cos(a) * 2.6 + k * 11, Math.sin(a) * 2.6 - k * 5)); const w = noise2(a * 9 + k * 3, k * 7) * 0.5 + 0.5; return h0 + (h1 - h0) * (v * v * v * 0.85 + w * 0.15); };
+    const sharp = scene.ridges.sharp ?? 2.6;   // how many peaks round the ring (higher: more, steeper peaks)
+    const peak0 = (a) => { const v = 1 - Math.abs(noise2(Math.cos(a) * sharp + k * 11, Math.sin(a) * sharp - k * 5)); const w = noise2(a * 9 + k * 3, k * 7) * 0.5 + 0.5; return h0 + (h1 - h0) * (v * v * v * 0.85 + w * 0.15); };
     const peak = (a) => lower(a, peak0(a));
     const mid = base.clone().lerp(skirt, 0.5);
     const rows = [[-300, (a) => lower(a, -320), skirt], [-150, (a) => lower(a, peak0(a) * 0.15 + noise2(a * 31, k) * 12 - 120), mid], [-70, (a) => lower(a, peak0(a) * 0.5 + noise2(a * 23, k) * 10), base], [25, peak, rim]];
@@ -169,12 +202,12 @@ function river(f, scene, look) {
   const geos = R ? [gridGeo(n, 5, (r, c) => {
     const x = x0 + (r / (n - 1)) * (x1 - x0), z = f.riverZ(x) + (c - 2) * R.width * 0.25;
     k.copy(deep).lerp(light, c === 2 ? 0.6 + 0.2 * noise2(x / 40, 3) : c === 1 || c === 3 ? 0.4 : 0.1);
-    return [X(x), f.groundY(x, z) + R.y, z, k];   // heights in the scene are relative to the road's height nearby
+    return [X(x), f.waterY(x, z, R.y), z, k];   // heights in the scene are relative to the road's height nearby (absolute on a hillside)
   })] : [];
   // a sea (a harbour): one sheet over the whole extent at a fixed level, lighter towards the middle of the picture
   if (scene.sea) { const [a0, b0, a1, b1] = scene.terrain.extent; geos.push(gridGeo(5, 5, (r, c) => { const x = a0 + (c / 4) * (a1 - a0), z = b0 + (r / 4) * (b1 - b0); k.copy(deep).lerp(light, 0.2 + 0.25 * noise2(x / 120, z / 120)); return [X(x), scene.sea.y, z, k]; })); }
   // the lake: rings of an ellipse, lighter towards the middle
-  const K = scene.lake, ky = K ? f.groundY(K.x, K.z) + K.y : 0;
+  const K = scene.lake, ky = K ? f.waterY(K.x, K.z, K.y) : 0;
   if (K) geos.push(gridGeo(8, 49, (r, c) => {
     const q = 1 - r / 7, a = (c / 48) * Math.PI * 2;
     k.copy(deep).lerp(light, 0.15 + (1 - q) * 0.55);
@@ -419,12 +452,13 @@ function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza = () 
 
 // ---------------------------------------------------------------- trees: dark faceted pines everywhere, pink cherry trees near the road and the river
 function pine(S, look, x, y, z, h, rnd, lite) {
-  const P = look.pine, layers = lite ? 3 : 4;
+  // look.pine.shape: { layers, width, tier } for a narrower, taller cedar (defaults: the round pine)
+  const P = look.pine, Sh = P.shape ?? {}, layers = lite ? Math.max(3, (Sh.layers ?? 4) - 2) : Sh.layers ?? 4, wide = Sh.width ?? 0.3, tierH = Sh.tier ?? 0.36;
   S.cyl(0.18 * h / 9, 0.3 * h / 9, h * 0.3, X(x), y + h * 0.15, z, C(P.trunk), { seg: 6 });
   for (let l = 0; l < layers; l++) {
-    const t = l / (layers - 1), r = h * (0.3 - t * 0.17), ch = h * 0.36;
+    const t = l / (layers - 1), r = h * (wide - t * wide * 0.6), ch = h * tierH;
     const colour = C(P.dark).lerp(C(P.mid), t).lerp(C(P.top), t * t * 0.7);
-    S.cone(r, ch, X(x), y + h * (0.24 + t * 0.5) + ch / 2, z, colour, { seg: lite ? 7 : 10, ry: rnd() * 3 });
+    S.cone(r, ch, X(x), y + h * (0.24 + t * (0.86 - tierH)) + ch / 2, z, colour, { seg: lite ? 7 : 10, ry: rnd() * 3 });
   }
 }
 /** A cherry tree: a short trunk with two branches and a soft cloud of blossom (round blobs, lighter on top). */
@@ -442,6 +476,8 @@ function cherry(S, look, x, y, z, h, rnd, lite) {
 }
 
 function trees(S, f, scene, look, tier, rnd, lite) {
+  // the view to the lake stays open: no trees on its shores
+  const K = scene.lake, nearLake = (x, z) => !!K && Math.hypot((x - K.x) / K.rx, (z - K.z) / K.rz) < 1.9;
   const [x0, z0, x1, z1] = scene.terrain.extent, ry = f.floor;
   const [cx0, cz0, cx1, cz1] = scene.terrain.core ?? scene.terrain.extent;
   // `near`: only within 45 m of the road or the plaza (the frame of every picture), else anywhere (half of them near the core)
@@ -456,7 +492,7 @@ function trees(S, f, scene, look, tier, rnd, lite) {
       // the valley side stays open near the road (the view down to the river), trees there only further out
       if (f.base(x, z) < -2 && e < (f.openValley ?? 0)) continue;
       if (rel < ry + 2 || f.slope(x, z, y) > 0.85) continue;
-      if (f.wet(x, z, 4)) continue;
+      if (f.wet(x, z, 4) || nearLake(x, z)) continue;
       // away from the road, cherries stay low by the river and pines thin out on the valley floor
       if (!near && kind === 'cherry' && rel > ry + 14 && rnd() > 0.1) continue;
       if (kind === 'pine' && rel < ry + 3 && rnd() > 0.35) continue;
@@ -484,7 +520,7 @@ function trees(S, f, scene, look, tier, rnd, lite) {
   const P = look.pine;
   for (let n = 0, tries = 0; n < (tier.carpet ?? 0) && tries < (tier.carpet ?? 0) * 6; tries++) {
     const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0), e = f.edge(x, z);
-    if (e < 120 || f.wet(x, z, 6) || noise2(x / 90, z / 90) < -0.1) continue;
+    if (e < 120 || f.wet(x, z, 6) || nearLake(x, z) || noise2(x / 90, z / 90) < -0.1) continue;
     const rel = f.relHeight(x, z), y = rel + f.groundY(x, z);
     if (rel < ry + 3 || f.slope(x, z, y) > 0.9) continue;
     for (let g = 0, m = 3 + Math.floor(rnd() * 6); g < m; g++, n++) {
@@ -587,10 +623,13 @@ function details(S, G, f, scene, look, tier, rnd, lite, sideInfo, onPlaza) {
       S.ball(0.12, X(m.x), y + 2.6, m.z, stoneC, { detail: 0 });
     } else if (m.type === 'gate') {
       S.push(trs(X(m.x), y, m.z, 0, ry, 0));
-      for (const sx of [-1.3, 1.3]) S.cyl(0.14, 0.17, 3.2, sx, 1.6, 0, red, { seg: 8 });
-      S.box(3.6, 0.22, 0.3, 0, 2.75, 0, red, { r: 0.03 });
-      S.box(4.2, 0.2, 0.36, 0, 3.25, 0, C('#2e2428'), { r: 0.03, rz: 0 });
-      S.box(0.18, 0.5, 0.2, 0, 3.0, 0, red, { r: 0 });
+      // a torii: two red pillars, a tie beam and a black-capped top beam; m.width / m.height scale it (a road torii is wide)
+      const w = m.width ?? 2.6, hh = m.height ?? 3.2, k = hh / 3.2;
+      for (const sx of [-w / 2, w / 2]) { S.cyl(0.14 * k, 0.17 * k, hh, sx, hh / 2, 0, red, { seg: 8 }); S.cyl(0.24 * k, 0.24 * k, 0.3 * k, sx, 0.15 * k, 0, C('#2e2428'), { seg: 8 }); }
+      S.box(w + 1.0 * k, 0.22 * k, 0.3 * k, 0, 2.75 * k, 0, red, { r: 0.03 });
+      S.box(w + 1.6 * k, 0.2 * k, 0.36 * k, 0, 3.25 * k, 0, C('#2e2428'), { r: 0.03 });
+      S.box(w + 1.4 * k, 0.16 * k, 0.32 * k, 0, 3.1 * k, 0, red, { r: 0.02 });
+      S.box(0.18 * k, 0.5 * k, 0.2 * k, 0, 3.0 * k, 0, red, { r: 0 });
       S.pop();
     }
   }
@@ -630,5 +669,19 @@ function props(S, G, f, scene, look, lite, lampHeads) {
     } else if (p.type === 'pine') {
       pine(S, look, p.x, y - 0.2, p.z, (p.h ?? 7) * 1.5, rnd, lite);
     }
+  }
+}
+
+// ---------------------------------------------------------------- street lamps along the road (scene.road.lamps: metres apart), on the uphill side, the arm over the road
+function roadLamps(S, G, f, scene, look, sideInfo, lampHeads) {
+  const L = look.lamp, pole = C(L.pole), every = scene.road.lamps, hgt = L.height ?? 7, right = (d) => [d[1], -d[0]];
+  for (let d = every * 0.5; d < f.info.length - 5; d += every) {
+    const p = pointAt(f.road, f.info, d), si = sideInfo[p.i], side = -si.valley, r = right(p.dir), o = f.hw + 0.9;
+    const x = p.x + r[0] * side * o, z = p.z + r[1] * side * o, y = f.roadY(d), hx = p.x + r[0] * side * (f.hw - 1.4), hz = p.z + r[1] * side * (f.hw - 1.4);
+    S.cyl(0.09, 0.13, hgt, X(x), y + hgt / 2, z, pole, { seg: 6 });
+    const len = Math.hypot(hx - x, hz - z);
+    S.box(0.1, 0.1, len, X((x + hx) / 2), y + hgt, (z + hz) / 2, pole, { r: 0, ry: Math.atan2(X(hx - x), hz - z) });
+    G.box(0.42, 0.08, 0.26, X(hx), y + hgt - 0.08, hz, glow(L.light, 2.4), { r: 0, ry: Math.atan2(X(p.dir[0]), p.dir[1]) });
+    lampHeads.push([X(hx), y + hgt - 0.2, hz]);
   }
 }

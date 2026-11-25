@@ -111,7 +111,7 @@ async function garagePage(me) {
 
   return {
     title: t('garage.title'), sub: t('garage.sub'),
-    actions: [h('a', { class: 'btn primary', href: '/play/', target: '_blank', rel: 'noopener' }, icon('bolt'), t('garage.play'))],
+    actions: [h('a', { class: 'btn primary', href: '/play/' }, icon('bolt'), t('garage.play'))],
     body: h('div', { class: 'page stack' },
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.car') }), h('div', { class: 'cars', role: 'radiogroup', 'aria-label': t('garage.car') }, carButtons)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.colour') }), h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.colour') }, swatches)),
@@ -119,13 +119,12 @@ async function garagePage(me) {
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.glow') }), h('p', { class: 'muted', text: t('garage.glowHint') }), glowOff, h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.glow') }, glowSwatches)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.name') }), form),
       controlsCard(),
-      await challengesCard(),
+      // challenges and the race boards are paused (docs/FOCUS.md): the code stays (challengesCard, boardCard), the garage does not show them
       statsCard(stats),
-      boardCard(await api('GET', '/api/times')),
       h('div', { class: 'card stack' }, preview,
         h('div', { class: 'cluster' },
           h('button', { class: 'btn primary', type: 'button', onclick: save }, icon('check'), t('common.save')),
-          h('a', { class: 'btn outline', href: '/play/', target: '_blank', rel: 'noopener' }, icon('bolt'), t('garage.play'))))),
+          h('a', { class: 'btn outline', href: '/play/' }, icon('bolt'), t('garage.play'))))),
   };
 }
 
@@ -158,7 +157,7 @@ async function challengesCard() {
   const row = (d) => h('div', { class: 'challenge' },
     h('b', { text: d.title[lang] }), h('span', { class: 'stars', 'aria-label': t('challenges.stars', { n: progress[d.id]?.stars ?? 0 }), text: stars(progress[d.id]?.stars ?? 0) }),
     h('span', { class: 'muted', text: d.text[lang] }),
-    d.type === 'lap' ? h('span', { class: 'muted', text: t('challenges.lap') }) : h('a', { class: 'btn outline', href: '/play/?challenge=' + d.id, target: '_blank', rel: 'noopener' }, icon('bolt'), t('challenges.play')));
+    d.type === 'lap' ? h('span', { class: 'muted', text: t('challenges.lap') }) : h('a', { class: 'btn outline', href: '/play/?challenge=' + d.id }, icon('bolt'), t('challenges.play')));
   return h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('challenges.title') }), h('p', { class: 'muted', text: t('challenges.intro') }), ...defs.map(row));
 }
 
@@ -245,6 +244,6 @@ function settingsPage(me) {
       me.roles.includes('admin') ? gamesAdminCard() : null,
       me.roles.includes('admin') ? peopleCard(me) : null, me.roles.includes('admin') ? hubCard(me) : null,
       me.roles.includes('admin') ? installationCard() : null, aboutCard(me),
-      h('p', { class: 'muted' }, h('a', { href: '/credits/', target: '_blank', rel: 'noopener', text: t('credits.link') }))),
+      h('p', { class: 'muted' }, h('a', { href: '/credits/', text: t('credits.link') }))),
   };
 }

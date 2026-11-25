@@ -188,3 +188,164 @@ Biggest differences left (picture `probe-sunset-drift.png` of this round):
 3. Sky: the mockup's cloud bands are brighter and more distinct.
 4. Left slope: the mockup shows more green ledges and pines on the rock; ours is mostly rock and grass with one big cherry.
 5. Bridge: half hidden in the mist from this camera; the mockup shows its arches clearly above the river.
+
+## Rounds 15 and 16 (2026-11-25): measured against the mockup
+
+A measuring tool: `node tools/palette.mjs <mockup> <picture> [--boxes=name:x0,y0,x1,y1;...]` (headless Chromium reads the pixels, no
+packages): brightness, contrast (standard deviation), saturation, the mean colour of six regions (left/right × thirds) and of named
+boxes, and the distance of each (RGB). Boxes used: sky-top 0.4,0.11,0.6,0.16; near-sun 0.72,0.2,0.8,0.26; road-near 0.55,0.85,0.75,0.97;
+smoke 0.02,0.55,0.2,0.75 (fractions of the picture).
+
+Done: a cloud layer of its own (soft bands at the sky's distance, `makeClouds` in sky.js, lit coral on the sun's side); a softer grade
+(less saturation, contrast 0.94, shadows lifted a little towards mauve, a fine film grain; bloom only above 1.8, so lamps, sun and
+reflectors glow and the car's paint does not); a coral sun and mauve sky; lower, rosier mountain rings and a lower far slope, so the
+right third is sky with the sun just over the mountains; the camera of the mockup (1.6 m, 5.6 m behind, the car big left of the
+middle, the horizon at about a third); greener-olive land, stronger pink cherries, satin grey rims; the power poles out of the picture;
+the smoke as big billows that fill the lower left and fade only right at the lens.
+
+Distances to the mockup, start of round 15 → end of round 16: mean 58 → 36; brightness 99 → 114 (mockup 108), contrast 43 → 43 (42),
+saturation 0.44 → 0.34 (0.37); smoke 74 → 9, middle-left 57 → 8, top-right 76 → 36, road-near 28 → 36, near-sun 169 → 95.
+
+Biggest differences left:
+1. Near the sun: ours is a pale cream glow, the mockup a saturated coral-orange (#faae7b) round a smaller bright core.
+2. Sky top: ours more magenta and darker (#9e5674 against #c37c88).
+3. Road near: a little too light and red (#855155 against #683e4c).
+4. Valley: the river and mist are only a strip at the right edge; the mockup shows the river bend and the bridge mid-right.
+5. The car (RX-7, a choice) and the HUD values (a short drift) as before.
+
+## Rounds 17 and 18 (2026-11-25)
+
+Done: surfaces instead of flat colour on the land, rocks and trees (a small shader: colour noise per facet from its own normal, soft
+blotches and a fine grain from the world position; `look.surface`); the sun moved to the mockup's place (right third, just over the
+mountains) with a more saturated coral halo; a lighter, rosier sky; a darker mauve road; a lake with an arched bridge placed about 25
+degrees right of the view down the road, the hills and trees kept off its shores, so it glows mid-right behind the guardrail. The
+sky-top box of the measuring moved to open sky (the old one lay on the drift-score card).
+
+Distances (boxes: sky-top 0.62,0.03,0.85,0.1; near-sun 0.72,0.2,0.8,0.26; road-near 0.55,0.85,0.75,0.97; smoke 0.02,0.55,0.2,0.75):
+mean 36 → 31; brightness 114 (mockup 108), contrast 42 (42), saturation 0.35 (0.37); smoke 9, middle-left 8, middle-right 16,
+road-near 30, top-right 33, sky-top 44, near-sun 69.
+
+Biggest differences left:
+1. Near the sun: still a pale cream (#eccfb6) against the mockup's saturated orange (#faae7b): ACES tone mapping bleaches bright warm
+   colours; next: a hue-preserving curve for the sky (or the sky drawn after tone mapping).
+2. Bottom-left: our smoke and the shoulder are lighter than the mockup's (#99717f against #7b5b6a).
+3. The bridge disappears in the mist and haze over the lake; the mockup shows it as a clear dark silhouette.
+4. Top-left: the cherry tree in the mockup is pink and lit (#bd5076); ours is dark red in the shade of the slope.
+5. Car (RX-7) and HUD values (short drift) as before.
+
+## Rounds 19 and 20 (2026-11-26): the composition of the mockup; now on the shared modules
+
+The branch was set up again on master (the look's parts are now shared modules, `game/view/look/stage.js` builds the picture for the
+probe and the game); rounds 15 to 18 were carried over (the cloud layer now lives in `stage.js`). The probe uses the game's own
+chase camera (`LookChase` in `view/camera.js`), which got one option: `turn` (degrees, + = to the right) turns the view away from the
+road into the valley beside it.
+
+Done: the camera turned 24 degrees into the valley and set a little to the left of the car, so the valley with river, mist and forest
+lies mid-right, the road curves right in front of it, the car sits big left of the middle seen from behind-left, the sun is in the
+right third over the mountains; the uphill land on the left made much lower (a sunny slope with the cherry trees, pines and rocks in
+the top left corner instead of a dark cliff); a more saturated orange round the sun; a darker mauve road; the bridge darker and
+without mist round it; stronger pink blossom; warmer rock.
+
+Distances (same boxes as before): mean 31 → 28; brightness 116 (mockup 108), contrast 40 (42), saturation 0.36 (0.37); middle-left 4,
+middle-right 15, road-near 20, top-left 24, bottom-right 26, near-sun 69 → 30, top-right 32, bottom-left 40, smoke 9 → 41, sky-top 43.
+
+Biggest differences left:
+1. Smoke: with the camera now left of the car the billows lie between the lens and the car and fade there; the mockup's big billows
+   fill the lower left. Next: let them grow larger beside and behind the car, keep them off the lens.
+2. Sky top: paler and more cream than the mockup's pink.
+3. The bridge is not seen from here (behind the valley rim); the mockup shows it mid-right over the river.
+4. The tail lights are red bars; the mockup shows two separate lamps (a question of the car model).
+5. HUD values from a short drift, as before.
+
+## Round 21 (2026-11-26): the owner's verdict with a real GPU (0.2.4)
+
+"Why so much grain, ugly": the film grain is off (`grade.grain` 0), the surface noise on large areas is much weaker (`surface`:
+facet 0.07, blotch 0.10, grain 0.02), the road's grain weaker (`road.grain` 0.12; the shader takes its strength from the look now).
+"Why is the car model so ugly, it was better in the rx7 folder": the painted car style (toon steps, contour, dust) is off; it is an
+option of the look now (`car.painted`, default off) and the car keeps the game's normal PBR materials with the sky's reflection and
+clear coat. Whether the model file keeps its original textures and rim materials is asked of the car session (the normaliser).
+
+## Round 22 (2026-11-26)
+
+Done: sharp, staggered mountain peaks (`ridges.sharp`: more peaks round each ring, five rings, higher and finer on the high tier); the
+car seen from behind-left with its flank and drift angle as in the mockup (chase camera: 1.5 m to the right, turn 10 degrees, 6 m
+behind); the sun moved back into the right third over the peaks; warmer, rosier and bigger smoke billows (`smoke.size`), and a puff
+in front of the car that would cover it on screen fades out (`Billows.aim(camera)`), so the car is always seen and the smoke beside
+and behind it stays.
+
+Distances: mean 30 (round 20: 28; the new camera trades a little colour match for the mockup's angle); top-left 14, smoke 12,
+middle-left 20, middle-right 22, road-near 26, bottom-left 29, bottom-right 30, top-right 37, sky-top 44, near-sun 62.
+
+Biggest differences left:
+1. Sky top and near the sun: paler cream than the mockup's pink and orange.
+2. Smoke: thinner than the mockup's dense billows at the lower left.
+3. The bridge is not in sight from this camera.
+4. The cherry tree at the top left hangs in front of the drift-score card; the mockup's sits further left.
+5. Car model (RX-7) and HUD values (short drift), as before.
+
+# Touge at dusk (the owner's focus from 2026-11-25 on, FOKUS.md)
+
+The mountain pass sunset stays at round 22. From now on only the touge look. No mockup file yet (`touge.png` follows), so the first
+rounds go by the description: dusk blue-violet with the last orange, a rising moon, a narrow road with hairpins, a red torii and stone
+lanterns, cedars on a steep slope, a calm crater lake deep below, volcano silhouettes, warm street lamps.
+
+## Touge round 1 (2026-11-26)
+
+New in the shared modules (all data-driven, the game takes them over with its touge map):
+- `field.js`: terrain mode `slope`: the land is one hillside (a height profile along `terrain.dir`); a road that winds down it with
+  switchbacks and hairpins takes its drawn height from the hillside under it (`road.grade: 'slope'`, smoothed); water heights are
+  absolute there (`f.waterY`).
+- `world.js`: volcano cones far away (`scene.volcanoes`: x, z, radius, height, layer), cedar shape for the pine (`look.pine.shape`:
+  layers, width, tier height), a wide road torii (`marks` gate with `width`/`height`, a black-capped top beam), street lamps along the
+  road on the uphill side with the arm over the road (`road.lamps`: metres apart).
+- `sky.js`: a moon (`look.sky.moon`: dir, size, colour, bright, glow).
+- `camera.js` (LookChase): `swing`, metres per radian of drift angle: the camera swings out to the side the nose points to, so the
+  angle is seen (the owner: "the camera swings with the drift").
+- `stage.js`: a mist patch may carry its own absolute height.
+Data: `game/data/looks/touge-dusk.json`, the probe scene `game/data/probe-touge.json` (`lookprobe.html?scene=touge`).
+
+Pictures: `docs/screenshots/probe-touge-drift.png` (high tier, drifting 44 degrees into the first hairpin, the lake below),
+`probe-touge-phone.png`, `probe-touge-overview.png`. Numbers: high tier 995k triangles / 50 calls (drift view), phone tier 81k / 21.
+
+Biggest open points:
+1. The moon is not in the picture yet (behind the drift-score card or off the frame).
+2. The volcanoes are flat dark triangles: they need haze, a lit rim and a crater edge.
+3. The smoke is grey and covers the left third; at dusk it should be lit by the lamps, lighter and smaller.
+4. The meeting place at the top is big, dark and empty (no lanterns, no people, no torii seen from it).
+5. Cedars only on the valley side of the picture; the uphill slope should be a dark cedar wall with lanterns along the road.
+
+## Touge round 2 (2026-11-26): the owner's new list (smoke, rendering), the orchestrator's review
+
+Done in the shared modules (the game takes them with it):
+- Smoke (`billows.js`, data in `look.smoke`): trails behind the rear wheels that grow with the drift angle (`start`, `spread`, the
+  angle scales each puff), thin out fast (`life`, `lifeGrow`, `fade` < 1), a little more for the first `burstTime` s of a slide
+  (`burst`), half the old size on the touge. `stage.render()` now keeps the car free of its own smoke in the game too
+  (`Billows.aim` is called there).
+- Contact shadow under the car (`wheels.js`): a soft gradient that is dark right under the car and fades to its edge, not a flat disc.
+- Volcanoes: hazier by layer, a lighter crater rim (`look.volcano`); farther away.
+- Touge look: warmer and brighter (exposure, sun, fill), green cedars and grey road kept, bloom only above 2.4 (lamps, chevrons),
+  smaller lamp halos. Probe HUD in the touge's free-run mode (no lap or position: run time, drift score, best drift).
+Numbers: high tier 995k triangles / 50 calls, phone tier about 81k / 21.
+
+Still open: the game has no touge map yet (the drift chat builds it), so no game picture of the touge; volcano faces lie in their
+own shade (dark flat triangles); a bright highlight on the car's roof; real shadows of trees and rails need the shadow box to reach
+farther; foliage from outside sources waits for the owner's yes to download (a list went to the orchestrator); automatic quality
+tiers are next.
+
+## Quality tiers by device (2026-11-26)
+
+`game/view/look/autotier.js`: `readDevice(renderer)` (graphics chip from WebGL, memory, cores, phone), `guessTier(device)` (a first
+guess: no chip/software low; strong phones medium, others low; desktop graphics cards high, integrated graphics medium or low),
+`TierPicker` (measures the frame rate after the first 1.5 s for 3 s: under 40 fps one step down, over 58 fps one step up unless it
+went down before; two steps at most, then it stays), `startTier(setting, device)` (a setting high/medium/low wins over auto).
+`stage.setTier(name)` switches shadows, the after-pass and the world's density and builds the world again (the caller builds the cars
+again when `stage.carTier` changed). Looks may have a `medium` tier (the touge has one; others fall back to low). Probe:
+`?tier=auto` (headless software rendering picks low, as it should). Tests: `autotier.test.mjs`. The setting in the game (Auto, High,
+Medium, Low) is the drift chat's part.
+
+## Touge triangle budget (2026-11-26)
+
+On master the land is no longer a shadow receiver (the drift chat: the VSM pass drew every receiver again). The touge's tiers thinned
+to keep the high tier under 400k triangles a frame: high cell 4.5 m, 550 + 320 cedars, 3500 far trees, cedar 5 tiers; medium cell 6 m,
+320 + 200 cedars, 2000 far trees. Measured (probe, drift view, including shadow and bloom passes): high 336k triangles / 49 calls
+(world 250k; before 995k), medium 190k / 49 (world 108k), low world 59k. The picture is unchanged by eye.

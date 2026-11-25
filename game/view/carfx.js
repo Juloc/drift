@@ -1,11 +1,11 @@
 // What a model car gets besides its file: an underbody (frame, axles, drive shaft, exhaust pipe in rough strokes), a contact
 // shadow in the car's own shape, a pool of headlight on the road ahead, brake lights that brighten when braking, underglow as
 // two light strips along the sills, and flames with a flash at the exhaust when the throttle is lifted or the box shifts up.
-// The pops are announced as one event per pop, `car.pop` on window ({ kind: 'lift'|'shift', strength 0..1, x, y, z }), so that the
-// sound fires at the same moment as the picture. No canvas in Node: the textures are made only where a document exists.
+// The pops come from the game: it fires `car.pop` on window ({ strength 0..1 }) when the throttle is lifted at speed and plays the
+// bang itself (game/main.js); the flames listen to that one event, so picture and sound go off together. No canvas in Node: the
+// textures are made only where a document exists.
 import * as THREE from '../../vendor/three/three.module.js';
 import { mergeGeometries } from '../../vendor/three/addons/utils/BufferGeometryUtils.js';
-import { revs } from '../sim/engine.js';
 
 /** Measures a car group made by prepareCar: its box (car axes: x left, y up, z front) and the wheel centres. */
 export function measure(group) {
@@ -103,9 +103,10 @@ export function dressCar(group, spec = {}, { lite = false } = {}) {
 
 /**
  * The parts and the behaviour of one car (call for each spawned copy): brake lights, flames and flash, underglow strips.
- * @returns {{ update(dt, s): void, setGlow(hue|null): void }} s = { throttle, brake, speed (m/s), top (m/s), engine, lamps (0..1) }
+ * `listen` (default: when there is a window): the flames follow the window event `car.pop`; dispose() stops listening.
+ * @returns {{ update(dt, s): void, pop(strength, hold?): void, setGlow(hue|null): void, dispose(): void }} s = { brake 0..1 }
  */
-export function carFx(car, spec = {}, { lite = false, announce = false } = {}) {
+export function carFx(car, spec = {}, { lite = false, listen = typeof window !== 'undefined' } = {}) {
   const m = measure(car.group), { box } = m;
   // brake lights: this car's own copies of the glowing rear lamps
   const brakeMats = new Map();
@@ -146,43 +147,32 @@ export function carFx(car, spec = {}, { lite = false, announce = false } = {}) {
   const fxg = new THREE.Group(); fxg.name = 'fx_live'; fxg.add(...flames, ...lights, glow);
   car.group.add(tag(fxg));
 
-  // pops: after a lift of the throttle (a short burst) and at an upshift under throttle (one)
-  let hiThrottleFor = 0, gear = 1, queue = [], life = 0, strength = 0;
-  const fire = (kind, s) => {
+  // pops: one burst per event, its strength sets the size and one or two smaller after-bangs
+  let queue = [], life = 0, strength = 0;
+  const fire = (s) => {
     life = 0.09 + 0.05 * s; strength = s;
     for (const f of flames) { f.visible = true; f.rotation.z = Math.random() * Math.PI; }
-    if (announce && typeof window !== 'undefined') {
-      const p = new THREE.Vector3().copy(tips[0]).applyMatrix4(car.group.matrixWorld);
-      window.dispatchEvent(new CustomEvent('car.pop', { detail: { kind, strength: s, x: p.x, y: p.y, z: p.z } }));
-    }
   };
+  const onPop = (e) => {
+    const st = Math.max(0.2, Math.min(1, e.detail?.strength ?? 1));
+    fire(st);
+    for (let i = 1, t = life + 0.03; i <= Math.round(st * 2); i++, t += 0.12 + Math.random() * 0.05) queue.push({ t, s: st * (1 - 0.3 * i) });   // each after-bang after the last one went out
+  };
+  if (listen) window.addEventListener('car.pop', onPop);
   return {
     flames, glow, brakeMats,
-    /** Fires one pop now (for pictures and tests). */
-    pop(kind = 'lift', strength = 1, hold = 0) { fire(kind, strength); if (hold) life = hold; },
+    /** A pop now as if the event came (for pictures and tests); `hold` keeps the flame that many seconds. */
+    pop(strength = 1, hold = 0) { onPop({ detail: { strength } }); if (hold) life = hold; },
+    dispose() { if (listen) window.removeEventListener('car.pop', onPop); },
     setGlow(hue) {
       glow.visible = hue !== null && hue !== undefined;
       if (glow.visible) { const c = new THREE.Color().setHSL(hue / 24, 1, 0.55); stripMat.color.copy(c).multiplyScalar(2.2); groundMat.color.copy(c).multiplyScalar(0.9); }
     },
     update(dt, s) {
       for (const mat of brakeMats.values()) mat.emissiveIntensity = mat.userData.base * (s.brake > 0.1 ? 2.8 : 1);
-      // the gear of the engine sound (game/sim/engine.js): an upshift with the foot down pops once
-      if (s.engine && s.top) {
-        const g = revs(s.speed, s.top, s.engine, gear).gear;
-        if (g > gear && s.throttle > 0.6 && s.speed > 6) queue.push({ t: 0.03, kind: 'shift', s: 0.7 });
-        gear = g;
-      }
-      if (s.throttle > 0.6) hiThrottleFor += dt;
-      else {
-        if (s.throttle < 0.15 && hiThrottleFor > 0.4 && s.speed > 8) {   // a lift: two to four pops, 60 to 140 ms apart
-          let t = 0.02; const n = 2 + Math.floor(Math.random() * 3);
-          for (let i = 0; i < n; i++) { queue.push({ t, kind: 'lift', s: 1 - i * 0.18 }); t += 0.06 + Math.random() * 0.08; }
-        }
-        if (s.throttle < 0.15) hiThrottleFor = 0;
-      }
       for (const q of queue) q.t -= dt;
       const due = queue.filter((q) => q.t <= 0); queue = queue.filter((q) => q.t > 0);
-      for (const q of due) fire(q.kind, q.s);
+      for (const q of due) fire(q.s);
       life -= dt;
       const on = life > 0, k = on ? Math.min(1, life / 0.06) : 0;
       for (const f of flames) {

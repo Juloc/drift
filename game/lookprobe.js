@@ -7,6 +7,7 @@ import { newScore, scoreStep } from './sim/score.js';
 import { lineBot } from './sim/linebot.js';
 import { FixedLoop } from './sim/loop.js';
 import { S15 } from './view/s15.js';
+import { LookChase } from './view/camera.js';
 import { WheelPool } from './view/wheels.js';
 import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
@@ -14,31 +15,42 @@ import { createStage, carMaker } from './view/look/stage.js';
 import { mergeParked } from './view/look/parked.js';
 import { paintCar } from './view/look/paint.js';
 import { ProbeHud } from './view/probehud.js';
+import { guessTier, readDevice, TierPicker } from './view/look/autotier.js';
 
 const params = new URLSearchParams(location.search);
 const lang = (params.get('lang') ?? (navigator.language?.startsWith('de') ? 'de' : 'en')) === 'de' ? 'de' : 'en';
 const T = {
-  en: { lap: 'Lap', time: 'Time', best: 'Best', score: 'Drift score', position: 'Position', angle: 'Drift angle', gear: 'Gear', gas: 'Throttle', brake: 'Brake', hand: 'Handbrake', lost: 'Lost!', handBtn: 'HAND', brakeBtn: 'BRAKE', gasBtn: 'GAS' },
-  de: { lap: 'Runde', time: 'Zeit', best: 'Beste', score: 'Drift-Score', position: 'Position', angle: 'Driftwinkel', gear: 'Gang', gas: 'Gas', brake: 'Bremse', hand: 'Handbremse', lost: 'Verloren!', handBtn: 'HAND', brakeBtn: 'BREMSE', gasBtn: 'GAS' },
+  en: { lap: 'Lap', time: 'Time', best: 'Best', score: 'Drift score', position: 'Position', angle: 'Drift angle', gear: 'Gear', gas: 'Throttle', brake: 'Brake', hand: 'Handbrake', lost: 'Lost!', online: 'Online', bestDrift: 'Best drift', handBtn: 'HAND', brakeBtn: 'BRAKE', gasBtn: 'GAS' },
+  de: { lap: 'Runde', time: 'Zeit', best: 'Beste', score: 'Drift-Score', position: 'Position', angle: 'Driftwinkel', gear: 'Gang', gas: 'Gas', brake: 'Bremse', hand: 'Handbremse', lost: 'Verloren!', online: 'Online', bestDrift: 'Bester Drift', handBtn: 'HAND', brakeBtn: 'BREMSE', gasBtn: 'GAS' },
 }[lang];
 document.documentElement.lang = lang;
 for (const e of document.querySelectorAll('[data-t]')) e.textContent = T[e.dataset.t];
 const $ = (id) => document.getElementById(id);
 const touch = matchMedia('(pointer: coarse)').matches || params.has('touch');
-const tierName = params.get('tier') === 'low' || (params.get('tier') !== 'high' && touch) ? 'low' : 'high';
+// ?tier=high|medium|low fixes the quality; ?tier=auto guesses from the device and measures the first seconds (view/look/autotier.js);
+// without it: low on touch, else high (as before)
+const tierParam = params.get('tier');
+const autoTier = tierParam === 'auto';
+const tierName = autoTier ? (params.get('autotier') ?? 'medium') : ['high', 'medium', 'low'].includes(tierParam) ? tierParam : touch ? 'low' : 'high';
 document.body.classList.toggle('touch', touch);
 document.body.classList.toggle('lite', tierName === 'low');
 $('touch').hidden = !touch;
 
+// ?scene=<name>: data/probe-<name>.json (default sunset, the mountain pass); ?look=<name> overrides the scene's own look
+const probeName = /^[a-z0-9-]+$/.test(params.get('scene') ?? '') ? params.get('scene') : 'sunset';
+const lookName = /^[a-z0-9-]+$/.test(params.get('look') ?? '') ? params.get('look') : (await fetch(`data/probe-${probeName}.json`).then((r) => r.json())).look ?? 'sunset';
 const [scene0, look, cars] = await Promise.all([
-  fetch('data/probe-sunset.json').then((r) => r.json()),
-  fetch('data/looks/sunset.json').then((r) => r.json()),
+  fetch(`data/probe-${probeName}.json`).then((r) => r.json()),
+  fetch(`data/looks/${lookName}.json`).then((r) => r.json()),
   fetch('data/cars.json').then((r) => r.json()).then((j) => j.cars),
 ]);
-const tier = look.tiers[tierName];
+const tier = look.tiers[tierName] ?? look.tiers[tierName === 'medium' ? 'low' : 'high'];
 
 // ----- the stage: renderer, light, sky, the world, mist, halos, reflection, tyre marks, smoke (view/look/stage.js, shared with the game)
 const stage = createStage({ canvas: $('view'), look, scene0, tierName });
+// auto: the first guess comes from the device; the probe then measures and, when it decides, loads itself again at the new tier
+if (autoTier && !params.has('autotier')) { const g = guessTier(readDevice(stage.renderer)); if (g !== tierName) { params.set('autotier', g); location.replace('?' + params); } }
+const picker = autoTier ? new TierPicker(tierName) : null;
 const { renderer, post, scene, camera, sun, sunDir, sky, world, field: f, mist, halos, env, skids, smoke, buildMs } = stage;   // (the probe loads one scene only, so these stay)
 
 // ----- cars: the driver (white, kit) and the parked ones (merged)
@@ -59,8 +71,9 @@ if (probe.url) {
 }
 const parkedSrc = scene0.parked.map((p, i) => ({ probe: parkedCars[i], matrix: new THREE.Matrix4().compose(new THREE.Vector3(X(p.x), 0, p.z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, HEAD(p.h), 0)), new THREE.Vector3(1, 1, 1)), paint: new THREE.Color(p.paint) }));
 const parked = mergeParked(parkedSrc);
-const carPaint = paintCar(carGroup, sun, look.car);   // the painted look (steps, soft contour, dust)
-paintCar(parked, sun, look.car);
+// the painted car style (toon steps, contour, dust) only when the look asks for it; the owner wants the model's own PBR materials
+const carPaint = look.car?.painted ? paintCar(carGroup, sun, look.car) : null;
+if (look.car?.painted) paintCar(parked, sun, look.car);
 for (const p of parkedSrc) p.probe.group.traverse((o) => o.geometry?.dispose?.());
 scene.add(parked);
 const pool = new WheelPool(8);
@@ -73,20 +86,9 @@ let cur = makeCar(D.x, D.z, D.h), prev = cur, score = newScore(), lastInp = { st
 
 const view = params.get('view') ?? 'drive';
 const rearWheels = (s) => { const ry = HEAD(s.h), c = Math.cos(ry), sn = Math.sin(ry); return [-1, 1].map((sx) => { const lx = sx * S15.wheelX, lz = -S15.wheelZ; return [X(s.x) + lx * c + lz * sn, s.z - lx * sn + lz * c]; }); };
-// the camera of the mockup: low (just over the roof), close behind the car and a little to its right, looking along where the car
-// is going (between its nose and its travel) and so down the road; it follows softly
-const C = look.camera, camAt = { yaw: D.h, ready: false };
-function follow(s, dt) {
-  const travel = speedOf(s) > 4 ? Math.atan2(s.vx, s.vz) : s.h;
-  const aim = s.h + angDiff(s.h, travel) * C.travel;
-  if (!camAt.ready) { camAt.yaw = aim; camAt.ready = true; }
-  camAt.yaw += angDiff(camAt.yaw, aim) * (1 - Math.exp(-4 * dt));
-  const fx = Math.sin(camAt.yaw), fz = Math.cos(camAt.yaw), rx = fz, rz = -fx;   // forward and right (simulation axes)
-  // heights follow the road's visible height profile (the physics underneath stays flat)
-  const cx = s.x - fx * C.dist + rx * C.side, cz = s.z - fz * C.dist + rz * C.side, lx = s.x + fx * C.look, lz = s.z + fz * C.look;
-  camera.position.set(X(cx), C.height + Math.max(f.groundY(cx, cz), f.groundY(s.x, s.z)), cz);
-  camera.lookAt(X(lx), C.lookY + f.groundY(lx, lz), lz);
-}
+// the camera of the mockup: the look's chase camera of the game (view/camera.js), on the road's drawn height
+const chase = new LookChase(camera, look.camera, f.groundY);
+const follow = (s, dt) => chase.update(s, 0, dt);
 function simStep(i) {
   prev = cur;
   const inp = bot(i * DT, cur);
@@ -133,7 +135,7 @@ function draw(now) {
   const gy = f.groundY(s.x, s.z), sh = Math.sin(s.h), ch = Math.cos(s.h);
   const grade = (f.groundY(s.x + sh * 1.3, s.z + ch * 1.3) - f.groundY(s.x - sh * 1.3, s.z - ch * 1.3)) / 2.6;
   carGroup.position.set(X(s.x), gy, s.z);
-  carPaint.uBase.value = gy;
+  if (carPaint) carPaint.uBase.value = gy;
   smoke.car.value.set(X(s.x), gy, s.z);
   carGroup.rotation.set(Math.max(-0.05, Math.min(0.05, -cur.ax * 0.004)) - Math.atan(grade), HEAD(s.h), Math.max(-0.08, Math.min(0.08, -cur.w * vf * 0.0035)), 'YXZ');
   probe.setWheels(cur.steer, spin);
@@ -142,7 +144,7 @@ function draw(now) {
   for (const p of scene0.parked) pool.blob(X(p.x), p.z, 1.15, 2.3, HEAD(p.h));
   pool.end();
   smoke.sync();
-  if (camera.fov !== C.fov) { camera.fov = C.fov; camera.updateProjectionMatrix(); }
+  if (camera.fov !== look.camera.fov) { camera.fov = look.camera.fov; camera.updateProjectionMatrix(); }
   if (view !== 'drive') {
     // ?view=overview, or ?view=cam&cam=x,y,z,lookX,lookY,lookZ (simulation axes) for any other place
     const o = view === 'cam' ? ((c) => ({ pos: c.slice(0, 3), look: c.slice(3, 6) }))((params.get('cam') ?? '0,80,80,0,0,0').split(',').map(Number)) : scene0.views.overview;
@@ -155,15 +157,17 @@ function draw(now) {
   halos.resize(renderer.domElement.height, camera.fov);
   const kmh = speedOf(cur) * 3.6;
   const H = scene0.hud;
-  hud.update({ lap: H.lap, laps: H.laps, ms: simTime * 1000, best: H.best, pos: 1, of: H.of },
+  hud.update({ lap: H.lap, laps: H.laps, ms: simTime * 1000, best: H.best, pos: 1, of: H.of, free: H.mode === 'run', online: H.online ?? 1, bestDrift: H.bestDrift ?? 18460 },
     { kmh, forward: Math.sign(vf) || 1, slip: bodySlip(cur), x: X(s.x), z: s.z, h: s.h }, lastInp, score,
     scene0.parked.map((p) => [X(p.x), p.z]), running ? dt : 0.016);
+  camera.updateMatrixWorld(); smoke.aim?.(camera);   // the smoke keeps the car in sight
   stage.render();
   avg += (Math.min(250, dt * 1000) - avg) * 0.05; frames++;
+  if (picker && running) { const next = picker.sample(dt * 1000); if (next) { params.set('autotier', next); location.replace('?' + params); } }
   if (!$('pdebug').hidden && now - shown > 400) {
     shown = now;
     const r = renderer.info.render;
-    $('pdebug').textContent = `frame ${avg.toFixed(1)} ms, ${r.triangles} triangles, ${r.calls} draw calls, tier ${tierName} (${renderer.domElement.width}x${renderer.domElement.height})\nworld ${Math.round(world.triangles)} triangles, built in ${buildMs.toFixed(0)} ms; t ${simTime.toFixed(2)} s, ${kmh.toFixed(0)} km/h, slip ${(bodySlip(cur) * 57.3).toFixed(0)} deg`;
+    $('pdebug').textContent = `frame ${avg.toFixed(1)} ms, ${r.triangles} triangles, ${r.calls} draw calls, tier ${tierName}${autoTier ? ' (auto)' : ''} (${renderer.domElement.width}x${renderer.domElement.height})\nworld ${Math.round(world.triangles)} triangles, built in ${buildMs.toFixed(0)} ms; t ${simTime.toFixed(2)} s, ${kmh.toFixed(0)} km/h, slip ${(bodySlip(cur) * 57.3).toFixed(0)} deg`;
   }
   requestAnimationFrame(draw);
 }

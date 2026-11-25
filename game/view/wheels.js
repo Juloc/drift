@@ -15,7 +15,9 @@ export class WheelPool {
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     // soft round shadow under each car: a flat disc with a radial alpha ramp, instanced
     const blob = new THREE.CircleGeometry(1, 20).rotateX(-Math.PI / 2);
-    const bm = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    // a contact shadow, not a flat disc: dark right under the car, fading softly to its edge (a small gradient drawn here)
+    const grad = typeof document !== 'undefined' ? (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 2, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,0.75)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })() : null;
+    const bm = new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: grad, transparent: true, opacity: grad ? 0.62 : 0.32, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     this.blobs = new THREE.InstancedMesh(blob, bm, capacityCars);
     this.blobs.count = 0;
     this.blobs.frustumCulled = false;
