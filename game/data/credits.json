@@ -109,6 +109,26 @@
         "en": "\"Mazda RX-7 FD\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, emblems removed, reduced",
         "de": "„Mazda RX-7 FD“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, Embleme entfernt, verkleinert"
       }
+    },
+    {
+      "id": "ae86",
+      "kind": "model",
+      "name": "Toyota Corolla AE86 Trueno",
+      "file": [
+        "game/assets/cars/ae86.glb",
+        "game/assets/cars/ae86-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/toyota-corolla-ae86-trueno-fe02fba6302e450ea8424591493341ea",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, materials replaced, number plates and the door lettering removed, reduced",
+      "use": {
+        "en": "\"Toyota Corolla AE86 Trueno\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, number plates and the door lettering removed, reduced",
+        "de": "„Toyota Corolla AE86 Trueno“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, Kennzeichen und der Türschriftzug entfernt, verkleinert"
+      }
     }
   ]
 }

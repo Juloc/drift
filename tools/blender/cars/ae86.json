@@ -1,0 +1,30 @@
+{
+  "name": "ae86",
+  "about": "Toyota Corolla AE86 Trueno (hatchback). Sizes of the real car; the model is a download (docs/ASSETS.md). Of two downloads this one was taken: more detail, pop-up lamps, materials by part (the other is one atlas texture).",
+  "length": 4.18,
+  "width": 1.625,
+  "height": 1.335,
+  "wheelbase": 2.40,
+  "source": {
+    "file": "C:/AI/work/ae86/src/toyota_corolla_ae86_trueno/scene.gltf (from toyota_corolla_ae86_trueno.zip)",
+    "title": "Toyota Corolla AE86 Trueno",
+    "author": "Lexyc16 (https://sketchfab.com/Lexyc16)",
+    "url": "https://sketchfab.com/3d-models/toyota-corolla-ae86-trueno-fe02fba6302e450ea8424591493341ea",
+    "licence": "CC-BY-4.0",
+    "front": "-y",
+    "up": "+z",
+    "scale_by": "length",
+    "wheels": "model",
+    "slots": {
+      "^material\\.001$": "paint",
+      "^material\\.011$": "glass",
+      "^material\\.(005|007|012)$": "light_front",
+      "^material\\.(006|014)$": "light_rear",
+      "^material\\.004$": "rubber",
+      "^material\\.(003|020)$": "chrome",
+      "^material\\.(002|013|034)$": "plastic"
+    },
+    "drop": ["^tofu_shop", "^fpostersmallwall", "^material\\.010$"],
+    "targets": { "phone": 14000, "high": 40000 }
+  }
+}
