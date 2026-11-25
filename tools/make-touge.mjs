@@ -51,11 +51,18 @@ const gates = Array.from({ length: 8 }, (_, g) => {
 });
 const at = (sAlong) => { let i = 0; while (i < centre.length - 2 && cum[i + 1] < sAlong) i++; const t = (sAlong - cum[i]) / (cum[i + 1] - cum[i] || 1); return { x: centre[i][0] + (centre[i + 1][0] - centre[i][0]) * t, z: centre[i][1] + (centre[i + 1][1] - centre[i][1]) * t, d: dirAt(i) }; };
 const grid = Array.from({ length: 8 }, (_, i) => { const q = at(30 + Math.floor(i / 2) * 9), o = i % 2 ? 2 : -2; return { x: round(q.x + q.d[1] * o), z: round(q.z - q.d[0] * o), h: round(Math.atan2(q.d[0], q.d[1])) }; });
+// ---- clipping points (game/sim/zones.js): one at the inner edge of each hairpin's apex, a zone of 9 m round it
+const clips = [];
+for (let k = 0; k < RUNS - 1; k++) {
+  const dir = k % 2 === 0 ? 1 : -1, zk = -GAP_Z * k - R;
+  const apex = centre.filter((p) => Math.abs(p[1] - zk) < 14).reduce((a, p) => (dir * p[0] > dir * a[0] ? p : a));
+  clips.push({ x: round(apex[0] - dir * 3), z: round(apex[1]) });
+}
 const xs = centre.map((p) => p[0]), zs = centre.map((p) => p[1]);
 const bounds = [[-70, Math.max(...zs) + 40], [Math.max(...xs) + 40, Math.max(...zs) + 40], [Math.max(...xs) + 40, Math.min(...zs) - 40], [-70, Math.min(...zs) - 40]];
 const map = {
   id: 5, name: 'Touge', kind: 'descent', closed: false, laps: 1, ground: 'grass', bounds, walls, obstacles: [], zones: [{ kind: 'asphalt', x0: -44, z0: -6, x1: 30, z1: 30 }],
-  road: { kind: 'asphalt', halfWidth: HW }, centre, halfWidth: HW, loopLength: round(length), gates, grid, lobbySpawn: { x: -8, z: 12, h: round(Math.PI / 2) }, props: [],
+  road: { kind: 'asphalt', halfWidth: HW }, centre, halfWidth: HW, loopLength: round(length), gates, grid, clips, lobbySpawn: { x: -8, z: 12, h: round(Math.PI / 2) }, props: [],
 };
 // ---- checks: the grid and the spawn are clear of the walls
 const segs = [];
@@ -69,7 +76,7 @@ const theme = {
   look: 'touge-dusk', rails: 'both', note: 'The touge: a hillside with a crater lake far below; made by tools/make-touge.mjs together with the physics map.', mode: 'slope',
   road: { bendMin: probe.road.bendMin, bendSpan: probe.road.bendSpan, grade: 'slope', cut: probe.road.cut, lamps: probe.road.lamps },
   terrain: { ...probe.terrain, extent: [-300, -1100, 600, 320], core: [-60, round(Math.min(...zs) - 80), round(Math.max(...xs) + 60), 60] },
-  plaza: { ...probe.plaza, pts: plaza }, marks: probe.marks, lake: probe.lake, volcanoes: probe.volcanoes, ridges: probe.ridges, mist: probe.mist, trees: [],
+  plaza: { ...probe.plaza, pts: plaza }, marks: [...probe.marks, ...clips.map((c) => ({ type: 'clip', x: c.x, z: c.z }))], lake: probe.lake, volcanoes: probe.volcanoes, ridges: probe.ridges, mist: probe.mist, trees: [],
 };
 writeFileSync(new URL('../game/data/scenes/touge.json', import.meta.url), JSON.stringify(theme, null, 1) + '\n');
 console.log(`touge: ${round(length)} m, ${centre.length} points, ${walls.length} walls, z from ${Math.max(...zs)} down to ${Math.min(...zs)}, x ${Math.min(...xs)} to ${Math.max(...xs)}`);

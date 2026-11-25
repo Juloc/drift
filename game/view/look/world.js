@@ -621,6 +621,9 @@ function details(S, G, f, scene, look, tier, rnd, lite, sideInfo, onPlaza) {
       G.box(0.36, 0.3, 0.52, X(m.x), y + 1.85, m.z, glow(look.lamp.light, 2.4), { r: 0, ry });
       S.cone(0.75, 0.45, X(m.x), y + 2.3, m.z, stoneC, { seg: 4, ry: ry + Math.PI / 4 });
       S.ball(0.12, X(m.x), y + 2.6, m.z, stoneC, { detail: 0 });
+    } else if (m.type === 'clip') {   // a clipping point of the zone scoring: a short white post with a glowing pink head, where the line should touch
+      S.cyl(0.07, 0.09, 1.1, X(m.x), y + 0.55, m.z, C('#f4efee'), { seg: 6 });
+      G.box(0.22, 0.22, 0.22, X(m.x), y + 1.2, m.z, glow('#ff5a96', 2.6), { r: 0 });
     } else if (m.type === 'gate') {
       S.push(trs(X(m.x), y, m.z, 0, ry, 0));
       // a torii: two red pillars, a tie beam and a black-capped top beam; m.width / m.height scale it (a road torii is wide)
