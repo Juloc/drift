@@ -1,3 +1,19 @@
 /* The app's own additions to the game page: a way back to the garage. */
 #back { position: fixed; left: max(14px, env(safe-area-inset-left)); bottom: max(14px, env(safe-area-inset-bottom)); z-index: 4; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; border: 2px solid rgba(27,35,48,0.35); background: rgba(255,255,255,0.5); color: #1b2330; font: 800 22px system-ui, sans-serif; text-decoration: none; opacity: 0.7; }
 @media (pointer: coarse) { #back { bottom: auto; top: 64px; } }
+
+/* ----- races ----- */
+#racebar { position: fixed; left: max(14px, env(safe-area-inset-left)); top: 96px; z-index: 3; }
+#racebar button, #invite button, #rh-leave, #res-back { min-height: 44px; min-width: 44px; padding: 0 16px; border: 2px solid rgba(27,35,48,0.35); border-radius: 14px; background: rgba(255,255,255,0.8); color: #1b2330; font: 800 14px system-ui, sans-serif; }
+#racebar button { background: #fff; }
+#invite { position: fixed; left: 50%; top: 96px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 16px; background: rgba(255,255,255,0.95); font: 700 15px system-ui, sans-serif; color: #1b2330; box-shadow: 0 6px 24px rgba(0,0,0,0.25); max-width: 92vw; flex-wrap: wrap; justify-content: center; }
+#invite[hidden], #racebar[hidden], #count[hidden], #racehud[hidden], #result[hidden], #note[hidden] { display: none; }
+#count { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%); z-index: 5; font: 900 clamp(48px, 14vw, 120px) system-ui, sans-serif; color: #fff; text-shadow: 0 4px 0 rgba(27,35,48,0.5), 0 0 30px rgba(0,0,0,0.3); pointer-events: none; text-align: center; }
+#racehud { position: fixed; left: 50%; top: 96px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 14px; padding: 6px 14px; border-radius: 14px; background: rgba(255,255,255,0.8); font: 800 16px system-ui, sans-serif; color: #1b2330; font-variant-numeric: tabular-nums; }
+#note { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); z-index: 5; margin: 0; padding: 8px 16px; border-radius: 14px; background: rgba(27,35,48,0.85); color: #fff; font: 700 16px system-ui, sans-serif; text-align: center; max-width: 90vw; }
+#result { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 7; max-width: 94vw; max-height: 90vh; overflow: auto; padding: 18px 22px; border-radius: 20px; background: rgba(255,255,255,0.97); color: #1b2330; box-shadow: 0 10px 40px rgba(0,0,0,0.35); font: 600 15px system-ui, sans-serif; }
+#result h2 { margin: 0 0 10px; font-size: 20px; }
+#result table { border-collapse: collapse; width: 100%; margin-bottom: 14px; font-variant-numeric: tabular-nums; }
+#result td { padding: 4px 10px 4px 0; white-space: nowrap; }
+#result td:first-child { font-weight: 800; }
+@media (pointer: coarse) { #racebar { top: 108px; } #racehud, #invite { top: 90px; } }

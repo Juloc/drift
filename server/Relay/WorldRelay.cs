@@ -13,6 +13,15 @@ public interface IPeer
     void Close(byte reason);
 }
 
+/// <summary>A peer that can also be sent text frames (the signed-in app uses them for invitations and race messages; the public world does not).</summary>
+public interface ITextPeer : IPeer
+{
+    void SendText(string text);
+}
+
+/// <summary>An accepted pose with the relay's own receive time (seconds on the relay's clock), for a caller that follows the cars (a race).</summary>
+public readonly record struct PoseSample(Session Session, double X, double Z, double Heading, double Vf, double Beta, byte Flags, double Seconds);
+
 public sealed class RelayOptions
 {
     public int MaxPerWorld { get; init; } = 16;
@@ -50,7 +59,7 @@ public sealed class Session
     public byte Hue { get; internal set; }
     public string Name { get; internal set; } = "";
     public string Address { get; internal set; } = "";
-    internal IPeer Peer = null!;
+    public IPeer Peer { get; internal set; } = null!;
     internal bool HasPose;
     internal byte[] Last = new byte[Wire.PoseLength]; // last accepted POSE frame
     internal double X, Z, H;
@@ -79,6 +88,8 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     readonly List<List<Session>> worlds = [];
     readonly Dictionary<string, AddressState> addresses = [];
     public RelayStats Stats { get; } = new();
+    /// <summary>Called, under the relay's lock, for every accepted pose: keep it short (queue it, do not call back into the relay).</summary>
+    public Action<PoseSample>? PoseAccepted { get; set; }
     /// <summary>Size for a receive buffer: a frame longer than this is too large.</summary>
     public int MaxFrameBuffer => o.MaxFrame;
 
@@ -209,6 +220,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
         }
         Stats.Accepted++;
         f.CopyTo(s.Last); s.X = x; s.Z = z; s.H = h; s.LastPoseAt = now; s.HasPose = true;
+        PoseAccepted?.Invoke(new PoseSample(s, x, z, h, vf, (sbyte)f[10] * Math.PI / 128, f[12], Seconds(now)));
     }
 
     /// <summary>Call 15 times a second: sends the snapshots and drops idle or silent visitors.</summary>

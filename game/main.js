@@ -25,10 +25,10 @@ const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
-    online: 'driving here', you: 'You are', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
+    online: 'driving here', you: 'You are', race: 'Start a race', invite: '{by} starts a race ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
-    online: 'fahren hier', you: 'Du bist', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
+    online: 'fahren hier', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
 document.documentElement.lang = de ? 'de' : 'en';
@@ -67,30 +67,113 @@ const cam = new FollowCam(camera, coarse ? { dist: 9.5, height: 4.6, look: 4.5 }
 const input = new Input($('touch'));
 const hud = new Hud(T);
 const remotes = online ? new Remotes({ scene, pool, smoke, skids, camera, tagsEl: $('tags'), lite }) : null;
-let net = null, spawned = false;
-if (online) {
+let net = null, spawned = false, locked = false;
+const raceMode = online && document.documentElement.dataset.race === '1';   // the signed-in app: races (the public demo has none)
+const lobbyUrl = params.get('ws') || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?car=${carIndex}`;
+const fmt = (ms) => { const t = Math.max(0, Math.round(ms)); return `${Math.floor(t / 60000)}:${String(Math.floor(t / 1000) % 60).padStart(2, '0')}.${String(Math.floor((t % 1000) / 10)).padStart(2, '0')}`; };
+const show = (id, on) => { const el = $(id); if (el) el.hidden = !on; };
+let noteTimer = 0;
+const note = (text) => { const el = $('note'); if (!el) return; el.textContent = text; el.hidden = false; clearTimeout(noteTimer); noteTimer = setTimeout(() => (el.hidden = true), 3500); };
+
+function openNet(url, inRace) {
   const droppedBtn = $('dropped');
-  net = new WorldClient({
-    url: params.get('ws') || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?car=${carIndex}`,
+  const n = new WorldClient({
+    url,
     onWelcome(me) {
-      if (!spawned) { const g = map.grid[me.id % map.grid.length]; cur = prev = makeCar(g.x, g.z, g.h); score = newScore(); cam.snap(cur); spawned = true; }
+      if (!inRace && !spawned) {
+        const g = raceMode ? { x: map.lobbySpawn.x + (me.id % 8) * 6 - 20, z: map.lobbySpawn.z, h: map.lobbySpawn.h } : map.grid[me.id % map.grid.length];
+        cur = prev = makeCar(g.x, g.z, g.h); score = newScore(); cam.snap(cur); spawned = true;
+      }
       droppedBtn.hidden = true;
     },
     onRoster(roster) {
       $('online-n').textContent = roster.size;
-      const me = net.me && roster.get(net.me.id);
+      const me = n.me && roster.get(n.me.id);
       if (me) {
         $('me').textContent = `${T.you} ${me.name}`;
         if (bodyMesh.userData.hue !== me.hue) { bodyMesh.userData.hue = me.hue; bodyMesh.geometry = paintFor(me.hue, lite, carIndex).body; }
       }
     },
     onFix(f) { cur = prev = { ...cur, x: f.x, z: f.z, h: f.h, vx: 0, vz: 0, w: 0 }; },
-    onBye(reason) { droppedBtn.textContent = reason === 5 ? T.full : T.dropped; droppedBtn.hidden = false; },
-    onState(st) { if (st === 'closed') { $('online-n').textContent = 0; $('me').textContent = ''; spawned = false; } },
+    onBye(reason) { if (n === net && !racing) { droppedBtn.textContent = reason === 5 ? T.full : T.dropped; droppedBtn.hidden = false; } },
+    onState(st) { if (st === 'closed' && n === net && !racing) { $('online-n').textContent = 0; $('me').textContent = ''; spawned = false; } },
+    onJson: (j) => (inRace ? raceMessage(j) : lobbyMessage(j)),
   });
-  droppedBtn.addEventListener('click', () => { droppedBtn.hidden = true; net.connect(); });
-  net.connect();
+  n.connect();
+  return n;
+}
+
+// ----- races (signed-in app only): invitation, grid, countdown, laps, result, back to the lobby
+let racing = false;
+function lobbyMessage(j) {
+  if (j.t === 'race.invite') {
+    $('invite-text').textContent = T.invite.replace('{by}', j.by).replace('{laps}', j.laps);
+    show('invite', true);
+    clearTimeout(lobbyMessage.timer); lobbyMessage.timer = setTimeout(() => show('invite', false), j.ms);
+  } else if (j.t === 'race.wait') note(T.waiting);
+  else if (j.t === 'race.joined') { show('invite', false); note(T.joined); }
+  else if (j.t === 'race.busy') note(j.wait ? T.pause.replace('{s}', j.wait) : T.busy);
+  else if (j.t === 'race.go') { show('invite', false); startRace(); }
+}
+function startRace() {
+  racing = true; locked = true;
+  net.close();
+  remotes.clear();
+  show('racebar', false);
+  $('count').textContent = T.getReady; show('count', true); show('result', false);
+  net = openNet(lobbyUrl.replace('/play/ws', '/play/race/ws'), true);
   window.__net = net;
+}
+function raceMessage(j) {
+  if (j.t === 'grid') {
+    cur = prev = makeCar(j.x, j.z, j.h); score = newScore(); cam.snap(cur); skids.clear(); locked = true;
+    $('rh-pos').textContent = `P${j.slot + 1}/${j.n}`; $('rh-lap').textContent = `${T.lap} 1/${j.laps}`; $('rh-time').textContent = fmt(0); $('rh-drift').textContent = '';
+    show('racehud', true); $('count').textContent = T.waitOthers;
+  } else if (j.t === 'count') $('count').textContent = j.n;
+  else if (j.t === 'go') { locked = false; $('count').textContent = T.go; setTimeout(() => show('count', false), 900); }
+  else if (j.t === 'prog') {
+    $('rh-pos').textContent = `P${j.pos}/${j.of}`; $('rh-lap').textContent = `${T.lap} ${j.lap}/${j.laps}`; $('rh-time').textContent = fmt(j.ms);
+    $('rh-drift').textContent = j.drift ? `${j.drift} x${j.mult}` : '';
+  } else if (j.t === 'lap') note(`${T.lap} ${j.lap}/${j.of}: ${fmt(j.ms)}`);
+  else if (j.t === 'finish') note(`${T.finished} P${j.pos}: ${fmt(j.ms)}`);
+  else if (j.t === 'result') showResult(j);
+  else if (j.t === 'back') endRace();
+}
+function showResult(j) {
+  $('res-title').textContent = T.result;
+  const body = $('res-table').querySelector('tbody');
+  body.replaceChildren();
+  for (const r of j.rows) {
+    const tr = document.createElement('tr');
+    const cells = [r.dnf ? '-' : r.pos, r.name, r.ms == null ? T.dnf : fmt(r.ms), r.bestLap == null ? '' : fmt(r.bestLap), r.drift, r.points];
+    for (const c of cells) { const td = document.createElement('td'); td.textContent = c; tr.append(td); }
+    if (r.newRace || r.newLap) { const td = document.createElement('td'); td.textContent = T.newBest; tr.append(td); }
+    body.append(tr);
+  }
+  show('count', false); show('racehud', false); show('result', true);
+}
+function endRace() {
+  if (!racing) return;
+  racing = false; locked = false;
+  net.close(); remotes.clear();
+  show('result', false); show('racehud', false); show('count', false);
+  spawned = false; reset();
+  net = openNet(lobbyUrl, false); window.__net = net;
+  show('racebar', true);
+}
+
+if (online) {
+  net = openNet(lobbyUrl, false);
+  window.__net = net;
+  $('dropped').addEventListener('click', () => { $('dropped').hidden = true; net.connect(); });
+  if (raceMode) {
+    show('racebar', true);
+    $('raceBtn').addEventListener('click', () => net.sendJson({ t: 'race.start', laps: 3 }));
+    $('invite-yes').addEventListener('click', () => { net.sendJson({ t: 'race.join' }); show('invite', false); });
+    $('invite-no').addEventListener('click', () => { net.sendJson({ t: 'race.decline' }); show('invite', false); });
+    $('rh-leave').addEventListener('click', () => { net.sendJson({ t: 'leave' }); endRace(); });
+    $('res-back').addEventListener('click', endRace);
+  }
 }
 
 // ----- state
@@ -110,7 +193,7 @@ if (demo) { cur = prev = makeCar(66, 48, Math.PI / 2); cam.snap(cur); }
 
 function simStep(i) {
   prev = cur;
-  const inp = demo ? orbitBot(i * DT, cur, { start: 1.5 }) : input.read();
+  const inp = locked ? { steer: 0, throttle: 0, brake: 0, handbrake: 1 } : demo ? orbitBot(i * DT, cur, { start: 1.5 }) : input.read();
   const mu = surfaceAt(map, cur.x, cur.z).mu;
   cur = collide(map, step(cur, inp, car, mu));
   score = scoreStep(score, { slip: bodySlip(cur), speed: speedOf(cur), hit: cur.hit, turned: turnedAngle(cur) }, DT);

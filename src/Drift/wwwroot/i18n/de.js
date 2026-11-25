@@ -22,5 +22,9 @@ export default {
   'garage.car.2': 'Schwerer Muscle-Car. Riesenkraft, lange träge Rutscher.',
   'garage.car.3': 'Satt und schnell, lässt dann plötzlich los. Mag sanftes Lenken.',
   'garage.car.4': 'Langsamer, hoher Pick-up. Verzeiht alles.',
+  'board.title': 'Bestzeiten: {map}',
+  'board.lap': 'Schnellste Runde',
+  'board.race': 'Bestes Rennen ({laps} Runden)',
+  'board.none': 'Noch keine Zeit. Starte in der Lobby ein Rennen.',
   'settings.title': 'Einstellungen',
 };

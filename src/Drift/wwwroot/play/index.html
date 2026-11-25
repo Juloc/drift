@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-mode="online">
+<html lang="en" data-mode="online" data-race="1">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
@@ -29,6 +29,12 @@
 
 <div id="tags" aria-hidden="true"></div>
 <button id="dropped" type="button" hidden></button>
+<div id="racebar" hidden><button id="raceBtn" type="button" data-t="race">Start a race</button></div>
+<div id="invite" hidden><span id="invite-text"></span> <button id="invite-yes" type="button" data-t="join">Join</button> <button id="invite-no" type="button" data-t="no">No</button></div>
+<div id="count" hidden></div>
+<div id="racehud" hidden><span id="rh-pos"></span> <span id="rh-lap"></span> <span id="rh-time"></span> <span id="rh-drift"></span> <button id="rh-leave" type="button" data-t="leave">Leave</button></div>
+<div id="result" hidden role="dialog" aria-live="polite"><h2 id="res-title"></h2><table id="res-table"><tbody></tbody></table><button id="res-back" type="button" data-t="backLobby">Back to the lobby</button></div>
+<p id="note" role="status" hidden></p>
 <p id="hint" class="hint" data-t="hintKeys"></p>
 <pre id="debug" hidden></pre>
 <div id="rotate" hidden data-t="rotate"></div>

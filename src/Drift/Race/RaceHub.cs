@@ -1,0 +1,288 @@
+using System.Collections.Concurrent;
+using System.Text.Json;
+using Drift.Relay;
+
+namespace Drift.Race;
+
+/// <summary>What the lobby knows about a person who is connected: the garage's choice, for the invitation and the race.</summary>
+public sealed record LobbyMember(Guid Person, string Name, int Car, int Hue, Session Session);
+
+/// <summary>
+/// The races of the signed-in lobby, one at a time (docs/ARCHITECTURE.md section 4):
+/// idle, invitation (10 s, shorter once everybody answered), grid (the racers open the race socket, up to 10 s), countdown (3 s), racing, finishing
+/// (20 s after the first finish), result (15 s), then back to the lobby and a pause of 20 s. The server decides everything that counts: who is in, the
+/// start, gates and laps, positions, the result. The cars are driven by their browsers (the relay of the race checks the poses as it does everywhere).
+/// The hub is driven by <see cref="Tick"/> (10 times a second); messages to the browsers are JSON text frames.
+/// </summary>
+public sealed class RaceHub
+{
+    public enum Phase { Idle, Invite, Grid, Countdown, Racing, Finishing, Result }
+
+    public const double InviteSeconds = 10, GridSeconds = 10, CountSeconds = 3, FinishSeconds = 20, ResultSeconds = 15, CooldownSeconds = 20;
+    public const int MaxRacers = 8;
+    static readonly double[] PositionPoints = [10, 7, 5, 4, 3, 2, 1, 1];
+
+    sealed class Part(LobbyMember m)
+    {
+        public LobbyMember Member { get; } = m;
+        public Runner? Runner;
+        public Session? Race;
+        public int Slot;
+    }
+
+    readonly TimeProvider time;
+    readonly RaceTrack track;
+    readonly IBestTimes store;
+    readonly WorldRelay raceRelay;
+    readonly double[] tops;
+    readonly object gate = new();
+    readonly Dictionary<Guid, LobbyMember> lobby = [];
+    readonly List<Part> parts = [];
+    readonly HashSet<Guid> answered = [];
+    readonly ConcurrentQueue<PoseSample> poses = new();
+    Phase phase = Phase.Idle;
+    double phaseStart, cooldownUntil, lastProgress;
+    int laps, lastCount;
+    Guid starter;
+    RaceRun? run;
+    bool resulting;
+
+    public RaceHub(TimeProvider time, RaceTrack track, IBestTimes store, WorldRelay raceRelay, double[] tops)
+    {
+        this.time = time; this.track = track; this.store = store; this.raceRelay = raceRelay; this.tops = tops;
+        raceRelay.PoseAccepted = p => poses.Enqueue(p);
+    }
+
+    public Phase Current { get { lock (gate) return phase; } }
+    double Now => time.GetTimestamp() / (double)time.TimestampFrequency;
+
+    // ---------- the lobby sockets
+    public void LobbyJoined(LobbyMember m)
+    {
+        lock (gate)
+        {
+            lobby[m.Person] = m;
+            if (phase == Phase.Invite && parts.All(p => p.Member.Person != m.Person)) Send(m.Session, new { t = "race.invite", by = parts[0].Member.Name, laps, ms = Math.Max(0, (int)((phaseStart + InviteSeconds - Now) * 1000)) });
+            else if (phase != Phase.Idle) Send(m.Session, new { t = "race.busy", n = parts.Count });
+        }
+    }
+
+    public void LobbyLeft(Guid person, Session s)
+    {
+        lock (gate)
+        {
+            if (lobby.TryGetValue(person, out var cur) && cur.Session == s) lobby.Remove(person);
+        }
+    }
+
+    public void OnLobbyText(Guid person, string text)
+    {
+        JsonElement r;
+        try { r = JsonDocument.Parse(text).RootElement; } catch (JsonException) { return; }
+        if (r.ValueKind != JsonValueKind.Object || !r.TryGetProperty("t", out var tp) || tp.ValueKind != JsonValueKind.String) return;
+        lock (gate)
+        {
+            if (!lobby.TryGetValue(person, out var me)) return;
+            switch (tp.GetString())
+            {
+                case "race.start":
+                    if (phase != Phase.Idle || Now < cooldownUntil) { Send(me.Session, new { t = "race.busy", n = parts.Count, wait = Math.Max(0, (int)Math.Ceiling(cooldownUntil - Now)) }); return; }
+                    laps = r.TryGetProperty("laps", out var l) && l.TryGetInt32(out var li) ? Math.Clamp(li, 1, 5) : track.Laps;
+                    parts.Clear(); answered.Clear();
+                    parts.Add(new Part(me));
+                    starter = person; phase = Phase.Invite; phaseStart = Now;
+                    foreach (var m in lobby.Values)
+                        Send(m.Session, m.Person == person ? new { t = "race.wait", by = me.Name, laps, ms = (int)(InviteSeconds * 1000) } : new { t = "race.invite", by = me.Name, laps, ms = (int)(InviteSeconds * 1000) });
+                    break;
+                case "race.join":
+                    if (phase == Phase.Invite && parts.Count < MaxRacers && parts.All(p => p.Member.Person != person)) { parts.Add(new Part(me)); Send(me.Session, new { t = "race.joined" }); }
+                    answered.Add(person);
+                    break;
+                case "race.decline":
+                    answered.Add(person);
+                    break;
+            }
+        }
+    }
+
+    // ---------- the race sockets
+    /// <summary>May this person open the race socket now? Only the people who joined, during the grid phase.</summary>
+    public bool CanRace(Guid person)
+    {
+        lock (gate) return phase == Phase.Grid && parts.Any(p => p.Member.Person == person && p.Race is null);
+    }
+
+    public void RaceConnected(Guid person, Session s)
+    {
+        lock (gate)
+        {
+            var p = parts.FirstOrDefault(x => x.Member.Person == person);
+            if (p is null || phase != Phase.Grid) { raceRelay.Drop(s, Wire.ByeSession); return; }
+            p.Race = s;
+            var g = track.Grid[p.Slot];
+            Send(s, new { t = "grid", slot = p.Slot, x = g.X, z = g.Z, h = g.H, laps, n = parts.Count, racers = parts.Select(x => x.Member.Name).ToArray() });
+        }
+    }
+
+    public void RaceLeft(Guid person, Session s)
+    {
+        lock (gate)
+        {
+            var p = parts.FirstOrDefault(x => x.Member.Person == person && x.Race == s);
+            if (p is null) return;
+            p.Race = null;
+            if (phase is Phase.Grid or Phase.Invite) { parts.Remove(p); return; }
+            if (p.Runner is { Finished: false } r) r.Dnf = true;
+        }
+    }
+
+    public void OnRaceText(Guid person, string text)
+    {
+        if (!text.Contains("\"leave\"", StringComparison.Ordinal)) return;
+        lock (gate)
+        {
+            var p = parts.FirstOrDefault(x => x.Member.Person == person);
+            if (p?.Runner is { Finished: false } r) r.Dnf = true;
+        }
+    }
+
+    // ---------- the clock
+    public void Tick()
+    {
+        var after = new List<Action>();
+        lock (gate)
+        {
+            var now = Now;
+            while (poses.TryDequeue(out var pose)) OnPose(pose);
+            switch (phase)
+            {
+                case Phase.Invite:
+                {
+                    var others = lobby.Keys.Where(k => k != starter).ToList();
+                    if (now >= phaseStart + InviteSeconds || (others.Count == 0 || others.All(answered.Contains)) && now >= phaseStart + 1)
+                        ToGrid(now);
+                    break;
+                }
+                case Phase.Grid:
+                    if (parts.Count == 0) { phase = Phase.Idle; break; }
+                    if (parts.All(p => p.Race is not null) || now >= phaseStart + GridSeconds)
+                    {
+                        foreach (var p in parts.Where(p => p.Race is null).ToList()) parts.Remove(p);
+                        if (parts.Count == 0) { phase = Phase.Idle; break; }
+                        run = new RaceRun(track, laps);
+                        foreach (var (p, i) in parts.Select((p, i) => (p, i)))
+                        {
+                            p.Slot = i;
+                            p.Runner = new Runner(p.Member.Person, p.Member.Name, p.Member.Car, p.Member.Hue, tops[Math.Clamp(p.Member.Car, 0, tops.Length - 1)]) { Slot = i };
+                            run.Runners.Add(p.Runner);
+                        }
+                        phase = Phase.Countdown; phaseStart = now; lastCount = 4;
+                    }
+                    break;
+                case Phase.Countdown:
+                {
+                    var n = (int)Math.Ceiling(CountSeconds - (now - phaseStart));
+                    if (n < lastCount && n >= 1) { lastCount = n; Broadcast(new { t = "count", n }); }
+                    if (now - phaseStart >= CountSeconds)
+                    {
+                        run!.Start(now); phase = Phase.Racing; phaseStart = now; lastProgress = now;
+                        Broadcast(new { t = "go" });
+                    }
+                    break;
+                }
+                case Phase.Racing:
+                case Phase.Finishing:
+                    if (now - lastProgress >= 1) { lastProgress = now; Progress(now); }
+                    if (phase == Phase.Racing && run!.FirstFinish is { } ff) { phase = Phase.Finishing; phaseStart = ff; }
+                    if (run!.AllDone || (phase == Phase.Finishing && now >= phaseStart + FinishSeconds) || (phase == Phase.Racing && now - phaseStart > 20 * 60))
+                    {
+                        foreach (var r in run.Runners.Where(r => !r.Finished)) r.Dnf = true;
+                        if (!resulting) { resulting = true; var order = run.Order(); after.Add(() => _ = Finish(order, run)); }
+                    }
+                    break;
+                case Phase.Result:
+                    if (now >= phaseStart + ResultSeconds)
+                    {
+                        Broadcast(new { t = "back" });
+                        foreach (var p in parts) if (p.Race is not null) { var s = p.Race; after.Add(() => raceRelay.Drop(s, Wire.ByeSession)); }
+                        parts.Clear(); run = null; phase = Phase.Idle; cooldownUntil = now + CooldownSeconds;
+                    }
+                    break;
+            }
+        }
+        foreach (var a in after) a();
+    }
+
+    void ToGrid(double now)
+    {
+        // whoever left the lobby before the grid is out
+        parts.RemoveAll(p => !lobby.ContainsKey(p.Member.Person));
+        if (parts.Count == 0) { phase = Phase.Idle; return; }
+        phase = Phase.Grid; phaseStart = now;
+        for (var i = 0; i < parts.Count; i++) parts[i].Slot = i;
+        foreach (var p in parts) if (lobby.TryGetValue(p.Member.Person, out var m)) Send(m.Session, new { t = "race.go", laps });
+        foreach (var m in lobby.Values.Where(m => parts.All(p => p.Member.Person != m.Person))) Send(m.Session, new { t = "race.busy", n = parts.Count });
+    }
+
+    void OnPose(PoseSample p)
+    {
+        if (run is null || phase is not (Phase.Racing or Phase.Finishing)) return;
+        var part = parts.FirstOrDefault(x => x.Race == p.Session);
+        if (part?.Runner is not { } r) return;
+        foreach (var ev in run.Pose(r, p.X, p.Z, p.Vf, p.Beta, p.Flags, p.Seconds))
+        {
+            var pos = run.Order().IndexOf(r) + 1;
+            if (ev.Kind == "lap") SendTo(part, new { t = "lap", lap = ev.Lap, ms = (int)ev.Ms, of = laps, pos });
+            else SendTo(part, new { t = "finish", pos, ms = (int)ev.Ms });
+        }
+    }
+
+    void Progress(double now)
+    {
+        var order = run!.Order();
+        foreach (var part in parts)
+            if (part.Runner is { } r)
+                SendTo(part, new { t = "prog", pos = order.IndexOf(r) + 1, of = order.Count, lap = Math.Min(r.LapsDone + 1, laps), laps, ms = (int)((now - run.Started!.Value) * 1000), drift = (int)r.Drift.Total, mult = r.Drift.Mult });
+    }
+
+    async Task Finish(List<Runner> order, RaceRun finishedRun)
+    {
+        // the best times, in the database (outside the lock); then the result goes out
+        var flags = new Dictionary<Guid, (bool Lap, bool Race)>();
+        foreach (var r in order)
+        {
+            bool lap = false, race = false;
+            try
+            {
+                if (r.Finished && r.CleanLaps)
+                {
+                    if (r.BestLap is { } bl) lap = await store.RecordAsync(r.Person, track.MapId, RaceStore.Lap, (int)Math.Round(bl), r.Car);
+                    if (finishedRun.Laps == track.Laps && r.FinishMs is { } fm) race = await store.RecordAsync(r.Person, track.MapId, RaceStore.Race, (int)Math.Round(fm), r.Car);
+                }
+            }
+            catch (Exception) { /* a database problem must not stop the result from reaching the racers */ }
+            flags[r.Person] = (lap, race);
+        }
+        lock (gate)
+        {
+            var rows = order.Select((r, i) => new
+            {
+                pos = i + 1, name = r.Name, car = r.Car, hue = r.Hue,
+                ms = r.FinishMs is { } f ? (int?)(int)f : null,
+                bestLap = r.BestLap is { } b ? (int?)(int)b : null,
+                drift = (int)r.Drift.Total,
+                points = Math.Round((r.Finished && i < PositionPoints.Length ? PositionPoints[i] : 0) + r.Drift.Total / 100, 1),
+                dnf = r.Dnf, clean = r.CleanLaps,
+                newLap = flags[r.Person].Lap, newRace = flags[r.Person].Race,
+            }).ToArray();
+            Broadcast(new { t = "result", rows, laps = finishedRun.Laps });
+            phase = Phase.Result; phaseStart = Now; resulting = false;
+        }
+    }
+
+    // ---------- messages
+    static readonly JsonSerializerOptions Json = new() { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never };
+    static void Send(Session s, object message) { if (s.Peer is ITextPeer p) p.SendText(JsonSerializer.Serialize(message, Json)); }
+    static void SendTo(Part part, object message) { if (part.Race is { } s) Send(s, message); }
+    void Broadcast(object message) { foreach (var p in parts) SendTo(p, message); }
+}

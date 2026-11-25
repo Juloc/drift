@@ -2,6 +2,7 @@ using Base.Accounts;
 using Base.Web;
 using Base.Web.Auth;
 using Drift.Garage;
+using Drift.Race;
 using Drift.Relay;
 
 namespace Drift.Play;
@@ -25,6 +26,7 @@ public static class PlayEndpoint
         var relay = app.Services.GetRequiredService<WorldRelay>();
         var live = new Dictionary<Guid, Session>();
         var gate = new object();
+        var hub = app.Services.GetRequiredService<RaceHub>();
         app.Map(Path, async (HttpContext ctx, GarageStore garage, AccountService accounts, SessionCookie cookie) =>
         {
             var me = ctx.Person();
@@ -33,14 +35,16 @@ public static class PlayEndpoint
             var name = GarageStore.DisplayName(me.UserId, profile);   // never the account name
             await RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), profile.Car, name, profile.Colour,
                 stillValid: async () => token is not null && await accounts.ResolveSessionAsync(token, false, CancellationToken.None) is not null,
+                onText: (_, text) => hub.OnLobbyText(me.UserId, text),
                 joined: s =>
                 {
                     Session? old;
                     lock (gate) { live.TryGetValue(me.UserId, out old); live[me.UserId] = s; }
                     if (old is not null) relay.Drop(old, Wire.ByeReplaced);
+                    hub.LobbyJoined(new LobbyMember(me.UserId, name, profile.Car, profile.Colour, s));
                 },
                 checkEvery: SessionCheck,
-                left: s => { lock (gate) { if (live.TryGetValue(me.UserId, out var cur) && cur == s) live.Remove(me.UserId); } });
+                left: s => { lock (gate) { if (live.TryGetValue(me.UserId, out var cur) && cur == s) live.Remove(me.UserId); } hub.LobbyLeft(me.UserId, s); });
         });
         RelayEndpoint.RunTicker(relay, app.Lifetime.ApplicationStopping);
     }

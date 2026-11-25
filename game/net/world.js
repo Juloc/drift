@@ -59,9 +59,9 @@ export function interpolate(buf, t) {
 }
 
 export class WorldClient {
-  /** @param {{url: string, onWelcome?, onRoster?, onFix?, onBye?, onState?}} o */
+  /** @param {{url: string, onWelcome?, onRoster?, onFix?, onBye?, onState?, onJson?}} o */
   constructor(o) {
-    Object.assign(this, { onWelcome() {}, onRoster() {}, onFix() {}, onBye() {}, onState() {} }, o);
+    Object.assign(this, { onWelcome() {}, onRoster() {}, onFix() {}, onBye() {}, onState() {}, onJson() {} }, o);
     this.ws = null; this.seq = 0; this.lastSend = 0; this.retry = 1000; this.stop = false;
     this.me = null; this.roster = new Map(); this.buffers = new Map(); this.lastSeen = new Map();
     this.base = 0; this.lastRaw = null; this.samples = []; this.offset = null;
@@ -74,7 +74,10 @@ export class WorldClient {
     const ws = (this.ws = new WebSocket(this.url));
     ws.binaryType = 'arraybuffer';
     ws.onopen = () => { this.retry = 1000; this.onState('open'); };
-    ws.onmessage = (e) => this.handle(e.data);
+    ws.onmessage = (e) => {
+      if (typeof e.data === 'string') { try { this.onJson(JSON.parse(e.data)); } catch { /* a text frame that is not JSON is ignored */ } return; }
+      this.handle(e.data);
+    };
     ws.onclose = () => {
       this.onState('closed');
       this.buffers.clear(); this.roster.clear(); this.lastRaw = null; this.samples = []; this.offset = null;
@@ -82,6 +85,8 @@ export class WorldClient {
     };
   }
   close() { this.stop = true; this.ws?.close(); }
+  /** A small JSON control message (signed-in lobby: invitations and race messages). */
+  sendJson(obj) { if (this.connected) this.ws.send(JSON.stringify(obj)); }
 
   handle(data) {
     const v = new DataView(data);

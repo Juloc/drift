@@ -22,5 +22,9 @@ export default {
   'garage.car.2': 'Heavy muscle car. Huge power, long lazy slides.',
   'garage.car.3': 'Planted and fast, then lets go suddenly. Rewards smooth steering.',
   'garage.car.4': 'Slow, tall pick-up. Forgives everything.',
+  'board.title': 'Best times: {map}',
+  'board.lap': 'Best lap',
+  'board.race': 'Best race ({laps} laps)',
+  'board.none': 'No time yet. Start a race in the lobby.',
   'settings.title': 'Settings',
 };

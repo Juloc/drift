@@ -34,7 +34,7 @@ public static class RelayEndpoint
     /// <paramref name="joined"/> (optional) gets the session once the visitor is in, and <paramref name="left"/> when it is out.
     /// </summary>
     public static async Task Serve(HttpContext ctx, WorldRelay relay, string address, int car, string? name = null, int? hue = null,
-        Func<Task<bool>>? stillValid = null, Action<Session>? joined = null, Action<Session>? left = null, TimeSpan? checkEvery = null)
+        Func<Task<bool>>? stillValid = null, Action<Session>? joined = null, Action<Session>? left = null, TimeSpan? checkEvery = null, Action<Session, string>? onText = null)
     {
         if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }
         // a page of another site must not be able to drive through this socket
@@ -59,15 +59,15 @@ public static class RelayEndpoint
             catch (OperationCanceledException) { }
             catch (Exception) { relay.Drop(session, Wire.ByeSession); } // a check that fails never keeps anybody in
         });
-        var buf = new byte[relay.MaxFrameBuffer];
+        var buf = new byte[1024]; // text frames (small JSON) may be longer than a pose; the relay itself refuses binary frames over its limit
         try
         {
             while (ws.State == WebSocketState.Open && !peer.Closing)
             {
                 var r = await ws.ReceiveAsync(buf, cts.Token);
                 if (r.MessageType == WebSocketMessageType.Close) break;
-                if (r.MessageType != WebSocketMessageType.Binary) continue;
                 if (!r.EndOfMessage) { relay.OnOversize(session); break; }
+                if (r.MessageType == WebSocketMessageType.Text) { if (r.Count <= 512) onText?.Invoke(session, System.Text.Encoding.UTF8.GetString(buf, 0, r.Count)); continue; }
                 relay.OnMessage(session, buf.AsSpan(0, r.Count));
             }
         }
@@ -75,11 +75,13 @@ public static class RelayEndpoint
         finally { cts.Cancel(); relay.Leave(session); left?.Invoke(session); peer.Complete(); await sender; await watcher; }
     }
 
-    sealed class SocketPeer(WebSocket ws) : IPeer
+    sealed class SocketPeer(WebSocket ws) : ITextPeer
     {
-        readonly Channel<byte[]> queue = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(32) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
+        // (frame, is it text); the oldest is dropped when a slow connection cannot keep up
+        readonly Channel<(byte[] Data, bool Text)> queue = Channel.CreateBounded<(byte[], bool)>(new BoundedChannelOptions(64) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
         public bool Closing { get; private set; }
-        public void Send(ReadOnlySpan<byte> frame) => queue.Writer.TryWrite(frame.ToArray());
+        public void Send(ReadOnlySpan<byte> frame) => queue.Writer.TryWrite((frame.ToArray(), false));
+        public void SendText(string text) => queue.Writer.TryWrite((System.Text.Encoding.UTF8.GetBytes(text), true));
         public void Close(byte reason) { Closing = true; queue.Writer.TryComplete(); }
         public void Complete() => queue.Writer.TryComplete();
         public async Task Run()
@@ -87,7 +89,7 @@ public static class RelayEndpoint
             try
             {
                 await foreach (var f in queue.Reader.ReadAllAsync())
-                    if (ws.State == WebSocketState.Open) await ws.SendAsync(f, WebSocketMessageType.Binary, true, CancellationToken.None);
+                    if (ws.State == WebSocketState.Open) await ws.SendAsync(f.Data, f.Text ? WebSocketMessageType.Text : WebSocketMessageType.Binary, true, CancellationToken.None);
                 if (ws.State == WebSocketState.Open || ws.State == WebSocketState.CloseReceived)
                     await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
             }

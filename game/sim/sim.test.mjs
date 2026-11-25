@@ -215,6 +215,19 @@ test('the car park map file: closed loop, spawn and grid on free ground inside t
   assert.equal(surfaceAt(MAP, raw.lobbySpawn.x, raw.lobbySpawn.z).kind, 'asphalt');
 });
 
+test('score: the shared vectors (the server\'s C# test reads the same file)', () => {
+  const vectors = JSON.parse(readFileSync(new URL('../../tests/vectors/drift-score.json', import.meta.url), 'utf8'));
+  for (const [name, c] of Object.entries(vectors)) {
+    let sc = newScore();
+    c.steps.forEach((st, i) => {
+      sc = scoreStep(sc, st, c.dt);
+      const t = c.trace.find((x) => x.step === i);
+      if (t) { assert.ok(Math.abs(sc.pending - t.pending) < 1e-5 && Math.abs(sc.banked - t.banked) < 1e-5 && sc.mult === t.mult, `${name} at ${i}`); }
+    });
+    assert.ok(Math.abs(sc.banked - c.banked) < 1e-5, name);
+  }
+});
+
 test('the five cars differ in the way their names promise', () => {
   const by = Object.fromEntries(CARS.map((c) => [c.name, c]));
   const t80 = (car) => { let s = makeCar(), i = 0; for (; speedOf(s) * 3.6 < 80 && i < 20 / DT; i++) s = step(s, { ...NONE, throttle: 1 }, car); return i * DT; };

@@ -5,6 +5,7 @@ using Base.Web;
 using Base.Web.Settings;
 using Drift.Garage;
 using Drift.Play;
+using Drift.Race;
 using Drift.Relay;
 using Microsoft.Extensions.FileProviders;
 
@@ -28,6 +29,11 @@ builder.AddBase(new BaseAppOptions("drift", "Drift", typeof(Program).Assembly)
 });
 builder.Services.AddSingleton<GarageStore>();
 builder.Services.AddSingleton(new WorldRelay(TimeProvider.System, PlayEndpoint.Options));
+// the race has a world of its own (at most 8 racers), the same relay class
+builder.Services.AddKeyedSingleton("race", (_, _) => new WorldRelay(TimeProvider.System, new RelayOptions { MaxPerWorld = RaceHub.MaxRacers, MaxWorlds = 1, MaxPerAddress = 16, JoinsPerMinutePerAddress = 120, FramesPerSecondPerAddress = 400 }));
+builder.Services.AddSingleton<RaceStore>();
+builder.Services.AddSingleton(RaceTrack.FromJson(File.ReadAllText(MapFile())));
+builder.Services.AddSingleton(sp => new RaceHub(TimeProvider.System, sp.GetRequiredService<RaceTrack>(), sp.GetRequiredService<RaceStore>(), sp.GetRequiredKeyedService<WorldRelay>("race"), [35, 31, 39, 36, 28]));
 
 var app = builder.Build();
 await app.StartBaseAsync();
@@ -52,7 +58,19 @@ Serve("/vendor/three", Path.Combine("vendor", "three"));
 app.MapBase();
 app.MapGarage();
 app.MapPlay();
+app.MapRace();
 app.Run();
 return 0;
+
+static string MapFile()
+{
+    // the map file the browser draws is the one the server reads: next to the app when published, in the repository when run from source
+    const string rel = "data/maps/01-car-park.json";
+    var beside = Path.Combine(AppContext.BaseDirectory, "game", rel);
+    if (File.Exists(beside)) return beside;
+    for (var d = new DirectoryInfo(AppContext.BaseDirectory); d is not null; d = d.Parent)
+        if (File.Exists(Path.Combine(d.FullName, "game", rel))) return Path.Combine(d.FullName, "game", rel);
+    throw new FileNotFoundException(rel);
+}
 
 public partial class Program;

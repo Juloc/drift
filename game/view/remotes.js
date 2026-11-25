@@ -61,6 +61,11 @@ export class Remotes {
     for (const [id, rc] of this.cars) if (!seen.has(id)) { this.scene.remove(rc.group); rc.label.remove(); this.cars.delete(id); for (let i = 0; i < 2; i++) this.skids.mark(2 + id * 2 + i, 0, 0, 0, 0, false); }
     this.labels();
   }
+  /** Take every car away (the lobby is left for a race, or the race for the lobby). */
+  clear() {
+    for (const rc of this.cars.values()) { this.scene.remove(rc.group); rc.label.remove(); }
+    this.cars.clear();
+  }
   labels() {
     const cam = this.camera, list = [];
     for (const rc of this.cars.values()) {
