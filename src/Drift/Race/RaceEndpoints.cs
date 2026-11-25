@@ -46,18 +46,19 @@ public static class RaceEndpoints
             catch (OperationCanceledException) { }
         });
 
-        async Task<IResult> Board(int? map, HttpContext ctx, RaceStore store, IReadOnlyDictionary<int, RaceTrack> tracks, CancellationToken ct)
+        async Task<IResult> Board(int? map, int? feel, HttpContext ctx, RaceStore store, IReadOnlyDictionary<int, RaceTrack> tracks, CancellationToken ct)
         {
             var track = tracks.TryGetValue(map ?? 0, out var t) ? t : tracks[tracks.Keys.Min()];
+            var fl = feel == 1 ? 1 : 0;   // the lists are kept apart by the feel of driving: 0 arcade, 1 pro
             Guid? me = ctx.Items.ContainsKey(Drift.Guests.GuestEndpoints.Key) ? null : ctx.Owner();   // a guest has no place on the board
             async Task<object> One(int kind) => new
             {
-                top = (await store.TopAsync(track.MapId, kind, 10, me, ct)).Select(r => new { name = r.Name, value = r.Ms, car = r.Car, mine = r.Mine }),
-                mine = me is { } id && await store.StandingAsync(track.MapId, kind, id, ct) is { } st ? new { value = st.Value, place = st.Place } : null,
+                top = (await store.TopAsync(track.MapId, kind, 10, me, fl, ct)).Select(r => new { name = r.Name, value = r.Ms, car = r.Car, mine = r.Mine }),
+                mine = me is { } id && await store.StandingAsync(track.MapId, kind, id, fl, ct) is { } st ? new { value = st.Value, place = st.Place } : null,
             };
             return Results.Ok(new
             {
-                map = track.Name, mapId = track.MapId, laps = track.Laps, maps = tracks.Values.OrderBy(x => x.MapId).Select(x => new { id = x.MapId, name = x.Name }),
+                map = track.Name, mapId = track.MapId, feel = fl, laps = track.Laps, maps = tracks.Values.OrderBy(x => x.MapId).Select(x => new { id = x.MapId, name = x.Name }),
                 lap = await One(RaceStore.Lap), race = await One(RaceStore.Race), drift = await One(RaceStore.Drift), tandem = await One(RaceStore.Tandem), tandemRun = await One(RaceStore.TandemRun),
             });
         }

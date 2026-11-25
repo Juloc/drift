@@ -19,7 +19,8 @@ sealed class TextPeer : IPeer, ITextPeer
 sealed class FakeBest : IBestTimes
 {
     public List<(Guid Who, int Kind, int Ms)> Written { get; } = [];
-    public Task<bool> RecordAsync(Guid userId, int map, int kind, int ms, int car, CancellationToken ct = default) { lock (Written) Written.Add((userId, kind, ms)); return Task.FromResult(true); }
+    public List<(Guid Who, int Kind, int Feel)> Feels { get; } = [];
+    public Task<bool> RecordAsync(Guid userId, int map, int kind, int ms, int car, int feel = 0, CancellationToken ct = default) { lock (Written) { Written.Add((userId, kind, ms)); Feels.Add((userId, kind, feel)); } return Task.FromResult(true); }
 }
 
 public class RaceTrackTests
@@ -415,6 +416,20 @@ public class RaceHubTests
         rig.Pass(21);
         rig.Say("anna", """{"t":"race.start"}""");
         Assert.Equal(RaceHub.Phase.Invite, rig.Hub.Current);
+    }
+
+    [Fact]
+    public void The_feel_a_person_plays_with_travels_into_the_race_and_the_times_are_kept_under_it()
+    {
+        var rig = new Rig("anna", "ben");
+        rig.Say("anna", """{"t":"feel","v":1}"""); rig.Say("ben", """{"t":"feel","v":7}""");   // pro for anna; a value that does not exist is dropped
+        Assert.Equal(1, rig.Hub.FeelOf(rig.People["anna"].Id)); Assert.Equal(0, rig.Hub.FeelOf(rig.People["ben"].Id));
+        rig.ToTheStart("anna", "ben");
+        rig.DriveAll(new() { ["anna"] = 22, ["ben"] = 18 }, 3);
+        rig.Pass(2);
+        Assert.NotEmpty(rig.Best.Feels);
+        Assert.All(rig.Best.Feels.Where(f => f.Who == rig.People["anna"].Id), f => Assert.Equal(1, f.Feel));
+        Assert.All(rig.Best.Feels.Where(f => f.Who == rig.People["ben"].Id), f => Assert.Equal(0, f.Feel));
     }
 
     [Fact]
@@ -879,5 +894,31 @@ public class TandemTests
         Assert.Equal(ab.Q, ba.Q, 9);
         Assert.Equal((TandemRole.Chase, TandemRole.Lead), (ab.RoleA, ab.RoleB));
         Assert.Equal((TandemRole.Lead, TandemRole.Chase), (ba.RoleA, ba.RoleB));
+    }
+}
+
+public class FeelBoardTests
+{
+    [Fact]
+    public async Task The_boards_are_kept_apart_by_the_feel_and_a_best_is_the_best_of_that_feel()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        var c = app.Http(); var cookie = await app.SignedInAsync(c);
+        var store = app.Services.GetService(typeof(RaceStore)) as RaceStore;
+        var me = Guid.Parse((await db.Data.CreateCommand("select id::text from users limit 1").ExecuteScalarAsync())!.ToString()!);
+        Assert.True(await store!.RecordAsync(me, 0, RaceStore.Lap, 61000, 0, feel: 0));
+        Assert.True(await store.RecordAsync(me, 0, RaceStore.Lap, 65000, 0, feel: 1));    // slower, but another list: written
+        Assert.False(await store.RecordAsync(me, 0, RaceStore.Lap, 66000, 0, feel: 1));   // slower than the pro best: not written
+        Assert.True(await store.RecordAsync(me, 0, RaceStore.Lap, 64000, 0, feel: 1));   // faster than the pro best: written
+        var arcade = (await store.TopAsync(0, RaceStore.Lap, 10, me, 0)).Single(); var pro = (await store.TopAsync(0, RaceStore.Lap, 10, me, 1)).Single();
+        Assert.Equal(61000, arcade.Ms); Assert.Equal(64000, pro.Ms);
+        Assert.Equal(1, (await store.StandingAsync(0, RaceStore.Lap, me, 1))!.Place);
+        // the page's lists: ?feel=1 shows the pro list, the default the arcade list
+        var a = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=0", cookie)));
+        var p = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=0&feel=1", cookie)));
+        Assert.Equal(0, a.GetProperty("feel").GetInt32()); Assert.Equal(1, p.GetProperty("feel").GetInt32());
+        Assert.Equal(61000, a.GetProperty("lap").GetProperty("top")[0].GetProperty("value").GetInt32());
+        Assert.Equal(64000, p.GetProperty("lap").GetProperty("top")[0].GetProperty("value").GetInt32());
     }
 }

@@ -55,7 +55,7 @@ builder.Services.AddSingleton(new WorldRelay(TimeProvider.System, PlayEndpoint.O
 // the race has a world of its own (at most 8 racers), the same relay class
 builder.Services.AddKeyedSingleton("race", (_, _) => new WorldRelay(TimeProvider.System, new RelayOptions { MaxPerWorld = RaceHub.MaxRacers, MaxWorlds = 1, MaxPerAddress = 16, JoinsPerMinutePerAddress = 120, FramesPerSecondPerAddress = 400 }));
 builder.Services.AddSingleton<RaceStore>();
-builder.Services.AddSingleton(sp => new TandemTracker(sp.GetRequiredService<RaceStore>()));
+builder.Services.AddSingleton(sp => new TandemTracker(sp.GetRequiredService<RaceStore>(), 0, id => sp.GetRequiredService<RaceHub>().FeelOf(id)));
 builder.Services.AddSingleton<IReadOnlyDictionary<int, RaceTrack>>(LoadTracks());
 builder.Services.AddSingleton(sp => new RaceHub(TimeProvider.System, sp.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>(), sp.GetRequiredService<RaceStore>(), sp.GetRequiredKeyedService<WorldRelay>("race"), [35, 31, 39, 36, 28]).WithStats(sp.GetRequiredService<StatsStore>()));
 

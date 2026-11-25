@@ -98,7 +98,7 @@ public sealed class TandemChain
 /// multiplier and its role. The car is told on a change ({ t: "tandem", on, mult, role, q } at most four times a second) and when a chain is banked
 /// ({ t: "tandem.bank", points }); the best chain of a signed-in person is written to the boards (kind 3). Guests are judged and told, but write nothing.
 /// </summary>
-public sealed class TandemTracker(IBestTimes? best, int map = 0)
+public sealed class TandemTracker(IBestTimes? best, int map = 0, Func<Guid, int>? feelOf = null)
 {
     public const int Board = 3;
     sealed class Car(Guid person, string name, bool guest, int carId) { public Guid Person = person; public string Name = name; public bool Guest = guest; public int CarId = carId; public TandemCar Pose; public double At = -1, Stepped = -1; public TandemChain Chain = new(); public double Sent = -9; public int SentMult = -1; public TandemRole SentRole; public bool SentOn; public byte PartnerId; }
@@ -153,7 +153,7 @@ public sealed class TandemTracker(IBestTimes? best, int map = 0)
         }
         if (banked is not null && best is not null)
             foreach (var (person, points, carId) in banked)
-                if (points >= 1) _ = Task.Run(async () => { try { await best.RecordAsync(person, map, Board, points, carId); } catch (Exception) { /* a board that cannot be written costs nothing here */ } });
+                if (points >= 1) _ = Task.Run(async () => { try { await best.RecordAsync(person, map, Board, points, carId, feelOf?.Invoke(person) ?? 0); } catch (Exception) { /* a board that cannot be written costs nothing here */ } });
     }
 }
 
@@ -226,10 +226,10 @@ public sealed class TandemRun(double roundSeconds = 30, double countdown = 3, do
             : 0;
 
     /// <summary>Writes the pair's score to the boards of both (signed-in) drivers; the best of each is kept. Kind 4.</summary>
-    public async Task RecordAsync(IBestTimes best, (Guid Person, bool Guest, int Car) a, (Guid Person, bool Guest, int Car) b, int map = 0)
+    public async Task RecordAsync(IBestTimes best, (Guid Person, bool Guest, int Car) a, (Guid Person, bool Guest, int Car) b, int map = 0, int feel = 0)
     {
         if (Now != Phase.Done || (int)Math.Round(Total) < 1) return;
-        foreach (var (person, guest, car) in new[] { a, b }) if (!guest) await best.RecordAsync(person, map, TandemRun.Board, (int)Math.Round(Total), car);
+        foreach (var (person, guest, car) in new[] { a, b }) if (!guest) await best.RecordAsync(person, map, TandemRun.Board, (int)Math.Round(Total), car, feel);
     }
 
     public const int Board = 4;

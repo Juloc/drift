@@ -85,3 +85,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf5; fon
 #tandem { position: absolute; left: 50%; top: 96px; transform: translateX(-50%); padding: 4px 14px; border-radius: 14px; background: var(--card); font: 800 14px system-ui, sans-serif; letter-spacing: 0.02em; pointer-events: none; white-space: nowrap; }
 #tandem[hidden] { display: none; }
 #tandem.on { background: var(--accent); color: #fff; }
+
+/* ----- the feel chip ----- */
+#feel { position: absolute; right: calc(max(14px, env(safe-area-inset-right)) + 66px); top: 100px; pointer-events: auto; min-height: 44px; padding: 0 12px; border: 2px solid rgba(27,35,48,0.35); border-radius: 14px; background: var(--card); color: var(--ink); font: 800 12px system-ui, sans-serif; opacity: 0.85; }
+#feel[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: #fff; opacity: 1; }

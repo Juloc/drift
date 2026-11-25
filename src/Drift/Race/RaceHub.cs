@@ -28,6 +28,8 @@ public sealed class RaceHub
         public Runner? Runner;
         public Session? Race;
         public int Slot;
+        /// <summary>The feel of driving (0 arcade, 1 pro) the person had when they joined the race: the times they set are kept under it.</summary>
+        public int Feel;
     }
 
     readonly TimeProvider time;
@@ -80,7 +82,7 @@ public sealed class RaceHub
     {
         lock (gate)
         {
-            if (lobby.TryGetValue(person, out var cur) && cur.Session == s) { lobby.Remove(person); emoteAt.Remove(person); }
+            if (lobby.TryGetValue(person, out var cur) && cur.Session == s) { lobby.Remove(person); emoteAt.Remove(person); feels.Remove(person); }
         }
     }
 
@@ -90,6 +92,9 @@ public sealed class RaceHub
     public const int Emotes = 10;
     public const double EmoteGap = 1.5;
     readonly Dictionary<Guid, double> emoteAt = [];
+    readonly Dictionary<Guid, int> feels = [];
+    /// <summary>The feel a person last said they play with (0 arcade when they said nothing).</summary>
+    public int FeelOf(Guid person) { lock (gate) return feels.GetValueOrDefault(person); }
     public int emotesDropped;
 
     public void OnLobbyText(Guid person, string text)
@@ -109,7 +114,7 @@ public sealed class RaceHub
                     track = r.TryGetProperty("map", out var mp) && mp.TryGetInt32(out var mi) && tracks.TryGetValue(mi, out var chosen) ? chosen : tracks[tracks.Keys.Min()];
                     laps = r.TryGetProperty("laps", out var l) && l.TryGetInt32(out var li) ? Math.Clamp(li, 1, 5) : track.Laps;
                     parts.Clear(); answered.Clear();
-                    parts.Add(new Part(me));
+                    parts.Add(new Part(me) { Feel = feels.GetValueOrDefault(person) });
                     starter = person; phase = Phase.Invite; phaseStart = Now;
                     // a time trial is a race of one: nobody is invited, the grid opens at the next tick, the times count like any
                     var solo = r.TryGetProperty("solo", out var so) && so.ValueKind == JsonValueKind.True;
@@ -123,11 +128,14 @@ public sealed class RaceHub
                         Send(m.Session, m.Person == person ? new { t = "race.wait", by = me.Name, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) } : new { t = "race.invite", by = me.Name, tuned = me.Tuned, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) });
                     break;
                 case "race.join":
-                    if (phase == Phase.Invite && parts.Count < MaxRacers && parts.All(p => p.Member.Person != person)) { parts.Add(new Part(me)); Send(me.Session, new { t = "race.joined" }); }
+                    if (phase == Phase.Invite && parts.Count < MaxRacers && parts.All(p => p.Member.Person != person)) { parts.Add(new Part(me) { Feel = feels.GetValueOrDefault(person) }); Send(me.Session, new { t = "race.joined" }); }
                     answered.Add(person);
                     break;
                 case "race.decline":
                     answered.Add(person);
+                    break;
+                case "feel":   // the feel of driving the person plays with now (0 arcade, 1 pro); kept for the race they join
+                    if (r.TryGetProperty("v", out var fv) && fv.TryGetInt32(out var f) && f is 0 or 1) feels[person] = f; else emotesDropped++;
                     break;
                 case "emote":   // a fixed set, no text: one of Emotes numbers, at most one per 1.5 s per person, shown to the lobby over the sender's car
                     if (r.TryGetProperty("e", out var ep) && ep.TryGetInt32(out var e) && e >= 0 && e < Emotes)
@@ -224,7 +232,7 @@ public sealed class RaceHub
                         foreach (var (p, i) in parts.Select((p, i) => (p, i)))
                         {
                             p.Slot = i;
-                            p.Runner = new Runner(p.Member.Person, p.Member.Name, p.Member.Car, p.Member.Hue, tops[Math.Clamp(p.Member.Car, 0, tops.Length - 1)] * p.Member.TopFactor) { Slot = i, Guest = p.Member.Guest, Tuned = p.Member.Tuned };
+                            p.Runner = new Runner(p.Member.Person, p.Member.Name, p.Member.Car, p.Member.Hue, tops[Math.Clamp(p.Member.Car, 0, tops.Length - 1)] * p.Member.TopFactor) { Slot = i, Guest = p.Member.Guest, Tuned = p.Member.Tuned, Feel = p.Feel };
                             run.Runners.Add(p.Runner);
                         }
                         phase = Phase.Countdown; phaseStart = now; lastCount = 4;
@@ -315,11 +323,11 @@ public sealed class RaceHub
             try
             {
                 var bestDrift = Math.Max(r.Drift.Best, r.Drift.Pending);   // the chain still running at the end counts
-                if (r.CleanLaps && !r.Guest && bestDrift >= 1) drift = await store.RecordAsync(r.Person, track.MapId, RaceStore.Drift, (int)bestDrift, r.Car);
+                if (r.CleanLaps && !r.Guest && bestDrift >= 1) drift = await store.RecordAsync(r.Person, track.MapId, RaceStore.Drift, (int)bestDrift, r.Car, r.Feel);
                 if (r.Finished && r.CleanLaps && !r.Guest)   // a guest's time is shown in the result, never stored
                 {
-                    if (r.BestLap is { } bl) lap = await store.RecordAsync(r.Person, track.MapId, RaceStore.Lap, (int)Math.Round(bl), r.Car);
-                    if (finishedRun.Laps == track.Laps && r.FinishMs is { } fm) race = await store.RecordAsync(r.Person, track.MapId, RaceStore.Race, (int)Math.Round(fm), r.Car);
+                    if (r.BestLap is { } bl) lap = await store.RecordAsync(r.Person, track.MapId, RaceStore.Lap, (int)Math.Round(bl), r.Car, r.Feel);
+                    if (finishedRun.Laps == track.Laps && r.FinishMs is { } fm) race = await store.RecordAsync(r.Person, track.MapId, RaceStore.Race, (int)Math.Round(fm), r.Car, r.Feel);
                 }
             }
             catch (Exception) { /* a database problem must not stop the result from reaching the racers */ }

@@ -5,12 +5,20 @@ const KEYS = {
   ArrowUp: 'gas', KeyW: 'gas', ArrowDown: 'brake', KeyS: 'brake', ShiftLeft: 'brake', ShiftRight: 'brake', Space: 'hand',
 };
 
+import { padControls, PadEdges } from '../sim/gamepad.js';
+
 export class Input {
   /** @param {HTMLElement} touchRoot element holding buttons with data-ctl = left | right | gas | brake | hand */
   constructor(touchRoot) {
     this.held = new Set();
     this.onkey = {}; // one-shot keys: reset, pause, fullscreen, quality, debug
     this.touched = false;
+    this.pad = { steer: 0, throttle: 0, brake: 0, handbrake: 0, active: false };
+    this.edges = new PadEdges();
+    this.padAction = {};   // name -> function: what a pad button does once (reset, camera, feel, pause, bot, emote0..3)
+    this.onPad = () => {}; // (connected, name)
+    addEventListener('gamepadconnected', (e) => this.onPad(true, e.gamepad.id));
+    addEventListener('gamepaddisconnected', (e) => this.onPad(false, e.gamepad.id));
     addEventListener('keydown', (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = KEYS[e.code];
@@ -30,7 +38,18 @@ export class Input {
       b.addEventListener('contextmenu', (e) => e.preventDefault());
     }
   }
-  has(ctl) { return this.held.has('key:' + ctl) || this.held.has('touch:' + ctl); }
+  /** The first connected pad, or null (browsers hand out snapshots, so it is asked again every time). */
+  pollPad() {
+    const pads = navigator.getGamepads?.() ?? [];
+    const pad = [...pads].find((p) => p?.connected) ?? null;
+    this.pad = padControls(pad);
+    for (const name of this.edges.update(pad)) this.padAction[name]?.();
+    return pad;
+  }
+  has(ctl) {
+    const pad = ctl === 'gas' ? this.pad.throttle > 0 : ctl === 'brake' ? this.pad.brake > 0 : ctl === 'hand' ? this.pad.handbrake > 0 : false;
+    return pad || this.held.has('key:' + ctl) || this.held.has('touch:' + ctl);
+  }
   /**
    * Thumbs press a button, they do not turn a wheel: on touch the steering builds up over about 0.3 s, so a short tap
    * is a small correction and a long press is full lock; it comes back quickly when the finger lifts. Keys are immediate.
@@ -46,7 +65,10 @@ export class Input {
   read() {
     const key = (this.held.has('key:right') ? 1 : 0) - (this.held.has('key:left') ? 1 : 0);
     const touch = this.touchSteer(performance.now());
-    return { steer: Math.abs(key) > 0 ? key : touch, throttle: this.has('gas') ? 1 : 0, brake: this.has('brake') ? 1 : 0, handbrake: this.has('hand') ? 1 : 0 };
+    const p = this.pad;   // an analog stick or trigger wins over a key or a button: it has more to say
+    const kt = Math.abs(key) > 0 ? key : touch;
+    const keyGas = this.held.has('key:gas') || this.held.has('touch:gas') ? 1 : 0, keyBrake = this.held.has('key:brake') || this.held.has('touch:brake') ? 1 : 0, keyHand = this.held.has('key:hand') || this.held.has('touch:hand') ? 1 : 0;
+    return { steer: p.steer !== 0 ? p.steer : kt, throttle: Math.max(keyGas, p.throttle), brake: Math.max(keyBrake, p.brake), handbrake: keyHand || p.handbrake ? 1 : 0 };
   }
   clear() { this.held.clear(); }
 }

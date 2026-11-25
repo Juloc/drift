@@ -27,4 +27,44 @@ export class FollowCam {
     if (Math.abs(fov - this.fov) > 0.05) { this.fov = damp(this.fov, fov, 3, dt); cam.fov = this.fov; cam.updateProjectionMatrix(); }
   }
 }
+
+/**
+ * A camera in the car: on the bonnet (the body stays in view) or in the cockpit (the body is hidden, the view is from the driver's eyes). It looks along the nose, leaning
+ * towards the direction of travel by `lean` (so a slide opens the view into the corner); the field of view opens a little with speed.
+ */
+export class DriverCam {
+  constructor(camera, { fwd = 0.9, up = 1.12, lean = 0.25, fov = 68, hides = false } = {}) {
+    Object.assign(this, { camera, fwd, up, lean, baseFov: fov, hides });
+    this.yaw = 0; this.fov = fov; this.ready = false;
+  }
+  snap(s) { this.ready = false; this.update(s, 0, 0); }
+  update(s, top, dt) {
+    const v = speedOf(s);
+    const travel = v > 4 ? Math.atan2(s.vx, s.vz) : s.h;
+    const aim = s.h + angDiff(s.h, travel) * this.lean;
+    if (!this.ready) { this.yaw = aim; this.ready = true; }
+    this.yaw += angDiff(this.yaw, aim) * (1 - Math.exp(-8 * dt));   // quick: the eyes are in the car
+    const hx = Math.sin(s.h), hz = Math.cos(s.h);                     // the car's nose; the camera sits on it
+    const cam = this.camera;
+    cam.position.set(X(s.x + hx * this.fwd), this.up, s.z + hz * this.fwd);
+    cam.lookAt(X(s.x + hx * this.fwd + Math.sin(this.yaw) * 20), this.up - 0.12, s.z + hz * this.fwd + Math.cos(this.yaw) * 20);
+    const fov = this.baseFov + 10 * Math.min(1, v / (top || 35));
+    if (Math.abs(fov - this.fov) > 0.05) { this.fov = damp(this.fov, fov, 3, Math.max(dt, 0.001)); cam.fov = this.fov; cam.updateProjectionMatrix(); }
+  }
+}
+
+/** The cameras of the game: chase (the default), bonnet, cockpit. `cycle()` goes to the next (the key C, a pad button). */
+export const CAMERAS = ['chase', 'bonnet', 'cockpit'];
+export class CameraRig {
+  constructor(camera, chaseOptions) {
+    this.camera = camera;
+    this.cams = { chase: new FollowCam(camera, chaseOptions), bonnet: new DriverCam(camera, { fwd: 0.9, up: 1.12, lean: 0.25, fov: 68 }), cockpit: new DriverCam(camera, { fwd: 0.15, up: 1.2, lean: 0.3, fov: 74, hides: true }) };
+    this.mode = 'chase';
+  }
+  get hidesCar() { return this.cams[this.mode].hides === true; }
+  set(mode, s) { if (!this.cams[mode]) return; this.mode = mode; this.camera.fov = mode === 'chase' ? 55 : this.cams[mode].baseFov; this.camera.updateProjectionMatrix(); this.cams[mode].fov = this.camera.fov; if (s) this.cams[mode].snap(s); }
+  cycle(s) { this.set(CAMERAS[(CAMERAS.indexOf(this.mode) + 1) % CAMERAS.length], s); return this.mode; }
+  snap(s) { this.cams[this.mode].snap(s); }
+  update(s, top, dt) { this.cams[this.mode].update(s, top, dt); }
+}
 export { HEAD };

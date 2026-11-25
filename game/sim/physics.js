@@ -84,7 +84,7 @@ export function step(s, input, car, mu = 1, dt = DT) {
   // the assist steps back while the player steers on purpose in the direction the car is turning (a driver who wants
   // a big angle gets it); hands off or counter-steering gets all of it
   const into = clamp(input.steer * Math.sign(s.w || beta), 0, 1);
-  const assist = (Math.sign(beta) * over * K.assist - smooth(over / 0.1) * K.assistW * s.w) * assistOn * (1 - K.assistYield * into);
+  const assist = (Math.sign(beta) * over * K.assist - smooth(over / 0.1) * K.assistW * s.w) * assistOn * (1 - K.assistYield * into) * (car.assistScale ?? 1);   // the feel switch scales the aid (sim/feel.js)
   const target = clamp(clamp(input.steer, -1, 1) * lock + assist, -K.lockHard, K.lockHard);
   const rate = (Math.abs(target) > Math.abs(s.steer) && Math.sign(target) * Math.sign(s.steer) >= 0 ? K.steerOn : K.steerOff) * K.lockHard * 0.8;
   const steer = clamp(target, s.steer - rate * dt, s.steer + rate * dt);
@@ -126,7 +126,7 @@ export function step(s, input, car, mu = 1, dt = DT) {
 
   // --- yaw
   const inertia = (K.inertia * a * b) / car.agility;
-  const wDot = (a * fF - b * fR) / inertia - s.w * (K.yawDamp + 2 * (1 - lowK));
+  const wDot = (a * fF - b * fR) / inertia - s.w * (K.yawDamp * (car.yawDampScale ?? 1) + 2 * (1 - lowK));   // and the stability: less damping lets the nose swing more
 
   // --- integrate (semi-implicit Euler): velocities first, then positions
   const ax = axLong;

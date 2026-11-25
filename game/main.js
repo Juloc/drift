@@ -6,6 +6,7 @@ import { step, makeCar, bodySlip, bodyVelocity, speedOf, turnedAngle, DT } from 
 import { prepareMap, surfaceAt, collide } from './sim/map.js';
 import { newScore, scoreStep } from './sim/score.js';
 import { applyTuning, NAMES as TUNE_NAMES, valid as tuneValid } from './sim/tuning.js';
+import { applyFeel, feelOf, PRO } from './sim/feel.js';
 import { FixedLoop } from './sim/loop.js';
 import { orbitBot } from './sim/bot.js';
 import { createView, TIERS } from './view/scene.js';
@@ -13,7 +14,7 @@ import { buildMap } from './view/mapview.js';
 import { buildCar, WHEEL, BLOB } from './view/carmodel.js';
 import { WheelPool } from './view/wheels.js';
 import { Smoke, Skids } from './view/fx.js';
-import { FollowCam } from './view/camera.js';
+import { CameraRig } from './view/camera.js';
 import { Input } from './view/input.js';
 import { Hud } from './view/hud.js';
 import { TandemHud } from './view/tandemhud.js';
@@ -30,11 +31,11 @@ const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
     online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', tunedMark: 'tuned', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
-    tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
+    camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', feelArcade: 'Arcade', feelPro: 'Pro (fewer aids)', feelKey: 'Feel of driving (X)', tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
     online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', tunedMark: 'getunt', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
-    tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
+    camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', feelArcade: 'Arcade', feelPro: 'Pro (weniger Hilfen)', feelKey: 'Fahrgef\u00fchl (X)', tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
 document.documentElement.lang = de ? 'de' : 'en';
@@ -54,7 +55,10 @@ const carIndex = params.has('car') ? Math.min(cars.length - 1, +params.get('car'
 // ?tune=steer,balance,power,handbrake (each -3..3, at most 10 points together): the garage's tuning of this car, seen by this page only
 const tuneParts = (params.get('tune') ?? '').split(',').map(Number);
 const tune = Object.fromEntries(TUNE_NAMES.map((k, i) => [k, tuneParts[i] ?? 0]));
-const car = applyTuning(cars[carIndex], tuneValid(tune) ? tune : Object.fromEntries(TUNE_NAMES.map((k) => [k, 0])));
+const car0 = applyTuning(cars[carIndex], tuneValid(tune) ? tune : Object.fromEntries(TUNE_NAMES.map((k) => [k, 0])));
+// the feel of driving: Arcade (the default) or Pro (fewer aids); ?feel=pro, the key X or the chip; kept on the device, told to the lobby (the boards keep the feel a time was set with)
+let feel = feelOf(params.get('feel') ?? (() => { try { return localStorage.getItem('drift.feel'); } catch { return null; } })());
+let car = applyFeel(car0, feel);
 let map = prepareMap(mapJson);
 let mapList = null, mapGroup = null, mapId = 0;
 const mapCache = new Map([[0, mapJson]]);
@@ -90,7 +94,8 @@ const pool = new WheelPool(16);
 const smoke = new Smoke(160);
 const skids = new Skids(1500);
 scene.add(carGroup, pool.mesh, pool.blobs, smoke.points, skids.mesh);
-const cam = new FollowCam(camera, coarse ? { dist: 9.5, height: 4.6, look: 4.5 } : { dist: 11, height: 5.6, look: 5 });
+const cam = new CameraRig(camera, coarse ? { dist: 9.5, height: 4.6, look: 4.5 } : { dist: 11, height: 5.6, look: 5 });
+if (['chase', 'bonnet', 'cockpit'].includes(params.get('cam'))) cam.set(params.get('cam'));   // ?cam=bonnet|cockpit for pictures; the key C cycles
 const input = new Input($('touch'));
 const hud = new Hud(T);
 const tandemHud = new TandemHud(T);
@@ -148,7 +153,7 @@ function openNet(url, inRace) {
     },
     onFix(f) { cur = prev = { ...cur, x: f.x, z: f.z, h: f.h, vx: 0, vz: 0, w: 0 }; },
     onBye(reason) { if (n === net && !racing) { droppedBtn.textContent = reason === 5 ? T.full : T.dropped; droppedBtn.hidden = false; } },
-    onState(st) { if (st === 'closed' && n === net && !racing) { $('online-n').textContent = 0; $('me').textContent = ''; spawned = false; } },
+    onState(st) { if (st === 'open' && !inRace) n.sendJson({ t: 'feel', v: feel }); if (st === 'closed' && n === net && !racing) { $('online-n').textContent = 0; $('me').textContent = ''; spawned = false; } },
     onJson: (j) => (inRace ? raceMessage(j) : lobbyMessage(j)),
   });
   n.connect();
@@ -172,10 +177,12 @@ function lobbyMessage(j) {
 }
 
 // ----- emotes: ten fixed symbols (keys 1 to 0, or the little button), shown over the sender's car for three seconds; there is no free text anywhere
+let emoteSend = null;
 const EMOTES = ['\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F525}', '\u{1F3C1}', '\u{1F44B}', '\u{1F60E}', '\u{1F64F}', '\u{1F4A8}', '\u{1F422}'];
 if (online && raceMode) {
   const bar = Object.assign(document.createElement('div'), { id: 'emotes', hidden: true });
   const open = Object.assign(document.createElement('button'), { id: 'emote-open', type: 'button', textContent: EMOTES[0], ariaLabel: 'Emotes' });
+  emoteSend = (e) => send(e);
   const send = (e) => {
     if (racing || !net) return;
     net.sendJson({ t: 'emote', e });
@@ -300,6 +307,25 @@ for (let i = 0, n = Math.round((+params.get('t') || 0) / DT); i < n; i++) loop.a
 
 input.onkey.KeyR = reset;
 input.onkey.KeyB = () => togglePractice();
+// cameras: chase, bonnet, cockpit (the key C, or Y and RB on a pad); in the cockpit the car's body is hidden
+function cycleCamera() { const m = cam.cycle(cur); note(m === 'bonnet' ? T.camBonnet : m === 'cockpit' ? T.camCockpit : T.camChase); }
+input.onkey.KeyC = cycleCamera;
+// the controller (docs/CONTROLS.md): the pad's buttons that do something once
+Object.assign(input.padAction, { reset, camera: cycleCamera, pause: () => (paused = !paused), bot: () => togglePractice(), feel: () => toggleFeel(),
+  emote0: () => emoteSend?.(0), emote1: () => emoteSend?.(1), emote2: () => emoteSend?.(2), emote3: () => emoteSend?.(3) });
+input.onPad = (connected) => { if (connected) note(T.padOn); else { paused = true; note(T.padOff); } };
+// the feel chip: Arcade or Pro; not changed during a race (the times of that race are kept under the feel it began with)
+const feelChip = Object.assign(document.createElement('button'), { id: 'feel', type: 'button' });
+const showFeel = () => { feelChip.textContent = feel === PRO ? T.feelPro : T.feelArcade; feelChip.title = T.feelKey; feelChip.setAttribute('aria-pressed', feel === PRO); };
+function toggleFeel() {
+  if (racing) return;
+  feel = feel === PRO ? 0 : PRO; car = applyFeel(car0, feel);
+  try { localStorage.setItem('drift.feel', feel === PRO ? 'pro' : 'arcade'); } catch { /* no storage: the choice lasts for this page */ }
+  net?.sendJson({ t: 'feel', v: feel });
+  showFeel();
+}
+feelChip.addEventListener('click', toggleFeel); input.onkey.KeyX = toggleFeel;
+showFeel(); (document.getElementById('hud') ?? document.body).append(feelChip);
 if (params.has('bot')) togglePractice(true);
 input.onkey.KeyP = () => (paused = !paused);
 input.onkey.KeyF = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
@@ -336,6 +362,7 @@ function frame(now) {
   last = now;
   const t0 = performance.now();
   let alpha = 0;
+  input.pollPad();   // the controller: the numbers for the next steps, and the buttons that act once
   if (!paused) alpha = loop.advance(dt, simStep);
   else alpha = loop.acc / loop.dt;
   // interpolate between the last two simulation states
@@ -348,6 +375,7 @@ function frame(now) {
   // body pose: yaw, a little roll and pitch from the forces
   const roll = Math.max(-0.08, Math.min(0.08, -cur.w * vf * 0.0035));
   const pitch = Math.max(-0.05, Math.min(0.05, -cur.ax * 0.004));
+  carGroup.visible = !cam.hidesCar;   // in the cockpit the body is not drawn (the wheels, the shadow and the smoke are)
   carGroup.position.set(X(drawn.x), 0, drawn.z);
   carGroup.rotation.set(pitch, HEAD(drawn.h), roll, 'YXZ');
   carGroup.updateMatrix();
@@ -356,7 +384,7 @@ function frame(now) {
   if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost());
   pool.begin();
   if (probe) probe.setWheels(cur.steer, spin);
-  else for (const sx of [-1, 1]) for (const sz of [-1, 1]) pool.wheel(carGroup.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -cur.steer : 0, spin);
+  else if (!cam.hidesCar) for (const sx of [-1, 1]) for (const sz of [-1, 1]) pool.wheel(carGroup.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -cur.steer : 0, spin);   // from the cockpit the wheels are not in view
   pool.blob(X(drawn.x), drawn.z, BLOB[carIndex][0], BLOB[carIndex][1], HEAD(drawn.h));
   if (net) {
     const moving = speedOf(cur) > 0.3 || input.read().throttle > 0;

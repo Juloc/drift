@@ -410,3 +410,32 @@ test('practice: a car that drives the same circle beside the bot earns the tande
   assert.equal(far.banked + far.pending, 0);
 });
 import { collide as collideCar } from './map.js';
+
+
+// ----- the feel switch
+import { applyFeel, PRO, ARCADE, feelOf } from './feel.js';
+test('feel: arcade is the car as it is, pro takes aids away; the switch changes numbers only', () => {
+  const car = JSON.parse(readFileSync(new URL('../data/cars.json', import.meta.url), 'utf8')).cars[0];
+  assert.equal(applyFeel(car, ARCADE), car);
+  const pro = applyFeel(car, PRO);
+  assert.ok(pro.assistScale < 0.5 && pro.yawDampScale < 0.7);
+  assert.equal(pro.power, car.power);                    // nothing else is touched
+  assert.equal(applyFeel(applyFeel(car, PRO), PRO).assistScale, pro.assistScale * 0.35);   // it composes with a tuning's numbers
+  assert.equal(feelOf('pro'), PRO); assert.equal(feelOf(undefined), ARCADE); assert.equal(feelOf('x'), ARCADE);
+});
+
+test('feel: after a handbrake kick the pro car swings further than the arcade car with hands off the wheel', () => {
+  const car = JSON.parse(readFileSync(new URL('../data/cars.json', import.meta.url), 'utf8')).cars[0];
+  const run = (c) => {
+    let s = makeCar(0, 0, 0), maxSlip = 0, turned = 0;
+    for (let i = 0; i < 12 / DT; i++) {
+      const t = i * DT;
+      const inp = t < 2.5 ? { steer: 0, throttle: 1, brake: 0, handbrake: 0 } : t < 3.0 ? { steer: 1, throttle: 1, brake: 0, handbrake: 1 } : { steer: 0, throttle: 0.6, brake: 0, handbrake: 0 };
+      s = step(s, inp, c, 1, DT);
+      if (t > 3) { maxSlip = Math.max(maxSlip, Math.abs(bodySlip(s))); turned = Math.max(turned, turnedAngle(s)); }
+    }
+    return { maxSlip, turned };
+  };
+  const a = run(car), p = run(applyFeel(car, PRO));
+  assert.ok(p.maxSlip > a.maxSlip + 0.1 || p.turned > a.turned + 0.3, `arcade ${JSON.stringify(a)} pro ${JSON.stringify(p)}`);
+});
