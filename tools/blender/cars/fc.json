@@ -1,0 +1,33 @@
+{
+  "name": "fc",
+  "about": "Mazda RX-7 FC (FC3S). Sizes of the real car; the model is a download (docs/ASSETS.md).",
+  "length": 4.29,
+  "width": 1.69,
+  "height": 1.265,
+  "wheelbase": 2.43,
+  "source": {
+    "file": "C:/AI/work/mazda_rx-7_fc/src/mazda_rx-7_fc/scene.gltf (from mazda_rx-7_fc.zip)",
+    "title": "Mazda RX-7 FC",
+    "author": "Lexyc16 (https://sketchfab.com/Lexyc16)",
+    "url": "https://sketchfab.com/3d-models/mazda-rx-7-fc-8ac0df459f514950ab83ac37109a06ab",
+    "licence": "CC-BY-4.0",
+    "front": "-y",
+    "up": "+z",
+    "scale_by": "length",
+    "wheels": "model",
+    "slots": {
+      "^material$": "paint",
+      "^material\\.002$": "glass",
+      "^material\\.01[1-4]$": "light_front",
+      "^material\\.015$": "light_rear",
+      "^material\\.006$": "rubber",
+      "^material\\.005$": "chrome",
+      "^material\\.00[14]$": "plastic"
+    },
+    "slot_boxes": [
+      {"material": "^material\\.01[1-4]$", "slot": "light_rear", "lo": [-9, 0.0, -9], "hi": [9, 9, 9], "about": "lamp materials at the rear"}
+    ],
+    "drop": ["^material\\.010$", "^material\\.021$"],
+    "targets": { "phone": 14000, "high": 40000 }
+  }
+}

@@ -169,6 +169,26 @@
         "en": "\"Nissan 200SX Silvia S14\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, the number plates and their lettering removed, reduced",
         "de": "„Nissan 200SX Silvia S14“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, die Kennzeichen und ihre Schrift entfernt, verkleinert"
       }
+    },
+    {
+      "id": "fc",
+      "kind": "model",
+      "name": "Mazda RX-7 FC",
+      "file": [
+        "game/assets/cars/fc.glb",
+        "game/assets/cars/fc-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/mazda-rx-7-fc-8ac0df459f514950ab83ac37109a06ab",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, materials replaced, the lettering front and rear and a ground plane removed, reduced",
+      "use": {
+        "en": "\"Mazda RX-7 FC\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, the lettering front and rear and a ground plane removed, reduced",
+        "de": "„Mazda RX-7 FC“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, die Schriftzüge vorn und hinten und eine Bodenplatte entfernt, verkleinert"
+      }
     }
   ]
 }
