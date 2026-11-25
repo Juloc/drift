@@ -68,7 +68,7 @@ let phase = '';
 let goAt = null;
 for (let i = 0; i < 400 && !(await bs[0].ev("!document.getElementById('result').hidden")); i++) {
   if (short && goAt === null && (await bs[0].ev("document.getElementById('rh-time').textContent !== '0:00.00' && !document.getElementById('racehud').hidden"))) goAt = i;
-  if (short && goAt !== null && i - goAt > 45) { await bs[0].shot(`docs/screenshots/m5-race-map${mapId}.png`); break; }
+  if (short && goAt !== null && i - goAt > 25) { await bs[0].shot(`docs/screenshots/m5-race-map${mapId}.png`); break; }
   await sleep(1000);
   if (i === 20) await bs[0].shot('docs/screenshots/m3-race.png');
   phase = await bs[0].ev("document.getElementById('rh-pos').textContent + ' ' + document.getElementById('rh-lap').textContent + ' ' + document.getElementById('rh-time').textContent");
