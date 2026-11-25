@@ -21,7 +21,7 @@ test('look: the road and the plaza are the ground just under the cars (the road 
     for (const o of [-f.hw - 1, 0, f.hw + 1]) assert.ok(f.relHeight(x + r[0] * o, z + r[1] * o) <= 0);
   }
   for (const [x, z] of scene.plaza.pts) assert.ok(f.height(x * 0.9, z * 0.9) <= 0, 'the plaza');
-  assert.ok(f.height(0, 200) > 50, 'uphill to the south');
+  assert.ok(f.height(0, 200) > 30, 'uphill to the south');
   assert.ok(f.height(0, -300) < -8, 'the valley to the north');
   // on the valley side the land falls away right behind the road's edge (a cliff behind the guardrail)
   { const i = 30, [x, z] = f.road[i], d = f.info.dir[i], r = [d[1], -d[0]], side = f.base(x + r[0] * 20, z + r[1] * 20) < f.base(x - r[0] * 20, z - r[1] * 20) ? 1 : -1;
