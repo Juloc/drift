@@ -37,8 +37,8 @@ try {
   await send('Page.navigate', { url });
   for (let i = 0; i < 240 && !(await evalJs('(!!window.__probe && window.__probe.frames > 2) || (!!window.__drift && window.__drift.info.frames > 2)')); i++) await sleep(500);
   await sleep(1000);
-  // the old game page has no __probe: measure it the same way through its own view (for the before/after numbers)
-  await evalJs(`window.__probe ??= (()=>{const v=__drift.view;return {renderer:v.renderer,frames:1e9,worldTriangles:0,buildMs:0,t:0,slip:0,sunScreen:()=>null,bench(n){const gl=v.renderer.getContext(),px=new Uint8Array(4),a=performance.now();for(let i=0;i<n;i++){v.renderer.render(v.scene,v.camera);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);}return (performance.now()-a)/n;}};})()`);
+  // the game page has no __probe: measure it the same way through its stage (view/look/stage.js)
+  await evalJs(`window.__probe ??= (()=>{const st=__drift.stage;return {renderer:st.renderer,frames:1e9,get worldTriangles(){return st.world.triangles},get buildMs(){return st.buildMs},t:0,slip:0,sunScreen:()=>null,bench(n){const gl=st.renderer.getContext(),px=new Uint8Array(4),a=performance.now();for(let i=0;i<n;i++){st.render();gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);}return (performance.now()-a)/n;}};})()`);
   if (opt.eval) await evalJs(opt.eval);   // e.g. hide parts to see what they cost
   const stats = JSON.parse(await evalJs(`(()=>{const p=__probe;const ms=p.bench(+(${opt.bench ?? 6}));const r=p.renderer.info.render;return JSON.stringify({triangles:r.triangles,calls:r.calls,msPerFrameSoftware:+ms.toFixed(1),buffer:[p.renderer.domElement.width,p.renderer.domElement.height],worldTriangles:Math.round(p.worldTriangles),buildMs:Math.round(p.buildMs),t:+p.t.toFixed(2),slip:Math.round(p.slip),sun:p.sunScreen(),probe:p.screen&&${JSON.stringify(opt.probe ?? null)}?${JSON.stringify(opt.probe ?? '')}.split(';').map(q=>p.screen(...q.split(',').map(Number))):undefined,programs:p.renderer.info.programs.length,geometries:p.renderer.info.memory.geometries})})()`));
   await sleep(300);

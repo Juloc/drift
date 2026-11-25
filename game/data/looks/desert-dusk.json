@@ -1,0 +1,233 @@
+{
+ "name": "Desert at dusk (red-orange sky, sand, rock)",
+ "note": "Colours, light, mood and density of a look; the shapes come from the scene. Another look (night harbour, desert, winter, car park) is another file like this one. Colours are before tone mapping (ACES), which softens and warms them.",
+ "sky": {
+  "top": "#3a2c78",
+  "mid": "#e0583a",
+  "horizon": "#ffb050",
+  "below": "#e8905c",
+  "midHeight": 0.18,
+  "sun": "#fff2cc",
+  "sunGlow": 2.6,
+  "glow": "#ff7a3c",
+  "sunSize": 3.6,
+  "glowStrength": 1.7,
+  "clouds": {
+   "lit": "#ffb070",
+   "shade": "#a8486a",
+   "amount": 0.7
+  }
+ },
+ "sun": {
+  "dir": [
+   0.62,
+   0.1,
+   -1
+  ],
+  "colour": "#ff9a4c",
+  "intensity": 3.6
+ },
+ "fill": {
+  "sky": "#a46aa0",
+  "ground": "#d08a5a",
+  "intensity": 1.9
+ },
+ "fog": {
+  "colour": "#f2a46e",
+  "near": 350,
+  "far": 3600
+ },
+ "mist": {
+  "colour": "#ffc8a0",
+  "opacity": 0.5,
+  "y": -1.0
+ },
+ "grade": {
+  "exposure": 0.98,
+  "bloom": 0.6,
+  "threshold": 1.15,
+  "warmth": 1.18,
+  "saturation": 1.3
+ },
+ "land": {
+  "valley": "#c8985a",
+  "mid": "#d6a45e",
+  "high": "#d8aa70",
+  "warm": "#e0a258",
+  "cool": "#c28e58",
+  "rock": "#b4684a",
+  "rockDark": "#7a4646",
+  "gravel": "#b6865e",
+  "sand": "#e6b676"
+ },
+ "road": {
+  "asphalt": "#a47a50",
+  "asphaltLight": "#b48c60",
+  "edge": "#ecd4a8",
+  "centre": "#c6a070",
+  "plaza": "#d6a45e",
+  "bay": "#ecd4a8",
+  "kerb": "#d4aa78",
+  "roughness": 0.95,
+  "sheen": 0.04,
+  "edgeWidth": 0.3,
+  "track": "#8c6644",
+  "shoulder": false
+ },
+ "water": {
+  "deep": "#9a7cb8",
+  "light": "#ffbf86",
+  "glint": "#ffc58c",
+  "glow": 1.5
+ },
+ "bridge": {
+  "stone": "#e2b29c",
+  "shade": "#c08e88"
+ },
+ "ridges": [
+  "#4a2c58",
+  "#7a4660",
+  "#b6645c",
+  "#d8845e",
+  "#f0aa72"
+ ],
+ "pine": {
+  "trunk": "#4a3238",
+  "dark": "#1f4436",
+  "mid": "#2a5a40",
+  "top": "#4a7a46"
+ },
+ "cherry": {
+  "trunk": "#5e4444",
+  "blossom": [
+   "#b8884a",
+   "#c89858",
+   "#a07646",
+   "#d8aa68"
+  ]
+ },
+ "rail": {
+  "beam": "#cbbfb0",
+  "beamLight": "#efe6da",
+  "post": "#6a5448",
+  "reflector": "#ffad42"
+ },
+ "chevron": {
+  "board": "#3a2430",
+  "arrow": "#ff6a3c",
+  "post": "#a89080"
+ },
+ "post": {
+  "white": "#f4efee",
+  "band": "#2b2630",
+  "reflector": "#ffc23f"
+ },
+ "lamp": {
+  "pole": "#4a4452",
+  "light": "#ffe2b0"
+ },
+ "smoke": {
+  "colour": "#fff0e0",
+  "shade": "#d8a890",
+  "glow": 1.0,
+  "opacity": 0.95,
+  "near": 2.5,
+  "drift": 2.0,
+  "offset": 0.9,
+  "clear": 3.6,
+  "style": "billows",
+  "bright": 1.35,
+  "tint": "#fff2e6"
+ },
+ "skid": {
+  "colour": "#3a2418",
+  "opacity": 0.55
+ },
+ "camera": {
+  "dist": 7.2,
+  "height": 2.4,
+  "side": 1.3,
+  "look": 30,
+  "lookY": -1.2,
+  "travel": 0.6,
+  "fov": 50
+ },
+ "tiers": {
+  "high": {
+   "cell": 3.5,
+   "far": 16,
+   "pines": 0,
+   "cherries": 0,
+   "nearPines": 0,
+   "nearCherries": 0,
+   "rocks": 0,
+   "ridge": 160,
+   "mist": 7,
+   "railPost": 3,
+   "smoke": 300,
+   "smokeDetail": 1,
+   "shadows": 2048,
+   "post": true,
+   "dpr": 1.75,
+   "scale": 1,
+   "env": 128,
+   "details": {
+    "tufts": 700,
+    "stones": 400,
+    "bushes": 120,
+    "petals": 0,
+    "poles": 0
+   },
+   "carpet": 0,
+   "billows": 140
+  },
+  "low": {
+   "cell": 8,
+   "far": 40,
+   "pines": 0,
+   "cherries": 0,
+   "nearPines": 0,
+   "nearCherries": 0,
+   "rocks": 0,
+   "ridge": 64,
+   "mist": 3,
+   "railPost": 6,
+   "smoke": 90,
+   "smokeDetail": 0,
+   "shadows": 0,
+   "post": false,
+   "dpr": 1,
+   "scale": 0.75,
+   "env": 32,
+   "details": {
+    "tufts": 110,
+    "stones": 70,
+    "bushes": 30,
+    "petals": 0,
+    "poles": 0
+   },
+   "carpet": 0,
+   "billows": 60
+  }
+ },
+ "facets": true,
+ "car": {
+  "tail": "#ff0a2a",
+  "tailGlow": 1.7,
+  "rim": 0.45,
+  "gloss": 0.45,
+  "dirt": "#b88a5a",
+  "steps": true
+ },
+ "pole": {
+  "wood": "#5b4140",
+  "wire": "#2c2430"
+ },
+ "lantern": {
+  "stone": "#b7a8a6",
+  "gate": "#c8423f"
+ },
+ "props": {
+  "metal": "#7a6a60"
+ }
+}

@@ -1,0 +1,72 @@
+{
+ "look": "sunset",
+ "note": "Treffpunkt: placeholder until the open-world lobby map exists (the car park, drawn as a quay-like flat area on a mountain).",
+ "mode": "area",
+ "terrain": {
+  "profile": [
+   [
+    0,
+    0
+   ],
+   [
+    4,
+    -0.4
+   ],
+   [
+    14,
+    -6
+   ],
+   [
+    40,
+    -24
+   ],
+   [
+    120,
+    -60
+   ],
+   [
+    400,
+    -110
+   ],
+   [
+    2000,
+    -200
+   ]
+  ],
+  "drop": [
+   0.5,
+   5
+  ],
+  "openValley": 30,
+  "floor": -70
+ },
+ "rail": true,
+ "rings": [
+  [
+   1000,
+   40,
+   120
+  ],
+  [
+   1200,
+   80,
+   180
+  ],
+  [
+   1450,
+   110,
+   240
+  ],
+  [
+   1750,
+   140,
+   300
+  ],
+  [
+   2100,
+   170,
+   360
+  ]
+ ],
+ "margin": 700
+}

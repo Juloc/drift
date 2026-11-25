@@ -7,6 +7,7 @@ import { rect, spline, round, loopLength, offsetLoop, makeGates, makeGrid, mulbe
 const out = (file, map) => writeFileSync(new URL(`../game/data/maps/${file}`, import.meta.url), JSON.stringify(map) + '\n');
 const wob = (a, b, wobbles, n, ph = 1) => Array.from({ length: n }, (_, k) => { const t = (2 * Math.PI * k) / n, f = 1 + wobbles[0] * Math.sin(3 * t + ph) + wobbles[1] * Math.cos(2 * t + 2 * ph); return [round(a * f * Math.cos(t)), round(b * f * Math.sin(t))]; });
 const maps = [];
+const SCENES = { 0: 'meeting', 1: 'harbour', 2: 'pass', 3: 'desert', 4: 'winter' };   // the theme of each map (game/data/scenes/): how the land around the road is drawn
 
 /** Everything every map has in common: sampled loop, gates, grid, length, then the checks. */
 function finish(id, file, name, laps, m, centreCtrl, { per = 8, gateHalf = 18, halfWidth, gridSide = 4 }) {
@@ -38,7 +39,7 @@ function finish(id, file, name, laps, m, centreCtrl, { per = 8, gateHalf = 18, h
   }
   if (!map) throw new Error(`${name}: no place for the grid along the loop`);
   for (const p of map.centre) clear(map, p[0], p[1], 4, 'the loop');
-  maps.push({ id, file, name, laps });
+  maps.push({ id, file, name, laps, scene: SCENES[id] });
   out(file, map);
   console.log(`${name}: loop ${map.loopLength} m, ${map.centre.length} points, ${map.walls?.length ?? 0} walls, ${map.obstacles?.length ?? 0} obstacles, ${map.props.length} props`);
   return map;
@@ -146,5 +147,5 @@ function finish(id, file, name, laps, m, centreCtrl, { per = 8, gateHalf = 18, h
 }
 
 // the list of maps (the car park is 0 and also the lobby)
-writeFileSync(new URL('../game/data/maps.json', import.meta.url), JSON.stringify({ maps: [{ id: 0, file: '01-car-park.json', name: 'Car park', laps: 3, lobby: true }, ...maps] }) + '\n');
+writeFileSync(new URL('../game/data/maps.json', import.meta.url), JSON.stringify({ maps: [{ id: 0, file: '01-car-park.json', name: 'Car park', laps: 3, lobby: true, scene: SCENES[0] }, ...maps] }) + '\n');
 console.log('wrote maps.json with', maps.length + 1, 'maps');

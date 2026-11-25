@@ -10,23 +10,22 @@ import { applyTuning, NAMES as TUNE_NAMES, valid as tuneValid } from './sim/tuni
 import { applyFeel, feelOf, PRO } from './sim/feel.js';
 import { FixedLoop } from './sim/loop.js';
 import { orbitBot } from './sim/bot.js';
-import { createView, TIERS } from './view/scene.js';
-import { buildMap } from './view/mapview.js';
-import { buildCar, WHEEL, BLOB } from './view/carmodel.js';
+import { createStage, loadLook } from './view/look/stage.js';
+import { sceneFromMap } from './view/look/mapscene.js';
+import { Fleet } from './view/look/fleet.js';
 import { WheelPool } from './view/wheels.js';
-import { Smoke, Skids } from './view/fx.js';
 import { CameraRig } from './view/camera.js';
 import { Input } from './view/input.js';
-import { Hud } from './view/hud.js';
+import { ProbeHud } from './view/probehud.js';
 import { SoundSystem } from './view/sound.js';
 import { newRun, runStep, resultOf } from './sim/challenge.js';
 import { TandemHud } from './view/tandemhud.js';
 import { PracticeBot, TandemPractice, PRACTICE_START } from './sim/practice.js';
-import { makeClay, makeGlow } from './core/materials.js';
 import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
 import { WorldClient } from './net/world.js';
-import { Remotes, paintFor } from './view/remotes.js';
+import { Remotes, hueColour } from './view/remotes.js';
+import { CAR_DIMS } from './view/look/fleet.js';
 import { GlowPool } from './view/wheels.js';
 
 const params = new URLSearchParams(location.search);
@@ -51,9 +50,9 @@ const coarse = matchMedia('(pointer: coarse)').matches || params.has('touch');
 if (coarse) $('hint').hidden = true;
 if (params.has('debug')) $('hint').hidden = true;
 
-const [cars, mapJson] = await Promise.all([
+const [cars, mapList] = await Promise.all([
   fetch('data/cars.json').then((r) => r.json()).then((j) => j.cars),
-  fetch('data/maps/01-car-park.json').then((r) => r.json()),
+  fetch('data/maps.json').then((r) => r.json()).then((j) => j.maps),
 ]);
 const online = document.documentElement.dataset.mode === 'online';
 const carIndex = params.has('car') ? Math.min(cars.length - 1, +params.get('car') || 0) : online ? Math.floor(Math.random() * cars.length) : 0;
@@ -64,56 +63,61 @@ const car0 = applyTuning(cars[carIndex], tuneValid(tune) ? tune : Object.fromEnt
 // the feel of driving: Arcade (the default) or Pro (fewer aids); ?feel=pro, the key X or the chip; kept on the device, told to the lobby (the boards keep the feel a time was set with)
 let feel = feelOf(params.get('feel') ?? (() => { try { return localStorage.getItem('drift.feel'); } catch { return null; } })());
 let car = applyFeel(car0, feel);
-let map = prepareMap(mapJson);
-let mapList = null, mapGroup = null, mapId = 0;
-const mapCache = new Map([[0, mapJson]]);
+const startId = params.has('map') && mapList.some((m) => m.id === +params.get('map')) ? +params.get('map') : 0;   // ?map=N: start on that map (for looking at it)
+// a map's assets: the physics (data/maps/*.json, also read by the server), the theme (data/scenes/*.json: how the land around the road looks) and the look (data/looks/*.json: colours, light, density)
+const assetCache = new Map();
+async function assets(id) {
+  if (!assetCache.has(id)) {
+    const m = mapList.find((x) => x.id === id);
+    const [json, theme] = await Promise.all([fetch('data/maps/' + m.file).then((r) => r.json()), fetch(`data/scenes/${m.scene}.json`).then((r) => r.json())]);
+    const look = await loadLook(theme.look);
+    assetCache.set(id, { json, theme, look, scene: sceneFromMap(json, theme), id });
+  }
+  return assetCache.get(id);
+}
+const first = await assets(startId);
+const lobbyJson = (await assets(0)).json;
+let map = prepareMap(first.json);
+let mapId = startId, look = first.look;
 
-// ----- view
+// ----- view: the stage of the look (renderer, light, sky, the world of the map, mist, halos, tyre marks, smoke: view/look/stage.js), the cars and the camera
 const forced = params.get('tier');
-const view = createView($('view'), { tier: TIERS[forced] ? forced : coarse ? 'medium' : 'high', auto: !TIERS[forced], sky: map.sky });
-const { renderer, scene, camera } = view;
-const lite = coarse;
-mapGroup = buildMap(map, { lite });
-scene.add(mapGroup);
-const parts = buildCar({ paint: new THREE.Color().setHSL(car.colour / 360, 0.62, 0.52).getHex(), lite, model: carIndex });
+const tierName = forced === 'high' ? 'high' : forced === 'low' || forced === 'medium' ? 'low' : coarse ? 'low' : 'high';
+const lite = tierName === 'low';
+document.body.classList.toggle('touch', coarse);
+document.body.classList.toggle('lite', lite);
+const stage = createStage({ canvas: $('view'), look: first.look, scene0: first.scene, tierName });
+const { renderer, scene, camera } = stage;
+let fleet = await new Fleet(stage, { model: 'rx7' }).load();   // the RX-7 for everybody (the code S15 where the file cannot be used)
+const ownHue = (car.colour % 360) / 360;
+let ownColour = new THREE.Color().setHSL(ownHue, 0.62, 0.42);
+let mine = fleet.spawn(ownColour);
 const carGroup = new THREE.Group();
-const bodyMesh = new THREE.Mesh(parts.body, makeClay());
-bodyMesh.castShadow = true;
-carGroup.add(bodyMesh, new THREE.Mesh(parts.lights, makeGlow()));
-// ?model=s15[&kit=1]: the probe car (own materials, own wheels) instead of the clay body; only for looking at it
-let probe = null;
-if (params.get('model') === 's15') {
-  const [{ buildS15 }, { makeEnvironment }] = await Promise.all([import('./view/s15.js'), import('./view/studio.js')]);
-  probe = buildS15({ paint: new THREE.Color().setHSL(car.colour / 360, 0.62, 0.42).getHex(), kit: params.get('kit') === '1', tier: lite ? 'low' : 'high', env: makeEnvironment(renderer, lite ? 64 : 256) });
-  carGroup.clear(); carGroup.add(probe.group);
-  scene.environment = null;
-}
-// ?glb=name: a model file (game/assets/cars/<name>.glb, docs/CAR-MODELS.md) with the garage colour; without it (404, broken file) the code model above stays
-if (params.has('glb') && !probe) {
-  const [{ loadCarModel }, { carMaterials }, { makeEnvironment }] = await Promise.all([import('./view/carmodel.js'), import('./view/carmaterials.js'), import('./view/studio.js')]);
-  const tier = lite ? 'low' : 'high';
-  const model = await loadCarModel(params.get('glb'), { tier, materials: carMaterials({ tier, paint: new THREE.Color().setHSL(car.colour / 360, 0.62, 0.42).getHex(), env: makeEnvironment(renderer, lite ? 64 : 256) }) });
-  if (model) { probe = model; carGroup.clear(); carGroup.add(model.group); }
-}
-const pool = new WheelPool(16);
-const smoke = new Smoke(160);
-const skids = new Skids(1500);
-scene.add(carGroup, pool.mesh, pool.blobs, smoke.points, skids.mesh);
-const cam = new CameraRig(camera, coarse ? { dist: 9.5, height: 4.6, look: 4.5 } : { dist: 11, height: 5.6, look: 5 });
+carGroup.add(mine.group);
+const pool = new WheelPool(16);   // (only its shadow blobs are used: the cars bring their own wheels)
+scene.add(carGroup, pool.blobs);
+const groundAt = (x, z) => stage.field.groundY(x, z);
+const cam = new CameraRig(camera, { look: look.camera, ground: groundAt });
 if (['chase', 'bonnet', 'cockpit'].includes(params.get('cam'))) cam.set(params.get('cam'));   // ?cam=bonnet|cockpit for pictures; the key C cycles
 const input = new Input($('touch'));
-const hud = new Hud(T);
+// the HUD (view/probehud.js): free driving in the lobby, laps and position in a race; the minimap shows the road of the map
+const HT = { en: { lap: 'Lap', time: 'Time', best: 'Best', score: 'Drift score', position: 'Position', angle: 'Drift angle', gear: 'Gear', gas: 'Throttle', brake: 'Brake', hand: 'Handbrake', lost: 'Lost!', online: 'Online', bestDrift: 'Best drift' },
+  de: { lap: 'Runde', time: 'Zeit', best: 'Beste', score: 'Drift-Score', position: 'Position', angle: 'Driftwinkel', gear: 'Gang', gas: 'Gas', brake: 'Bremse', hand: 'Handbremse', lost: 'Verloren!', online: 'Online', bestDrift: 'Bester Drift' } }[de ? 'de' : 'en'];
+const shapesOf = (m) => ({ road: m.centre.map(([x, z]) => [X(x), z]), plaza: [], closed: true });
+const hud = new ProbeHud($('phud'), HT, de ? 'de' : 'en', shapesOf(first.json));
 const tandemHud = new TandemHud(T);
 // underglow (?glow=0..23 here, or from the garage): one glowing patch under a lit car, one draw call for all
 const glowHue = params.has('glow') && +params.get('glow') >= 0 && +params.get('glow') < 24 ? Math.floor(+params.get('glow')) : null;
 const glowPool = new GlowPool(16);
 scene.add(glowPool.mesh);
-const glowBoost = () => (map.light?.lamps ? 1.7 : 1);
-const remotes = online ? new Remotes({ scene, pool, smoke, skids, camera, tagsEl: $('tags'), lite, glowPool, glowOf: (id) => net?.glow.get(id), glowBoost }) : null;
+const glowBoost = () => (look.lamp?.glowBoost ?? 1);
+const remotes = online ? new Remotes({ scene, stage, fleet, pool, camera, tagsEl: $('tags'), glowPool, glowOf: (id) => net?.glow.get(id), glowBoost, maxNear: lite ? 3 : 6 }) : null;
 // the state, declared before anything can call back (a socket may welcome us while the module still waits for a file)
 let cur, prev, score, spin = 0, simSteps = 0, paused = false;
 let lastInp = { steer: 0, throttle: 0, brake: 0, handbrake: 0 };   // what the car was told in the last step (for the HUD)
 let net = null, spawned = false, locked = false;
+let onlineCount = 0, meName = '', ownHueIdx = -1, bestDrift = 0, bestLap = 0, lastEvent = null, freeMs = 0;
+const raceInfo = { lap: 1, laps: 1, ms: 0, pos: 1, of: 1 };   // what the server says in a race (the HUD's cards)
 const raceMode = online && document.documentElement.dataset.race === '1';   // the signed-in app: races (the public demo has none)
 const lobbyUrl = params.get('ws') || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?car=${carIndex}${glowHue !== null ? '&glow=' + glowHue : ''}`;
 const fmt = (ms) => { const t = Math.max(0, Math.round(ms)); return `${Math.floor(t / 60000)}:${String(Math.floor(t / 1000) % 60).padStart(2, '0')}.${String(Math.floor((t % 1000) / 10)).padStart(2, '0')}`; };
@@ -121,19 +125,31 @@ const show = (id, on) => { const el = $(id); if (el) el.hidden = !on; };
 let noteTimer = 0;
 const note = (text) => { const el = $('note'); if (!el) return; el.textContent = text; el.hidden = false; clearTimeout(noteTimer); noteTimer = setTimeout(() => (el.hidden = true), 3500); };
 
-/** Makes the map with this id the one that is drawn and driven on (loads its file the first time). Races are on any of the maps; the lobby is map 0. */
+/** Makes the map with this id the one that is drawn and driven on (loads its files the first time). Races are on any of the maps; the lobby is map 0. */
+let mapLoading = null;
 async function ensureMap(id) {
-  if (id === mapId && mapGroup) return;
-  mapList ??= (await fetch('data/maps.json').then((r) => r.json())).maps;
-  if (!mapCache.has(id)) mapCache.set(id, await fetch('data/maps/' + mapList.find((m) => m.id === id).file).then((r) => r.json()));
-  const json = mapCache.get(id);
-  scene.remove(mapGroup);
-  mapGroup.traverse((o) => { o.geometry?.dispose(); });
-  map = prepareMap(json); mapId = id;
-  mapGroup = buildMap(map, { lite });
-  scene.add(mapGroup);
-  view.look(map);
-  skids.clear();
+  if (id === mapId) return;
+  if (mapLoading) await mapLoading;
+  mapLoading = (async () => {
+    const a = await assets(id);
+    map = prepareMap(a.json); mapId = id;
+    const newLook = a.look !== look;
+    carGroup.remove(mine.group);
+    stage.load(a.look, a.scene);   // takes the old world down and builds the new one (the renderer and the camera stay)
+    look = a.look;
+    if (newLook || true) {   // the cars are made for the look they are seen in (the sun's strength is in the painted style)
+      fleet.dispose();
+      fleet = await new Fleet(stage, { model: 'rx7' }).load();
+      if (remotes) { remotes.fleet = fleet; remotes.clear(); }
+      mine = fleet.spawn(ownColour);
+      if (practice) togglePractice(false);
+    }
+    carGroup.add(mine.group);
+    cam.setLook(look.camera); cam.setGround(groundAt);
+    hud.setMap(shapesOf(a.json));
+    stage.skids.clear();
+  })();
+  await mapLoading; mapLoading = null;
 }
 
 function openNet(url, inRace) {
@@ -142,23 +158,23 @@ function openNet(url, inRace) {
     url,
     onWelcome(me) {
       if (!inRace && !spawned) {
-        const ls = mapJson.lobbySpawn;   // the lobby is the car park, whichever map is drawn at this moment
+        const ls = lobbyJson.lobbySpawn;   // the lobby is map 0, whichever map is drawn at this moment
         const g = raceMode ? { x: ls.x + (me.id % 8) * 6 - 20, z: ls.z, h: ls.h } : map.grid[me.id % map.grid.length];
         cur = prev = makeCar(g.x, g.z, g.h); score = newScore(); cam.snap(cur); spawned = true;
       }
       droppedBtn.hidden = true;
     },
     onRoster(roster) {
-      $('online-n').textContent = roster.size;
+      $('online-n').textContent = onlineCount = roster.size;
       const me = n.me && roster.get(n.me.id);
       if (me) {
-        $('me').textContent = `${T.you} ${me.name}`;
-        if (bodyMesh.userData.hue !== me.hue) { bodyMesh.userData.hue = me.hue; bodyMesh.geometry = paintFor(me.hue, lite, carIndex).body; }
+        meName = `${T.you} ${me.name}`;
+        if (ownHueIdx !== me.hue) { ownHueIdx = me.hue; ownColour = hueColour(me.hue); Fleet.colour(mine, ownColour, dmg); }
       }
     },
     onFix(f) { cur = prev = { ...cur, x: f.x, z: f.z, h: f.h, vx: 0, vz: 0, w: 0 }; },
     onBye(reason) { if (n === net && !racing) { droppedBtn.textContent = reason === 5 ? T.full : T.dropped; droppedBtn.hidden = false; } },
-    onState(st) { if (st === 'open' && !inRace) { n.sendJson({ t: 'feel', v: feel }); if (creative) n.sendJson({ t: 'mode', v: 'creative' }); if (chStarted && chRun && !chRun.done) n.sendJson({ t: 'challenge.start', id: chDef.id }); } if (st === 'closed' && n === net && !racing) { $('online-n').textContent = 0; $('me').textContent = ''; spawned = false; } },
+    onState(st) { if (st === 'open' && !inRace) { n.sendJson({ t: 'feel', v: feel }); if (creative) n.sendJson({ t: 'mode', v: 'creative' }); if (chStarted && chRun && !chRun.done) n.sendJson({ t: 'challenge.start', id: chDef.id }); } if (st === 'closed' && n === net && !racing) { $('online-n').textContent = onlineCount = 0; meName = ''; spawned = false; } },
     onJson: (j) => (inRace ? raceMessage(j) : lobbyMessage(j)),
   });
   n.connect();
@@ -182,6 +198,15 @@ function lobbyMessage(j) {
   else if (j.t === 'challenge') lobbyChallenge(j);
 }
 
+const chips = Object.assign(document.createElement('div'), { id: 'chips' });   // the small switches (sound, music, feel, creative, emotes, HUD): in a column on a big screen, behind one button on a phone
+const chipsToggle = Object.assign(document.createElement('button'), { id: 'chips-toggle', type: 'button', textContent: '\u2699', ariaLabel: 'Menu' });
+chipsToggle.addEventListener('click', () => chips.classList.toggle('open'));
+const hudChip = Object.assign(document.createElement('button'), { id: 'hud-chip', type: 'button', textContent: 'HUD', title: 'HUD (H)' });
+hudChip.addEventListener('click', () => hud.cycle());
+document.body.append(chips, chipsToggle);
+for (const id of ['racebar', 'invite', 'racehud']) { const el = $(id); if (el) $('hud').append(el); }   // the race bar, the invitation and the race's leave button stand in one column under the score card
+chips.append(hudChip);
+
 // ----- emotes: ten fixed symbols (keys 1 to 0, or the little button), shown over the sender's car for three seconds; there is no free text anywhere
 let emoteSend = null;
 const EMOTES = ['\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F525}', '\u{1F3C1}', '\u{1F44B}', '\u{1F60E}', '\u{1F64F}', '\u{1F4A8}', '\u{1F422}'];
@@ -193,11 +218,11 @@ if (online && raceMode) {
     if (racing || !net) return;
     net.sendJson({ t: 'emote', e });
     const span = Object.assign(document.createElement('span'), { className: 'emo', textContent: EMOTES[e] });
-    $('me').querySelector('.emo')?.remove(); $('me').append(span); setTimeout(() => span.remove(), 3000);
+    hud.toast(EMOTES[e], 'bank');
   };
   EMOTES.forEach((s, i) => bar.append(Object.assign(document.createElement('button'), { type: 'button', textContent: s, onclick: () => { send(i); bar.hidden = true; } })));
   open.addEventListener('click', () => { bar.hidden = !bar.hidden; });
-  document.body.append(bar, open);
+  document.body.append(bar); chips.append(open);
   addEventListener('keydown', (ev) => { if (ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey || !/^[0-9]$/.test(ev.key)) return; send((+ev.key + 9) % 10); });
 }
 function startRace() {
@@ -212,15 +237,17 @@ function startRace() {
 function raceMessage(j) {
   if (j.t === 'grid') {
     locked = true;
-    ensureMap(j.map ?? 0).then(() => { cur = prev = makeCar(j.x, j.z, j.h); score = newScore(); cam.snap(cur); skids.clear(); });
+    ensureMap(j.map ?? 0).then(() => { cur = prev = makeCar(j.x, j.z, j.h); score = newScore(); cam.snap(cur); stage.skids.clear(); raceInfo.ms = 0; });
+    Object.assign(raceInfo, { pos: j.slot + 1, of: j.n, lap: 1, laps: j.laps, ms: 0 }); bestLap = 0;
     $('rh-pos').textContent = `P${j.slot + 1}/${j.n}`; $('rh-lap').textContent = `${T.lap} 1/${j.laps}`; $('rh-time').textContent = fmt(0); $('rh-drift').textContent = '';
     show('racehud', true); $('count').textContent = T.waitOthers;
   } else if (j.t === 'count') $('count').textContent = j.n;
   else if (j.t === 'go') { locked = false; $('count').textContent = T.go; setTimeout(() => show('count', false), 900); }
   else if (j.t === 'prog') {
+    Object.assign(raceInfo, { pos: j.pos, of: j.of, lap: j.lap, laps: j.laps, ms: j.ms });
     $('rh-pos').textContent = `P${j.pos}/${j.of}`; $('rh-lap').textContent = `${T.lap} ${j.lap}/${j.laps}`; $('rh-time').textContent = fmt(j.ms);
     $('rh-drift').textContent = j.drift ? `${j.drift} x${j.mult}` : '';
-  } else if (j.t === 'lap') note(`${T.lap} ${j.lap}/${j.of}: ${fmt(j.ms)}`);
+  } else if (j.t === 'lap') { bestLap = bestLap ? Math.min(bestLap, j.ms) : j.ms; note(`${T.lap} ${j.lap}/${j.of}: ${fmt(j.ms)}`); }
   else if (j.t === 'finish') note(`${T.finished} P${j.pos}: ${fmt(j.ms)}`);
   else if (j.t === 'result') showResult(j);
   else if (j.t === 'back') endRace();
@@ -281,7 +308,7 @@ const myMass = massOf(carIndex);
 let creative = params.get('mode') === 'creative';
 const creativeBanner = Object.assign(document.createElement('div'), { id: 'creative-banner', hidden: !creative });
 const creativeChip = Object.assign(document.createElement('button'), { id: 'creative', type: 'button' });
-(document.getElementById('hud') ?? document.body).append(creativeBanner, creativeChip);
+(document.getElementById('hud') ?? document.body).append(creativeBanner); chips.append(creativeChip);
 const showCreative = () => { creativeBanner.hidden = !creative; creativeBanner.textContent = T.creativeBanner; creativeChip.textContent = T.creativeChip; creativeChip.setAttribute('aria-pressed', creative); creativeChip.title = T.creativeOn; };
 function toggleCreative() {
   if (racing) return;   // not in the middle of a race: the race's times would count half
@@ -315,7 +342,7 @@ function toggleSound() { if (!sound.unlocked) { unlockSound(); return; } sound.s
 for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, unlockSound, { once: true, capture: true });
 soundChip.addEventListener('click', toggleSound);
 musicChip.addEventListener('click', () => { sound.setMusic(!sound.music); showSound(); });
-showSound(); (document.getElementById('hud') ?? document.body).append(soundChip, musicChip);
+showSound(); chips.append(soundChip, musicChip);
 
 // ----- a challenge (?challenge=<id>, from the garage's list): judged here at once with the same functions as the server, which judges it again from the poses and keeps the stars
 let chDef = null, chRun = null, chStarted = false, chServer = null;
@@ -353,8 +380,8 @@ function reset() {
   score = newScore();
   dmg = 0; sinceHit = 99; carNow = car;   // R repairs the car
   if (chDef && chDef.type !== 'lap') { chRun = newRun(chDef); chStarted = false; chServer = null; net?.sendJson({ t: 'challenge.stop' }); }
-  spin = 0;
-  skids.clear();
+  spin = 0; freeMs = 0;
+  stage.skids.clear();
   cam.snap(cur);
 }
 reset();
@@ -364,14 +391,16 @@ if (demo) { const o = mapId === 0 ? { x: 66, z: 48, h: Math.PI / 2 } : map.grid[
 
 // ----- the practice partner (?bot=1 or the key B): a bot drives a drift circle next to you; the tandem bonus is judged here, nothing is sent
 let practice = null;
-const botGroup = new THREE.Group();
+let botCar = null;
 function togglePractice(on = !practice) {
-  if (!on) { practice = null; scene.remove(botGroup); tandemHud.set(null); return; }
-  const start = params.get('bot') === 'near' ? { x: cur.x + 6, z: cur.z, h: cur.h } : mapId === 0 ? PRACTICE_START : map.grid[0];   // ?bot=near: right beside you (for pictures and tests)   // a clear run and an open circle; the bot waits there for you to find it
-  practice = { bot: new PracticeBot(map, car, start, 1), scorer: new TandemPractice(), spin: 0 };
-  const parts = buildCar({ paint: new THREE.Color().setHSL(((car.colour + 180) % 360) / 360, 0.62, 0.52).getHex(), lite, model: carIndex });
-  botGroup.clear(); botGroup.add(new THREE.Mesh(parts.body, makeClay()), new THREE.Mesh(parts.lights, makeGlow()));
-  scene.add(botGroup);
+  if (botCar) { scene.remove(botCar.group); botCar = null; }
+  if (!on) { practice = null; tandemHud.set(null); return; }
+  if (!practice) {
+    const start = params.get('bot') === 'near' ? { x: cur.x + 6, z: cur.z, h: cur.h } : mapId === 0 ? PRACTICE_START : map.grid[0];   // ?bot=near: right beside you (for pictures and tests)   // a clear run and an open circle; the bot waits there for you to find it
+    practice = { bot: new PracticeBot(map, car, start, 1), scorer: new TandemPractice(), spin: 0 };
+  }
+  botCar = fleet.spawn(new THREE.Color().setHSL(((car.colour + 180) % 360) / 360, 0.62, 0.42));
+  scene.add(botCar.group);
 }
 
 function simStep(i) {
@@ -392,6 +421,7 @@ function simStep(i) {
     if (dmg !== before) carNow = damaged(car, dmg);
   }
   score = scoreStep(score, { slip: bodySlip(cur), speed: speedOf(cur), hit: cur.hit, turned: turnedAngle(cur) }, DT);
+  if (score.event) { lastEvent = score.event; if (score.event.type === 'bank' && !creative) bestDrift = Math.max(bestDrift, score.event.points); }
   if (chRun && !chRun.done) {   // the challenge runs from the first movement
     if (!chStarted && speedOf(cur) > 1) chStart();
     if (chStarted) chRun = runStep(chRun, { slip: bodySlip(cur), speed: speedOf(cur), hit: cur.hit, turned: turnedAngle(cur), tandem: practice ? practice.scorer.tandem.banked + practice.scorer.tandem.pending : 0 }, DT);
@@ -433,13 +463,13 @@ function toggleFeel() {
   showFeel();
 }
 feelChip.addEventListener('click', toggleFeel); input.onkey.KeyX = toggleFeel;
-showFeel(); (document.getElementById('hud') ?? document.body).append(feelChip);
+showFeel(); chips.append(feelChip);
 if (params.has('bot')) togglePractice(true);
 input.onkey.KeyP = () => (paused = !paused);
 input.onkey.KeyF = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
-input.onkey.KeyQ = () => { const o = ['low', 'medium', 'high']; view.governor.set(o[(o.indexOf(view.tier) + 1) % 3], false); };
 input.onkey.KeyH = () => hud.cycle();
 input.onkey.KeyG = () => ($('debug').hidden = !$('debug').hidden);
+addEventListener('keydown', () => { $('hint').hidden = true; }, { once: true });
 document.addEventListener('visibilitychange', () => { if (document.hidden) input.clear(); });
 const showTouch = () => {
   $('touch').hidden = false;
@@ -458,10 +488,10 @@ const checkRotate = () => ($('rotate').hidden = !(coarse && innerHeight > innerW
 addEventListener('resize', checkRotate); checkRotate();
 
 // ----- drawing
-const m4 = new THREE.Matrix4();
 const dbg = $('debug');
 dbg.hidden = !params.has('debug');
-let last = performance.now(), avg = 16, jsAvg = 0, fpsFrames = 0, shown = 0;
+let last = performance.now(), avg = 16, jsAvg = 0, fpsFrames = 0, shown = 0, shownDmg = 0;
+const WHEEL_R = 0.358, BLOB = [1.15, 2.3];
 const drawn = { x: 0, z: 0, h: 0, vx: 0, vz: 0, w: 0 };
 const info = { frames: 0 };
 
@@ -480,20 +510,23 @@ function frame(now) {
   const { vf } = bodyVelocity(cur);
   const kmh = speedOf(cur) * 3.6;
 
-  // body pose: yaw, a little roll and pitch from the forces
+  // body pose: yaw, a little roll and pitch from the forces; the car stands on the road's drawn height and leans with its slope (only drawn: the physics is flat)
+  const field = stage.field, gy = field.groundY(drawn.x, drawn.z), sh = Math.sin(drawn.h), ch = Math.cos(drawn.h);
+  const slope = (field.groundY(drawn.x + sh * 1.3, drawn.z + ch * 1.3) - field.groundY(drawn.x - sh * 1.3, drawn.z - ch * 1.3)) / 2.6;
   const roll = Math.max(-0.08, Math.min(0.08, -cur.w * vf * 0.0035));
-  const pitch = Math.max(-0.05, Math.min(0.05, -cur.ax * 0.004));
-  carGroup.visible = !cam.hidesCar;   // in the cockpit the body is not drawn (the wheels, the shadow and the smoke are)
-  carGroup.position.set(X(drawn.x), 0, drawn.z);
+  const pitch = Math.max(-0.05, Math.min(0.05, -cur.ax * 0.004)) - Math.atan(slope);
+  carGroup.visible = !cam.hidesCar;   // in the cockpit the body is not drawn
+  carGroup.position.set(X(drawn.x), gy, drawn.z);
   carGroup.rotation.set(pitch, HEAD(drawn.h), roll, 'YXZ');
   carGroup.updateMatrix();
-  spin += (vf * dt) / WHEEL.r;
+  mine.uniforms.uBase.value = gy;
+  stage.smoke.car.value.set(X(drawn.x), gy, drawn.z);
+  spin += (vf * dt) / WHEEL_R;
   glowPool.begin();
-  if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost());
+  if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy);
   pool.begin();
-  if (probe) probe.setWheels(cur.steer, spin);
-  else if (!cam.hidesCar) for (const sx of [-1, 1]) for (const sz of [-1, 1]) pool.wheel(carGroup.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -cur.steer : 0, spin);   // from the cockpit the wheels are not in view
-  pool.blob(X(drawn.x), drawn.z, BLOB[carIndex][0], BLOB[carIndex][1], HEAD(drawn.h));
+  mine.setWheels(cur.steer, spin);
+  pool.blob(X(drawn.x), drawn.z, BLOB[0], BLOB[1], HEAD(drawn.h), gy);
   if (net) {
     const moving = speedOf(cur) > 0.3 || input.read().throttle > 0;
     net.sendPose({ x: cur.x, z: cur.z, h: cur.h, vf, steer: cur.steer }, bodySlip(cur), (input.has('hand') ? 1 : 0) | (cur.slide > 0.3 ? 2 : 0) | (cur.hit > 0 ? 4 : 0), moving, now);
@@ -501,57 +534,63 @@ function frame(now) {
     remotes.update(list, net.roster, dt);
     remoteBodies = list.filter((o) => !o.far).map((o) => ({ ...bodyOf(o), m: massOf(net.roster.get(o.id)?.car ?? 0) }));
   }
-  if (practice) {   // the practice bot, drawn like a car of the lobby (body and wheels), and the chip from the local judgement
-    const b = practice.bot.state, { vf: bvf } = bodyVelocity(b);
-    botGroup.position.set(X(b.x), 0, b.z); botGroup.rotation.set(0, HEAD(b.h), 0, 'YXZ'); botGroup.updateMatrix();
-    practice.spin += (bvf * dt) / WHEEL.r;
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) pool.wheel(botGroup.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -b.steer : 0, practice.spin);
-    pool.blob(X(b.x), b.z, BLOB[carIndex][0], BLOB[carIndex][1], HEAD(b.h));
+  if (practice && botCar) {   // the practice bot, drawn like the other cars, and the chip from the local judgement
+    const b = practice.bot.state, { vf: bvf } = bodyVelocity(b), bg = field.groundY(b.x, b.z);
+    botCar.group.position.set(X(b.x), bg, b.z); botCar.group.rotation.set(0, HEAD(b.h), 0, 'YXZ');
+    practice.spin += (bvf * dt) / WHEEL_R;
+    botCar.setWheels(b.steer, practice.spin);
+    pool.blob(X(b.x), b.z, BLOB[0], BLOB[1], HEAD(b.h), bg);
     const tt = practice.scorer.tandem;
     tandemHud.set({ on: tt.active, mult: tt.mult, role: tt.role }, now);
   }
   pool.end();
   glowPool.end();
 
-  // smoke and skid marks from the rear wheels
+  // smoke and skid marks from the rear wheels (on the road's drawn height)
   const sliding = (cur.slide > 0.25 || (input.has('hand') && speedOf(cur) > 4)) && speedOf(cur) > 3 && !paused;
+  const { smoke, skids } = stage;
   for (let i = 0; i < 2; i++) {
     const sx = i ? 1 : -1;
-    const wp = new THREE.Vector3(sx * WHEEL.x, 0, -WHEEL.z).applyMatrix4(carGroup.matrix);
-    if (sliding && cur.slide + (input.has('hand') ? 0.4 : 0) > 0.25) smoke.emit(wp.x, 0.2, wp.z, X(cur.vx) * 0.2, cur.vz * 0.2, Math.min(1, cur.slide + 0.2));
-    skids.mark(i, wp.x, wp.z, 0, 0, sliding);
+    const wp = new THREE.Vector3(sx * CAR_DIMS.wheelX, 0, -CAR_DIMS.wheelZ).applyMatrix4(carGroup.matrix);
+    if (sliding && cur.slide + (input.has('hand') ? 0.4 : 0) > 0.25) smoke.emit(wp.x, 0.35 + gy, wp.z, X(cur.vx) * 0.06, cur.vz * 0.06, Math.min(1, cur.slide + 0.2));
+    skids.mark(i, wp.x, wp.z, 0, 0, sliding, gy);
   }
-  // damage: the body darkens with it, smoke comes from the nose over half, and a small readout
-  bodyMesh.material.color.setScalar(1 - 0.5 * dmg);
-  if (dmg > 0.5 && !paused && info.frames % 3 === 0) { const np = new THREE.Vector3(0, 0.7, 1.9).applyMatrix4(carGroup.matrix); smoke.emit(np.x, 0.5, np.z, 0, 0, 0.35 * dmg); }
+  // damage: the paint darkens with it, smoke comes from the nose over half, and a small readout
+  if (dmg !== shownDmg) { shownDmg = dmg; Fleet.colour(mine, ownColour, dmg); }
+  if (dmg > 0.5 && !paused && info.frames % 3 === 0) { const np = new THREE.Vector3(0, 0.7, 2.2).applyMatrix4(carGroup.matrix); smoke.emit(np.x, 0.5 + gy, np.z, 0, 0, 0.35 * dmg); }
   const dmgText = dmg > 0.02 ? `${T.damageLabel} ${Math.round(dmg * 100)} %` : '';
   if (damageEl.textContent !== dmgText) { damageEl.textContent = dmgText; damageEl.hidden = dmgText === ''; }
   smoke.update(paused ? 0 : dt);
-  smoke.resize(renderer.domElement.height * 1, camera.fov);
+  smoke.sync();
 
   cam.update(drawn, car.top, dt);
-  if (TIERS[view.tier].shadows) view.followSun(drawn.x, drawn.z);
+  stage.aimSun(X(drawn.x), gy, drawn.z);
+  stage.halos.resize(renderer.domElement.height, camera.fov);
   if (sound.unlocked) {   // the engine and the tyres of your car, and the four nearest others
     const others = net ? net.sample(now).map((o) => ({ id: o.id, x: o.x, z: o.z, speed: o.vf, throttle: (o.flags & 2) ? 0.9 : Math.abs(o.vf) > 1 ? 0.6 : 0, slide: (o.flags & 3) ? 0.8 : 0, car: net.roster.get(o.id)?.car ?? 0, top: cars[net.roster.get(o.id)?.car ?? 0]?.top ?? 33 })) : [];
     sound.update({ speed: speedOf(cur), throttle: lastInp.throttle, slide: paused ? 0 : cur.slide, car: carIndex, top: car.top }, others, { x: drawn.x, z: drawn.z, heading: drawn.h });
   }
   chShow();
-  hud.update(kmh, score, dt, lastInp, { steer: cur.steer, slip: bodySlip(cur) });
+  // the HUD: cards for free driving or the race
+  if (!paused) freeMs += dt * 1000;
+  const raceCard = racing ? { ...raceInfo, best: bestLap } : { free: true, online: onlineCount, ms: freeMs, bestDrift, name: meName };
+  hud.update(raceCard, { kmh, forward: Math.sign(vf) || 1, slip: bodySlip(cur), x: X(drawn.x), z: drawn.z, h: drawn.h }, lastInp, { ...score, event: lastEvent },
+    net ? net.sample(now).filter((o) => !o.far).map((o) => [X(o.x), o.z]) : [], paused ? 0 : dt);
+  lastEvent = null;
   const t1 = performance.now();
-  renderer.render(scene, camera);
+  stage.render();
   const t2 = performance.now();
 
-  // frame statistics and the quality governor
+  // frame statistics
   avg += (Math.min(250, dt * 1000) - avg) * 0.05;
   jsAvg += (t2 - t0 - jsAvg) * 0.05;
-  view.governor.sample(dt * 1000);
   info.frames++;
   if (!dbg.hidden && now - shown > 400) {
     shown = now;
     const r = renderer.info.render;
-    dbg.textContent = `frame ${avg.toFixed(1)} ms (${(1000 / avg).toFixed(0)} fps), js+submit ${jsAvg.toFixed(2)} ms\n${r.triangles} triangles, ${r.calls} draw calls, tier ${view.tier} (${renderer.domElement.width}x${renderer.domElement.height})\nsim steps ${simSteps}, speed ${kmh.toFixed(0)} km/h, slip ${(bodySlip(cur) * 57.3).toFixed(0)} deg`;
+    dbg.textContent = `frame ${avg.toFixed(1)} ms (${(1000 / avg).toFixed(0)} fps), js+submit ${jsAvg.toFixed(2)} ms\n${r.triangles} triangles, ${r.calls} draw calls, tier ${tierName} (${renderer.domElement.width}x${renderer.domElement.height}), map ${mapId}, world ${Math.round(stage.world.triangles)} triangles\nsim steps ${simSteps}, speed ${kmh.toFixed(0)} km/h, slip ${(bodySlip(cur) * 57.3).toFixed(0)} deg`;
   }
   requestAnimationFrame(frame);
 }
-window.__drift = { get state() { return cur; }, get score() { return score; }, view, renderer, info, car, get map() { return map; }, reset, input };
+window.__drift = { get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; } };
 requestAnimationFrame(frame);

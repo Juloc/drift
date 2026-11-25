@@ -48,12 +48,13 @@ export class ProbeHud {
     const T = this.T, card = (cls) => el('div', 'card ' + cls);
     // top left: lap, time, best
     const lap = card('c-lap');
-    this.lapV = el('b'); const lt = el('div', 'lap-title'); lt.append(el('span', '', T.lap + ' '), this.lapV);
+    this.lapV = el('b'); this.lapK = el('span', '', T.lap + ' '); const lt = el('div', 'lap-title'); lt.append(this.lapK, this.lapV);
     const row = (k, cls) => { const r = el('div', 'row ' + (cls ?? '')), v = el('b'); r.append(k, v); lap.append(r); return v; };
     lap.append(lt);
     this.timeV = row(el('span', 'k', T.time));
-    const star = el('span', 'k'); star.append(el('span', 'star', '\u2605'), ' ' + T.best);
+    const star = el('span', 'k'); this.bestK = el('span', '', ' ' + T.best); star.append(el('span', 'star', '\u2605'), this.bestK);
     this.bestV = row(star, 'best');
+    this.nameV = el('div', 'p-name'); lap.append(this.nameV);   // free driving: who you are
     // top centre: the drift score
     const sc = card('c-score');
     this.scoreV = el('b', 'score'); this.pill = el('span', 'pill');
@@ -70,7 +71,9 @@ export class ProbeHud {
     const m = svg('svg', { viewBox: '-60 -82 120 120', class: 'minimap', 'aria-hidden': 'true' });
     const d = (pts, close) => 'M' + pts.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' L') + (close ? ' Z' : '');
     this.world = svg('g', {});
-    this.world.append(svg('path', { d: d(shapes.plaza, true), class: 'mm-plaza' }), svg('path', { d: d(shapes.road), class: 'mm-road' }));
+    this.shapePath = (sh) => { const g = svg('g', {}); if (sh.plaza?.length) g.append(svg('path', { d: d(sh.plaza, true), class: 'mm-plaza' })); g.append(svg('path', { d: d(sh.road, sh.closed), class: 'mm-road' })); return g; };
+    this.shapeG = this.shapePath(shapes);
+    this.world.append(this.shapeG);
     this.dots = svg('g', {});
     this.world.append(this.dots);
     m.append(this.world, svg('path', { d: 'M0 -9 L7 7 L0 3.5 L-7 7 Z', class: 'mm-me' }));
@@ -106,10 +109,13 @@ export class ProbeHud {
     this.barsBox = bars;
     sp.append(top, bars);
     this.toastEl = el('div', 'p-toast'); this.toastEl.setAttribute('role', 'status');
+    this.lapCard = lap; this.posCard = pos;
     this.root.append(lap, sc, pos, mp, an, sp, this.toastEl);
     this.apply();
   }
 
+  /** Another map: its road (and meeting place) on the minimap; { road, plaza, closed } in drawing axes. */
+  setMap(shapes) { const g = this.shapePath(shapes); this.world.replaceChild(g, this.shapeG); this.shapeG = g; }
   apply() { this.root.dataset.level = this.level; }
   cycle() { this.level = this.level === 'driver' ? 'plain' : 'driver'; try { localStorage.setItem('drift.hud', this.level); } catch { /* not kept */ } this.apply(); }
   set(key, value, fn) { if (this.last[key] !== value) { this.last[key] = value; fn(value); } }
@@ -120,10 +126,13 @@ export class ProbeHud {
    */
   update(race, car, ctl, sc, others, dt) {
     const T = this.T;
-    this.set('lap', `${race.lap} / ${race.laps}`, (v) => (this.lapV.textContent = v));
+    // free driving (the lobby, a time trial before it starts): the card shows how many drive here, the time of this visit and the best drift; a race shows lap, time, best lap and position
+    this.set('free', !!race.free, (v) => { this.lapK.textContent = v ? T.online + ' ' : T.lap + ' '; this.bestK.textContent = ' ' + (v ? T.bestDrift : T.best); this.posCard.hidden = v; });
+    this.set('lap', race.free ? String(race.online ?? 0) : `${race.lap} / ${race.laps}`, (v) => (this.lapV.textContent = v));
     this.set('time', fmtTime(race.ms), (v) => (this.timeV.textContent = v));
-    this.set('best', race.best ? fmtTime(race.best) : '–', (v) => (this.bestV.textContent = v));
-    this.set('pos', `${race.pos} / ${race.of}`, (v) => (this.posV.textContent = v));
+    this.set('best', race.free ? (race.bestDrift ? fmtNum(race.bestDrift, this.lang) : '–') : race.best ? fmtTime(race.best) : '–', (v) => (this.bestV.textContent = v));
+    this.set('name', race.name ?? '', (v) => (this.nameV.textContent = v));
+    if (!race.free) this.set('pos', `${race.pos} / ${race.of}`, (v) => (this.posV.textContent = v));
     this.set('score', fmtNum(sc.banked + sc.pending, this.lang), (v) => (this.scoreV.textContent = v));
     this.set('mult', sc.mult, (v) => (this.pill.textContent = fmtMult(v, this.lang)));
     const live = sc.pending > 0 || sc.chainTime > 0;

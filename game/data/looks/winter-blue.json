@@ -1,0 +1,230 @@
+{
+ "name": "Winter track at the blue hour (snow, ice, cold light)",
+ "note": "Colours, light, mood and density of a look; the shapes come from the scene. Another look (night harbour, desert, winter, car park) is another file like this one. Colours are before tone mapping (ACES), which softens and warms them.",
+ "sky": {
+  "top": "#222f66",
+  "mid": "#7288c6",
+  "horizon": "#f2c8d2",
+  "below": "#b8bede",
+  "midHeight": 0.2,
+  "sun": "#fff0e8",
+  "sunGlow": 1.6,
+  "glow": "#ff9eb0",
+  "sunSize": 2.4,
+  "glowStrength": 0.95,
+  "clouds": {
+   "lit": "#f4d4e0",
+   "shade": "#7280b4",
+   "amount": 0.55
+  }
+ },
+ "sun": {
+  "dir": [
+   0.5,
+   0.14,
+   -1
+  ],
+  "colour": "#b4c8ff",
+  "intensity": 2.3
+ },
+ "fill": {
+  "sky": "#8ea4e4",
+  "ground": "#cad6ee",
+  "intensity": 2.1
+ },
+ "fog": {
+  "colour": "#b6c2e6",
+  "near": 260,
+  "far": 2800
+ },
+ "mist": {
+  "colour": "#e2eaff",
+  "opacity": 0.7,
+  "y": -1.5
+ },
+ "grade": {
+  "exposure": 1.0,
+  "bloom": 0.5,
+  "threshold": 1.15,
+  "warmth": 0.96,
+  "saturation": 1.06
+ },
+ "land": {
+  "valley": "#dbe3f2",
+  "mid": "#e8eef8",
+  "high": "#f3f6fc",
+  "warm": "#e7ebf6",
+  "cool": "#cdd8ee",
+  "rock": "#8e9ab2",
+  "rockDark": "#5e6882",
+  "gravel": "#b6c0d6",
+  "sand": "#c6cee4"
+ },
+ "road": {
+  "asphalt": "#97a5c2",
+  "asphaltLight": "#a6b4d0",
+  "edge": "#ffffff",
+  "centre": "#6a8ed8",
+  "plaza": "#dde4f2",
+  "bay": "#ffffff",
+  "kerb": "#ffffff",
+  "roughness": 0.32,
+  "sheen": 0.7,
+  "edgeWidth": 0.34,
+  "track": "#8694b2",
+  "shoulder": false
+ },
+ "water": {
+  "deep": "#9a7cb8",
+  "light": "#ffbf86",
+  "glint": "#ffc58c",
+  "glow": 1.5
+ },
+ "bridge": {
+  "stone": "#e2b29c",
+  "shade": "#c08e88"
+ },
+ "ridges": [
+  "#2a3868",
+  "#46598f",
+  "#6f86b8",
+  "#a0b2d6",
+  "#d2def2"
+ ],
+ "pine": {
+  "trunk": "#4a3a3c",
+  "dark": "#1c3a3c",
+  "mid": "#27503f",
+  "top": "#dbe8f2"
+ },
+ "cherry": {
+  "trunk": "#5e4444",
+  "blossom": [
+   "#f4f8ff",
+   "#e8f0fc",
+   "#d4e0f4",
+   "#ffffff"
+  ]
+ },
+ "rail": {
+  "beam": "#cdd6e6",
+  "beamLight": "#f2f6fc",
+  "post": "#5a6482",
+  "reflector": "#ffad42"
+ },
+ "chevron": {
+  "board": "#1c2a4a",
+  "arrow": "#ff7a5a",
+  "post": "#9aa6c0"
+ },
+ "post": {
+  "white": "#f4efee",
+  "band": "#2b2630",
+  "reflector": "#ffc23f"
+ },
+ "lamp": {
+  "pole": "#4a5470",
+  "light": "#ffe0b0"
+ },
+ "smoke": {
+  "colour": "#ffffff",
+  "shade": "#b4c0e4",
+  "glow": 0.9,
+  "opacity": 0.95,
+  "near": 2.5,
+  "drift": 2.0,
+  "offset": 0.9,
+  "clear": 3.6,
+  "style": "billows",
+  "bright": 1.35,
+  "tint": "#f4f8ff"
+ },
+ "skid": {
+  "colour": "#2a3248",
+  "opacity": 0.55
+ },
+ "camera": {
+  "dist": 7.2,
+  "height": 2.4,
+  "side": 1.3,
+  "look": 30,
+  "lookY": -1.2,
+  "travel": 0.6,
+  "fov": 50
+ },
+ "tiers": {
+  "high": {
+   "cell": 3.5,
+   "far": 16,
+   "pines": 420,
+   "cherries": 0,
+   "nearPines": 60,
+   "nearCherries": 0,
+   "rocks": 20,
+   "ridge": 160,
+   "mist": 7,
+   "railPost": 3,
+   "smoke": 300,
+   "smokeDetail": 1,
+   "shadows": 2048,
+   "post": true,
+   "dpr": 1.75,
+   "scale": 1,
+   "env": 128,
+   "details": {
+    "tufts": 200,
+    "stones": 100,
+    "bushes": 80,
+    "petals": 0,
+    "poles": 0
+   },
+   "carpet": 1600,
+   "billows": 140
+  },
+  "low": {
+   "cell": 8,
+   "far": 40,
+   "pines": 50,
+   "cherries": 0,
+   "nearPines": 16,
+   "nearCherries": 0,
+   "rocks": 8,
+   "ridge": 64,
+   "mist": 3,
+   "railPost": 6,
+   "smoke": 90,
+   "smokeDetail": 0,
+   "shadows": 0,
+   "post": false,
+   "dpr": 1,
+   "scale": 0.75,
+   "env": 32,
+   "details": {
+    "tufts": 40,
+    "stones": 30,
+    "bushes": 24,
+    "petals": 0,
+    "poles": 0
+   },
+   "carpet": 120,
+   "billows": 60
+  }
+ },
+ "facets": true,
+ "car": {
+  "tail": "#ff0a2a",
+  "tailGlow": 1.7,
+  "rim": 0.45,
+  "gloss": 0.45,
+  "dirt": "#a8b4d0",
+  "steps": true
+ },
+ "pole": {
+  "wood": "#5b4140",
+  "wire": "#2c2430"
+ },
+ "lantern": {
+  "stone": "#b7a8a6",
+  "gate": "#c8423f"
+ }
+}
