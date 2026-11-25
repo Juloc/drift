@@ -188,3 +188,27 @@ Biggest differences left (picture `probe-sunset-drift.png` of this round):
 3. Sky: the mockup's cloud bands are brighter and more distinct.
 4. Left slope: the mockup shows more green ledges and pines on the rock; ours is mostly rock and grass with one big cherry.
 5. Bridge: half hidden in the mist from this camera; the mockup shows its arches clearly above the river.
+
+## Rounds 15 and 16 (2026-11-25): measured against the mockup
+
+A measuring tool: `node tools/palette.mjs <mockup> <picture> [--boxes=name:x0,y0,x1,y1;...]` (headless Chromium reads the pixels, no
+packages): brightness, contrast (standard deviation), saturation, the mean colour of six regions (left/right × thirds) and of named
+boxes, and the distance of each (RGB). Boxes used: sky-top 0.4,0.11,0.6,0.16; near-sun 0.72,0.2,0.8,0.26; road-near 0.55,0.85,0.75,0.97;
+smoke 0.02,0.55,0.2,0.75 (fractions of the picture).
+
+Done: a cloud layer of its own (soft bands at the sky's distance, `makeClouds` in sky.js, lit coral on the sun's side); a softer grade
+(less saturation, contrast 0.94, shadows lifted a little towards mauve, a fine film grain; bloom only above 1.8, so lamps, sun and
+reflectors glow and the car's paint does not); a coral sun and mauve sky; lower, rosier mountain rings and a lower far slope, so the
+right third is sky with the sun just over the mountains; the camera of the mockup (1.6 m, 5.6 m behind, the car big left of the
+middle, the horizon at about a third); greener-olive land, stronger pink cherries, satin grey rims; the power poles out of the picture;
+the smoke as big billows that fill the lower left and fade only right at the lens.
+
+Distances to the mockup, start of round 15 → end of round 16: mean 58 → 36; brightness 99 → 114 (mockup 108), contrast 43 → 43 (42),
+saturation 0.44 → 0.34 (0.37); smoke 74 → 9, middle-left 57 → 8, top-right 76 → 36, road-near 28 → 36, near-sun 169 → 95.
+
+Biggest differences left:
+1. Near the sun: ours is a pale cream glow, the mockup a saturated coral-orange (#faae7b) round a smaller bright core.
+2. Sky top: ours more magenta and darker (#9e5674 against #c37c88).
+3. Road near: a little too light and red (#855155 against #683e4c).
+4. Valley: the river and mist are only a strip at the right edge; the mockup shows the river bend and the bridge mid-right.
+5. The car (RX-7, a choice) and the HUD values (a short drift) as before.

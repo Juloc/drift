@@ -15,7 +15,7 @@ import { Halos } from './core/materials.js';
 import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
 import { buildWorld } from './view/look/world.js';
-import { makeSky, makeMist, makeSkyEnvironment, sunDirection } from './view/look/sky.js';
+import { makeSky, makeMist, makeSkyEnvironment, sunDirection, makeClouds } from './view/look/sky.js';
 import { Puffs } from './view/look/puffs.js';
 import { Billows } from './view/look/billows.js';
 import { mergeParked } from './view/look/parked.js';
@@ -69,6 +69,7 @@ if (tier.shadows) {
 const camera = new THREE.PerspectiveCamera(55, 1, 0.5, 2600);
 const sky = makeSky(look, 2200);
 scene.add(sky);
+if (look.sky.bands) scene.add(makeClouds(look, look.sky.bands, 2100));   // the cloud bands of their own
 
 // ----- the world
 const t0 = performance.now();

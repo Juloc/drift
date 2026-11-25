@@ -63,7 +63,7 @@ export class Billows {
     const i = this.next; this.next = (this.next + 1) % this.cap;
     this.pos.set([x, y + 0.3, z], i * 3);
     this.vel.set([vx + (this.rnd() - 0.5) * 1.4, 0.35 + strength * 0.4, vz + (this.rnd() - 0.5) * 1.4], i * 3);
-    this.age[i] = 0; this.life[i] = 1.6 + strength * 1.4; this.grow[i] = 0.8 + this.rnd() * 0.6; this.spin[i] = this.rnd() * 6.28;
+    this.age[i] = 0; this.life[i] = 2.0 + strength * 1.6; this.grow[i] = 0.8 + this.rnd() * 0.6; this.spin[i] = this.rnd() * 6.28;
   }
   update(dt) {
     for (let i = 0; i < this.cap; i++) {
@@ -78,7 +78,7 @@ export class Billows {
     for (let i = 0; i < this.cap; i++) {
       const k = this.age[i] / this.life[i];
       d[i * 4] = this.pos[i * 3]; d[i * 4 + 1] = this.pos[i * 3 + 1]; d[i * 4 + 2] = this.pos[i * 3 + 2];
-      d[i * 4 + 3] = k >= 1 ? 0 : (1.6 + k * 5.5) * this.grow[i];
+      d[i * 4 + 3] = k >= 1 ? 0 : (2.0 + k * 6.5) * this.grow[i];
       al[i * 2] = k >= 1 ? 0 : this.opacity * Math.sqrt(1 - k) * Math.min(1, k * 5); al[i * 2 + 1] = this.spin[i] + k * 0.6;
     }
     this.data.needsUpdate = true; this.alpha.needsUpdate = true;

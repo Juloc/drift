@@ -91,3 +91,46 @@ export function makeSkyEnvironment(renderer, look, size = 128) {
   scene.traverse((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
   return tex;
 }
+
+/**
+ * A layer of cloud bands of its own (in front of the sky dome, so the bloom does not wash them out): soft, long quads at the sky's
+ * distance, following the camera like the dome. `bands`: [{ az, el, w, h }] in degrees from the sun's direction (az to the right) and
+ * above the horizon, width and height in degrees. Lit warm on the sun's side and underneath, rosy-violet away from it.
+ */
+export function makeClouds(look, bands, radius = 1700) {
+  const C = look.sky.clouds ?? {}, sun = sunDirection(look), sunAz = Math.atan2(sun.x, -sun.z);
+  const geos = bands.map((b, i) => {
+    const az = sunAz + (b.az * Math.PI) / 180, el = (b.el * Math.PI) / 180, w = 2 * radius * Math.tan((b.w * Math.PI) / 360), h = 2 * radius * Math.tan((b.h * Math.PI) / 360);
+    const g = new THREE.PlaneGeometry(w, h, 8, 1);
+    const seed = new Float32Array(g.attributes.position.count).fill(i * 7.31);
+    g.setAttribute('seed', new THREE.BufferAttribute(seed, 1));
+    const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+    g.lookAt(dir.clone().negate());
+    return g.translate(dir.x * radius, dir.y * radius, dir.z * radius);
+  });
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uLit: { value: new THREE.Color(C.lit ?? '#ffc9a0').multiplyScalar(C.bright ?? 1.2) }, uShade: { value: new THREE.Color(C.shade ?? '#b05a88') }, uSun: { value: sun }, uOpacity: { value: C.layer ?? 0.85 } },
+    vertexShader: /* glsl */ `attribute float seed; varying vec2 vUv; varying float vSeed; varying vec3 vDir;
+      void main(){ vUv = uv; vSeed = seed; vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `uniform vec3 uLit, uShade, uSun; uniform float uOpacity; varying vec2 vUv; varying float vSeed; varying vec3 vDir;
+      float h1(float x) { return fract(sin(x * 91.7 + vSeed) * 43758.5); }
+      float n1(float x) { float i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(h1(i), h1(i + 1.0), f); }
+      void main(){
+        float u = vUv.x, v = vUv.y;
+        // a wavy band: its middle line and thickness change along it; the ends fade out
+        float mid = 0.5 + (n1(u * 5.0) - 0.5) * 0.35, th = 0.18 + n1(u * 3.0 + 4.0) * 0.22;
+        float a = (1.0 - smoothstep(th * 0.5, th, abs(v - mid))) * smoothstep(0.0, 0.2, u) * smoothstep(1.0, 0.8, u) * (0.6 + 0.4 * n1(u * 11.0 + 2.0));
+        if (a < 0.01) discard;
+        float c = pow(max(dot(normalize(vDir), uSun), 0.0), 3.0);
+        vec3 col = mix(uShade, uLit, clamp(c * 1.4 + (mid - v) * 1.2 + 0.25, 0.0, 1.0));
+        gl_FragColor = vec4(col, a * uOpacity);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+    transparent: true, depthWrite: false, fog: false,
+  });
+  const mesh = new THREE.Mesh(mergeGeometries(geos), mat);
+  mesh.frustumCulled = false; mesh.renderOrder = -0.5;
+  mesh.onBeforeRender = (r, sc, cam) => { mesh.position.copy(cam.position); mesh.updateMatrixWorld(); };
+  return mesh;
+}
