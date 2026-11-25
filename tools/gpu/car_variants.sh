@@ -7,7 +7,7 @@ set -eu
 car=$1; variants=${2:-"smooth smooth-hi"}
 cd "$(dirname "$0")/../.."
 ssh gpu "mkdir C:\\AI\\scripts\\drift\\cars 2>nul & mkdir C:\\AI\\work\\$car 2>nul & exit 0"
-scp -q tools/blender/car_from_trellis.py tools/blender/prepare_car.py tools/blender/look.py gpu:C:/AI/scripts/drift/
+scp -q tools/blender/car_from_trellis.py tools/blender/carlib.py tools/blender/prepare_car.py tools/blender/look.py gpu:C:/AI/scripts/drift/
 scp -q "tools/blender/cars/$car.json" gpu:C:/AI/scripts/drift/cars/
 scp -q game/assets/cars/s15-test.glb game/assets/cars/s15-test-hi.glb "gpu:C:/AI/work/$car/"
 for v in $variants; do

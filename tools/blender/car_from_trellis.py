@@ -28,6 +28,7 @@ from mathutils.geometry import barycentric_transform
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import prepare_car  # noqa: E402  (its main() only runs when it is the script itself)
+import carlib  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 ap = argparse.ArgumentParser()
@@ -376,36 +377,7 @@ for o in body:
 log("body meshes:", ", ".join("%s %d" % (o.name, len(o.data.polygons)) for o in body))
 
 # ---------------------------------------------------------------- 8. the wheels of the code model at the found centres
-before = set(bpy.context.scene.objects)
-bpy.ops.import_scene.gltf(filepath=A.wheels)
-imported = [o for o in bpy.context.scene.objects if o not in before]
-keep_parts, nodes = [], {}
-for name in wheel_at:
-    node = next(o for o in imported if o.name.split(".")[0] == name and o.type == "EMPTY")
-    parts = [o for o in node.children_recursive if o.type == "MESH"]
-    for o in parts:   # bake the world matrix into the mesh, detach from the imported node
-        mw = o.matrix_world.copy(); o.parent = None; o.data = o.data.copy(); o.data.transform(mw); o.matrix_world = Matrix.Identity(4)
-    nodes[name] = parts; keep_parts += parts
-for o in imported:
-    if o not in keep_parts:
-        bpy.data.objects.remove(o)
-for name, at in wheel_at.items():
-    parts = nodes[name]
-    pts = [v.co for o in parts for v in o.data.vertices]
-    c0 = Vector([(min(p[i] for p in pts) + max(p[i] for p in pts)) / 2 for i in range(3)])
-    r0 = (max(p.z for p in pts) - min(p.z for p in pts)) / 2
-    k = WR / r0
-    empty = bpy.data.objects.new(name, None); bpy.context.scene.collection.objects.link(empty)
-    empty.location = at
-    for o in parts:
-        o.data.transform(Matrix.Translation(-c0)); o.data.transform(Matrix.Scale(k, 4))
-        o.parent = empty
-        o.name = o.data.name = "%s_%s" % (name, o.data.materials[0].name.split(".")[0])
-    log("%s at (%.3f, %.3f, %.3f), radius %.3f (code wheel %.3f, x %.3f)" % (name, at.x, at.y, at.z, WR, r0, k))
-for m in list(bpy.data.meshes):
-    if m.users == 0:
-        bpy.data.meshes.remove(m)
-bpy.context.view_layer.update()
+carlib.code_wheels(A.wheels, wheel_at, WR, log)
 
 # ---------------------------------------------------------------- 9. check, export
 problems, notes = prepare_car.check(TIER)
@@ -417,12 +389,7 @@ if A.blend:
     bpy.ops.wm.save_as_mainfile(filepath=A.blend)
 if problems:
     sys.exit(1)
-bpy.ops.export_scene.gltf(
-    filepath=A.out, export_format="GLB", export_yup=True, use_selection=False, export_apply=True,
-    export_normals=True, export_tangents=False, export_texcoords=True, export_vertex_color="ACTIVE",
-    export_materials="EXPORT", export_image_format="WEBP", export_image_quality=82,
-    export_cameras=False, export_lights=False, export_animations=False, export_skins=False, export_morph=False,
-)
+carlib.export_glb(A.out, textures=True)
 kb = os.path.getsize(A.out) / 1024
 log("wrote %s: %.0f KB (limit %d KB)" % (A.out, kb, prepare_car.LIMITS[TIER]["kb"]))
 if kb > prepare_car.LIMITS[TIER]["kb"]:

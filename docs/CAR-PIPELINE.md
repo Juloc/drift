@@ -68,7 +68,40 @@ What went wrong and what was learnt:
 colour (so the garage paint still decides the paint), on one shared copy of the slot's material. Test in `carglb.test.mjs`.
 `docs/CAR-MODELS.md` still says "colours and textures in the file are ignored": to be changed once a model uses it for real.
 
-## Next (proposal, not built)
+## Downloaded models (the normaliser)
+
+Plan of the owner (2026-11-25): free, well built models (for example from Sketchfab) instead of generated ones; TRELLIS
+template pictures only for a car without a usable free model. Before a file of a model is committed, its source, author and
+licence go into `docs/ASSETS.md` (CLAUDE.md rule 6) and into the car file's `source` block.
+
+`tools/blender/car_normalize.py` makes a game file of a download; `tools/gpu/car_normalize.sh <car> <model path on the PC> [phone high]`
+copies the scripts and `tools/blender/cars/<car>.json` to the PC, runs both tiers (1 to 2 s each for a 12 000 triangle car)
+and fetches `game/assets/cars/<car>.glb` and `<car>-hi.glb`. Put the download on the PC first (`scp model.fbx gpu:C:/AI/work/<car>/`).
+
+What it does (details in the script's header):
+- imports .glb, .gltf, .fbx, .obj or .blend; applies modifiers, bakes transforms, drops cameras, lights, empties, bones, hidden
+  objects and whatever `drop` names (driver, number plate, ground plane);
+- turns it by `up` and `front` (look at it first with `look.py`), scales it uniformly by the real length or wheelbase (`scale_by`);
+- finds the wheels by name (wheel, tyre, rim, Reifen, Felge ...) and by shape (round side, at a corner, near the ground); when the
+  wheels are inside bigger meshes, the loose parts are searched; brake calipers stay with the body;
+- centres it after the rules (origin in the middle of the wheelbase, tyres on y = 0, symmetric wheel positions);
+- gives every material a slot by name: first the car file's `slots` (regex -> slot), then a built-in list in English and German,
+  the rest becomes `plastic` and is marked UNKNOWN in the printed table; one merged mesh per slot, no textures, UVs only on carbon,
+  no interior in the phone file;
+- wheels: `"wheels": "game"` puts the game's (code model's) wheels at the model's centres, scaled to its tyre; `"model"` keeps the
+  model's own wheels as wheel_* nodes (phone: one mesh per wheel, at most about 800 triangles, the rim painted light grey into
+  the vertex colours; high: rubber + chrome);
+- decimates the big body slots (symmetric) to the tier's budget (`targets`, default 14 000 phone / 40 000 high, wheels included),
+  small slots (lamps) stay; smooth normals with hard edges at 35 degrees; checks with `prepare_car.py`; exports.
+
+Tested with a made-up download: `tools/blender/make_foreign_test.py` turns the code model's S15 into foreign names, centimetres,
+front along +X and loose wheel objects, written as .glb, .fbx and .obj (`cars/test-foreign.json`: game wheels, scale by length;
+`cars/test-foreign-own.json`: the model's own wheels, scale by wheelbase). All three formats and both tiers came out after the
+rules and looked like the original in the showroom; a 5 000 triangle budget decimated the body 6 392 -> 3 106. Two naming traps
+were found and fixed on the way ("trim" contains "rim", "black" contains the German "lack"). **Not tried yet: a real download**
+(odd names, many parts, textures only, missing faces, non-symmetric details); expect to add names to `slots` and `drop` per car.
+
+## Next for generated cars (proposal, on hold: downloads first)
 
 A clean body built over the generated shell, by script: cross-sections along the car (about 20 to 30 rings, 16 to 24 points
 each, symmetric) found by casting rays at the TRELLIS shell, lofted into one even quad mesh; windows and lamps as their own
