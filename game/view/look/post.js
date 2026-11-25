@@ -30,7 +30,7 @@ export class Post {
         gl_FragColor = vec4(c, 1.0); }`,
     { tMap: { value: null }, uDir: { value: new THREE.Vector2() } });
     this.down = pass(/* glsl */ `uniform sampler2D tMap; varying vec2 vUv; void main() { gl_FragColor = vec4(texture2D(tMap, vUv).rgb, 1.0); }`, { tMap: { value: null } });
-    this.final = pass(/* glsl */ `uniform sampler2D tScene, tB1, tB2; uniform float uBloom, uWarm, uSat; varying vec2 vUv;
+    this.final = pass(/* glsl */ `uniform sampler2D tScene, tB1, tB2; uniform float uBloom, uWarm, uSat, uContrast, uGrain; uniform vec3 uLift; varying vec2 vUv;
       void main() {
         vec3 c = texture2D(tScene, vUv).rgb + (texture2D(tB1, vUv).rgb * 0.6 + texture2D(tB2, vUv).rgb * 0.9) * uBloom;
         float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -38,9 +38,12 @@ export class Post {
         c += vec3(0.06, 0.02, 0.04) * uWarm * (1.0 - smoothstep(0.0, 0.5, l)); // warm, rosy lift in the shadows
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
+        // a softer curve as in the mockup: contrast round the middle grey, the shadows lifted towards mauve, a fine film grain
+        gl_FragColor.rgb = (gl_FragColor.rgb - 0.42) * uContrast + 0.42 + uLift * (1.0 - gl_FragColor.rgb);
+        gl_FragColor.rgb += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * uGrain;
         #include <colorspace_fragment>
       }`,
-    { tScene: { value: null }, tB1: { value: null }, tB2: { value: null }, uBloom: { value: grade.bloom }, uWarm: { value: grade.warmth }, uSat: { value: grade.saturation } }, true);
+    { tScene: { value: null }, tB1: { value: null }, tB2: { value: null }, uBloom: { value: grade.bloom }, uWarm: { value: grade.warmth }, uSat: { value: grade.saturation }, uContrast: { value: grade.contrast ?? 1 }, uGrain: { value: grade.grain ?? 0 }, uLift: { value: new THREE.Color(grade.lift ?? '#000000') } }, true);
   }
 
   /** The colour grade of another look (bloom, threshold, warmth, saturation), at once. */
