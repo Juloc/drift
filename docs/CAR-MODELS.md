@@ -15,7 +15,7 @@ are test models written by `tools/export-s15.mjs` (the proof that the path works
 - Draw calls = one per mesh primitive. Phone file: one mesh per slot, and **each wheel is one primitive** (slot `rubber`; the rim is painted into the vertex colours, a light grey), so 7 body slots + 4 wheels = 11. Leave `interior` out of the phone file. High file: a wheel may have two primitives (`rubber`, `chrome`).
 - Textures only where they are needed (at most 1024 x 1024, webp or KTX2 is **not** loaded yet: use embedded PNG/webp only when a model truly needs one). No texture is the default: colour comes from the slot's material and from vertex colours.
 - Compression: **none** for now (the meshopt decoder carries inline WebAssembly, which the content policy would have to allow; see `vendor/README.md`). Whoever needs it later proposes the policy change first. Quantised attributes are not used either.
-- No logos, emblems or readable lettering on a model (`docs/ASSETS.md`).
+- No logos, emblems or readable lettering baked into a model: brands and logos are covered by the owner's licences (`docs/ASSETS.md`) but come later as **stickers** in the game, not in the mesh or its textures.
 
 ## Axes, scale, origin
 

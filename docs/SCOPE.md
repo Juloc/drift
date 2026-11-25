@@ -59,6 +59,6 @@ Status: **agreed with the owner on 2026-11-25; direction changed 2026-11-26 (pub
 ## Added 2026-11-26 (the owner, through the orchestrator)
 
 - **Public for everyone** from the first release; **one "Juloc Games" account** for all games, provided by Drift as a separable module ([ACCOUNTS-GAMES.md](ACCOUNTS-GAMES.md)).
-- **The game:** a public open world as the standard entry, in a low-poly sunset look, plus single tracks; real recognisable cars; 32+ players per world; everything on our own server. Full text: [VISION.md](VISION.md).
+- **The game:** a public open world as the standard entry, in a stylised, softly painted sunset look (the owner's mockup, not angular low-poly), plus single tracks; real recognisable cars; 32+ players per world; everything on our own server. Full text: [VISION.md](VISION.md).
 - **PC first** (keyboard and controller), the phone runs along. First real car: the Silvia S15.
 - **Hosting:** the owner's small server through the usual deployment tool, behind the reverse proxy.

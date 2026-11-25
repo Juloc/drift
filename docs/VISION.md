@@ -8,7 +8,7 @@ You open the game and arrive in a **public open world** (the meeting point): a s
 
 ## Look
 
-**Low-poly sunset:** a flat-shaded low-poly world with soft colour gradients, a low sun, haze. The interface is calm like JulOS: glass cards, rounded corners, accent raspberry. Cars are realistic and recognisable (3D models from the pipeline) inside this stylised, clear world with good light. **At every step, pictures first for the owner, then build it out.**
+**Stylised, softly painted sunset:** the target is **exactly the owner's mockup** (a picture of his, kept outside this repository): soft and atmospheric, a low sun, haze, smooth colour gradients, **smooth glossy cars**. It is **not** the angular, flat-shaded low-poly look. The interface is calm like JulOS: glass cards, rounded corners, accent raspberry. Cars are realistic and recognisable (3D models from the pipeline) inside this stylised, clear world with good light. **At every step, pictures first for the owner, then build it out.**
 
 ## Ways to play
 

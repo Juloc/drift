@@ -5,7 +5,7 @@ Status: **order confirmed by the owner, 2026-11-26** (an interview that set the 
 ## Decisions this rests on
 
 1. **Public for everyone** from the first release; open registration with protection; one "Juloc Games" account for all games, provided by Drift as a module ([ACCOUNTS-GAMES.md](ACCOUNTS-GAMES.md)); the family comes in through the hub.
-2. **Standard entry: a public open world** ("meeting point", low-poly sunset look) plus single tracks; meeting, racing and drift points equally important.
+2. **Standard entry: a public open world** ("meeting point", stylised sunset look, soft and painted) plus single tracks; meeting, racing and drift points equally important.
 3. **32 and more players per world**, everything on our own server (the owner's small server, behind the reverse proxy; the address is the owner's).
 4. **PC first** (keyboard and controller), the phone runs along.
 5. **Real cars through the pipeline** (the owner's GPU PC, soon); the S15 first. Until then the code models.
@@ -14,7 +14,7 @@ Status: **order confirmed by the owner, 2026-11-26** (an interview that set the 
 
 | # | Step | Done means | The owner checks |
 |---|---|---|---|
-| 1 | **Look probe** (the session drift-look) | pictures of the low-poly sunset look: world, car, interface | the look, in pictures |
+| 1 | **Look probe** (the session drift-look) | pictures of the look (exactly the owner's mockup: soft, atmospheric, painted sunset; not angular low-poly): world, car, interface | the look, in pictures |
 | 2 | **Accounts** | *done* (slices 1 to 4 built; the independent security review is running) | the privacy and imprint texts, the sign-up page |
 | 3 | **Open world** | a small meeting point with mountain roads; **network for 32+** (a car is sent only to players near it, far cars are drawn simplified), emotes | driving there with others; numbers: bytes per second per player with 32 and 64 |
 | 4 | **Tandem** | bonus for driving side by side, lead/chase, tandem competition, a bot to practise | how it feels with a friend and with the bot |

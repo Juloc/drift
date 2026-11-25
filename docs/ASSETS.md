@@ -19,7 +19,7 @@ three.js's addon).
 
 ## Cars and names (licences)
 
-The owner states that he holds licences for the vehicles and their names (2026-11-25); the proofs are with the owner, not in this repository. Brand and model names may appear in the garage. **No logos or emblems are drawn until the owner confirms that his licences cover them**: the models show shapes only. All car models remain our own code.
+The owner states that he holds licences for the vehicles and their names (2026-11-25); the proofs are with the owner, not in this repository. Brand and model names may appear in the garage. **Update 2026-11-26:** the owner confirms that his licences also cover **brands and logos**. Logos and emblems may therefore appear in the game; they are planned **later, as stickers** (a part of shaping the car, see `docs/VISION.md`), not baked into the car models, and the proofs stay with the owner, not in this repository. Until the sticker feature exists the models still show shapes only. All car models of the code path remain our own code.
 
 ## Libraries (not assets)
 
