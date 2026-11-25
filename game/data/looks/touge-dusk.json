@@ -9,26 +9,26 @@
     "midHeight": 0.09,
     "sun": "#ffb070",
     "sunGlow": 0.6,
-    "glow": "#ff7040",
+    "glow": "#ff8040",
     "sunSize": 0.01,
-    "glowStrength": 0.35,
-    "clouds": { "lit": "#ffb490", "shade": "#9a7aa8", "amount": 0.7, "layer": 0.75, "bright": 1.0 },
+    "glowStrength": 0.3,
+    "clouds": { "lit": "#d08ca8", "shade": "#4a3a78", "amount": 0.7, "layer": 0.75, "bright": 1.0 },
     "bands": [
       { "az": -8, "el": 3.5, "w": 40, "h": 2.2 },
       { "az": 15, "el": 6, "w": 30, "h": 1.8 },
       { "az": -30, "el": 8, "w": 34, "h": 2.0 },
       { "az": 40, "el": 4, "w": 28, "h": 1.6 }
     ],
-    "moon": { "dir": [-0.55, 0.32, -1], "size": 2.4, "colour": "#fff0d0", "bright": 1.8, "glow": 0.6 }
+    "moon": { "dir": [-0.35, 0.2, -1], "size": 2.4, "colour": "#fff0d0", "bright": 1.8, "glow": 0.6 }
   },
   "sun": { "dir": [0.6, 0.06, -1], "colour": "#ffa878", "intensity": 2.4 },
   "fill": { "sky": "#8c8cd0", "ground": "#6a5a58", "intensity": 2.4 },
   "fog": { "colour": "#5c5a90", "near": 260, "far": 3000 },
   "mist": { "colour": "#9a98c8", "opacity": 0.6, "y": -60 },
-  "grade": { "exposure": 1.05, "bloom": 0.5, "threshold": 2.4, "warmth": 0, "saturation": 1.08, "contrast": 0.95, "grain": 0, "lift": "#0a0818" },
-  "land": { "valley": "#2e4a44", "mid": "#3a5448", "high": "#6a6658", "warm": "#46583e", "cool": "#2c4a46", "rock": "#6e6a72", "rockDark": "#4a4652", "gravel": "#6e6870", "sand": "#6a6070" },
+  "grade": { "exposure": 0.95, "bloom": 0.5, "threshold": 2.4, "warmth": 0, "saturation": 1.0, "contrast": 1.0, "grain": 0, "lift": "#000000", "tone": "neutral" },
+  "land": { "valley": "#284438", "mid": "#2e4c40", "high": "#3e5a46", "warm": "#38503e", "cool": "#2c4a46", "rock": "#6e6a72", "rockDark": "#4a4652", "gravel": "#4e4c58", "sand": "#6a6070" },
   "road": { "asphalt": "#3c3a4a", "asphaltLight": "#464454", "edge": "#f4f2f6", "centre": "#3c3a4a", "plaza": "#403a48", "bay": "#cfcad6", "kerb": "#8a8494", "roughness": 0.8, "sheen": 0.12, "edgeWidth": 0.34, "track": "#34323c", "grain": 0.12, "receiveShadow": false, "columns": "mid" },
-  "water": { "deep": "#1c1e44", "light": "#6a6aa8", "glint": "#ffc890", "glow": 0.6, "mirror": true, "band": 1.6, "streak": 1.0 },
+  "water": { "deep": "#141638", "light": "#6a6aa8", "glint": "#ffc890", "glow": 0.6, "mirror": true, "band": 1.8, "streak": 1.6, "bandWidth": 0.22 },
   "bridge": { "stone": "#9a5a6c", "shade": "#7a4458" },
   "ridges": ["#2e3660", "#3e4a78", "#55628e", "#6e7ba4", "#8a94b8"],
   "pine": {
