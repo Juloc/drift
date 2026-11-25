@@ -14,7 +14,7 @@ An app of the owner's family: a small online drift game with an open lobby, wher
 
 ## Built on the base (since milestone 2)
 
-The app is `src/Drift/` on the shared base: base version **0.3.4**, a copy in `base/` that is never edited here (CODE-07; `~/projects/base/scripts/check-app.sh .` shows drift). The rulebook is [base/RULES.md](base/RULES.md); cite its numbers (`AUTH-03`) in comments and reviews.
+The app is `src/Drift/` on the shared base: base version: **0.3.4**, a copy in `base/` that is never edited here (CODE-07; `~/projects/base/scripts/check-app.sh .` shows drift). The rulebook is [base/RULES.md](base/RULES.md); cite its numbers (`AUTH-03`) in comments and reviews.
 
 - The colour of the app is one variable, `--accent-hue` in `src/Drift/wwwroot/app.css` (COLOR-01), the same number as `AccentHue` in `Program.cs`. Every text of the app pages goes through `t()` in German and English (I18N-01); the server answers failures with a code that has a text (I18N-02). Look at the catalogue (`/base/catalog.html`) before building a part of the interface.
 - Endpoints under `/api` are behind the guard (SEC-03, SEC-04): the person comes from `ctx.Person()`, input goes through a `Validator`, every SQL statement names the owner (DATA-03), schema changes are a new numbered script in `src/Drift/Migrations/` (DATA-02). No new runtime packages, no build step in the browser, no variables in the Compose file (CODE-02, CODE-06, OPS-02).
