@@ -184,7 +184,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             {
                 Id = id, World = w, Car = (byte)(car >= 0 && car < o.Top.Length ? car : 0), Peer = peer, Address = address,
                 LastMsg = now, LastMove = now, TokenAt = now, DroppedSince = now, ViolationsSince = now,
-                Hue = hue is >= 0 and < 24 ? (byte)hue.Value : PickHue(members),
+                Hue = hue is >= 0 and < 27 ? (byte)hue.Value : PickHue(members),   // 0..23 the hues, 24 white, 25 black, 26 silver (a value the relay does not know gets a hue of its own choice)
                 Glow = glow is >= 0 and < 24 ? (byte)(glow.Value + 1) : (byte)0,
             };
             s.Name = name is { Length: > 0 } ? Clean(name) : PickName(members, s.Hue);

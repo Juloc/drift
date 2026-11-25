@@ -24,6 +24,7 @@ const CARS = [
 ];
 const STATS = ['power', 'top', 'grip', 'slide', 'agility'];
 const HUES = Array.from({ length: 24 }, (_, i) => i * 15);
+const PAINTS = [['white', '#e6e1d8'], ['black', '#18181d'], ['silver', '#b9bec8']];   // paints 24 to 26
 
 start({ icon: 'bolt', onSignedIn: run });
 
@@ -60,6 +61,7 @@ async function garagePage(me) {
     return b;
   });
   const swatches = HUES.map((hue, i) => { const b = swatch(hue); b.addEventListener('click', () => { state.colour = i; sync(); }); return b; });
+  PAINTS.forEach(([key, colour], k) => { const b = h('button', { class: 'swatch paint', type: 'button', role: 'radio', 'aria-label': t('garage.paint.' + key) }); b.style.background = colour; b.addEventListener('click', () => { state.colour = 24 + k; sync(); }); swatches.push(b); });
   // underglow: off, or one of the 24 hues
   const glowOff = h('button', { class: 'btn outline', type: 'button', role: 'radio', onclick: () => { state.glow = null; sync(); } }, t('garage.glowOff'));
   const glowSwatches = HUES.map((hue, i) => { const b = swatch(hue); b.setAttribute('aria-label', t('garage.glowN', { n: i + 1 })); b.addEventListener('click', () => { state.glow = i; sync(); }); return b; });
@@ -96,7 +98,7 @@ async function garagePage(me) {
     glowSwatches.forEach((b, i) => b.setAttribute('aria-checked', String(i === state.glow)));
     const name = form.querySelector('[name="nick"]').value.trim() || g.name;
     preview.replaceChildren(h('span', { class: 'dot' }), h('span', { text: t('garage.preview', { name, car: CARS[state.car].name }) }));
-    preview.firstChild.style.setProperty('--h', state.colour * 15);
+    if (state.colour >= 24) preview.firstChild.style.background = PAINTS[state.colour - 24][1]; else { preview.firstChild.style.background = ''; preview.firstChild.style.setProperty('--h', state.colour * 15); }
   }
   nick.querySelector('input').addEventListener('input', sync);
   sync();

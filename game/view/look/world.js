@@ -60,7 +60,10 @@ export function buildWorld(scene, look, tierName = 'high') {
   const onPlaza = scene.plaza && !scene.road.overPlaza ? (x, z) => insidePoly(scene.plaza.pts, x, z) : () => false;   // (`overPlaza`: the road is drawn on top of the flat area, as a track on a quay or a desert)
 
   land(S, f, scene, look, tier);
-  ridges(S, scene, look, tier);
+  // the far mountains: unlit when the look says so (`farUnlit`), so each layer keeps its own colour (lighter and rosier with distance,
+  // as in the mockup) instead of lying dark in its own shade against the low sun
+  const Far = new Builder({ seed: 8, jitter: 0, wobble: 0, bake: false });
+  ridges(look.farUnlit ? Far : S, scene, look, tier);
   const water = river(f, scene, look);
   if (scene.bridge) bridge(S, f, scene, look, lite);
   // the road has its own mesh: a slightly glossy material that shines in the low sun (the page gives it the sky as reflection)
@@ -95,8 +98,9 @@ export function buildWorld(scene, look, tierName = 'high') {
       diffuseColor.rgb *= 1.0 + tone;`);
   };
   const lights = new THREE.Mesh(G.build(), makeGlow());
+  const far = Far.count ? new THREE.Mesh(Far.build(), new THREE.MeshBasicMaterial({ vertexColors: true })) : null;
   const roadMesh = new THREE.Mesh(Rb.build(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: look.road.roughness ?? 0.5, metalness: 0, envMapIntensity: look.road.sheen ?? 0.8 }));
-  roadMesh.receiveShadow = true;
+  roadMesh.receiveShadow = look.road.receiveShadow !== false;   // off: the shadow pass skips the long road (the car's own contact shadow sits under it)
   // the grain of the asphalt: fine speckles and coarse blotches from the world position (no texture file)
   roadMesh.material.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vRoadPos;').replace('#include <project_vertex>', '#include <project_vertex>\nvRoadPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
@@ -110,7 +114,8 @@ export function buildWorld(scene, look, tierName = 'high') {
   };
   group.add(solid, lights, roadMesh);
   if (water) group.add(water);
-  return { group, field: f, lampHeads, road: roadMesh, triangles: [solid, lights, water, roadMesh].filter(Boolean).reduce((n, m) => n + m.geometry.index.count / 3, 0) };
+  if (far) group.add(far);
+  return { group, field: f, lampHeads, road: roadMesh, triangles: [solid, lights, water, roadMesh, far].filter(Boolean).reduce((n, m) => n + m.geometry.index.count / 3, 0) };
 }
 
 // ---------------------------------------------------------------- the land: a grid over the extent, fine near the road (the core), coarser
@@ -162,12 +167,16 @@ function volcanoes(S, scene, look) {
   const haze = C(look.fog.colour);
   for (const [x, z, r, h, k] of scene.volcanoes ?? []) {
     // air between: the farther layer the more of the haze; a lighter crater rim (snow or bare rock, look.volcano.rim) at the top
-    const V = look.volcano ?? {}, base = C(look.ridges[Math.min(look.ridges.length - 1, k ?? 0)]).lerp(haze, V.haze ?? 0.35), top = base.clone().lerp(C(V.rim ?? '#ffffff'), V.rimMix ?? 0.15);
-    const g = new THREE.CylinderGeometry(r * 0.12, r, h, 28, 3, true);
+    const V = look.volcano ?? {}, vh = C(V.hazeColour ?? look.fog.colour), base = C(look.ridges[Math.min(look.ridges.length - 1, k ?? 0)]).lerp(vh, V.haze ?? 0.35), top = base.clone().lerp(C(V.rim ?? '#ffffff'), V.rimMix ?? 0.15);
+    // a lathe with concave flanks (wide skirt, steep upper cone, a small crater): soft, not a sharp-edged cone
+    const prof = []; for (let j = 0; j <= 10; j++) { const t = j / 10; prof.push(new THREE.Vector2(r * (0.1 + 0.9 * Math.pow(1 - t, 1.8)), t * h)); }
+    const g = new THREE.LatheGeometry(prof, 40);
     const p = g.attributes.position, col = new Float32Array(p.count * 3), c = new THREE.Color();
-    for (let i = 0; i < p.count; i++) { const t = (p.getY(i) + h / 2) / h, a = Math.atan2(p.getZ(i), p.getX(i)); p.setY(i, p.getY(i) + noise2(a * 3 + x, t * 4) * h * 0.04 * (1 - t)); c.copy(base).lerp(top, smoothstep(0.75, 0.95, t)).lerp(haze, (1 - t) * 0.45); col.set([c.r, c.g, c.b], i * 3); }
+    for (let i = 0; i < p.count; i++) { const t = p.getY(i) / h, a = Math.atan2(p.getZ(i), p.getX(i)); p.setY(i, p.getY(i) + noise2(a * 3 + x, t * 4) * h * 0.035 * (1 - t)); c.copy(base).lerp(top, smoothstep(0.78, 0.97, t)).lerp(haze, (1 - t) * 0.45); col.set([c.r, c.g, c.b], i * 3); }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
-    S.add(g, null, { m: trs(X(x), h / 2 - h * 0.12, z), keepColors: true, jitter: 0, wobble: 0 });
+    S.add(g, null, { m: trs(X(x), -h * 0.1, z), keepColors: true, jitter: 0, wobble: 0 });
+    // a thin dark plume drifting off the crater of the highest one (look.volcano.plume: colour)
+    if (V.plume && h === Math.max(...scene.volcanoes.map((q) => q[3]))) for (let p2 = 0; p2 < 7; p2++) { const t = p2 / 6, pr = r * (0.05 + t * 0.07); S.ball(pr, X(x + t * r * 0.45), h * 0.9 + t * h * 0.35, z, C(V.plume).lerp(haze, t * 0.6), { detail: 1, sy: 0.45, jitter: 0 }); }
   }
 }
 
@@ -208,13 +217,17 @@ function river(f, scene, look) {
   if (scene.sea) { const [a0, b0, a1, b1] = scene.terrain.extent; geos.push(gridGeo(5, 5, (r, c) => { const x = a0 + (c / 4) * (a1 - a0), z = b0 + (r / 4) * (b1 - b0); k.copy(deep).lerp(light, 0.2 + 0.25 * noise2(x / 120, z / 120)); return [X(x), scene.sea.y, z, k]; })); }
   // the lake: rings of an ellipse, lighter towards the middle
   const K = scene.lake, ky = K ? f.waterY(K.x, K.z, K.y) : 0;
-  if (K) geos.push(gridGeo(8, 49, (r, c) => {
-    const q = 1 - r / 7, a = (c / 48) * Math.PI * 2;
-    k.copy(deep).lerp(light, 0.15 + (1 - q) * 0.55);
+  if (K) geos.push(gridGeo(10, 97, (r, c) => {
+    const q = 1 - r / 9, a = (c / 96) * Math.PI * 2;
+    // the sky in the water: bright and orange on the side towards the sun, darker towards the viewer, and a path of light to the sun
+    const sd = look.sun?.dir ?? [0, 0, -1], sl = Math.hypot(sd[0], sd[2]) || 1, ux = Math.cos(a) * q, uz = Math.sin(a) * q;
+    const along = (ux * sd[0] + uz * sd[2]) / sl, across = Math.abs(ux * sd[2] - uz * sd[0]) / sl;
+    k.copy(deep).lerp(light, Math.min(1, 0.12 + 0.5 * smoothstep(-0.6, 1, along) + 0.45 * (1 - smoothstep(0.02, 0.14, across)) * smoothstep(-0.2, 0.9, along)));
     return [X(K.x + Math.cos(a) * K.rx * q), ky, K.z + Math.sin(a) * K.rz * q, k];
   }));
   if (!geos.length) return null;
   const g = mergeGeometries(geos.map((x) => orient(x, UP)));
+  if (W.mirror) return new THREE.Mesh(g, mirrorWater(look));
   // the sky's colours in the water (emissive) and the low sun as a long glint (a sharp specular highlight)
   const m = new THREE.MeshPhongMaterial({ vertexColors: true, color: 0x9a8fc0, emissive: new THREE.Color(W.light).multiplyScalar(W.glow ?? 0.35), specular: new THREE.Color(W.glint).multiplyScalar(2.2), shininess: 140 });
   return new THREE.Mesh(g, m);
@@ -274,7 +287,7 @@ function road(S, f, look, onPlaza, rnd, lite, scene) {
   const R = look.road, hw = f.hw, asphalt = C(R.asphalt), light = C(R.asphaltLight), track = C(R.track ?? R.asphalt).multiplyScalar(0.8), k = new THREE.Color(), gravel = C(look.land.gravel), grass = C(look.land.cool);
   const off = (i) => !onPlaza(f.road[i][0], f.road[i][1]), lift = f.lift;
   // asphalt in columns: lighter in the middle and at the edges, darker where the wheels run (two tracks per lane), patchy along the road
-  const cols = lite ? [-hw, -3.6, -1.4, 1.4, 3.6, hw] : [-hw, -4.4, -3.6, -2.8, -1.4, -0.6, 0.6, 1.4, 2.8, 3.6, 4.4, hw];
+  const cols = lite || R.columns === 'few' ? [-hw, -3.6, -1.4, 1.4, 3.6, hw] : R.columns === 'mid' ? [-hw, -4.2, -3.6, -1.4, 0, 1.4, 3.6, 4.2, hw] : [-hw, -4.4, -3.6, -2.8, -1.4, -0.6, 0.6, 1.4, 2.8, 3.6, 4.4, hw];   // look.road.columns
   const tracks = [-3.6, -1.4, 1.4, 3.6];
   ribbon(S, f, cols, (i, c, o) => {
     const near = Math.min(...tracks.map((t) => Math.abs(o - t)));
@@ -387,8 +400,17 @@ function plaza(S, G, f, scene, look, lite, lampHeads) {
 }
 
 // a guardrail (W-beam on posts) along a polyline in simulation axes
-function railRun(S, G, look, line, every, lite, yAt = () => 0) {
+function railRun(S, G, look, line0, every, lite, yAt = () => 0) {
   const R = look.rail, beam = C(R.beam), light = C(R.beamLight), post = C(R.post);
+  // fewer, longer beam pieces where the line is nearly straight (a 2 km road with rails on both sides is otherwise tens of thousands of triangles)
+  const tol = lite ? 0.06 : 0.025, maxLen = lite ? 14 : 8, line = [line0[0]];
+  for (let i = 1; i < line0.length - 1; i++) {
+    const a = line[line.length - 1], b = line0[i], c = line0[i + 1];
+    const h1 = Math.atan2(b[0] - a[0], b[1] - a[1]), h2 = Math.atan2(c[0] - b[0], c[1] - b[1]);
+    let d = Math.abs(h2 - h1); if (d > Math.PI) d = 2 * Math.PI - d;
+    if (d > tol || Math.hypot(c[0] - a[0], c[1] - a[1]) > maxLen || Math.abs(yAt(c[0], c[1]) - yAt(a[0], a[1])) > 0.8) line.push(b);
+  }
+  line.push(line0[line0.length - 1]);
   let acc = 0;
   for (let i = 0; i < line.length - 1; i++) {
     const [ax, az] = line[i], [bx, bz] = line[i + 1], dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
@@ -516,11 +538,16 @@ function trees(S, f, scene, look, tier, rnd, lite) {
   place(tier.nearPines ?? 0, 'pine', true);
   place(tier.cherries, 'cherry', false);
   place(tier.pines, 'pine', false);
+  // trees on the lake's island
+  const I = scene.lake?.island;
+  if (I) for (let n = 0; n < (lite ? 8 : 20); n++) { const a = rnd() * 6.3, d = Math.sqrt(rnd()) * I.r * 0.7, x = I.x + Math.cos(a) * d, z = I.z + Math.sin(a) * d, h = 6 + rnd() * 6; S.cone(h * 0.3, h, X(x), f.height(x, z) + h * 0.45, z, C(look.pine.dark).lerp(C(look.pine.mid), rnd() * 0.6), { seg: 6, ry: rnd() * 3 }); }
   // a carpet of far trees on the valley floor and the far slope: single cones, cheap, in clumps (from far they read as forest)
   const P = look.pine;
   for (let n = 0, tries = 0; n < (tier.carpet ?? 0) && tries < (tier.carpet ?? 0) * 6; tries++) {
-    const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0), e = f.edge(x, z);
-    if (e < 120 || f.wet(x, z, 6) || nearLake(x, z) || noise2(x / 90, z / 90) < -0.1) continue;
+    // scene.terrain.forest [x0, z0, x1, z1]: where the carpet goes (the hillside between road and lake that the camera sees), else the whole land
+    const FB = scene.terrain.forest ?? [x0, z0, x1, z1];
+    const x = FB[0] + rnd() * (FB[2] - FB[0]), z = FB[1] + rnd() * (FB[3] - FB[1]), e = f.edge(x, z);
+    if (e < (tier.carpetNear ?? 120) || f.wet(x, z, 6) || nearLake(x, z) || noise2(x / 90, z / 90) < -0.1) continue;
     const rel = f.relHeight(x, z), y = rel + f.groundY(x, z);
     if (rel < ry + 3 || f.slope(x, z, y) > 0.9) continue;
     for (let g = 0, m = 3 + Math.floor(rnd() * 6); g < m; g++, n++) {
@@ -621,9 +648,10 @@ function details(S, G, f, scene, look, tier, rnd, lite, sideInfo, onPlaza) {
       G.box(0.36, 0.3, 0.52, X(m.x), y + 1.85, m.z, glow(look.lamp.light, 2.4), { r: 0, ry });
       S.cone(0.75, 0.45, X(m.x), y + 2.3, m.z, stoneC, { seg: 4, ry: ry + Math.PI / 4 });
       S.ball(0.12, X(m.x), y + 2.6, m.z, stoneC, { detail: 0 });
-    } else if (m.type === 'clip') {   // a clipping point of the zone scoring: a short white post with a glowing pink head, where the line should touch
-      S.cyl(0.07, 0.09, 1.1, X(m.x), y + 0.55, m.z, C('#f4efee'), { seg: 6 });
-      G.box(0.22, 0.22, 0.22, X(m.x), y + 1.2, m.z, glow('#ff5a96', 2.6), { r: 0 });
+    } else if (m.type === 'clip') {   // a clipping point of the zone scoring: a low white guide post with a dark band and a glowing pink reflector, as along a mountain road
+      S.box(0.14, 0.95, 0.14, X(m.x), y + 0.475, m.z, C('#f4efee'), { r: 0.02, jitter: 0 });
+      S.box(0.15, 0.14, 0.15, X(m.x), y + 0.7, m.z, C('#2b2630'), { r: 0.02, jitter: 0 });
+      G.box(0.1, 0.2, 0.05, X(m.x), y + 0.82, m.z, glow('#ff5a96', 2.8), { r: 0, jitter: 0 });
     } else if (m.type === 'gate') {
       S.push(trs(X(m.x), y, m.z, 0, ry, 0));
       // a torii: two red pillars, a tie beam and a black-capped top beam; m.width / m.height scale it (a road torii is wide)
@@ -687,4 +715,36 @@ function roadLamps(S, G, f, scene, look, sideInfo, lampHeads) {
     G.box(0.42, 0.08, 0.26, X(hx), y + hgt - 0.08, hz, glow(L.light, 2.4), { r: 0, ry: Math.atan2(X(p.dir[0]), p.dir[1]) });
     lampHeads.push([X(hx), y + hgt - 0.2, hz]);
   }
+}
+
+/**
+ * Water that mirrors the sky (look.water.mirror): the sky's gradient seen along the reflected view ray, so the far water shows the
+ * bright horizon band and the near water the deep sky above; ripples stretched along the view make the bright part fall in vertical
+ * streaks. Mixed with the dark water colour by a Fresnel term. One draw call, no extra pass.
+ */
+function mirrorWater(look) {
+  const s = look.sky, W = look.water;
+  return new THREE.ShaderMaterial({
+    uniforms: { uTop: { value: C(s.top) }, uMid: { value: C(s.mid) }, uHorizon: { value: C(s.horizon).multiplyScalar(W.band ?? 1.4) }, uDeep: { value: C(W.deep) }, uMidH: { value: s.midHeight ?? 0.2 }, uStreak: { value: W.streak ?? 1 } },
+    vertexShader: /* glsl */ `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uTop, uMid, uHorizon, uDeep; uniform float uMidH, uStreak; varying vec3 vW;
+      float h1(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float n1(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h1(i), h1(i + vec2(1, 0)), f.x), mix(h1(i + vec2(0, 1)), h1(i + vec2(1, 1)), f.x), f.y); }
+      void main() {
+        vec3 V = normalize(vW - cameraPosition);
+        // ripples: a normal tilted by noise that is long along the view and short across it (vertical streaks on screen)
+        vec2 fw = normalize(V.xz + 1e-4), side = vec2(-fw.y, fw.x);
+        vec2 q = vec2(dot(vW.xz, side) * 0.25, dot(vW.xz, fw) * 0.012);
+        float n = n1(q) * 0.65 + n1(q * 2.7 + 3.1) * 0.35;
+        vec3 N = normalize(vec3(side.x * (n - 0.5) * 0.08 * uStreak, 1.0, side.y * (n - 0.5) * 0.08 * uStreak));
+        vec3 R = reflect(V, N);
+        float e = max(R.y, 0.0);
+        vec3 sky = e < uMidH ? mix(uHorizon, uMid, smoothstep(0.0, uMidH, e)) : mix(uMid, uTop, smoothstep(uMidH, 0.8, e));
+        float fres = 0.15 + 0.85 * pow(1.0 - max(dot(-V, N), 0.0), 4.0);
+        gl_FragColor = vec4(mix(uDeep, sky, fres), 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  });
 }

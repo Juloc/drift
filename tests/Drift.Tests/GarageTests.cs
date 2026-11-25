@@ -22,7 +22,7 @@ public class GarageTests
     {
         var parts = name.Split(' ');
         Assert.Equal(2, parts.Length);
-        Assert.Equal(Drift.Relay.WorldRelay.Colours[colour / 2], parts[0]);
+        Assert.Equal(Drift.Relay.WorldRelay.Colours[colour / 2 % Drift.Relay.WorldRelay.Colours.Length], parts[0]);
         Assert.Contains(parts[1], Drift.Relay.WorldRelay.Animals);
         Assert.DoesNotContain("jul", name, StringComparison.OrdinalIgnoreCase);
     }
@@ -65,7 +65,7 @@ public class GarageTests
     [Theory]
     [InlineData(9, 3, "Ok", "car", "out_of_range")]
     [InlineData(-1, 3, "Ok", "car", "out_of_range")]
-    [InlineData(1, 24, "Ok", "colour", "out_of_range")]
+    [InlineData(1, 27, "Ok", "colour", "out_of_range")]
     [InlineData(1, 3, "x", "nick", "too_short")]
     [InlineData(1, 3, "this nickname is far too long", "nick", "too_long")]
     [InlineData(1, 3, "<b>hi</b>", "nick", "invalid")]
@@ -101,7 +101,7 @@ public class GarageTests
         await using var app = new TestApp(db);
         await app.SignedInAsync(app.Http());
         var id = await db.Data.CreateCommand("select id from users limit 1").ExecuteScalarAsync();
-        foreach (var (car, colour, nick) in new (int, int, string?)[] { (5, 1, null), (1, 24, null), (1, 1, "x") })
+        foreach (var (car, colour, nick) in new (int, int, string?)[] { (5, 1, null), (1, 27, null), (1, 1, "x") })
         {
             await using var cmd = db.Data.CreateCommand("insert into drift_profile (user_id, car_id, colour, nick) values ($1, $2, $3, $4)");
             cmd.Parameters.AddWithValue(id!); cmd.Parameters.AddWithValue((short)car); cmd.Parameters.AddWithValue((short)colour); cmd.Parameters.AddWithValue((object?)nick ?? DBNull.Value);
@@ -133,10 +133,23 @@ public class GarageTests
     }
 
     [Fact]
-    public void The_default_colour_is_always_a_valid_hue_and_differs_between_people()
+    public void The_default_colour_is_white_and_a_valid_paint()
     {
-        var hues = Enumerable.Range(0, 200).Select(_ => GarageStore.DefaultColour(Guid.NewGuid())).ToList();
-        Assert.All(hues, h => Assert.InRange(h, 0, 23));
-        Assert.True(hues.Distinct().Count() > 12);
+        Assert.All(Enumerable.Range(0, 20).Select(_ => GarageStore.DefaultColour(Guid.NewGuid())), h => Assert.Equal(24, h));
+    }
+
+    [Fact]
+    public async Task White_black_and_silver_are_paints_24_to_26_and_nothing_beyond_is_accepted()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        var c = app.Http();
+        var cookie = await app.SignedInAsync(c);
+        foreach (var paint in new[] { 24, 25, 26, 7 })
+        {
+            Assert.Equal(HttpStatusCode.OK, (await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", cookie, new { car = 0, colour = paint }))).StatusCode);
+            Assert.Equal(paint, (await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/garage", cookie)))).GetProperty("colour").GetInt32());
+        }
+        Assert.NotEqual(HttpStatusCode.OK, (await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", cookie, new { car = 0, colour = 27 }))).StatusCode);
     }
 }

@@ -27,7 +27,7 @@ internal static partial class GarageEndpoints
             var me = ctx.Owner();
             var v = new Validator();
             var car = v.Int("car", body.Car, 0, GarageStore.CarNames.Length - 1);
-            var colour = v.Int("colour", body.Colour, 0, 23);
+            var colour = v.Int("colour", body.Colour, 0, 26);
             var nick = v.OptionalText("nick", body.Nick, 16);
             int? glow = null;
             if (body.Glow is { } gl) glow = v.Int("glow", gl, 0, 23);   // absent or null: no underglow

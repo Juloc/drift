@@ -3,7 +3,7 @@ using Npgsql;
 
 namespace Drift.Garage;
 
-/// <summary>What a person drives: a car (0..4), a colour (0..23, steps of 15 degrees on the colour wheel) and a nickname or null.</summary>
+/// <summary>What a person drives: a car (0..4), a colour (0..23, steps of 15 degrees on the colour wheel; 24 white, 25 black, 26 silver) and a nickname or null.</summary>
 public sealed record Profile(int Car, int Colour, string? Nick, int? Glow = null);
 
 /// <summary>The garage of every person. Every statement names the owner (DATA-03).</summary>
@@ -39,5 +39,6 @@ public sealed class GarageStore(NpgsqlDataSource db)
         return Drift.Relay.WorldRelay.Colours[colour / 2 % Drift.Relay.WorldRelay.Colours.Length] + " " + Drift.Relay.WorldRelay.Animals[(h & 0x7fffffff) % Drift.Relay.WorldRelay.Animals.Length];
     }
 
-    public static int DefaultColour(Guid userId) => userId.ToByteArray().Aggregate(0, (a, b) => a * 31 + b) is var n && n < 0 ? (-n) % 24 : n % 24;
+    /// <summary>New drivers are white (the paint of the first mockup car); 24 is white.</summary>
+    public static int DefaultColour(Guid userId) => 24;
 }

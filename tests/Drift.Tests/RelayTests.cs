@@ -39,6 +39,15 @@ public class RelayTests
     static (Session s, FakePeer p) Join(WorldRelay r, string addr = "a", int car = 0) { var p = new FakePeer(); var s = r.Join(p, addr, car); return (s!, p); }
 
     [Fact]
+    public void The_paints_24_to_26_are_kept_and_a_value_the_relay_does_not_know_gets_a_valid_hue()
+    {
+        var (r, _) = Make();
+        foreach (var paint in new[] { 0, 23, 24, 25, 26 }) Assert.Equal((byte)paint, r.Join(new FakePeer(), "p" + paint, 0, "N", paint)!.Hue);
+        var odd = r.Join(new FakePeer(), "odd", 0, "N", 99)!;   // an unknown paint (a newer page, an older relay): the visitor is not refused, the relay picks a hue
+        Assert.InRange(odd.Hue, 0, 23);
+    }
+
+    [Fact]
     public void A_visitor_gets_an_id_a_name_from_the_fixed_list_and_a_welcome()
     {
         var (r, _) = Make();

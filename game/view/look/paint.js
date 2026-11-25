@@ -6,12 +6,15 @@ import * as THREE from '../../../vendor/three/three.module.js';
 /** Patches every lit material under `root`. `o` from the look's `car` block. Returns the uniforms to move (`uBase`: the ground's height). */
 export function paintCar(root, sun, o = {}) {
   const uniforms = { uBase: { value: 0 }, uDirt: { value: new THREE.Color(o.dirt ?? '#7a5a52') }, uRim: { value: o.rim ?? 0.45 } };
+  // only when the look asks for the painted car (look.car.painted); the owner wants the model's own clean, glossy materials:
+  // no dust, no contour, the gloss untouched (the uniforms are still returned, so callers can set uBase as before)
+  if (!o?.painted) return uniforms;
   const sunLum = (sun.color.r + sun.color.g + sun.color.b) / 3 * sun.intensity / Math.PI;
   const done = new Set();
   root.traverse((m) => {
     if (!m.isMesh) return;
     for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
-      if (done.has(mat) || mat.isMeshBasicMaterial || !mat.isMeshStandardMaterial) continue;
+      if (done.has(mat) || mat.isMeshBasicMaterial || !mat.isMeshStandardMaterial || /^(own_|lamp_|fx_)/.test(mat.name ?? '')) continue;   // a model's own materials stay as they are
       done.add(mat);
       if (mat.metalness > 0.9) { mat.roughness = Math.max(mat.roughness, 0.32); mat.envMapIntensity = 0.45; if (o.rims) mat.color.set(o.rims); }   // rims: satin grey metal, not a mirror
       else if (mat.clearcoat !== undefined && mat.clearcoat > 0 || mat.metalness > 0.3) { mat.metalness = 0.15; mat.roughness = 0.42; mat.envMapIntensity = o.gloss ?? 0.5; if (mat.clearcoat) mat.clearcoatRoughness = 0.12; }
