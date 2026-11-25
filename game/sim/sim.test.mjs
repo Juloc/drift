@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { step, makeCar, bodySlip, speedOf, turnedAngle, DT, G, K, tyreCurve } from './physics.js';
+import { step, makeCar, bodySlip, bodyVelocity, speedOf, turnedAngle, DT, G, K, tyreCurve } from './physics.js';
 import { prepareMap, surfaceAt, collide, inside } from './map.js';
 import { scoreStep, newScore, SCORE } from './score.js';
 import { orbitBot } from './bot.js';
@@ -438,4 +438,39 @@ test('feel: after a handbrake kick the pro car swings further than the arcade ca
   };
   const a = run(car), p = run(applyFeel(car, PRO));
   assert.ok(p.maxSlip > a.maxSlip + 0.1 || p.turned > a.turned + 0.3, `arcade ${JSON.stringify(a)} pro ${JSON.stringify(p)}`);
+});
+
+
+// ----- reversing
+test('reverse: hold the brake at a standstill and the car goes backwards to a sensible speed, and holds it', () => {
+  const car = JSON.parse(readFileSync(new URL('../data/cars.json', import.meta.url), 'utf8')).cars[0];
+  let s = makeCar(0, 0, 0), vfs = [];
+  for (let i = 0; i < 8 / DT; i++) { s = step(s, { steer: 0, throttle: 0, brake: 1, handbrake: 0 }, car, 1, DT); if (i % 120 === 119) vfs.push(bodyVelocity(s).vf); }
+  assert.ok(vfs[0] < -2, `after 1 s ${vfs[0]}`);                 // it gets going at once
+  assert.ok(vfs.at(-1) < -8 && vfs.at(-1) >= -K.reverseTop - 0.1, `top ${vfs.at(-1)}`);   // 30 km/h backwards or more, not past the limit
+  assert.ok(vfs.every((v, i) => i === 0 || v <= vfs[i - 1] + 1e-9), 'it speeds up all the time');
+});
+
+test('reverse: braking from speed stops the car in about the old distance, then reverses on by itself', () => {
+  const car = JSON.parse(readFileSync(new URL('../data/cars.json', import.meta.url), 'utf8')).cars[0];
+  let s = { ...makeCar(0, 0, 0), vz: 25 }, stoppedAt = null, d0 = 0;
+  for (let i = 0; i < 10 / DT; i++) {
+    s = step(s, { steer: 0, throttle: 0, brake: 1, handbrake: 0 }, car, 1, DT);
+    const vf = bodyVelocity(s).vf;
+    if (stoppedAt === null && vf <= 0.05) { stoppedAt = i * DT; d0 = s.z; }
+  }
+  assert.ok(stoppedAt > 1.5 && stoppedAt < 4, `stopped after ${stoppedAt} s`);
+  assert.ok(d0 > 25 && d0 < 60, `stopping distance ${d0} m`);
+  assert.ok(bodyVelocity(s).vf < -5, 'and it goes on backwards');
+});
+
+test('reverse: gas while rolling backwards takes the car forward again, steering still turns the nose the right way', () => {
+  const car = JSON.parse(readFileSync(new URL('../data/cars.json', import.meta.url), 'utf8')).cars[0];
+  let s = { ...makeCar(0, 0, 0), vz: -8 };
+  for (let i = 0; i < 4 / DT; i++) s = step(s, { steer: 0, throttle: 1, brake: 0, handbrake: 0 }, car, 1, DT);
+  assert.ok(bodyVelocity(s).vf > 5, 'forward again');
+  // backwards with the wheel turned right: the tail swings the other way than the nose does going forward; the car keeps a heading change and stays controllable (no spin to 180 degrees in 2 s)
+  let r = { ...makeCar(0, 0, 0), vz: -6 };
+  for (let i = 0; i < 2 / DT; i++) r = step(r, { steer: 1, throttle: 0, brake: 1, handbrake: 0 }, car, 1, DT);
+  assert.ok(Math.abs(r.h) > 0.1 && Math.abs(r.h) < 3, `heading ${r.h}`);
 });

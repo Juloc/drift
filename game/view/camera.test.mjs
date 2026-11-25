@@ -38,3 +38,13 @@ test('the key cycles chase, bonnet, cockpit and round again', () => {
   const seen = [rig.mode]; for (let i = 0; i < 3; i++) seen.push(rig.cycle(state(0, 0, 0)));
   assert.deepEqual(seen, [...CAMERAS, 'chase']);
 });
+
+test('going backwards the chase camera stays behind the nose, it does not swing round', () => {
+  const camera = new THREE.PerspectiveCamera(55, 1.6, 0.1, 500);
+  const rig = new CameraRig(camera);
+  const back = state(0, 0, 0, 0, -12);   // facing +z, rolling back at 12 m/s
+  rig.snap(back);
+  for (let i = 0; i < 120; i++) rig.update(back, 35, 1 / 60);
+  assert.ok(camera.position.z < -5, `the camera is behind the car (z ${camera.position.z})`);
+  assert.ok(rig.cams.chase.yaw < 0.2 && rig.cams.chase.yaw > -0.2, `yaw ${rig.cams.chase.yaw}`);
+});

@@ -27,8 +27,8 @@ export const K = {
   brake: 1.0 * G, // footbrake
   brakeFront: 0.65, // share of the footbrake on the front axle
   rolling: 0.05, // rolling drag, 1/s (a = rolling * v)
-  reverse: 0.4, // reverse power, share of forward power
-  reverseTop: 10, // m/s
+  reverse: 0.5, // reverse power, share of forward power
+  reverseTop: 11, // m/s (40 km/h backwards)
   inertia: 0.7, // yaw inertia = inertia * a * b / agility
   yawDamp: 1.6, // 1/s
   shift: 0.12, // weight shift per g of longitudinal acceleration (share of the weight)
@@ -94,9 +94,12 @@ export function step(s, input, car, mu = 1, dt = DT) {
   const brake = clamp(input.brake, 0, 1);
   let drive = 0;
   if (throttle > 0) drive = throttle * car.power * Math.max(0, 1 - (speed / car.top) ** 2);
+  // the brake pedal is a brake while the car rolls forward, and the reverse gear once it has (nearly) stopped: held on, the car stops and then goes backwards, and it is not braked
+  // while it goes backwards (it used to be: the brake fought the reverse drive every step, and the car never moved back)
+  const forward = clamp(vf / 0.5, 0, 1);   // 1 while rolling forward, fading to 0 at a standstill
   let reverse = 0;
-  if (brake > 0.05 && vf < 0.5 && throttle === 0) reverse = -brake * K.reverse * car.power * Math.max(0, 1 - (vf / -K.reverseTop) ** 2);
-  const brakeTotal = brake * K.brake; // always against the motion
+  if (brake > 0.05 && throttle === 0) reverse = -brake * (1 - forward) * K.reverse * car.power * Math.max(0, 1 - (Math.min(0, vf) / -K.reverseTop) ** 2);
+  const brakeTotal = brake * K.brake * forward;
   const hb = input.handbrake ? 1 : 0;
   const stopCap = av / dt; // a brake never turns a car round
   const brakeFront = Math.min(brakeTotal * K.brakeFront, stopCap * 0.5);

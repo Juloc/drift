@@ -13,7 +13,8 @@ export class FollowCam {
   /** s = drawn car state (interpolated), top = the car's top speed, dt = frame time in seconds. */
   update(s, top, dt) {
     const v = speedOf(s);
-    const travel = v > 4 ? Math.atan2(s.vx, s.vz) : s.h;
+    const reversing = s.vx * Math.sin(s.h) + s.vz * Math.cos(s.h) < -1;   // going backwards: the view stays behind the nose, it does not swing round to face the way the car goes
+    const travel = v > 4 && !reversing ? Math.atan2(s.vx, s.vz) : s.h;
     const aim = s.h + angDiff(s.h, travel) * 0.6; // lean towards where the car is really going
     if (!this.ready) { this.yaw = aim; this.x = s.x; this.z = s.z; this.ready = true; }
     this.yaw += angDiff(this.yaw, aim) * (1 - Math.exp(-3.2 * dt));
@@ -40,7 +41,8 @@ export class DriverCam {
   snap(s) { this.ready = false; this.update(s, 0, 0); }
   update(s, top, dt) {
     const v = speedOf(s);
-    const travel = v > 4 ? Math.atan2(s.vx, s.vz) : s.h;
+    const reversing = s.vx * Math.sin(s.h) + s.vz * Math.cos(s.h) < -1;   // going backwards: the view stays behind the nose, it does not swing round to face the way the car goes
+    const travel = v > 4 && !reversing ? Math.atan2(s.vx, s.vz) : s.h;
     const aim = s.h + angDiff(s.h, travel) * this.lean;
     if (!this.ready) { this.yaw = aim; this.ready = true; }
     this.yaw += angDiff(this.yaw, aim) * (1 - Math.exp(-8 * dt));   // quick: the eyes are in the car
