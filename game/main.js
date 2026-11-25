@@ -51,7 +51,7 @@ for (const e of document.querySelectorAll('[data-t]')) e.textContent = T[e.datas
 const $ = (id) => document.getElementById(id);
 const coarse = matchMedia('(pointer: coarse)').matches || params.has('touch');
 if (coarse) $('hint').hidden = true;
-if (params.has('debug') || params.has('demo')) $('hint').hidden = true;
+if (params.has('debug') || params.has('demo') || params.has('shot') || params.has('pose')) $('hint').hidden = true;
 
 const [cars, mapList] = await Promise.all([
   fetch('data/cars.json').then((r) => r.json()).then((j) => j.cars),
@@ -421,8 +421,14 @@ function reset() {
   cam.snap(cur);
 }
 reset();
-const demo = params.get('demo') === 'orbit', demoLine = params.get('demo') === 'line';   // ?demo=orbit|line: a bot drives (a circle, or the map's loop) for pictures
+// fixed shots for pictures (data/shots.json, made by tools/make-shots.mjs): ?shot=kehre (the middle of a hairpin of the upper half, about 41 degrees of drift at 72 km/h, no wall touched), ?shot=tal
+// (the same on a hairpin from where the guardrail looks out over forest, crater lake and volcanoes); the run-up is replayed with the unchanged simulation, so smoke and tyre marks are real.
+// ?pose=x,z,h,slipDeg,kmh puts the car anywhere (nose heading h in radians, drifting with that slip at that speed), ?t=seconds of run-up with the line bot in front of it.
 let lineDriver = null;
+const shotDef = params.has('shot') ? (await fetch('data/shots.json').then((r) => r.json()))[params.get('shot')] ?? null : null;
+if (shotDef) { const s = shotDef.start; cur = prev = { ...makeCar(s.x, s.z, s.h), vx: Math.sin(s.h) * s.v, vz: Math.cos(s.h) * s.v }; cam.snap(cur); lineDriver = lineBot(stage.field.road, shotDef.bot); damageOn = false; }
+if (params.has('pose')) { const [px, pz, ph, pslip, pkmh] = params.get('pose').split(',').map(Number), v = pkmh / 3.6, dir = ph - (pslip * Math.PI) / 180; cur = prev = { ...makeCar(px, pz, ph), vx: Math.sin(dir) * v, vz: Math.cos(dir) * v }; cam.snap(cur); if (params.has('t')) lineDriver = lineBot(stage.field.road, { closed: map.closed !== false, speed: 30, corner: 11, kick: 0.25, look: 14, hold: 0.55 }); }
+const demo = params.get('demo') === 'orbit', demoLine = params.get('demo') === 'line';   // ?demo=orbit|line: a bot drives (a circle, or the map's loop) for pictures
 const freecam = params.has('freecam') ? params.get('freecam').split(',').map(Number) : null;
 if (demoLine) { const o = map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); lineDriver = lineBot(stage.field.road, map.closed === false ? { closed: false, speed: 30, corner: 11, kick: 0.25, look: 14, hold: 0.55 } : { closed: true, speed: 22, corner: 15 }); }   // (the touge numbers: a clean run of about 118 s with 30 to 40 degree drifts in the hairpins, no wall touched)
 if (demo) { const o = mapId === 0 ? { x: -30, z: 8, h: Math.PI / 2 } : map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); }
@@ -478,9 +484,10 @@ function simStep(i) {
   // smoke from the rear wheels, 40 times a second, as in the probe: it drifts off to the left of the way the car goes (not into the camera behind it) and starts a little outside the wheel
   if (simSteps % 3 === 0 && !paused) {
     const slid = (Math.abs(bodySlip(cur)) > 0.2 || inp.handbrake > 0) && speedOf(cur) > 3, S = look.smoke, t = Math.atan2(cur.vx, cur.vz), push = S.drift ?? 0, out = S.offset ?? 0;
-    if (slid) for (const sx of [-1, 1]) {
+    for (const sx of [-1, 1]) {
       const ry = HEAD(cur.h), c = Math.cos(ry), sn = Math.sin(ry), lx = sx * CAR_DIMS.wheelX, lz = -CAR_DIMS.wheelZ, wx = X(cur.x) + lx * c + lz * sn, wz = cur.z - lx * sn + lz * c;
-      stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + stage.field.groundY(cur.x, cur.z), wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
+      stage.skids.mark(sx < 0 ? 0 : 1, wx, wz, 0, 0, slid && speedOf(cur) > 3, stage.field.groundY(cur.x, cur.z));
+      if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + stage.field.groundY(cur.x, cur.z), wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
     }
   }
   if (map.kind === 'descent' && !locked) {
@@ -488,10 +495,13 @@ function simStep(i) {
     if (dRunStart < 0 && Math.hypot(cur.x - (g0.a[0] + g0.b[0]) / 2, cur.z - (g0.a[1] + g0.b[1]) / 2) < 10 && speedOf(cur) > 2) dRunStart = simSteps;
     if (dRunStart >= 0 && !runDone && Math.hypot(cur.x - end[0], cur.z - end[1]) < 14) { runDone = simSteps; note(`${T.run} ${fmt((simSteps - dRunStart) * DT * 1000)}`); setTimeout(() => { if (runDone) reset(); }, 2500); }
   }
+  stage.smoke.update(DT);   // (in the step, as in the probe: a run-up before the first frame has its smoke)
   simSteps++;
 }
 // optional: simulate N seconds before the first frame (for pictures taken after a fixed time)
-for (let i = 0, n = Math.round((+params.get('t') || 0) / DT); i < n; i++) loop.advance(DT, simStep);
+const preRoll = shotDef ? shotDef.t : +params.get('t') || 0;
+for (let i = 0, n = Math.round(preRoll / DT); i < n; i++) { loop.advance(DT, simStep); if (i % 2 === 0) cam.update(cur, car.top, 1 / 60); }   // (the camera follows the run-up, so it has swung in when the picture is taken)
+if (shotDef && params.get('run') !== '1') paused = true;   // a named shot freezes where the run-up ends (?run=1 lets it go on)
 
 input.onkey.KeyR = reset;
 input.onkey.KeyB = () => togglePractice();
@@ -607,18 +617,12 @@ function frame(now) {
 
   // smoke and skid marks from the rear wheels (on the road's drawn height)
   const sliding = (cur.slide > 0.25 || (input.has('hand') && speedOf(cur) > 4)) && speedOf(cur) > 3 && !paused;
-  const { smoke, skids } = stage;
-  for (let i = 0; i < 2; i++) {
-    const sx = i ? 1 : -1;
-    const wp = new THREE.Vector3(sx * CAR_DIMS.wheelX, 0, -CAR_DIMS.wheelZ).applyMatrix4(carGroup.matrix);
-    skids.mark(i, wp.x, wp.z, 0, 0, sliding, gy);
-  }
+  const { smoke } = stage;   // (the tyre marks are made in the simulation step, so a run-up before the first frame has them too)
   // damage: the paint darkens with it, smoke comes from the nose over half, and a small readout
   if (dmg !== shownDmg) { shownDmg = dmg; Fleet.colour(mine, ownColour, dmg); }
   if (dmg > 0.5 && !paused && info.frames % 3 === 0) { const np = new THREE.Vector3(0, 0.7, 2.2).applyMatrix4(carGroup.matrix); smoke.emit(np.x, 0.5 + gy, np.z, 0, 0, 0.35 * dmg); }
   const dmgText = dmg > 0.02 ? `${T.damageLabel} ${Math.round(dmg * 100)} %` : '';
   if (damageEl.textContent !== dmgText) { damageEl.textContent = dmgText; damageEl.hidden = dmgText === ''; }
-  smoke.update(paused ? 0 : dt);
   camera.updateMatrixWorld(); smoke.aim?.(camera);   // smoke that would hide the car on the picture fades out (billows.js)
   smoke.sync();
 

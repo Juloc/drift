@@ -621,9 +621,10 @@ function details(S, G, f, scene, look, tier, rnd, lite, sideInfo, onPlaza) {
       G.box(0.36, 0.3, 0.52, X(m.x), y + 1.85, m.z, glow(look.lamp.light, 2.4), { r: 0, ry });
       S.cone(0.75, 0.45, X(m.x), y + 2.3, m.z, stoneC, { seg: 4, ry: ry + Math.PI / 4 });
       S.ball(0.12, X(m.x), y + 2.6, m.z, stoneC, { detail: 0 });
-    } else if (m.type === 'clip') {   // a clipping point of the zone scoring: a short white post with a glowing pink head, where the line should touch
-      S.cyl(0.07, 0.09, 1.1, X(m.x), y + 0.55, m.z, C('#f4efee'), { seg: 6 });
-      G.box(0.22, 0.22, 0.22, X(m.x), y + 1.2, m.z, glow('#ff5a96', 2.6), { r: 0 });
+    } else if (m.type === 'clip') {   // a clipping point of the zone scoring: a low white guide post with a dark band and a glowing pink reflector, as along a mountain road
+      S.box(0.14, 0.95, 0.14, X(m.x), y + 0.475, m.z, C('#f4efee'), { r: 0.02, jitter: 0 });
+      S.box(0.15, 0.14, 0.15, X(m.x), y + 0.7, m.z, C('#2b2630'), { r: 0.02, jitter: 0 });
+      G.box(0.1, 0.2, 0.05, X(m.x), y + 0.82, m.z, glow('#ff5a96', 2.8), { r: 0, jitter: 0 });
     } else if (m.type === 'gate') {
       S.push(trs(X(m.x), y, m.z, 0, ry, 0));
       // a torii: two red pillars, a tie beam and a black-capped top beam; m.width / m.height scale it (a road torii is wide)
