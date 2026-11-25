@@ -78,6 +78,21 @@ export function buildWorld(scene, look, tierName = 'high') {
   // facets as in the mockup (land, trees, rocks, mountains): flat shading with the soft colour gradients; the road and the cars stay smooth
   const solid = new THREE.Mesh(S.build(), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: look.facets !== false }));
   solid.receiveShadow = true;
+  // surfaces, not flat colour: a little colour noise per facet (from its own normal) and soft blotches over the land (from the world position)
+  solid.material.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vLandPos;').replace('#include <project_vertex>', '#include <project_vertex>\nvLandPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vLandPos;
+      float lh(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+      float ln(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(lh(i), lh(i + vec3(1, 0, 0)), f.x), mix(lh(i + vec3(0, 1, 0)), lh(i + vec3(1, 1, 0)), f.x), f.y),
+                   mix(mix(lh(i + vec3(0, 0, 1)), lh(i + vec3(1, 0, 1)), f.x), mix(lh(i + vec3(0, 1, 1)), lh(i + vec3(1, 1, 1)), f.x), f.y), f.z); }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      vec3 facet = normalize(cross(dFdx(vLandPos), dFdy(vLandPos)));
+      float tone = (lh(floor(facet * 23.0) + floor(vLandPos * 0.25)) - 0.5) * ${(look.surface?.facet ?? 0.12).toFixed(3)}
+        + (ln(vLandPos * 0.08) - 0.5) * ${(look.surface?.blotch ?? 0.2).toFixed(3)} + (ln(vLandPos * 1.3) - 0.5) * ${(look.surface?.grain ?? 0.08).toFixed(3)};
+      diffuseColor.rgb *= 1.0 + tone;`);
+  };
   const lights = new THREE.Mesh(G.build(), makeGlow());
   const roadMesh = new THREE.Mesh(Rb.build(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: look.road.roughness ?? 0.5, metalness: 0, envMapIntensity: look.road.sheen ?? 0.8 }));
   roadMesh.receiveShadow = true;
@@ -442,6 +457,8 @@ function cherry(S, look, x, y, z, h, rnd, lite) {
 }
 
 function trees(S, f, scene, look, tier, rnd, lite) {
+  // the view to the lake stays open: no trees on its shores
+  const K = scene.lake, nearLake = (x, z) => !!K && Math.hypot((x - K.x) / K.rx, (z - K.z) / K.rz) < 1.9;
   const [x0, z0, x1, z1] = scene.terrain.extent, ry = f.floor;
   const [cx0, cz0, cx1, cz1] = scene.terrain.core ?? scene.terrain.extent;
   // `near`: only within 45 m of the road or the plaza (the frame of every picture), else anywhere (half of them near the core)
@@ -456,7 +473,7 @@ function trees(S, f, scene, look, tier, rnd, lite) {
       // the valley side stays open near the road (the view down to the river), trees there only further out
       if (f.base(x, z) < -2 && e < (f.openValley ?? 0)) continue;
       if (rel < ry + 2 || f.slope(x, z, y) > 0.85) continue;
-      if (f.wet(x, z, 4)) continue;
+      if (f.wet(x, z, 4) || nearLake(x, z)) continue;
       // away from the road, cherries stay low by the river and pines thin out on the valley floor
       if (!near && kind === 'cherry' && rel > ry + 14 && rnd() > 0.1) continue;
       if (kind === 'pine' && rel < ry + 3 && rnd() > 0.35) continue;
@@ -484,7 +501,7 @@ function trees(S, f, scene, look, tier, rnd, lite) {
   const P = look.pine;
   for (let n = 0, tries = 0; n < (tier.carpet ?? 0) && tries < (tier.carpet ?? 0) * 6; tries++) {
     const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0), e = f.edge(x, z);
-    if (e < 120 || f.wet(x, z, 6) || noise2(x / 90, z / 90) < -0.1) continue;
+    if (e < 120 || f.wet(x, z, 6) || nearLake(x, z) || noise2(x / 90, z / 90) < -0.1) continue;
     const rel = f.relHeight(x, z), y = rel + f.groundY(x, z);
     if (rel < ry + 3 || f.slope(x, z, y) > 0.9) continue;
     for (let g = 0, m = 3 + Math.floor(rnd() * 6); g < m; g++, n++) {

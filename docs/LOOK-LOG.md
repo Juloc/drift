@@ -212,3 +212,23 @@ Biggest differences left:
 3. Road near: a little too light and red (#855155 against #683e4c).
 4. Valley: the river and mist are only a strip at the right edge; the mockup shows the river bend and the bridge mid-right.
 5. The car (RX-7, a choice) and the HUD values (a short drift) as before.
+
+## Rounds 17 and 18 (2026-11-25)
+
+Done: surfaces instead of flat colour on the land, rocks and trees (a small shader: colour noise per facet from its own normal, soft
+blotches and a fine grain from the world position; `look.surface`); the sun moved to the mockup's place (right third, just over the
+mountains) with a more saturated coral halo; a lighter, rosier sky; a darker mauve road; a lake with an arched bridge placed about 25
+degrees right of the view down the road, the hills and trees kept off its shores, so it glows mid-right behind the guardrail. The
+sky-top box of the measuring moved to open sky (the old one lay on the drift-score card).
+
+Distances (boxes: sky-top 0.62,0.03,0.85,0.1; near-sun 0.72,0.2,0.8,0.26; road-near 0.55,0.85,0.75,0.97; smoke 0.02,0.55,0.2,0.75):
+mean 36 → 31; brightness 114 (mockup 108), contrast 42 (42), saturation 0.35 (0.37); smoke 9, middle-left 8, middle-right 16,
+road-near 30, top-right 33, sky-top 44, near-sun 69.
+
+Biggest differences left:
+1. Near the sun: still a pale cream (#eccfb6) against the mockup's saturated orange (#faae7b): ACES tone mapping bleaches bright warm
+   colours; next: a hue-preserving curve for the sky (or the sky drawn after tone mapping).
+2. Bottom-left: our smoke and the shoulder are lighter than the mockup's (#99717f against #7b5b6a).
+3. The bridge disappears in the mist and haze over the lake; the mockup shows it as a clear dark silhouette.
+4. Top-left: the cherry tree in the mockup is pink and lit (#bd5076); ours is dark red in the shade of the slope.
+5. Car (RX-7) and HUD values (short drift) as before.
