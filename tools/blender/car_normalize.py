@@ -362,7 +362,11 @@ else:
             if n > 800:
                 mod = w.modifiers.new("decimate", "DECIMATE"); mod.ratio = 800 / n
                 bpy.ops.object.modifier_apply(modifier="decimate")
-        else:
+        else:   # the high tier: at most about 2 500 triangles a wheel, so that the body keeps its share of the budget
+            n = sum(len(p.vertices) - 2 for p in w.data.polygons)
+            if n > SRC.get("wheel_tris_high", 2500):
+                mod = w.modifiers.new("decimate", "DECIMATE"); mod.ratio = SRC.get("wheel_tris_high", 2500) / n
+                bpy.ops.object.modifier_apply(modifier="decimate")
             before = set(bpy.context.scene.objects)
             bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT")
             bpy.ops.mesh.separate(type="MATERIAL"); bpy.ops.object.mode_set(mode="OBJECT")

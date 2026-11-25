@@ -1,0 +1,30 @@
+{
+  "name": "p930",
+  "about": "Porsche 911 (930) Turbo, 1975. Sizes of the real car; the model is a download (docs/ASSETS.md).",
+  "length": 4.29,
+  "width": 1.775,
+  "height": 1.32,
+  "wheelbase": 2.272,
+  "source": {
+    "file": "C:/AI/work/porsche_911_930_turbo_1975/src/porsche_911_930_turbo_1975/scene.gltf (from porsche_911_930_turbo_1975.zip)",
+    "title": "Porsche 911 (930) Turbo 1975",
+    "author": "Lexyc16 (https://sketchfab.com/Lexyc16)",
+    "url": "https://sketchfab.com/3d-models/porsche-911-930-turbo-1975-de1ffd344c41481892511f7fd332c136",
+    "licence": "CC-BY-4.0",
+    "front": "-y",
+    "up": "+z",
+    "scale_by": "length",
+    "wheels": "model",
+    "slots": {
+      "^material\\.001$": "paint",
+      "^material\\.014$": "glass",
+      "^material\\.01[03]$": "light_front",
+      "^material\\.(003|006|011|012)$": "light_rear",
+      "^material\\.008$": "rubber",
+      "^material\\.00[57]$": "chrome",
+      "^material\\.00[29]$": "plastic"
+    },
+    "drop": [],
+    "targets": { "phone": 14000, "high": 40000 }
+  }
+}

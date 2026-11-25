@@ -111,6 +111,43 @@ mirrors, tyre radius 0.327 m. In the game (`?glb=rx7`, car park, headless): the 
 it drifts, smoke and skid marks from the game's wheel layout; whole scene 48 862 triangles / 20 draw calls (phone tier),
 83 812 / 33 (high). Known: on the phone tier the rims, thinned to 800 triangles each, look like plain light discs.
 
+### Batch 1 (2026-11-26): six more downloads
+
+The same steps per car, about 15 to 30 minutes of looking and writing the car file; the runs take 2 to 4 s per tier.
+
+1. `python -I tools/gpu/unpack_check.py C:\AI\work\<folder>` on the PC (embedded Python): unpacks every zip into `src\`
+   (refuses paths that leave the folder), prints the licence file, the glTF's `asset.extras` and the materials. Only CC BY and CC0 go on.
+2. `materials.py` (colour, textures, triangles, place of each material), `look.py` (the car from six sides) and `matcolours.py`
+   (front and rear with one flat colour per material and the legend): which material is paint, glass, lamps, tyres, rims, and
+   which carries an emblem.
+3. `tools/blender/cars/<car>.json`: real sizes, the slot list (`slots`), what to `drop` (emblem materials, ground planes),
+   `drop_boxes` (faces of a material inside a box: letters that share a material with chrome or trim), `slot_boxes` (a lamp
+   material used at the front and the rear: the rear faces become `light_rear`). `parts.py` prints the loose parts of
+   some materials with their boxes, for the box numbers.
+4. `tools/gpu/car_normalize.sh <car> <scene.gltf on the PC> "phone high"`, then `matcolours.py` on the finished `-hi.glb`
+   (axis `+z`) to see that no emblem is left, then `node tools/carshots.mjs <car> docs/screenshots/cars front,rear,side,phone`.
+5. `python3 tools/credit_car.py <car> "<removed, English>" "<entfernt, Deutsch>" <phone tris> <high tris>`: the entry in
+   `game/data/credits.json` and the row in `docs/ASSETS.md`. `node --test tests/js/credits.test.mjs game/view/carfiles.test.mjs`.
+
+Changes to the normaliser on the way: a dropped material takes its emptied object along; wheel parts keep their own
+material's brightness in the vertex colours (the phone rims show their spokes); `drop_boxes` and `slot_boxes`; the high
+tier keeps a wheel to about 2 500 triangles (`wheel_tris_high`) so that the body gets the budget.
+
+| Car | File (phone / high) | Triangles | Draw calls | Size | Wheelbase (real) | Removed |
+|---|---|---|---|---|---|---|
+| Toyota AE86 Trueno | `ae86` | 11 216 / 18 016 | 9 / 13 | 336 / 683 KB | 2.39 m (2.40) | plates, door lettering |
+| Nissan Skyline GT-R R34 | `r34` | 13 997 / 39 994 | 11 / 15 | 416 / 1 002 KB | 2.66 m (2.665) | GT-R badges front and rear, plate |
+| Nissan Silvia S14 | `s14` | 12 577 / 15 077 | 10 / 14 | 392 / 443 KB | 2.52 m (2.525) | plates with lettering |
+| Mazda RX-7 FC | `fc` | 13 995 / 39 995 | 9 / 13 | 430 / 1 012 KB | 2.43 m (2.43) | lettering front and rear, ground plane |
+| Mazda MX-5 NA | `mx5` | 13 994 / 39 994 | 10 / 14 | 388 / 985 KB | 2.31 m (2.265) | nothing (no emblems) |
+| Porsche 911 930 Turbo | `p930` | 13 995 / 39 997 | 10 / 14 | 482 / 1 160 KB | 2.28 m (2.272) | rear reflector lettering (a texture) |
+
+All with their own wheels (better than the game's), scaled by the real length (the MX-5 comes out 2 % long in the wheelbase).
+Loading in the showroom (headless, software graphics, the VM under load): phone files 0.1 to 2.3 s, high files 2.5 to 28 s.
+Pictures: `docs/screenshots/cars/<car>-{front,rear,side,phone}.png`. **Not checked:** a drift in the game with these cars (only
+the RX-7 was driven), a real phone, the files in the website's copy. The cars are not in `game/data/cars.json` yet (no car
+ids); try them with `?glb=<file name>`.
+
 Tested with a made-up download: `tools/blender/make_foreign_test.py` turns the code model's S15 into foreign names, centimetres,
 front along +X and loose wheel objects, written as .glb, .fbx and .obj (`cars/test-foreign.json`: game wheels, scale by length;
 `cars/test-foreign-own.json`: the model's own wheels, scale by wheelbase). All three formats and both tiers came out after the
