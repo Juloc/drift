@@ -824,3 +824,60 @@ public class StatsTests
         Assert.DoesNotContain(counting.Done, d => d.Who == ids[2]);
     }
 }
+
+public class TandemTests
+{
+    static TandemRole Role(string? s) => s switch { "lead" => TandemRole.Lead, "chase" => TandemRole.Chase, "side" => TandemRole.Side, _ => TandemRole.None };
+    static JsonElement Vectors => JsonDocument.Parse(File.ReadAllText(Path.Combine(Repo.Root, "tests", "vectors", "tandem.json"))).RootElement;
+
+    [Fact]
+    public void The_server_judges_pairs_like_the_browser_for_the_shared_vectors()
+    {
+        foreach (var c in Vectors.GetProperty("pairs").EnumerateObject())
+        {
+            TandemCar Car(JsonElement e) => new(e.GetProperty("x").GetDouble(), e.GetProperty("z").GetDouble(), e.GetProperty("h").GetDouble(), e.GetProperty("vf").GetDouble(), e.GetProperty("beta").GetDouble());
+            var r = Tandem.Pair(Car(c.Value.GetProperty("a")), Car(c.Value.GetProperty("b")));
+            Assert.Equal(c.Value.GetProperty("active").GetBoolean(), r.Active);
+            Assert.True(Math.Abs(r.Q - c.Value.GetProperty("q").GetDouble()) < 1e-4, $"{c.Name} q {r.Q}");
+            Assert.True(Math.Abs(r.Gap - c.Value.GetProperty("gap").GetDouble()) < 1e-4, c.Name);
+            var role = c.Value.GetProperty("role").EnumerateArray().Select(x => x.GetString()).ToArray();
+            Assert.Equal(Role(role[0]), r.RoleA); Assert.Equal(Role(role[1]), r.RoleB);
+        }
+    }
+
+    [Fact]
+    public void The_server_gives_the_numbers_of_the_browsers_chain_for_the_shared_vectors()
+    {
+        foreach (var c in Vectors.GetProperty("chains").EnumerateObject())
+        {
+            var dt = c.Value.GetProperty("dt").GetDouble();
+            var chain = new TandemChain();
+            var events = new List<(int, int)>();
+            var trace = c.Value.GetProperty("trace").EnumerateArray().ToDictionary(t => t.GetProperty("step").GetInt32());
+            var i = 0;
+            foreach (var s in c.Value.GetProperty("steps").EnumerateArray())
+            {
+                (double, TandemRole, double, double)? obs = s.ValueKind == JsonValueKind.Null ? null : (s.GetProperty("q").GetDouble(), Role(s.GetProperty("role").GetString()), s.GetProperty("speed").GetDouble(), s.GetProperty("slip").GetDouble());
+                if (chain.Step(obs, dt) is { } pts) events.Add((i, pts));
+                if (trace.TryGetValue(i, out var t))
+                {
+                    Assert.True(Math.Abs(chain.Pending - t.GetProperty("pending").GetDouble()) < 1e-3, $"{c.Name} pending at {i}: {chain.Pending} vs {t.GetProperty("pending").GetDouble()}");
+                    Assert.True(Math.Abs(chain.Banked - t.GetProperty("banked").GetDouble()) < 1e-3, $"{c.Name} banked at {i}");
+                    Assert.True(Math.Abs(chain.Mult - t.GetProperty("mult").GetDouble()) < 1e-4, $"{c.Name} mult at {i}");
+                }
+                i++;
+            }
+            Assert.Equal(c.Value.GetProperty("events").EnumerateArray().Select(e => (e.GetProperty("step").GetInt32(), e.GetProperty("points").GetInt32())).ToList(), events);
+        }
+    }
+
+    [Fact]
+    public void A_pair_is_judged_the_same_from_either_side_and_the_roles_swap()
+    {
+        var a = new TandemCar(0, 0, 0, 22, 0.5); var b = new TandemCar(0.5, 5, 0, 22, 0.5);
+        var ab = Tandem.Pair(a, b); var ba = Tandem.Pair(b, a);
+        Assert.Equal(ab.Q, ba.Q, 9);
+        Assert.Equal((TandemRole.Chase, TandemRole.Lead), (ab.RoleA, ab.RoleB));
+        Assert.Equal((TandemRole.Lead, TandemRole.Chase), (ba.RoleA, ba.RoleB));
+    }
+}

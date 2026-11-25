@@ -349,3 +349,64 @@ test('tuning: the physics follows the numbers (every slider changes how the car 
   assert.notEqual(circle({ steer: 3 }), circle({}));   // more angle is not simply better: past the tyre's peak the front pushes wide
   assert.notEqual(circle({ power: 3 }), circle({}));
 });
+
+
+// ----- tandem: the same vectors as the server's C# test
+import { tandemPair, newTandem, tandemStep } from './tandem.js';
+test('tandem: pairs and chains give the numbers of the shared vectors', () => {
+  const v = JSON.parse(readFileSync(new URL('../../tests/vectors/tandem.json', import.meta.url), 'utf8'));
+  for (const [name, c] of Object.entries(v.pairs)) {
+    const r = tandemPair(c.a, c.b);
+    assert.equal(r.active, c.active, name);
+    assert.ok(Math.abs(r.q - c.q) < 1e-5 && Math.abs(r.gap - c.gap) < 1e-5, name);
+    assert.deepEqual(r.role.map((x) => x ?? null), c.role.map((x) => x ?? null), name);
+  }
+  for (const [name, c] of Object.entries(v.chains)) {
+    let st = newTandem(); const events = [];
+    c.steps.forEach((o, i) => { st = tandemStep(st, o, c.dt); if (st.event) events.push({ step: i, points: st.event.points }); });
+    assert.deepEqual(events, c.events, name);
+    assert.ok(Math.abs(st.banked - c.banked) < 1e-3, name);
+  }
+});
+
+test('tandem: the properties that matter - closer is better, either way round, the lead is ahead, the multiplier is capped', () => {
+  const car = (x, z, beta = 0.5) => ({ x, z, h: 0, vf: 22, beta });
+  assert.ok(tandemPair(car(0, 0), car(5, 0)).q > tandemPair(car(0, 0), car(9, 0)).q);
+  assert.equal(tandemPair(car(0, 0), car(5, 0)).q, tandemPair(car(5, 0), car(0, 0)).q);
+  assert.deepEqual(tandemPair(car(0, 0), car(0.2, 6)).role, ['chase', 'lead']);
+  let st = newTandem();
+  for (let i = 0; i < 2000; i++) st = tandemStep(st, { q: 1, role: 'lead', speed: 40, slip: 1.2 }, 1 / 15);
+  assert.ok(st.mult <= 2 && st.mult > 1.9);
+  assert.ok(st.pending / (2000 / 15) <= 1500, 'points per second are capped');
+});
+
+// ----- the practice partner
+import { PracticeBot, TandemPractice, poseOf, PRACTICE_START } from './practice.js';
+
+test('practice: the bot drives a held drift circle on the car park and stays on the map', () => {
+  const map = prepareMap(JSON.parse(readFileSync(new URL('../data/maps/01-car-park.json', import.meta.url), 'utf8')));
+  const cars = JSON.parse(readFileSync(new URL('../data/cars.json', import.meta.url), 'utf8')).cars;
+  const bot = new PracticeBot(map, cars[0], PRACTICE_START, 1);
+  let drifting = 0, n = 0;
+  for (let i = 0; i < 20 / DT; i++) { const s = bot.step(); if (i * DT > 4) { n++; if (Math.abs(bodySlip(s)) > 0.26 && speedOf(s) > 8) drifting++; } assert.ok(Math.abs(s.x) < 120 && Math.abs(s.z) < 84, 'inside the map'); }
+  assert.ok(drifting / n > 0.8, `drifts ${(100 * drifting / n).toFixed(0)} % of the time`);
+});
+
+test('practice: a car that drives the same circle beside the bot earns the tandem bonus, one far away does not', () => {
+  const map = prepareMap(JSON.parse(readFileSync(new URL('../data/maps/01-car-park.json', import.meta.url), 'utf8')));
+  const car = JSON.parse(readFileSync(new URL('../data/cars.json', import.meta.url), 'utf8')).cars[0];
+  const run = (gap) => {
+    const bot = new PracticeBot(map, car, PRACTICE_START, 1);
+    let me = makeCar(PRACTICE_START.x + gap, PRACTICE_START.z, PRACTICE_START.h); const scorer = new TandemPractice();
+    for (let i = 0; i < 16 / DT; i++) {
+      bot.step();
+      me = collideCar(map, step(me, orbitBot(i * DT, me, { start: 1.5, dir: 1 }), car, 1, DT));
+      if (i % 8 === 0) scorer.update(me, bot.state, 8 * DT);
+    }
+    return scorer.tandem;
+  };
+  const near = run(5), far = run(60);
+  assert.ok(near.banked + near.pending > 50, `near: ${near.banked + near.pending}`);
+  assert.equal(far.banked + far.pending, 0);
+});
+import { collide as collideCar } from './map.js';

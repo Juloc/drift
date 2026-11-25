@@ -80,3 +80,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf5; fon
 #emote-open { position: fixed; left: max(14px, env(safe-area-inset-left)); top: 44%; z-index: 4; width: 44px; height: 44px; font-size: 22px; border: 2px solid rgba(27,35,48,0.35); border-radius: 12px; background: var(--card); opacity: 0.8; }
 #emote-open[hidden] { display: none; }
 #me .emo { margin-left: 6px; font-size: 18px; }
+
+/* ----- tandem: a small chip under the drift card ----- */
+#tandem { position: absolute; left: 50%; top: 96px; transform: translateX(-50%); padding: 4px 14px; border-radius: 14px; background: var(--card); font: 800 14px system-ui, sans-serif; letter-spacing: 0.02em; pointer-events: none; white-space: nowrap; }
+#tandem[hidden] { display: none; }
+#tandem.on { background: var(--accent); color: #fff; }

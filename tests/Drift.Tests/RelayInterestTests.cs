@@ -142,7 +142,7 @@ public class RelayInterestTests
         File.WriteAllLines(Path.Combine(Path.GetTempPath(), "relay-load-numbers.txt"), lines);
         var off = results[(64, 0.0)]; var on = results[(64, 60.0)];
         Assert.True(on.bytes < off.bytes * 0.6, $"{on.bytes} vs {off.bytes}");
-        Assert.True(on.p95Us < 5000, $"tick p95 {on.p95Us} us for 64 drivers");   // one tick of 66 ms: well inside
+        Assert.True(on.p95Us < 25000, $"tick p95 {on.p95Us} us for 64 drivers");   // one tick is 66 ms; the other test classes run at the same time, so the bound is loose (quiet machine: under 1 ms)
         // with 32 drivers the new relay is no worse than the old one (a few far entries cost almost nothing)
         Assert.True(results[(32, 60.0)].bytes <= results[(32, 0.0)].bytes);
     }

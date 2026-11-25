@@ -16,6 +16,8 @@ import { Smoke, Skids } from './view/fx.js';
 import { FollowCam } from './view/camera.js';
 import { Input } from './view/input.js';
 import { Hud } from './view/hud.js';
+import { TandemHud } from './view/tandemhud.js';
+import { PracticeBot, TandemPractice, PRACTICE_START } from './sim/practice.js';
 import { makeClay, makeGlow } from './core/materials.js';
 import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
@@ -28,9 +30,11 @@ const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
     online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', tunedMark: 'tuned', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
+    tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
     online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', tunedMark: 'getunt', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
+    tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
 document.documentElement.lang = de ? 'de' : 'en';
@@ -89,6 +93,7 @@ scene.add(carGroup, pool.mesh, pool.blobs, smoke.points, skids.mesh);
 const cam = new FollowCam(camera, coarse ? { dist: 9.5, height: 4.6, look: 4.5 } : { dist: 11, height: 5.6, look: 5 });
 const input = new Input($('touch'));
 const hud = new Hud(T);
+const tandemHud = new TandemHud(T);
 // underglow (?glow=0..23 here, or from the garage): one glowing patch under a lit car, one draw call for all
 const glowHue = params.has('glow') && +params.get('glow') >= 0 && +params.get('glow') < 24 ? Math.floor(+params.get('glow')) : null;
 const glowPool = new GlowPool(16);
@@ -162,6 +167,8 @@ function lobbyMessage(j) {
   else if (j.t === 'race.busy') note(j.wait ? T.pause.replace('{s}', j.wait) : T.busy);
   else if (j.t === 'race.go') { show('invite', false); startRace(); }
   else if (j.t === 'emote') remotes?.emote(j.id, EMOTES[j.e]);
+  else if (j.t === 'tandem') { if (!practice) tandemHud.set(j); }
+  else if (j.t === 'tandem.bank') tandemHud.bank(j.points);
 }
 
 // ----- emotes: ten fixed symbols (keys 1 to 0, or the little button), shown over the sender's car for three seconds; there is no free text anywhere
@@ -262,6 +269,18 @@ if (params.has('map')) { await ensureMap(+params.get('map') || 0); reset(); }   
 const demo = params.get('demo') === 'orbit';
 if (demo) { const o = mapId === 0 ? { x: 66, z: 48, h: Math.PI / 2 } : map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); }
 
+// ----- the practice partner (?bot=1 or the key B): a bot drives a drift circle next to you; the tandem bonus is judged here, nothing is sent
+let practice = null;
+const botGroup = new THREE.Group();
+function togglePractice(on = !practice) {
+  if (!on) { practice = null; scene.remove(botGroup); tandemHud.set(null); return; }
+  const start = params.get('bot') === 'near' ? { x: cur.x + 6, z: cur.z, h: cur.h } : mapId === 0 ? PRACTICE_START : map.grid[0];   // ?bot=near: right beside you (for pictures and tests)   // a clear run and an open circle; the bot waits there for you to find it
+  practice = { bot: new PracticeBot(map, car, start, 1), scorer: new TandemPractice(), spin: 0 };
+  const parts = buildCar({ paint: new THREE.Color().setHSL(((car.colour + 180) % 360) / 360, 0.62, 0.52).getHex(), lite, model: carIndex });
+  botGroup.clear(); botGroup.add(new THREE.Mesh(parts.body, makeClay()), new THREE.Mesh(parts.lights, makeGlow()));
+  scene.add(botGroup);
+}
+
 function simStep(i) {
   prev = cur;
   const inp = locked ? { steer: 0, throttle: 0, brake: 0, handbrake: 1 } : demo ? orbitBot(i * DT, cur, { start: 1.5 }) : input.read();
@@ -269,12 +288,19 @@ function simStep(i) {
   const mu = surfaceAt(map, cur.x, cur.z).mu;
   cur = collide(map, step(cur, inp, car, mu));
   score = scoreStep(score, { slip: bodySlip(cur), speed: speedOf(cur), hit: cur.hit, turned: turnedAngle(cur) }, DT);
+  if (practice) {   // the practice partner drives on, and you are judged against it with the server's own functions
+    practice.bot.step();
+    const st = practice.scorer.update(cur, practice.bot.state, DT);
+    if (st.event) tandemHud.bank(st.event.points);
+  }
   simSteps++;
 }
 // optional: simulate N seconds before the first frame (for pictures taken after a fixed time)
 for (let i = 0, n = Math.round((+params.get('t') || 0) / DT); i < n; i++) loop.advance(DT, simStep);
 
 input.onkey.KeyR = reset;
+input.onkey.KeyB = () => togglePractice();
+if (params.has('bot')) togglePractice(true);
 input.onkey.KeyP = () => (paused = !paused);
 input.onkey.KeyF = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
 input.onkey.KeyQ = () => { const o = ['low', 'medium', 'high']; view.governor.set(o[(o.indexOf(view.tier) + 1) % 3], false); };
@@ -336,6 +362,15 @@ function frame(now) {
     const moving = speedOf(cur) > 0.3 || input.read().throttle > 0;
     net.sendPose({ x: cur.x, z: cur.z, h: cur.h, vf, steer: cur.steer }, bodySlip(cur), (input.has('hand') ? 1 : 0) | (cur.slide > 0.3 ? 2 : 0) | (cur.hit > 0 ? 4 : 0), moving, now);
     remotes.update(net.sample(now), net.roster, dt);
+  }
+  if (practice) {   // the practice bot, drawn like a car of the lobby (body and wheels), and the chip from the local judgement
+    const b = practice.bot.state, { vf: bvf } = bodyVelocity(b);
+    botGroup.position.set(X(b.x), 0, b.z); botGroup.rotation.set(0, HEAD(b.h), 0, 'YXZ'); botGroup.updateMatrix();
+    practice.spin += (bvf * dt) / WHEEL.r;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) pool.wheel(botGroup.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -b.steer : 0, practice.spin);
+    pool.blob(X(b.x), b.z, BLOB[carIndex][0], BLOB[carIndex][1], HEAD(b.h));
+    const tt = practice.scorer.tandem;
+    tandemHud.set({ on: tt.active, mult: tt.mult, role: tt.role }, now);
   }
   pool.end();
   glowPool.end();
