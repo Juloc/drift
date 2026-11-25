@@ -19,7 +19,7 @@
   "fog": { "colour": "#f0a8a2", "near": 400, "far": 4200 },
   "mist": { "colour": "#ffdcdc", "opacity": 0.6, "y": -9 },
   "grade": { "exposure": 0.95, "bloom": 0.62, "threshold": 1.15, "warmth": 1.1, "saturation": 1.32 },
-  "land": { "valley": "#6c8c48", "mid": "#8f9a3c", "high": "#a99a5c", "warm": "#a8a046", "cool": "#73903f", "rock": "#9a7484", "rockDark": "#6c5072", "gravel": "#9a7c80", "sand": "#d9ad9d" },
+  "land": { "valley": "#6c8c48", "mid": "#8f9a3c", "high": "#a99a5c", "warm": "#a8a046", "cool": "#73903f", "rock": "#b48c98", "rockDark": "#8a7090", "gravel": "#9a7c80", "sand": "#d9ad9d" },
   "road": { "asphalt": "#4a3f52", "asphaltLight": "#564a5e", "edge": "#fbf3f0", "centre": "#f2b84e", "plaza": "#665d71", "bay": "#efe9e4", "kerb": "#cfc3c4", "roughness": 0.75, "sheen": 0.18, "edgeWidth": 0.34 },
   "water": { "deep": "#9a7cb8", "light": "#ffbf86", "glint": "#ffc58c", "glow": 1.5 },
   "bridge": { "stone": "#e2b29c", "shade": "#c08e88" },

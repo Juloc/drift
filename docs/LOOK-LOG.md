@@ -108,3 +108,33 @@ Biggest differences left (picture `probe-sunset-drift.png` of this round):
 3. Clouds: the bands lie mostly behind the drift-score card at this camera.
 4. Car: the mockup's car is a body-kitted S15 with a big wing and wide wheels; ours is the RX-7 model (the car the orchestrator chose).
 5. Numbers: the mockup shows a long drift (18.460, ×4,2, 124 km/h, gear 3); ours are the real values 6.8 s into the bot's drive.
+
+## Round 9 (2026-11-25)
+
+Done: the left slope lower and lighter (grass with rock patches, boulders, cherry trees on it), as the sunlit slope of the mockup; the
+far, hidden lake replaced by a lake bend in the valley under the sun (glimpsed between the hills at the right edge); cloud streaks
+gathered round the sun.
+
+Biggest differences left (picture `probe-sunset-drift.png` of this round):
+1. Clouds: round the sun they now read as a bright haze, not as the mockup's distinct pink bands with golden edges.
+2. Valley: the lake under the sun is hidden by the valley hills from this low camera (the limit above).
+3. Car: RX-7 instead of the mockup's kitted S15 (the orchestrator's choice of model).
+4. Numbers: real values 6.8 s into the bot's drive instead of a long drift.
+5. Detail density: the mockup's midground has more small pines and cherries on several hill layers; ours has one layer.
+
+## Round 10 (2026-11-25)
+
+Done: crisper cloud edges and less glow on the clouds near the sun. Result: the sky round the sun stays a soft peach glow; the bloom
+blurs thin bands next to the sun, and the rest of the band lies behind the drift-score card at this camera.
+
+Where it stands after ten rounds: the composition, camera, light, colours, facets, road, guardrail, chevrons, cherry trees, smoke and the
+HUD match the mockup closely. What is still different and why:
+1. **Valley floor, river and lake** under the low camera: the limit described at the top (a flat physics road hides what lies more
+   than about 2 degrees under the horizon behind the guardrail). Way out: draw the road higher than the physics ground (a 3D road over
+   the 2D physics), a game change for the orchestrator and the owner to decide.
+2. **Clouds**: thin bands next to a bright sun are softened by the bloom; a cloud layer of its own (soft quads in front of the sky,
+   like the mist) would make them distinct; small next step if wanted.
+3. **Car**: RX-7 model as chosen; the mockup shows a kitted S15.
+4. **Numbers in the HUD**: real values of the bot's drive (score 31, ×1,0, 56 km/h) instead of a long drift (18.460, ×4,2, 124 km/h);
+   only lap, best and position are sample values from the scene.
+5. **Detail density**: the mockup's midground has several layers of small trees; ours one.

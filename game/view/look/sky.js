@@ -41,9 +41,9 @@ export function makeSky(look, radius = 1800) {
         col += uGlow * (pow(c, 12.0) * 0.45 + pow(c, 80.0) * 0.9) * uStrength;  // the soft halo round the sun
         // soft streaks of cloud above the horizon, lit from below on the sun's side
         float az = atan(d.x, d.z);
-        float n = fbm(vec2(az * 3.2 + 1.7, e * 26.0)) * 0.75 + fbm(vec2(az * 10.0, e * 60.0)) * 0.25;   // long thin streaks
-        float dens = smoothstep(0.38, 0.54, n) * smoothstep(0.035, 0.07, e) * (1.0 - smoothstep(0.22, 0.32, e)) * uClouds;
-        vec3 cc = mix(uCloudShade, uCloudLit, clamp(pow(c, 3.0) * 1.6 + 0.1, 0.0, 1.0)) + uGlow * pow(c, 20.0) * 1.2;   // golden edges near the sun
+        float n = fbm(vec2(az * 3.2 + 1.7, e * 26.0)) * 0.75 + fbm(vec2(az * 10.0, e * 60.0)) * 0.25 + pow(c, 5.0) * 0.18;   // long thin streaks, gathered round the sun
+        float dens = smoothstep(0.44, 0.52, n) * smoothstep(0.035, 0.07, e) * (1.0 - smoothstep(0.22, 0.32, e)) * uClouds;
+        vec3 cc = mix(uCloudShade, uCloudLit, clamp(pow(c, 3.0) * 1.2 + 0.1, 0.0, 1.0)) + uGlow * pow(c, 40.0) * 0.5;   // golden edges near the sun
         col = mix(col, cc, dens);
         float disc = smoothstep(uSunCos - 0.0004, uSunCos + 0.0001, dot(d, uSunDir));
         col = mix(col, uSun, disc * (1.0 - dens * 0.15));
