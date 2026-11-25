@@ -1,12 +1,35 @@
 # State: where drift stands (hand-over page)
 
-Updated 2026-11-25 by the building session. Every session updates this page at the end of its work.
+Updated 2026-11-25 (evening) by the building session. Every session updates this page at the end of its work.
 
 ## Done
 
 - **Scope agreed:** [SCOPE.md](SCOPE.md). **Architecture draft written:** [ARCHITECTURE.md](ARCHITECTURE.md) (waits for the orchestrator's reading and its 13 open points).
 - **Milestone 1 (driving feels good, alone) runs**, no server, no base: `game/` is one static page. One car (Dart) on one map (the car park, also the future lobby map), drift model with fixed step 1/120 s, follow camera, keys (arrows or WASD, Space = handbrake, Shift = brake, R restart, F fullscreen, Q quality, P pause, G debug line) and touch buttons in landscape (steer left and right on the left, handbrake, brake and a big gas button on the right, multi-touch), drift score with chain multiplier, tyre smoke and skid marks, a "turn your phone" hint in portrait. English and German texts.
 - Nothing is committed to GitHub; the repository is local; **no push**. The commits carry a placeholder author (`drift builder`, `builder@example.invalid`) because this machine has no git identity set for the repository; the owner or orchestrator should set one (and may rewrite the commits' author).
+
+## The public shared world (demo), built 2026-11-25 on the orchestrator's go
+
+Design: [ARCHITECTURE.md](ARCHITECTURE.md) section 10. Everyone on `game/demo.html` drives in one shared car park; no account, a server-picked name from a fixed list (colour word matches the car's colour), no free text anywhere; up to 16 cars per world, a second world opens when one is full; limits per address; idle visitors dropped after 2 minutes; nothing stored.
+
+- **Relay:** `server/Relay/WorldRelay.cs` (one class, no sockets, no outside packages, `TimeProvider` and a tiny `IPeer`), `server/Relay/RelayEndpoint.cs` (80 lines: WebSocket bridge with origin check, bounded send queue, 15 Hz timer). **These two files are what the website's own .NET server takes**: `RelayEndpoint.Map(app, new WorldRelay(TimeProvider.System), "/ws", addressOf)`; behind a proxy `addressOf` must return the forwarded client address.
+- **Client:** `game/net/world.js` (socket with back-off, frames, clock, interpolation; testable in node), `game/view/remotes.js` (other cars, wheels and blobs through the shared pool, smoke, HTML name labels for the nearest 8), `game/demo.html` (the same `main.js` with `data-mode="online"`: a counter "N driving here", "You are <name>", a tap-to-rejoin button when dropped or the world is full). Own models: all five cars still use the Dart body in the visitor's colour (the five cars differ in driving numbers only).
+- **Try it:** `cd server && dotnet build -c Release`, then `dotnet server/bin/Release/net10.0/DriftServer.dll --port 8150 [--stats] [--test-limits]` and open `http://127.0.0.1:8150/` (serves the repository files plus `/ws`; `--stats` adds `/relay-stats`; `--test-limits` lifts the per-address limits for load tests from one address).
+- **Tests:** `dotnet test server.tests` (19 tests: ids and names, roster, relay of poses, every check, the limits, second world, idle and silent drops, address limits, byte size per visitor) and `node --test game/` (now 26: adds the client frame and interpolation tests).
+- **Tools:** `node tools/loadgen.mjs 16 30` (16 synthetic visitors, prints bytes and relay CPU), `node tools/crowd.mjs 3 14 name` (up to 3 headless browsers drive together, one picture).
+
+**Numbers** (this machine, shared and busy; relay and clients on loopback):
+
+| | 4 visitors | 16 visitors |
+|---|---|---|
+| upload per visitor (13-byte pose at 15 Hz + 6 B WebSocket header) | 275 B/s | 270 to 282 B/s |
+| download per visitor (snapshots at 15 Hz + roster + welcome; 2 B header per frame) | 642 B/s | 2.85 KB/s |
+| relay CPU (whole process, including the socket work) | not measured | **3.3 % of one core** (30 s run) |
+| relay time per tick (snapshots for everybody) | 116 us | 74 to 162 us |
+
+Per hour on a phone with 16 in the world: about 10 MB down, 1 MB up. With three real headless browsers driving together (software graphics): each saw the other two (roster 3, two cars drawn, labels shown for those in view), 15 to 24 frames a second came in, about 0.45 to 0.6 KB/s down and 0.1 KB/s up (a few visitors, and a headless page that sends poses only when its frames come, so lower than the 15 Hz of a real phone). Picture: `docs/screenshots/demo-crowd.png`.
+
+**Not checked (demo):** a real phone, real networks (loss, jitter, a mobile connection that stalls), more than 16 real visitors and a real second world (covered by a unit test and by the load generator with 16 only), HTTPS and `wss://` behind the website's proxy and its content policy (`connect-src` must allow the socket; older Safari needs the host written out), Safari and Firefox, the interpolation by eye with real lag (only unit-tested), the relay under attack (the limits are unit-tested, not stress-tested), a restart of the relay while pages are open (the back-off is written, not tried), reduced motion, screen readers for the name labels (they are hidden from them on purpose).
 
 ## How to run and check
 

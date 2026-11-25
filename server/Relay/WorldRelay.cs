@@ -108,8 +108,9 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             {
                 Id = id, World = w, Car = (byte)(car >= 0 && car < o.Top.Length ? car : 0), Peer = peer, Address = address,
                 LastMsg = now, LastMove = now, TokenAt = now, DroppedSince = now, ViolationsSince = now,
-                Name = PickName(members), Hue = PickHue(members),
+                Hue = PickHue(members),
             };
+            s.Name = PickName(members, s.Hue);
             members.Add(s);
             a.Connections++; a.Joins.Enqueue(now);
             Send(s, [Wire.Welcome, s.Id, (byte)s.World, s.Hue]);
@@ -264,14 +265,16 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
         foreach (var m in members) Send(m, frame);
     }
 
-    string PickName(List<Session> members)
+    /// <summary>The colour word follows the car's hue (24 hues of 15 degrees, 12 words), the animal is free.</summary>
+    string PickName(List<Session> members, byte hue)
     {
+        var colour = Colours[hue / 2 % Colours.Length];
         for (int tries = 0; tries < 200; tries++)
         {
-            var n = Colours[rnd.Next(Colours.Length)] + " " + Animals[rnd.Next(Animals.Length)];
+            var n = colour + " " + Animals[rnd.Next(Animals.Length)];
             if (!members.Any(m => m.Name == n)) return n;
         }
-        return Colours[rnd.Next(Colours.Length)] + " " + Animals[rnd.Next(Animals.Length)];
+        return colour + " " + Animals[rnd.Next(Animals.Length)];
     }
 
     byte PickHue(List<Session> members)

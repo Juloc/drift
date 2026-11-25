@@ -44,6 +44,7 @@ public class RelayTests
         Assert.Equal(s.Id, w[1]);
         var parts = s.Name.Split(' ');
         Assert.Contains(parts[0], WorldRelay.Colours); Assert.Contains(parts[1], WorldRelay.Animals);
+        Assert.Equal(WorldRelay.Colours[s.Hue / 2], parts[0]); // the colour word matches the car colour
         Assert.Equal(0, s.Id);
         Assert.Equal(1, Join(r, "b").s.Id);
     }
