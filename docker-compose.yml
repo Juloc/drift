@@ -1,0 +1,106 @@
+# Drift: the app and its PostgreSQL (OPS-01). No variables and no .env file (OPS-02): what can be set is set in the app.
+#
+#   docker compose up -d --build        start
+#   docker compose logs app             read the setup code for the first account
+#   open http://localhost:8080
+#
+# Everything that must be kept lives in ONE volume ("data"): the database, the server's key file and the database password.
+# Back up that volume and you have it all.
+name: drift
+
+services:
+  # Runs once before the others: lays out the volume (one folder each for PostgreSQL, the app, and the database password) and,
+  # at the very first start, makes a random database password. So this file holds no secret.
+  init:
+    image: postgres:18          # only for its shell tools; the image is needed anyway
+    user: "0:0"
+    restart: "no"
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        mkdir -p /vol/postgres /vol/app /vol/db-secret
+        if [ ! -s /vol/db-secret/password ]; then (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > /vol/db-secret/password); fi
+        chown 1654:1654 /vol/app /vol/db-secret /vol/db-secret/password
+        chmod 700 /vol/app /vol/db-secret
+        chmod 400 /vol/db-secret/password
+    volumes:
+      - data:/vol
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD_FILE: /run/db-secret/password
+    volumes:
+      - type: volume
+        source: data
+        target: /var/lib/postgresql
+        volume:
+          subpath: postgres
+      - type: volume
+        source: data
+        target: /run/db-secret
+        read_only: true
+        volume:
+          subpath: db-secret
+    # no published port: only the app reaches the database, on the internal network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BASE_DB: "Host=db;Database=app;Username=app"
+      BASE_DB_PASSWORD_FILE: /run/db-secret/password
+    volumes:
+      # the server's key file (secret.key): must survive an update, or nobody could sign in afterwards
+      - type: volume
+        source: data
+        target: /data
+        volume:
+          subpath: app
+      - type: volume
+        source: data
+        target: /run/db-secret
+        read_only: true
+        volume:
+          subpath: db-secret
+    # only this machine reaches the port; put a reverse proxy with HTTPS in front for anything else
+    ports:
+      - "127.0.0.1:8080:8080"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # the server asks itself (the runtime image has no curl): healthy means the server answers and the database too
+    healthcheck:
+      test: ["CMD", "dotnet", "Drift.dll", "health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+
+volumes:
+  data:

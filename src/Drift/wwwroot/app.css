@@ -1,0 +1,30 @@
+/* The app's own styles. The look comes from /base/base.css; here stands only what is special to this app.
+ * The colour of the app is this ONE variable (COLOR-01): an angle on the colour wheel, 0 to 360. */
+:root { --accent-hue: 350; }
+
+/* the round button in front of an entry: ticks it off */
+.tick { display: grid; place-items: center; width: var(--touch); height: var(--touch); margin-left: calc(var(--s2) * -1); flex: none; border: 0; background: none; border-radius: var(--r-full); color: var(--text-2); }
+.tick:hover { background: var(--surface-2); }
+.tick .icon { width: 24px; height: 24px; }
+.tick[aria-pressed="true"] { color: var(--accent); }
+.row.item { padding-block: 0; }
+.row.item .row-main { align-self: stretch; justify-content: center; padding-block: var(--s2); text-decoration: none; color: inherit; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); }
+.toolbar .field { flex: 1 1 240px; }
+
+/* ----- the garage ----- */
+.cars { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--s3); }
+.car { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); text-align: start; padding: var(--s4); border: 2px solid var(--glass-edge); border-radius: var(--r-m); background: var(--glass); color: var(--text); font: inherit; min-height: var(--touch); }
+.car[aria-checked="true"] { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--glass)); }
+.car-name { font-weight: 700; font-size: var(--text-l, 1.1rem); }
+.car-note { color: var(--text-2); font-size: var(--text-s); }
+.stats { display: grid; gap: 4px; width: 100%; margin-top: var(--s2); }
+.stat { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); font-size: var(--text-s); color: var(--text-2); }
+.bars { display: inline-flex; gap: 3px; }
+.bars i { width: 14px; height: 6px; border-radius: 3px; background: color-mix(in oklab, var(--text) 18%, transparent); }
+.bars i.on { background: var(--accent); }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: var(--s2); }
+.swatch { width: 100%; min-height: var(--touch); aspect-ratio: 1; border-radius: var(--r-full); border: 3px solid transparent; background: hsl(var(--h) 62% 52%); outline: 1px solid var(--glass-edge); }
+.swatch[aria-checked="true"] { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface, #fff) inset; }
+.garage-preview { display: flex; align-items: center; gap: var(--s3); margin: 0; }
+.garage-preview .dot { width: 22px; height: 22px; border-radius: var(--r-full); background: hsl(var(--h) 62% 52%); flex: none; }

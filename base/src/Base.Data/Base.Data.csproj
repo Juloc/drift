@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Base.Core\Base.Core.csproj" />
+  </ItemGroup>
+</Project>

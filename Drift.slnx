@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Drift/Drift.csproj" />
+  </Folder>
+  <Folder Name="/server/">
+    <Project Path="server/Drift.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Drift.Tests/Drift.Tests.csproj" />
+  </Folder>
+  <Folder Name="/base/">
+    <Project Path="base/src/Base.Core/Base.Core.csproj" />
+    <Project Path="base/src/Base.Data/Base.Data.csproj" />
+    <Project Path="base/src/Base.Accounts/Base.Accounts.csproj" />
+    <Project Path="base/src/Base.Web/Base.Web.csproj" />
+  </Folder>
+</Solution>

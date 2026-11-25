@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- what a web project gets by itself; this one is a plain library so that it can be copied and referenced -->
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Base.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\*.sql" LogicalName="migrations/web/%(Filename)%(Extension)" />
+    <!-- The look (ui/) and the version of the base travel inside this library: an app serves them under /base/ without copying files around -->
+    <EmbeddedResource Include="..\..\ui\**\*" LogicalName="ui/%(RecursiveDir)%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\VERSION" LogicalName="base/VERSION" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- checks the signed tokens of the central sign-in (CODE-03: signatures are never checked by our own code) -->
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Base.Accounts\Base.Accounts.csproj" />
+  </ItemGroup>
+</Project>

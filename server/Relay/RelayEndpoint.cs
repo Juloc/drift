@@ -15,37 +15,64 @@ public static class RelayEndpoint
         app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20) });
         app.Map(path, async ctx =>
         {
-            if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }
-            // a page of another site must not be able to drive through this socket
-            var origin = ctx.Request.Headers.Origin.ToString();
-            if (origin.Length > 0 && !(Uri.TryCreate(origin, UriKind.Absolute, out var u) && string.Equals(u.Authority, ctx.Request.Host.Value, StringComparison.OrdinalIgnoreCase)))
-            { ctx.Response.StatusCode = 403; return; }
             int.TryParse(ctx.Request.Query["car"], out var car);
-            using var ws = await ctx.WebSockets.AcceptWebSocketAsync();
-            var peer = new SocketPeer(ws);
-            var session = relay.Join(peer, addressOf(ctx), car);
-            if (session is null) { await peer.Finish(); return; }
-            var sender = peer.Run();
-            var buf = new byte[relay.MaxFrameBuffer];
+            await Serve(ctx, relay, addressOf(ctx), car);
+        });
+        RunTicker(relay, app.Lifetime.ApplicationStopping);
+    }
+
+    /// <summary>The 15 Hz timer of a relay: starts once, ends with <paramref name="stop"/>.</summary>
+    public static void RunTicker(WorldRelay relay, CancellationToken stop) => _ = Task.Run(async () =>
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1.0 / 15));
+        try { while (await timer.WaitForNextTickAsync(stop)) relay.Tick(); } catch (OperationCanceledException) { }
+    });
+
+    /// <summary>
+    /// One visitor's whole connection: the origin check, accepting the socket, joining the relay, the receive loop.
+    /// <paramref name="stillValid"/> (optional) is asked every 30 s; when it says no the visitor is dropped (a session that ended).
+    /// <paramref name="joined"/> (optional) gets the session once the visitor is in, and <paramref name="left"/> when it is out.
+    /// </summary>
+    public static async Task Serve(HttpContext ctx, WorldRelay relay, string address, int car, string? name = null, int? hue = null,
+        Func<Task<bool>>? stillValid = null, Action<Session>? joined = null, Action<Session>? left = null, TimeSpan? checkEvery = null)
+    {
+        if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }
+        // a page of another site must not be able to drive through this socket
+        var origin = ctx.Request.Headers.Origin.ToString();
+        if (origin.Length > 0 && !(Uri.TryCreate(origin, UriKind.Absolute, out var u) && string.Equals(u.Authority, ctx.Request.Host.Value, StringComparison.OrdinalIgnoreCase)))
+        { ctx.Response.StatusCode = 403; return; }
+        using var ws = await ctx.WebSockets.AcceptWebSocketAsync();
+        var peer = new SocketPeer(ws);
+        var session = relay.Join(peer, address, car, name, hue);
+        if (session is null) { await peer.Finish(); return; }
+        joined?.Invoke(session);
+        var sender = peer.Run();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
+        var watcher = stillValid is null ? Task.CompletedTask : Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(checkEvery ?? TimeSpan.FromSeconds(30));
             try
             {
-                while (ws.State == WebSocketState.Open && !peer.Closing)
-                {
-                    var r = await ws.ReceiveAsync(buf, ctx.RequestAborted);
-                    if (r.MessageType == WebSocketMessageType.Close) break;
-                    if (r.MessageType != WebSocketMessageType.Binary) continue;
-                    if (!r.EndOfMessage) { relay.OnOversize(session); break; }
-                    relay.OnMessage(session, buf.AsSpan(0, r.Count));
-                }
+                while (await timer.WaitForNextTickAsync(cts.Token))
+                    if (!await stillValid()) { relay.Drop(session, Wire.ByeSession); break; }
             }
-            catch (Exception e) when (e is WebSocketException or OperationCanceledException) { }
-            finally { relay.Leave(session); peer.Complete(); await sender; }
+            catch (OperationCanceledException) { }
+            catch (Exception) { relay.Drop(session, Wire.ByeSession); } // a check that fails never keeps anybody in
         });
-        _ = Task.Run(async () =>
+        var buf = new byte[relay.MaxFrameBuffer];
+        try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1.0 / 15));
-            try { while (await timer.WaitForNextTickAsync(app.Lifetime.ApplicationStopping)) relay.Tick(); } catch (OperationCanceledException) { }
-        });
+            while (ws.State == WebSocketState.Open && !peer.Closing)
+            {
+                var r = await ws.ReceiveAsync(buf, cts.Token);
+                if (r.MessageType == WebSocketMessageType.Close) break;
+                if (r.MessageType != WebSocketMessageType.Binary) continue;
+                if (!r.EndOfMessage) { relay.OnOversize(session); break; }
+                relay.OnMessage(session, buf.AsSpan(0, r.Count));
+            }
+        }
+        catch (Exception e) when (e is WebSocketException or OperationCanceledException) { }
+        finally { cts.Cancel(); relay.Leave(session); left?.Invoke(session); peer.Complete(); await sender; await watcher; }
     }
 
     sealed class SocketPeer(WebSocket ws) : IPeer

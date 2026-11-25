@@ -1,0 +1,173 @@
+/* =====================================================================
+ * Tokens of the look: colours, type, spacing, radii, elevation, motion. Everything else in base.css uses only these.
+ *
+ * The look is that of JulOS (Material 3 Expressive, see the section "The look and where it comes from" in the catalogue): tonal surfaces,
+ * soft glass over a gradient, large radii, filled and tonal controls. The roles of Material 3 have the names of this kit (the mapping is in the catalogue).
+ *
+ * ONE variable gives an app its own colour (COLOR-01): --accent-hue, an angle on the colour wheel (0 to 360).
+ *   :root { --accent-hue: 152; }      in the app's own app.css, nothing else
+ * The accent ("primary"), the secondary and tertiary tones and the tint of every surface follow it. The tertiary tone is the accent turned by 55 degrees.
+ * Light and dark come from light-dark(): the first value is light, the second dark.
+ * The browser picks by color-scheme; <html data-scheme="light|dark"> (set by boot.js from the person's choice) overrides the device.
+ *
+ * Colours are written as oklch(lightness chroma hue). Lightness is what makes contrast, and it is fixed here per role (the tone steps of Material 3:
+ * tone T is about L = (T + 16) / 116), so every hue passes. The lines "@contrast A B N" below are read by a test (ContrastTests): colour A on colour B
+ * reaches at least N:1 in light and in dark, for every accent hue (COLOR-02). Add a line when you add a pair that carries text or a control.
+ * Glass (semi-transparent surfaces) is made from the solid ones, so the pairs of the solid surfaces stand for it; where transparency is
+ * switched off (prefers-reduced-transparency) the glass is the solid surface itself.
+ *
+ * @contrast text bg 4.5
+ * @contrast text surface 4.5
+ * @contrast text surface-1 4.5
+ * @contrast text surface-2 4.5
+ * @contrast text surface-3 4.5
+ * @contrast text surface-4 4.5
+ * @contrast text-2 bg 4.5
+ * @contrast text-2 surface 4.5
+ * @contrast text-2 surface-1 4.5
+ * @contrast text-2 surface-2 4.5
+ * @contrast text-2 surface-3 4.5
+ * @contrast text-2 surface-4 4.5
+ * @contrast accent bg 4.5
+ * @contrast accent surface 4.5
+ * @contrast accent surface-2 4.5
+ * @contrast accent surface-4 3
+ * @contrast on-accent accent 4.5
+ * @contrast on-accent-soft accent-soft 4.5
+ * @contrast on-secondary-soft secondary-soft 4.5
+ * @contrast on-tertiary-soft tertiary-soft 4.5
+ * @contrast text accent-soft 4.5
+ * @contrast danger bg 4.5
+ * @contrast danger surface 4.5
+ * @contrast danger surface-2 4.5
+ * @contrast danger surface-4 4.5
+ * @contrast on-danger danger 4.5
+ * @contrast on-danger-soft danger-soft 4.5
+ * @contrast ok bg 4.5
+ * @contrast ok surface 4.5
+ * @contrast on-ok-soft ok-soft 4.5
+ * @contrast warn bg 4.5
+ * @contrast warn surface 4.5
+ * @contrast on-warn-soft warn-soft 4.5
+ * @contrast line-strong bg 3
+ * @contrast line-strong surface 3
+ * @contrast line-strong surface-2 3
+ * @contrast line-strong surface-4 3
+ * @contrast accent surface-3 3
+ * @contrast accent secondary-soft 3
+ * ===================================================================== */
+/* the default hue is that of JulOS (its seed colour #9a67ea): an app that sets none looks like JulOS */
+:root {
+  color-scheme: light dark;
+  --accent-hue: 299;
+  --tertiary-hue: calc(var(--accent-hue) - 55);
+
+  /* ---- surfaces: the tonal containers of Material 3, from the page (bg) over the lowest (surface, cards) to the highest (surface-4, filled fields) ---- */
+  --bg: light-dark(oklch(0.983 0.008 var(--accent-hue)), oklch(0.165 0.02 var(--accent-hue)));
+  --surface: light-dark(oklch(1 0 var(--accent-hue)), oklch(0.205 0.022 var(--accent-hue)));
+  --surface-1: light-dark(oklch(0.966 0.012 var(--accent-hue)), oklch(0.225 0.024 var(--accent-hue)));
+  --surface-2: light-dark(oklch(0.948 0.016 var(--accent-hue)), oklch(0.245 0.026 var(--accent-hue)));
+  --surface-3: light-dark(oklch(0.931 0.018 var(--accent-hue)), oklch(0.275 0.028 var(--accent-hue)));
+  --surface-4: light-dark(oklch(0.914 0.02 var(--accent-hue)), oklch(0.305 0.03 var(--accent-hue)));
+  --text: light-dark(oklch(0.224 0.02 var(--accent-hue)), oklch(0.94 0.01 var(--accent-hue)));
+  --text-2: light-dark(oklch(0.397 0.03 var(--accent-hue)), oklch(0.78 0.03 var(--accent-hue)));
+  --line: light-dark(oklch(0.828 0.03 var(--accent-hue)), oklch(0.34 0.035 var(--accent-hue)));
+  --line-strong: light-dark(oklch(0.569 0.03 var(--accent-hue)), oklch(0.62 0.03 var(--accent-hue)));
+
+  /* ---- the accent of the app: "primary" and its container; the secondary and tertiary containers for chips, selected items, badges ---- */
+  --accent: light-dark(oklch(0.483 0.15 var(--accent-hue)), oklch(0.828 0.105 var(--accent-hue)));
+  --on-accent: light-dark(oklch(1 0 var(--accent-hue)), oklch(0.31 0.085 var(--accent-hue)));
+  --accent-soft: light-dark(oklch(0.914 0.06 var(--accent-hue)), oklch(0.34 0.09 var(--accent-hue)));
+  --on-accent-soft: light-dark(oklch(0.224 0.1 var(--accent-hue)), oklch(0.914 0.06 var(--accent-hue)));
+  --secondary-soft: light-dark(oklch(0.914 0.035 var(--accent-hue)), oklch(0.35 0.045 var(--accent-hue)));
+  --on-secondary-soft: light-dark(oklch(0.224 0.05 var(--accent-hue)), oklch(0.914 0.035 var(--accent-hue)));
+  --tertiary-soft: light-dark(oklch(0.914 0.055 var(--tertiary-hue)), oklch(0.35 0.06 var(--tertiary-hue)));
+  --on-tertiary-soft: light-dark(oklch(0.224 0.07 var(--tertiary-hue)), oklch(0.914 0.055 var(--tertiary-hue)));
+
+  /* ---- states: the same in every app ---- */
+  --danger: light-dark(oklch(0.52 0.19 27), oklch(0.76 0.13 25));
+  --on-danger: light-dark(oklch(0.99 0.01 27), oklch(0.20 0.05 25));
+  --danger-soft: light-dark(oklch(0.93 0.035 27), oklch(0.34 0.1 27));
+  --on-danger-soft: light-dark(oklch(0.27 0.1 27), oklch(0.93 0.035 27));
+  --ok: light-dark(oklch(0.47 0.12 150), oklch(0.78 0.14 150));
+  --ok-soft: light-dark(oklch(0.94 0.04 150), oklch(0.30 0.05 150));
+  --on-ok-soft: light-dark(oklch(0.33 0.09 150), oklch(0.90 0.07 150));
+  --warn: light-dark(oklch(0.50 0.11 70), oklch(0.82 0.13 80));
+  --warn-soft: light-dark(oklch(0.95 0.05 85), oklch(0.31 0.05 80));
+  --on-warn-soft: light-dark(oklch(0.36 0.08 70), oklch(0.91 0.07 85));
+
+  /* ---- glass: tinted, clearly translucent surfaces with a fine light edge, over the gradient of the page ---- */
+  --glass: color-mix(in oklab, var(--surface) 56%, transparent);
+  --glass-strong: color-mix(in oklab, var(--surface) 84%, transparent);
+  --glass-edge: color-mix(in oklab, var(--text) 13%, transparent);
+  --blur: blur(16px) saturate(1.4);
+  --blur-bar: blur(20px) saturate(1.4);
+  --scrim: oklch(0 0 0 / 0.32);
+  --page-bg:
+    radial-gradient(120% 52% at 6% -6%, light-dark(var(--accent-soft), color-mix(in oklab, var(--accent-soft) 60%, transparent)), transparent 74%),
+    radial-gradient(90% 44% at 106% 16%, light-dark(color-mix(in oklab, var(--tertiary-soft) 75%, transparent), color-mix(in oklab, var(--tertiary-soft) 40%, transparent)), transparent 74%),
+    radial-gradient(90% 40% at -8% 104%, light-dark(color-mix(in oklab, var(--secondary-soft) 80%, transparent), color-mix(in oklab, var(--accent-soft) 30%, transparent)), transparent 74%),
+    var(--bg);
+
+  /* ---- type: the stack of JulOS, no web fonts; the sizes of the Material 3 scale ---- */
+  --font: "Roboto Flex", Roboto, "Google Sans", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --text-xs: 0.75rem;     /* body small, label medium */
+  --text-s: 0.8125rem;    /* body medium, label large, title small: one step more compact than Material 3 */
+  --text-m: 0.9375rem;    /* body large, title medium */
+  --text-l: 1.25rem;      /* title large */
+  --text-xl: 1.5rem;      /* headline */
+  --text-xxl: 2rem;
+
+  /* ---- spacing: steps of 4 px ---- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  /* ---- radii: cards and tiles 20, sheets and dialogs 28, buttons and chips round ---- */
+  --r-xs: 4px;
+  --r-s: 8px;
+  --r-m: 12px;
+  --r-l: 20px;
+  --r-xl: 28px;
+  --r-full: 999px;
+
+  /* ---- sizes ---- */
+  --touch: 44px;                 /* the smallest target for a finger (MOBILE-01) */
+  --control-h: var(--touch);     /* height of buttons and fields; smaller only with a mouse on a wide screen (below) */
+  --side-w: 256px;
+  --head-h: 56px;
+  --tabs-h: 64px;
+  --content-w: 920px;
+
+  /* ---- elevation: tone and a fine edge first; the tinted shadow only in light, in dark the edge carries (as in Jularr) ---- */
+  --shadow-1: 0 1px 2px light-dark(color-mix(in oklab, var(--accent) 22%, transparent), transparent), 0 1px 3px light-dark(color-mix(in oklab, var(--accent) 12%, transparent), transparent);
+  --shadow-2: 0 2px 6px light-dark(color-mix(in oklab, var(--accent) 22%, transparent), oklch(0 0 0 / 0.3)), 0 6px 14px light-dark(color-mix(in oklab, var(--accent) 12%, transparent), oklch(0 0 0 / 0.2));
+  --shadow-3: 0 8px 22px light-dark(color-mix(in oklab, var(--accent) 30%, transparent), oklch(0 0 0 / 0.5));
+  --dur: 150ms;
+  --dur-m: 250ms;
+  --dur-l: 400ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
+}
+
+:root[data-scheme="light"] { color-scheme: light; }
+:root[data-scheme="dark"] { color-scheme: dark; }
+
+/* where the person asks for less transparency, glass is the solid surface and the page a plain ground */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass: var(--surface); --glass-strong: var(--surface);
+    --blur: none; --blur-bar: none; --page-bg: var(--bg);
+  }
+}
+
+/* a mouse hits smaller targets: on a wide screen that is not driven by a finger the controls are more compact */
+@media (min-width: 900px) and (not (pointer: coarse)) {
+  :root { --control-h: 36px; }
+}

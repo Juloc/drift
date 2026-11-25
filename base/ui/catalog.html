@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Base · catalogue</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <script src="boot.js"></script>
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="catalog.css">
+  <script type="module" src="catalog.js"></script>
+</head>
+<body>
+<!--
+  The living catalogue of the look (docs/RULES.md, KIT-02): every part of ui/ with an example and its code.
+  The code next to an example is read from the example itself, so the two cannot drift apart.
+  A new part gets its entry here in the same commit. This page is for the people (and agents) who build apps; it is English only.
+  Markup: <section class="cat-item" id="..."> <h2> <p> <div class="cat-demo">the example</div> </section>
+          <div class="cat-demo" data-run="name"> runs demos.name of catalog.js and shows its source.
+          <span data-icon="name"></span> becomes the icon.
+-->
+<div class="cat">
+  <header class="cat-head">
+    <a class="brand" href="/"><span class="brand-mark"><span data-icon="grid"></span></span><span>Base · catalogue</span></a>
+    <span class="badge" id="cat-version"></span>
+    <span class="grow"></span>
+    <div class="cat-tools">
+      <label class="cat-hue">--accent-hue <input type="range" id="cat-hue" min="0" max="359" value="299" aria-label="Accent hue"> <code id="cat-hue-value">299</code></label>
+      <div id="cat-scheme"></div>
+    </div>
+  </header>
+  <div class="cat-body">
+    <nav class="cat-nav nav" id="cat-nav" aria-label="Parts"></nav>
+    <main class="cat-main" id="cat-main">
+
+      <section class="cat-item" id="start">
+        <h2 class="h1">How to use the kit</h2>
+        <p class="muted">Three files in the head, nothing to build (CODE-06). The app sets its colour with one variable in its own stylesheet (COLOR-01) and builds its pages from the parts below. Everything is served under <code class="mono">/base/</code> by the base itself.</p>
+        <pre class="cat-code" data-static>&lt;script src="/base/boot.js"&gt;&lt;/script&gt;
+&lt;link rel="stylesheet" href="/base/base.css"&gt;
+&lt;link rel="stylesheet" href="/app.css"&gt;        /* :root { --accent-hue: 152; } */
+&lt;script type="module" src="/app.js"&gt;&lt;/script&gt;
+
+// app.js
+import { h, icon, api, shell, router, toast, openDialog } from '/base/base.js';
+import { t, addMessages } from '/base/i18n.js';
+import { start } from '/base/auth.js';      // setup assistant and sign-in, then your app</pre>
+      </section>
+
+      <section class="cat-item" id="look">
+        <h2 class="h1">The look and where it comes from</h2>
+        <p class="muted">The look of the family is that of <strong>JulOS</strong>, its main app: Material 3 Expressive built from one seed colour (<code class="mono">m3.css</code> there). The kit takes its roles, tone steps, radii, type scale and motion and keeps its own token names; the one seed colour is <code class="mono">--accent-hue</code>. The default hue (299) is the hue of the JulOS seed, so an app that sets none looks like JulOS. Since 0.3.1 the dark face and the capsules, chips and floating bar also take from <strong>Jularr</strong> (blue-black tinted by the hue, fine edges instead of shadows).</p>
+        <div class="cat-demo on-surface" data-nocode>
+          <table class="look-map">
+            <thead><tr><th>Material 3 role (JulOS)</th><th>Kit token</th></tr></thead>
+            <tbody>
+              <tr><td>primary, on-primary</td><td><code class="mono">--accent</code>, <code class="mono">--on-accent</code></td></tr>
+              <tr><td>primary-container, on-primary-container</td><td><code class="mono">--accent-soft</code>, <code class="mono">--on-accent-soft</code></td></tr>
+              <tr><td>secondary-container (chips, selected items, default button)</td><td><code class="mono">--secondary-soft</code>, <code class="mono">--on-secondary-soft</code></td></tr>
+              <tr><td>tertiary-container (the hue turned by 55 degrees)</td><td><code class="mono">--tertiary-soft</code>, <code class="mono">--on-tertiary-soft</code></td></tr>
+              <tr><td>surface, surface-container-lowest / low / container / high / highest</td><td><code class="mono">--bg</code>, <code class="mono">--surface</code>, <code class="mono">--surface-1</code> to <code class="mono">--surface-4</code></td></tr>
+              <tr><td>on-surface, on-surface-variant, outline-variant, outline</td><td><code class="mono">--text</code>, <code class="mono">--text-2</code>, <code class="mono">--line</code>, <code class="mono">--line-strong</code></td></tr>
+              <tr><td>error-container, glass, scrim</td><td><code class="mono">--danger-soft</code>, <code class="mono">--glass</code> / <code class="mono">--glass-strong</code> / <code class="mono">--glass-edge</code>, <code class="mono">--scrim</code></td></tr>
+              <tr><td>shape: tile and card 20, sheet 28, buttons round</td><td><code class="mono">--r-l</code>, <code class="mono">--r-xl</code>, <code class="mono">--r-full</code></td></tr>
+              <tr><td>type scale (Roboto Flex, then the system font) and motion</td><td><code class="mono">--font</code>, <code class="mono">--text-*</code>; <code class="mono">--dur*</code>, <code class="mono">--ease*</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Where the kit differs on purpose: labels stay above the fields instead of floating inside (FORM-01, no script); a dialog never darkens or blocks the page (DIALOG-01); body text is 16 px; the colours of success and warning are the kit's own. Where a person asks for reduced transparency the glass is the solid surface; in forced colours edges and outlines take over.</p>
+        <div class="cat-pair">
+          <div class="cat-demo" data-nocode><div class="look-gradient"><div class="card"><strong>Glass card</strong><div class="muted small">over the gradient of the page</div></div></div></div>
+          <div class="cat-demo" data-nocode><div class="look-sheet"><h3 class="h2">Sheet</h3><p class="muted">A bottom sheet on a phone, a centred window on a wide screen (radius 28).</p><div class="cluster end"><button class="btn ghost" type="button">Cancel</button><button class="btn primary" type="button">Save</button></div></div></div>
+        </div>
+      </section>
+
+      <section class="cat-item" id="colours">
+        <h2 class="h1">Colours</h2>
+        <p class="muted">Only these tokens; never a colour value in an app (COLOR-01). Each pair that carries text is tested for contrast AA in light and dark, for every hue (COLOR-02). Move the slider above: the whole page follows one variable.</p>
+        <div class="cat-demo" data-nocode><div class="swatches" id="cat-swatches"></div></div>
+      </section>
+
+      <section class="cat-item" id="type">
+        <h2 class="h1">Type and spacing</h2>
+        <p class="muted">The font stack of JulOS (no web font) in the sizes of the Material 3 scale; spacing in steps of 4 px; six radii.</p>
+        <div class="cat-demo">
+          <p class="h1">Heading 1 · .h1</p>
+          <p class="h2">Heading 2 · .h2</p>
+          <p class="h3">Heading 3 · .h3</p>
+          <p>Body text. The quick brown fox jumps over the lazy dog.</p>
+          <p class="muted">Secondary text · .muted</p>
+          <p class="small muted">Small text · .small</p>
+          <p class="mono">Monospace · .mono 0123456789</p>
+        </div>
+        <div class="cat-demo" data-nocode><div class="scale" id="cat-scale"></div></div>
+      </section>
+
+      <section class="cat-item" id="buttons">
+        <h2 class="h1">Button</h2>
+        <p class="muted">One primary button per view. The label says what happens ("Delete entry", not "OK"). A finger needs 44 px (MOBILE-01); the height comes from <code class="mono">--control-h</code>.</p>
+        <div class="cat-demo">
+          <div class="cluster">
+            <button class="btn primary" type="button">Filled (primary)</button>
+            <button class="btn" type="button">Tonal (default)</button>
+            <button class="btn outline" type="button">Outline</button>
+            <button class="btn ghost" type="button">Text (ghost)</button>
+            <button class="btn danger" type="button">Danger</button>
+            <button class="btn ghost danger" type="button">Ghost danger</button>
+          </div>
+        </div>
+        <div class="cat-demo">
+          <div class="cluster">
+            <button class="btn primary" type="button"><span data-icon="plus"></span>With icon</button>
+            <button class="btn ghost icon-only" type="button" aria-label="Edit"><span data-icon="edit"></span></button>
+            <button class="btn primary busy" type="button" disabled>Saving</button>
+            <button class="btn" type="button" disabled>Disabled</button>
+            <a class="btn outline" href="#buttons"><span data-icon="external"></span>A link as a button</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="cat-item" id="fields">
+        <h2 class="h1">Field</h2>
+        <p class="muted">Every control has a visible label (FORM-01). A hint below explains, the error replaces guessing (FORM-02). In JavaScript: <code class="mono">field({ label, name, hint })</code>, <code class="mono">passwordField()</code>.</p>
+        <div class="cat-demo on-surface">
+          <div class="form">
+            <div class="field">
+              <label for="cat-f1">Title</label>
+              <input class="input" id="cat-f1" type="text" value="Buy milk">
+            </div>
+            <div class="field">
+              <label for="cat-f2">User name</label>
+              <input class="input" id="cat-f2" type="text" placeholder="jul" aria-describedby="cat-f2-hint">
+              <p class="field-hint" id="cat-f2-hint">Lower-case letters, digits, dot, dash and underscore.</p>
+            </div>
+            <div class="field invalid">
+              <label for="cat-f3">Password</label>
+              <input class="input" id="cat-f3" type="password" value="short" aria-invalid="true" aria-describedby="cat-f3-error">
+              <p class="field-error" id="cat-f3-error"><span data-icon="alert"></span><span>The password needs at least 12 characters.</span></p>
+            </div>
+            <div class="field">
+              <label for="cat-f4">Note</label>
+              <textarea class="textarea" id="cat-f4" rows="3">Line breaks are kept.</textarea>
+            </div>
+            <div class="field">
+              <label for="cat-f5">Language</label>
+              <select class="select" id="cat-f5"><option>Deutsch</option><option>English</option><option>System</option></select>
+            </div>
+            <div class="field">
+              <label for="cat-f6">One-time code</label>
+              <input class="input code" id="cat-f6" type="text" inputmode="numeric" value="123 456">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="cat-item" id="choices">
+        <h2 class="h1">Switch, checkbox, segmented choice</h2>
+        <p class="muted">A switch applies at once; a checkbox waits for "Save". Two to four options side by side: the segmented choice.</p>
+        <div class="cat-demo on-surface">
+          <div class="stack">
+            <label class="switch reverse">
+              <input type="checkbox" role="switch" checked>
+              <span class="switch-track"></span>
+              <span class="switch-text"><span>Hide what is done</span><span class="field-hint">Applies on every device.</span></span>
+            </label>
+            <label class="check"><input type="checkbox" checked><span>I have saved the codes</span></label>
+            <div class="seg" role="radiogroup" aria-label="Scheme">
+              <label><input type="radio" name="cat-seg" checked><span><span data-icon="monitor"></span>System</span></label>
+              <label><input type="radio" name="cat-seg"><span><span data-icon="sun"></span>Light</span></label>
+              <label><input type="radio" name="cat-seg"><span><span data-icon="moon"></span>Dark</span></label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="cat-item" id="capsules">
+        <h2 class="h1">Capsule and chip</h2>
+        <p class="muted">A capsule holds a group in one round outline, the chosen part is a filled pill inside it (from Jularr). <code class="mono">segmented()</code> makes one for choices; <code class="mono">capsule({ label, items })</code> makes one for places, for example in the head of a page. A chip is a rounded rectangle with a fine edge for categories and filters; it can be a button (<code class="mono">aria-pressed</code>), a link or plain text.</p>
+        <div class="cat-demo">
+          <div class="stack">
+            <nav class="capsule" aria-label="Kinds">
+              <a class="capsule-item" href="#capsules" aria-current="page">Watch</a>
+              <a class="capsule-item" href="#capsules">Read</a>
+              <a class="capsule-item" href="#capsules">Listen</a>
+            </nav>
+            <div class="chips">
+              <button class="chip on" type="button" aria-pressed="true"><span data-icon="check"></span>Action</button>
+              <button class="chip" type="button" aria-pressed="false">Comedy</button>
+              <a class="chip" href="#capsules">Drama</a>
+            </div>
+            <div class="field">
+              <label for="cat-s1">Search</label>
+              <div class="search"><span data-icon="search"></span><input class="input" id="cat-s1" type="search" placeholder="Search the list"></div>
+            </div>
+            <div class="cluster">
+              <button class="btn outline icon-only" type="button" aria-label="Edit"><span data-icon="edit"></span></button>
+              <button class="btn outline icon-only" type="button" aria-label="Settings"><span data-icon="sliders"></span></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="cat-item" id="tiles">
+        <h2 class="h1">Tiles and tile rows</h2>
+        <p class="muted">A list is soft tiles with a space between (<code class="mono">.list</code>, JulOS); the symbol sits in a tinted round ground (<code class="mono">.row-lead</code>). For long lists and tables the rows are lines: inside a card, or <code class="mono">.list.lines</code>. A grid of tiles (<code class="mono">.tiles</code>) is for quick actions.</p>
+        <div class="cat-demo">
+          <div class="stack">
+            <ul class="list">
+              <li><a class="row link" href="#tiles"><span class="row-lead"><span data-icon="file"></span></span><span class="row-main"><span class="row-title">A tile row</span><span class="row-sub">Second line, cut off when it is too long</span></span><span class="row-end"><span data-icon="right"></span></span></a></li>
+              <li><div class="row"><span class="row-lead"><span data-icon="laptop"></span></span><span class="row-main"><span class="row-title">Firefox on Linux</span><span class="row-sub">Active now</span></span><span class="badge accent">This device</span></div></li>
+            </ul>
+            <div class="tiles">
+              <a class="tile" href="#tiles"><span class="tile-lead"><span data-icon="plus"></span></span><span><span class="tile-title">New entry</span><span class="tile-sub">Add to the list</span></span></a>
+              <a class="tile" href="#tiles"><span class="tile-lead"><span data-icon="search"></span></span><span><span class="tile-title">Search</span><span class="tile-sub">Find an entry</span></span></a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="cat-item" id="floatbar">
+        <h2 class="h1">Page head and floating bar</h2>
+        <p class="muted">The head of a page is made by <code class="mono">shell()</code> from the view: <code class="mono">{ title, sub, actions }</code> (big title, a second line, the main action at the right; <code class="mono">back</code> adds the way back). A place of <code class="mono">nav</code> with <code class="mono">foot: true</code> goes into a second group at the bottom of the side list. For what waits for a decision ("Apply changes") a floating bar of glass stays above the content: <code class="mono">floatBar({ text, actions })</code>.</p>
+        <div class="cat-demo" data-run="floatBar"></div>
+      </section>
+
+      <section class="cat-item" id="cards">
+        <h2 class="h1">Card</h2>
+        <p class="muted">Groups what belongs together. <code class="mono">.card.flush</code> has no padding, for a list or a table that runs edge to edge.</p>
+        <div class="cat-demo">
+          <section class="card stack">
+            <h2 class="card-title">Appearance</h2>
+            <p class="muted">A card with a title and free content.</p>
+          </section>
+        </div>
+      </section>
+
+      <section class="cat-item" id="lists">
+        <h2 class="h1">List</h2>
+        <p class="muted">Rows of at least 52 px: a lead, a title, one line below, an end. A whole row may be a link. Lists come in pages (LIST-01) and say something useful when empty (LIST-02).</p>
+        <div class="cat-demo">
+          <div class="card flush">
+            <ul class="list">
+              <li><a class="row" href="#lists">
+                <span class="row-lead"><span data-icon="file"></span></span>
+                <span class="row-main"><span class="row-title">A row that is a link</span><span class="row-sub">Second line, cut off when it is too long</span></span>
+                <span class="row-end"><span data-icon="right"></span></span>
+              </a></li>
+              <li><div class="row">
+                <span class="row-lead"><span data-icon="laptop"></span></span>
+                <span class="row-main"><span class="row-title">Firefox on Linux</span><span class="row-sub">Active now · signed in since 23 Nov</span></span>
+                <span class="badge accent">This device</span>
+              </div></li>
+              <li><div class="row">
+                <span class="row-lead"><span data-icon="phone"></span></span>
+                <span class="row-main"><span class="row-title">Chrome on Android</span><span class="row-sub">Last seen yesterday</span></span>
+                <button class="btn ghost danger" type="button">Sign out</button>
+              </div></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="cat-item" id="tables">
+        <h2 class="h1">Table</h2>
+        <p class="muted">For data with columns. With <code class="mono">.cards</code> and a <code class="mono">data-label</code> on each cell, every row turns into a small card on a phone instead of scrolling sideways (MOBILE-02).</p>
+        <div class="cat-demo">
+          <div class="card flush"><div class="table-wrap">
+            <table class="table cards">
+              <thead><tr><th>Event</th><th>Time</th><th class="num">Amount</th></tr></thead>
+              <tbody>
+                <tr><td data-label="Event">Signed in</td><td data-label="Time">23.11.2026, 22:55</td><td data-label="Amount" class="num">1.250,00</td></tr>
+                <tr><td data-label="Event"><span class="badge danger">Sign-in failed</span></td><td data-label="Time">23.11.2026, 22:54</td><td data-label="Amount" class="num">12,50</td></tr>
+              </tbody>
+            </table>
+          </div></div>
+        </div>
+      </section>
+
+      <section class="cat-item" id="badges">
+        <h2 class="h1">Badge and notice</h2>
+        <p class="muted">A badge marks a state in a word. A notice is a message that stays in the page; colour is never the only signal, there is always an icon or a word (A11Y-01).</p>
+        <div class="cat-demo">
+          <div class="cluster">
+            <span class="badge">Neutral</span>
+            <span class="badge accent">Accent</span>
+            <span class="badge ok">Done</span>
+            <span class="badge warn">Waiting</span>
+            <span class="badge danger">Failed</span>
+          </div>
+        </div>
+        <div class="cat-demo">
+          <div class="stack s">
+            <div class="notice" role="note"><span data-icon="info"></span><div class="notice-text">This device stays signed in, all others are signed out.</div></div>
+            <div class="notice ok" role="note"><span data-icon="check-circle"></span><div class="notice-text">The new authenticator applies.</div></div>
+            <div class="notice warn" role="note"><span data-icon="alert"></span><div class="notice-text">Only 2 recovery codes left.</div></div>
+            <div class="notice danger" role="alert"><span data-icon="alert"></span><div class="notice-text">The server cannot be reached.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="cat-item" id="toasts">
+        <h2 class="h1">Toast</h2>
+        <p class="muted">A short confirmation that goes away by itself. Never the only place for something the person must not miss; that is a notice.</p>
+        <div class="cat-demo" data-run="toast"></div>
+        <div class="cat-demo" data-run="toastUndo"></div>
+        <div class="cat-demo" data-run="toastError"></div>
+      </section>
+
+      <section class="cat-item" id="dialogs">
+        <h2 class="h1">Dialog</h2>
+        <p class="muted">A window that does not block the page: it can be moved by its title, the page behind stays usable; on a phone it is a sheet from below (DIALOG-01). Escape closes it and the focus returns (DIALOG-01). Before something that cannot be undone, ask, and name the action on the button (DIALOG-01).</p>
+        <div class="cat-demo" data-run="dialog"></div>
+        <div class="cat-demo" data-run="ask"></div>
+      </section>
+
+      <section class="cat-item" id="menus">
+        <h2 class="h1">Menu</h2>
+        <p class="muted">A few actions at a button. Arrow keys move, Escape closes.</p>
+        <div class="cat-demo" data-run="menu"></div>
+      </section>
+
+      <section class="cat-item" id="forms">
+        <h2 class="h1">Form with errors</h2>
+        <p class="muted"><code class="mono">submit(form, fn)</code> makes the button busy and shows what the server refused at the field it belongs to; the first wrong field gets the focus (FORM-02). Send it empty to see.</p>
+        <div class="cat-demo on-surface" data-run="form" data-inline></div>
+      </section>
+
+      <section class="cat-item" id="people">
+        <h2 class="h1">People and the central sign-in</h2>
+        <p class="muted">For the settings page of the role admin: <code>peopleCard(me)</code> of <code>people.js</code> (the list, an invitation link per new person, change the role, block, delete) and <code>hubCard(me)</code> of <code>hub.js</code> (address, client id, secret, on or off, check the connection). <code>roleName(me, key)</code> gives the name of a role as the app named it. The sign-in page of <code>auth.js</code> shows the button of the centre below its own form, and the invitation page (<code>#invite=...</code>) takes a new person through password and authenticator.</p>
+        <div class="cat-demo">
+          <div class="card flush">
+            <ul class="list">
+              <li><div class="row">
+                <span class="avatar">a</span>
+                <span class="row-main"><span class="row-title">anna <span class="badge ok">Active</span></span><span class="row-sub">Member · last active 5 minutes ago</span></span>
+                <button class="btn ghost icon-only" type="button" aria-label="Actions for anna"><span data-icon="more"></span></button>
+              </div></li>
+              <li><div class="row">
+                <span class="avatar">b</span>
+                <span class="row-main"><span class="row-title">ben <span class="badge accent">Invited</span></span><span class="row-sub">Viewer · Link valid until tomorrow, 9:41 AM</span></span>
+                <button class="btn ghost icon-only" type="button" aria-label="Actions for ben"><span data-icon="more"></span></button>
+              </div></li>
+              <li><div class="row">
+                <span class="avatar">c</span>
+                <span class="row-main"><span class="row-title">cleo <span class="badge danger">Blocked</span> <span class="badge">Central sign-in</span></span><span class="row-sub">Member · never signed in</span></span>
+                <button class="btn ghost icon-only" type="button" aria-label="Actions for cleo"><span data-icon="more"></span></button>
+              </div></li>
+            </ul>
+          </div>
+          <div class="auth-or" role="separator">or</div>
+          <button class="btn outline wide" type="button">Sign in with the centre</button>
+        </div>
+      </section>
+
+      <section class="cat-item" id="states">
+        <h2 class="h1">Empty and loading</h2>
+        <p class="muted">An empty list says what belongs here and offers the first step (LIST-02). While something loads: a spinner for a moment, grey lines for a page.</p>
+        <div class="cat-demo on-surface">
+          <div class="empty">
+            <div class="empty-mark"><span data-icon="bookmark"></span></div>
+            <h2 class="empty-title">Nothing here yet</h2>
+            <p class="empty-text">This is where the things go that you do not want to forget.</p>
+            <button class="btn primary" type="button"><span data-icon="plus"></span>New entry</button>
+          </div>
+        </div>
+        <div class="cat-demo on-surface">
+          <div class="cluster">
+            <div class="spinner" role="status" aria-label="Loading"></div>
+            <div class="stack s grow" aria-hidden="true"><span class="skeleton title"></span><span class="skeleton"></span><span class="skeleton short"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="cat-item" id="shell">
+        <h2 class="h1">Shell</h2>
+        <p class="muted">The frame of every app (SHELL-01): on a phone a head and a bar of up to five places at the bottom, thought of first (MOBILE-02); on a wide screen the menu on the left. The person menu (settings, light or dark, sign out) is the same everywhere (SHELL-01). <a href="/">Open the app</a> to see it live.</p>
+        <div class="cat-demo" data-nocode>
+          <div class="shell-sketch">
+            <div class="sketch sketch-phone"><div class="sk-head">head · title · person</div><div class="sk-main">page</div><div class="sk-tabs">places</div></div>
+            <div class="sketch sketch-wide"><div class="sk-side">menu<br>person</div><div class="sk-col"><div class="sk-head">title · actions</div><div class="sk-main">page</div></div></div>
+          </div>
+        </div>
+        <pre class="cat-code" data-static>const frame = shell({
+  app: { name: 'Notes', icon: 'bookmark' },
+  nav: [{ label: t('nav.notes'), icon: 'list', href: '#/' }, { label: t('shell.settings'), icon: 'sliders', href: '#/settings' }],
+  person: { name: me.user },
+  onSignOut: async () => { await api('POST', '/api/auth/logout'); location.reload(); },
+});
+document.body.append(frame.el);
+router({ '/': listPage, '/notes/:id': notePage, '/settings': settingsPage }, frame);
+// a page returns { title, body, back, actions }</pre>
+      </section>
+
+      <section class="cat-item" id="icons">
+        <h2 class="h1">Icons</h2>
+        <p class="muted">One file, one style (KIT-01): <code class="mono">icon('name')</code> in JavaScript, <code class="mono">&lt;span data-icon="name"&gt;</code> in markup. An icon alone on a button needs an <code class="mono">aria-label</code> (A11Y-01).</p>
+        <div class="cat-demo on-surface" data-nocode><div class="icon-grid" id="cat-icons"></div></div>
+      </section>
+
+    </main>
+  </div>
+</div>
+</body>
+</html>

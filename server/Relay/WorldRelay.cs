@@ -35,7 +35,7 @@ public static class Wire
 {
     public const byte Pose = 1, Welcome = 0x80, Roster = 0x81, Snapshot = 0x82, Fix = 0x83, Bye = 0x84;
     public const int PoseLength = 13, EntryLength = 12;
-    public const byte ByeLarge = 1, ByeViolations = 2, ByeIdle = 3, ByeSilent = 4, ByeFull = 5;
+    public const byte ByeLarge = 1, ByeViolations = 2, ByeIdle = 3, ByeSilent = 4, ByeFull = 5, ByeReplaced = 6, ByeSession = 7;
 
     public static short I16(ReadOnlySpan<byte> b, int i) => (short)(b[i] | (b[i + 1] << 8));
     public static ushort U16(ReadOnlySpan<byte> b, int i) => (ushort)(b[i] | (b[i + 1] << 8));
@@ -86,8 +86,12 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
 
     double Seconds(long ts) => ts / (double)time.TimestampFrequency;
 
-    /// <summary>Let a visitor in. Returns null (after telling the peer why) if the relay refuses.</summary>
-    public Session? Join(IPeer peer, string address, int car)
+    /// <summary>
+    /// Let a visitor in. Returns null (after telling the peer why) if the relay refuses. With <paramref name="name"/> and
+    /// <paramref name="hue"/> (0..23) the caller says who the visitor is (a signed-in person); without them the relay picks
+    /// a name from its fixed list and a free colour (the public world). The caller has checked the text of a name.
+    /// </summary>
+    public Session? Join(IPeer peer, string address, int car, string? name = null, int? hue = null)
     {
         lock (gate)
         {
@@ -108,9 +112,9 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             {
                 Id = id, World = w, Car = (byte)(car >= 0 && car < o.Top.Length ? car : 0), Peer = peer, Address = address,
                 LastMsg = now, LastMove = now, TokenAt = now, DroppedSince = now, ViolationsSince = now,
-                Hue = PickHue(members),
+                Hue = hue is >= 0 and < 24 ? (byte)hue.Value : PickHue(members),
             };
-            s.Name = PickName(members, s.Hue);
+            s.Name = name is { Length: > 0 } ? Clean(name) : PickName(members, s.Hue);
             members.Add(s);
             a.Connections++; a.Joins.Enqueue(now);
             Send(s, [Wire.Welcome, s.Id, (byte)s.World, s.Hue]);
@@ -162,6 +166,17 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             s.LastMsg = now;
             Check(s, f, now);
         }
+    }
+
+    /// <summary>End a visitor's connection from the outside (a replaced or ended session): tells it why, closes, leaves.</summary>
+    public void Drop(Session s, byte reason) { lock (gate) { if (!s.Gone) Kick(s, reason); } }
+
+    /// <summary>A name as the wire carries it: no control characters, at most 24 characters and 60 bytes.</summary>
+    static string Clean(string name)
+    {
+        var t = new string(name.Where(c => !char.IsControl(c)).Take(24).ToArray()).Trim();
+        while (System.Text.Encoding.UTF8.GetByteCount(t) > 60) t = t[..^1];
+        return t.Length > 0 ? t : "Driver";
     }
 
     /// <summary>A frame that did not fit the receive buffer: too large.</summary>

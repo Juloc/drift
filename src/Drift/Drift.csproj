@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Drift</AssemblyName>
+    <RootNamespace>Drift</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The app's own numbered SQL scripts (DATA-02); they run after those of the base -->
+    <EmbeddedResource Include="Migrations\*.sql" LogicalName="migrations/app/%(Filename)%(Extension)" />
+    <!-- The relay of the shared world is one small class kept in server/Relay/ (the website's server takes the same files) -->
+    <Compile Include="..\..\server\Relay\*.cs" Link="Relay\%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The game page's files (game/, vendor/three/) travel in the published app, next to it, and are served under /play and /vendor -->
+    <Content Include="..\..\game\**" Exclude="..\..\game\**\*.test.mjs;..\..\game\index.html;..\..\game\demo.html" Link="game\%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="Never" ExcludeFromSingleFile="true" />
+    <Content Include="..\..\vendor\three\*" Link="vendor\three\%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="Never" ExcludeFromSingleFile="true" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\base\src\Base.Web\Base.Web.csproj" />
+  </ItemGroup>
+</Project>

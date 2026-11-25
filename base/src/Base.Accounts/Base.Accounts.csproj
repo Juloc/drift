@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The numbered SQL scripts of this module travel inside the library (DATA-02) -->
+    <EmbeddedResource Include="Migrations\*.sql" LogicalName="migrations/accounts/%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Base.Data\Base.Data.csproj" />
+  </ItemGroup>
+</Project>

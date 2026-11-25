@@ -1,3 +1,13 @@
 bin/
 obj/
 TestResults/
+.env
+*.user
+node_modules/
+__pycache__/
+*.pyc
+.claude/
+# local data folder of the app started with dotnet run (secret.key lives there)
+/data/
+/src/Drift/data/
+shots/

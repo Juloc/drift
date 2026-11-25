@@ -1,0 +1,14 @@
+<Project>
+  <!-- Every package version stands here; projects name the package only. Runtime: Npgsql, Argon2 and the token library of Microsoft, nothing else (CODE-02). -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1" />
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.19.2" />
+    <!-- tests only -->
+    <PackageVersion Include="xunit.v3" Version="4.0.3" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.15" />
+  </ItemGroup>
+</Project>
