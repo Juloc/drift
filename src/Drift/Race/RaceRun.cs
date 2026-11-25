@@ -8,6 +8,8 @@ public sealed class Runner(Guid person, string name, int car, int hue, double to
     public int Hue { get; } = hue;
     public double Top { get; } = top;
     public int Slot { get; set; }
+    /// <summary>A guest: the result shows the time, the best-times table never gets it.</summary>
+    public bool Guest { get; set; }
     /// <summary>The gate to cross next; the grid stands after gate 0, so the first one is gate 1.</summary>
     public int NextGate { get; internal set; } = 1;
     public int LapsDone { get; internal set; }

@@ -74,6 +74,31 @@ internal sealed class TestApp(TestDb db) : WebApplicationFactory<Program>
         return req;
     }
 
+    /// <summary>The administrator invites a person (role member); returns that person's session cookie.</summary>
+    public async Task<string> MemberAsync(HttpClient c, string adminCookie, string user)
+    {
+        var made = await TestApp.Json(await c.SendAsync(Req(HttpMethod.Post, "/api/people", adminCookie, new { name = user, role = "member" })));
+        var token = made.GetProperty("invite").GetProperty("token").GetString()!;
+        var begin = await TestApp.Json(await c.SendAsync(Req(HttpMethod.Post, "/api/invite/begin", null, new { token, password = Password })));
+        var totp = Totp.Hotp(Base32.Decode(begin.GetProperty("secret").GetString()!), DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30);
+        var fin = await c.SendAsync(Req(HttpMethod.Post, "/api/invite/finish", null, new { token, totp }));
+        Assert.Equal(HttpStatusCode.OK, fin.StatusCode);
+        return CookieOf(fin);
+    }
+
+    /// <summary>The administrator makes a guest link; returns its secret token.</summary>
+    public async Task<string> GuestLinkAsync(HttpClient c, string adminCookie, int hours = 4, int uses = 5)
+    {
+        var r = await c.SendAsync(Req(HttpMethod.Post, "/api/guest-links", adminCookie, new { hours, uses }));
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        return (await TestApp.Json(r)).GetProperty("token").GetString()!;
+    }
+
+    /// <summary>A friend opens the link and chooses a name, as the page does (header and origin of the app's own page, no cookie).</summary>
+    public Task<HttpResponseMessage> JoinAsync(HttpClient c, string token, string name) => c.SendAsync(Req(HttpMethod.Post, "/api/guest/join", null, new { token, name }));
+
+    public static async Task<string> GuestCookieAsync(HttpResponseMessage r) { Assert.Equal(HttpStatusCode.OK, r.StatusCode); await Task.CompletedTask; return CookieOf(r); }
+
     public static async Task<JsonElement> Json(HttpResponseMessage r) => JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement.Clone();
     public static string CookieOf(HttpResponseMessage r) => r.Headers.GetValues("Set-Cookie").First().Split(';')[0];
 

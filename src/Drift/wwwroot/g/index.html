@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Drift</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <script src="/base/boot.js"></script>
+  <link rel="stylesheet" href="/base/base.css">
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="g.css">
+  <script type="module" src="g.js"></script>
+</head>
+<body>
+  <main class="guest">
+    <h1 id="g-title">Drift</h1>
+    <p id="g-text" class="muted"></p>
+    <form id="g-form" class="form" hidden>
+      <label class="field"><span id="g-label" class="label"></span><input id="g-name" class="input" name="name" maxlength="16" autocomplete="off" autocapitalize="words" required></label>
+      <p id="g-error" class="field-error" role="alert" hidden></p>
+      <button id="g-go" class="btn primary wide" type="submit"></button>
+    </form>
+  </main>
+</body>
+</html>

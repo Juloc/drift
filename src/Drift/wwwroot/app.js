@@ -1,7 +1,7 @@
 /* Drift: the garage (car, colour, nickname) and the settings. The game itself is a full-screen page of its own at /play/.
  * Pattern of the base: texts through t() (I18N-01), the frame from shell(), pages from router(), data through api(), forms with field(). */
-import { addMessages, t } from '/base/i18n.js';
-import { h, icon, api, shell, router, toast, field, formValues, showErrors, clearErrors, errorText, ApiError } from '/base/base.js';
+import { addMessages, t, fmtDate } from '/base/i18n.js';
+import { h, icon, api, shell, router, toast, field, confirmDialog, formValues, showErrors, clearErrors, errorText, ApiError } from '/base/base.js';
 import { start } from '/base/auth.js';
 import { appearanceCard, securityCard, devicesCard, historyCard, installationCard, aboutCard } from '/base/account.js';
 import { peopleCard } from '/base/people.js';
@@ -106,11 +106,52 @@ function boardCard(b) {
       h('div', null, h('h3', { class: 'board-head', text: t('board.race', { laps: b.laps }) }), list(b.race))));
 }
 
+/* ---------- guest links (administrator) ---------- */
+function guestCard() {
+  const list = h('div', { class: 'stack' });
+  const made = h('div', { class: 'stack' });
+  const form = h('form', { class: 'form' },
+    field({ label: t('guest.hours'), name: 'hours', type: 'number', value: '4', min: '1', max: '12', hint: t('guest.hoursHint') }),
+    field({ label: t('guest.uses'), name: 'uses', type: 'number', value: '5', min: '1', max: '20', hint: t('guest.usesHint') }),
+    h('button', { class: 'btn primary', type: 'submit' }, icon('plus'), t('guest.make')));
+
+  async function refresh() {
+    const r = await api('GET', '/api/guest-links');
+    list.replaceChildren(...(r.links.length
+      ? r.links.map((l) => h('div', { class: 'row' },
+          h('div', { class: 'row-main' }, h('span', { class: 'row-title', text: t('guest.valid', { until: fmtDate(l.expiresAt) }) }), h('span', { class: 'row-sub', text: t('guest.used', { n: l.uses, max: l.maxUses }) })),
+          h('button', { class: 'btn ghost danger', type: 'button', onclick: async () => { await api('DELETE', '/api/guest-links/' + l.id); toast(t('guest.ended'), { kind: 'ok' }); refresh(); } }, t('guest.end'))))
+      : [h('p', { class: 'muted', text: t('guest.none') })]));
+  }
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault(); clearErrors(form);
+    const v = formValues(form);
+    try {
+      const l = await api('POST', '/api/guest-links', { hours: Number(v.hours), uses: Number(v.uses) });
+      const url = `${location.origin}/g/#${l.token}`;
+      // shown once: the server keeps only a hash of the secret
+      const box = h('input', { class: 'input', readonly: '', value: url, 'aria-label': t('guest.link') });
+      made.replaceChildren(h('div', { class: 'notice ok' }, icon('check-circle'), h('div', { class: 'notice-text', text: t('guest.once') })), box,
+        h('button', { class: 'btn outline', type: 'button', onclick: async () => { try { await navigator.clipboard.writeText(url); toast(t('guest.copied'), { kind: 'ok' }); } catch { box.select(); } } }, icon('copy'), t('guest.copy')));
+      refresh();
+    } catch (err) { if (!(err instanceof ApiError)) throw err; showErrors(form, err); }
+  });
+  const endAll = async () => {
+    if (!await confirmDialog({ title: t('guest.endAllTitle'), text: t('guest.endAllText'), confirmLabel: t('guest.endAll'), danger: true })) return;
+    const r = await api('POST', '/api/guest-links/end-all');
+    toast(t('guest.endedN', { n: r.ended }), { kind: 'ok' }); made.replaceChildren(); refresh();
+  };
+  refresh();
+  return h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('guest.title') }), h('p', { class: 'muted', text: t('guest.intro') }), form, made, list,
+    h('div', { class: 'cluster' }, h('button', { class: 'btn ghost danger', type: 'button', onclick: endAll }, icon('power'), t('guest.endAll'))));
+}
+
 /* ---------- settings: the cards of the base ---------- */
 function settingsPage(me) {
   return {
     title: t('settings.title'),
     body: h('div', { class: 'page narrow stack l' }, appearanceCard(), securityCard(me), devicesCard(), historyCard(),
+      me.roles.includes('admin') ? guestCard() : null,
       me.roles.includes('admin') ? peopleCard(me) : null, me.roles.includes('admin') ? hubCard(me) : null,
       me.roles.includes('admin') ? installationCard() : null, aboutCard(me)),
   };

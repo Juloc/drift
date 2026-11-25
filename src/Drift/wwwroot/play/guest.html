@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" data-mode="online" data-race="1" data-guest="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#8fc7ee">
+<title>Drift</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2716%27 fill=%27%233a7de0%27/%3E%3Cpath d=%27M7 21c3-9 9-12 14-9l-4 2c-3-1-6 1-8 7z%27 fill=%27%23fff%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="play.css">
+</head>
+<body>
+<canvas id="view" tabindex="0" aria-label="Drift game"></canvas>
+
+<div id="hud" aria-live="off">
+  <div id="speed"><span id="speed-n">0</span><small>km/h</small></div>
+  <div id="drift">
+    <span id="d-label" class="label" data-t="drift">DRIFT</span>
+    <span id="d-pts" class="pts">0</span>
+    <span id="d-mult" class="mult">x1</span>
+    <span class="bar"></span>
+  </div>
+  <div id="bank"><small data-t="score">Score</small> <b id="bank-n">0</b></div>
+  <div id="online"><span id="online-n">0</span> <small data-t="online">driving here</small></div>
+  <div id="me"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<div id="tags" aria-hidden="true"></div>
+<button id="dropped" type="button" hidden></button>
+<div id="racebar" hidden><button id="raceBtn" type="button" data-t="race">Start a race</button></div>
+<div id="invite" hidden><span id="invite-text"></span> <button id="invite-yes" type="button" data-t="join">Join</button> <button id="invite-no" type="button" data-t="no">No</button></div>
+<div id="count" hidden></div>
+<div id="racehud" hidden><span id="rh-pos"></span> <span id="rh-lap"></span> <span id="rh-time"></span> <span id="rh-drift"></span> <button id="rh-leave" type="button" data-t="leave">Leave</button></div>
+<div id="result" hidden role="dialog" aria-live="polite"><h2 id="res-title"></h2><table id="res-table"><tbody></tbody></table><button id="res-back" type="button" data-t="backLobby">Back to the lobby</button></div>
+<p id="note" role="status" hidden></p>
+<p id="hint" class="hint" data-t="hintKeys"></p>
+<pre id="debug" hidden></pre>
+<div id="rotate" hidden data-t="rotate"></div>
+<p id="tip" hidden data-t="tip"></p>
+<button id="fs" type="button" hidden aria-label="Full screen">&#x26F6;</button>
+
+<nav id="touch" aria-label="Controls" hidden>
+  <div class="pad left">
+    <button type="button" class="btn steer" data-ctl="left" aria-label="Steer left">&#9664;</button>
+    <button type="button" class="btn steer" data-ctl="right" aria-label="Steer right">&#9654;</button>
+  </div>
+  <div class="pad right">
+    <button type="button" class="btn small" data-ctl="hand" aria-label="Handbrake"><span data-t="hand">HAND</span></button>
+    <button type="button" class="btn small" data-ctl="brake" aria-label="Brake"><span data-t="brake">BRAKE</span></button>
+    <button type="button" class="btn gas" data-ctl="gas" aria-label="Throttle"><span data-t="gas">GAS</span></button>
+  </div>
+</nav>
+
+<script type="module" src="boot-guest.js"></script>
+</body>
+</html>

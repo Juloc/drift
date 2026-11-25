@@ -1,0 +1,4 @@
+/* The page of a guest link: a name and a button, nothing else. */
+.guest { max-width: 26rem; margin: 0 auto; padding: max(var(--s6), env(safe-area-inset-top)) var(--s5) var(--s6); display: grid; gap: var(--s4); }
+.guest h1 { margin: 0; }
+.guest .field-error { color: var(--danger, #b3261e); margin: 0; }

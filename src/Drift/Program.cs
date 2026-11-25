@@ -4,6 +4,7 @@ using Base.Data;
 using Base.Web;
 using Base.Web.Settings;
 using Drift.Garage;
+using Drift.Guests;
 using Drift.Play;
 using Drift.Race;
 using Drift.Relay;
@@ -25,9 +26,13 @@ builder.AddBase(new BaseAppOptions("drift", "Drift", typeof(Program).Assembly)
         new AppRole("admin", new Localized("Administrator", "Administration")),
         new AppRole("member", new Localized("Driver", "Fahrer")),
     ],
+    // guests: an own door (SEC-07): the check admits a live guest session, and the join path (which checks the link's secret itself)
+    Doors = [new ApiDoor("/api/guest", GuestEndpoints.Check, 4096)],
     Migrations = [MigrationSet.FromAssembly(typeof(Program).Assembly, "app")],
 });
 builder.Services.AddSingleton<GarageStore>();
+builder.Services.AddSingleton<GuestService>();
+builder.Services.AddSingleton<PersonSockets>();
 builder.Services.AddSingleton(new WorldRelay(TimeProvider.System, PlayEndpoint.Options));
 // the race has a world of its own (at most 8 racers), the same relay class
 builder.Services.AddKeyedSingleton("race", (_, _) => new WorldRelay(TimeProvider.System, new RelayOptions { MaxPerWorld = RaceHub.MaxRacers, MaxWorlds = 1, MaxPerAddress = 16, JoinsPerMinutePerAddress = 120, FramesPerSecondPerAddress = 400 }));
@@ -58,6 +63,7 @@ Serve("/vendor/three", Path.Combine("vendor", "three"));
 app.MapBase();
 app.MapGarage();
 app.MapPlay();
+app.MapGuests();
 app.MapRace();
 app.Run();
 return 0;

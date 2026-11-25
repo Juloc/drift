@@ -5,7 +5,7 @@ using Drift.Relay;
 namespace Drift.Race;
 
 /// <summary>What the lobby knows about a person who is connected: the garage's choice, for the invitation and the race.</summary>
-public sealed record LobbyMember(Guid Person, string Name, int Car, int Hue, Session Session);
+public sealed record LobbyMember(Guid Person, string Name, int Car, int Hue, Session Session, bool Guest = false);
 
 /// <summary>
 /// The races of the signed-in lobby, one at a time (docs/ARCHITECTURE.md section 4):
@@ -173,7 +173,7 @@ public sealed class RaceHub
                         foreach (var (p, i) in parts.Select((p, i) => (p, i)))
                         {
                             p.Slot = i;
-                            p.Runner = new Runner(p.Member.Person, p.Member.Name, p.Member.Car, p.Member.Hue, tops[Math.Clamp(p.Member.Car, 0, tops.Length - 1)]) { Slot = i };
+                            p.Runner = new Runner(p.Member.Person, p.Member.Name, p.Member.Car, p.Member.Hue, tops[Math.Clamp(p.Member.Car, 0, tops.Length - 1)]) { Slot = i, Guest = p.Member.Guest };
                             run.Runners.Add(p.Runner);
                         }
                         phase = Phase.Countdown; phaseStart = now; lastCount = 4;
@@ -254,7 +254,7 @@ public sealed class RaceHub
             bool lap = false, race = false;
             try
             {
-                if (r.Finished && r.CleanLaps)
+                if (r.Finished && r.CleanLaps && !r.Guest)   // a guest's time is shown in the result, never stored
                 {
                     if (r.BestLap is { } bl) lap = await store.RecordAsync(r.Person, track.MapId, RaceStore.Lap, (int)Math.Round(bl), r.Car);
                     if (finishedRun.Laps == track.Laps && r.FinishMs is { } fm) race = await store.RecordAsync(r.Person, track.MapId, RaceStore.Race, (int)Math.Round(fm), r.Car);

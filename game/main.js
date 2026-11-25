@@ -121,7 +121,7 @@ function startRace() {
   remotes.clear();
   show('racebar', false);
   $('count').textContent = T.getReady; show('count', true); show('result', false);
-  net = openNet(lobbyUrl.replace('/play/ws', '/play/race/ws'), true);
+  net = openNet(params.get('rws') || lobbyUrl.replace('/play/ws', '/play/race/ws'), true);
   window.__net = net;
 }
 function raceMessage(j) {
