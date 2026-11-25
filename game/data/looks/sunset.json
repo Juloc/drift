@@ -10,7 +10,7 @@
     "sun": "#fff0c0",
     "sunGlow": 1.15,
     "glow": "#ff6a3a",
-    "sunSize": 3.1,
+    "sunSize": 4.2,
     "glowStrength": 0.8,
     "clouds": { "lit": "#ffcaa2", "shade": "#b25a88", "amount": 1.0, "layer": 0.85, "bright": 1.25 },
     "bands": [
@@ -23,7 +23,7 @@
       { "az": -55, "el": 8, "w": 28, "h": 2.6 }
     ]
   },
-  "sun": { "dir": [0.1, 0.1, -1], "colour": "#ffb070", "intensity": 3.4 },
+  "sun": { "dir": [0.55, 0.1, -1], "colour": "#ffb070", "intensity": 3.4 },
   "fill": { "sky": "#8a72cc", "ground": "#c48a8a", "intensity": 1.95 },
   "fog": { "colour": "#f0a8a2", "near": 400, "far": 4200 },
   "mist": { "colour": "#ffdcdc", "opacity": 0.85, "y": -64 },
@@ -39,9 +39,9 @@
   "chevron": { "board": "#3b2337", "arrow": "#ff5a96", "post": "#9b93a0" },
   "post": { "white": "#f4efee", "band": "#2b2630", "reflector": "#ffc23f" },
   "lamp": { "pole": "#4a4452", "light": "#ffe2b0" },
-  "smoke": { "colour": "#f0c2c8", "shade": "#b48597", "glow": 0.95, "opacity": 0.95, "near": 1.0, "drift": 1.6, "offset": 1.0, "clear": 3.0, "style": "billows", "bright": 1.05, "tint": "#ffffff" },
+  "smoke": { "colour": "#f2bcc4", "shade": "#c4889a", "glow": 0.95, "opacity": 1.0, "near": 0.8, "drift": 2.8, "offset": 1.4, "clear": 2.4, "style": "billows", "bright": 1.15, "tint": "#ffffff", "size": 1.5 },
   "skid": { "colour": "#140f18", "opacity": 0.85 },
-  "camera": { "dist": 5.6, "height": 1.6, "side": -0.5, "look": 14, "lookY": 1.5, "travel": 0.6, "fov": 52, "turn": 24 },
+  "camera": { "dist": 6.0, "height": 1.6, "side": 1.5, "look": 14, "lookY": 1.5, "travel": 0.6, "fov": 52, "turn": 10 },
   "tiers": {
     "high": {
       "cell": 3.5,
@@ -51,7 +51,7 @@
       "nearPines": 140,
       "nearCherries": 70,
       "rocks": 60,
-      "ridge": 160,
+      "ridge": 260,
       "mist": 7,
       "railPost": 3,
       "smoke": 300,
@@ -63,7 +63,7 @@
       "env": 128,
       "details": { "tufts": 1400, "stones": 500, "bushes": 180, "petals": 70, "poles": 0 },
       "carpet": 4800,
-      "billows": 180
+      "billows": 220
     },
     "low": {
       "cell": 8,
@@ -73,7 +73,7 @@
       "nearPines": 40,
       "nearCherries": 24,
       "rocks": 24,
-      "ridge": 64,
+      "ridge": 120,
       "mist": 3,
       "railPost": 6,
       "smoke": 90,
@@ -85,7 +85,7 @@
       "env": 32,
       "details": { "tufts": 220, "stones": 90, "bushes": 50, "petals": 20, "poles": 0 },
       "carpet": 350,
-      "billows": 60
+      "billows": 80
     }
   },
   "facets": true,
