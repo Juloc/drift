@@ -8,9 +8,11 @@ import { X, HEAD } from './space.js';
 
 const WHEEL_R = 0.358, BLOB = [1.15, 2.3];
 const farCache = new Map();
-const farBody = (hue, model) => { const k = `${hue}:${model}`; if (!farCache.has(k)) farCache.set(k, buildCar({ paint: new THREE.Color().setHSL((hue * 15) / 360, 0.62, 0.52).getHex(), lite: true, model }).body); return farCache.get(k); };
+const farBody = (hue, model) => { const k = `${hue}:${model}`; if (!farCache.has(k)) farCache.set(k, buildCar({ paint: hueColour(hue).getHex(), lite: true, model }).body); return farCache.get(k); };
 /** The garage's hue index (0..23, steps of 15 degrees) as the paint of a car. */
-export const hueColour = (hue) => new THREE.Color().setHSL(((hue * 15) % 360) / 360, 0.62, 0.42);
+/** The garage's paint index as a colour: 0..23 hues (steps of 15 degrees), 24 white, 25 black, 26 silver (anything else: a hue by its remainder). */
+export const PAINTS = { 24: '#e6e1d8', 25: '#18181d', 26: '#b9bec8' };
+export const hueColour = (hue) => PAINTS[hue] ? new THREE.Color(PAINTS[hue]) : new THREE.Color().setHSL(((hue * 15) % 360) / 360, 0.62, 0.42);
 
 export class Remotes {
   /** @param {{ stage, fleet, pool, camera, tagsEl, glowPool, glowOf, glowBoost, maxNear? }} o  (`fleet` may be swapped after another look was loaded) */

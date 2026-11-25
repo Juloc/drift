@@ -99,6 +99,7 @@ if (picked.tier !== tierName) { stage.setTier(picked.tier); tierName = picked.ti
 let fleet = await new Fleet(stage, { model: 'rx7' }).load();   // the RX-7 for everybody (the code S15 where the file cannot be used)
 const ownHue = (car.colour % 360) / 360;
 let ownColour = new THREE.Color().setHSL(ownHue, 0.62, 0.42);
+if (params.has('paint')) ownColour = hueColour(+params.get('paint') || 0);   // ?paint=0..26 for pictures (24 white, 25 black, 26 silver)
 let mine = fleet.spawn(ownColour);
 const carGroup = new THREE.Group();
 carGroup.add(mine.group);
