@@ -1,0 +1,16 @@
+{
+  "about": "Outside works in the game and the line the game shows for each (CC BY needs the author named). Details in docs/ASSETS.md.",
+  "models": [
+    {
+      "files": ["assets/cars/rx7.glb", "assets/cars/rx7-hi.glb"],
+      "title": "Mazda RX-7 FD",
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "url": "https://sketchfab.com/3d-models/mazda-rx-7-fd-d35ff630df614771b82e7b2f59035b1e",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "http://creativecommons.org/licenses/by/4.0/",
+      "changes": "scaled to the real car, materials replaced, emblems and lettering removed, reduced",
+      "line": "\"Mazda RX-7 FD\" by Lexyc16 (sketchfab.com/Lexyc16), CC BY 4.0, changed: scaled, materials replaced, emblems removed, reduced"
+    }
+  ]
+}

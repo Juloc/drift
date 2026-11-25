@@ -94,6 +94,23 @@ What it does (details in the script's header):
 - decimates the big body slots (symmetric) to the tier's budget (`targets`, default 14 000 phone / 40 000 high, wheels included),
   small slots (lamps) stay; smooth normals with hard edges at 35 degrees; checks with `prepare_car.py`; exports.
 
+**First real download: Mazda RX-7 FD** (Sketchfab, Lexyc16, CC BY 4.0, 36 000 triangles, glTF with 16 materials named
+only `Material.0xx`). Steps: unzip on the PC with the embedded Python (`zipfile`, into `C:\AI\work\rx7\src`), read
+`license.txt`; `blender -b -P tools/blender/materials.py -- scene.gltf` lists each material's colour, textures, triangles and
+place, `look.py` shows the car; loose parts of the small materials located the emblems and lettering (all in `Object_14`,
+dropped). The slots are a regex list in `cars/rx7.json` (manual: about 15 minutes). Wheels: the model's own (five spokes)
+look clearly better than the game's; kept. Results (`docs/screenshots/cars/rx7-*.png`):
+
+| File | Triangles | Draw calls | Size | Load in the showroom (headless, software) |
+|---|---|---|---|---|
+| `rx7.glb` (phone) | 13 995 | 10 | 428 KB | 0.8 to 1.0 s |
+| `rx7-hi.glb` (high, with interior) | 35 934 | 15 | 873 KB | 3.4 to 5.1 s |
+
+Scaled by the length 4.30 m: wheelbase 2.445 m (real 2.425), 1.27 m high with the wing (real 1.23), 1.86 m wide with
+mirrors, tyre radius 0.327 m. In the game (`?glb=rx7`, car park, headless): the garage colour works (red and light blue seen),
+it drifts, smoke and skid marks from the game's wheel layout; whole scene 48 862 triangles / 20 draw calls (phone tier),
+83 812 / 33 (high). Known: on the phone tier the rims, thinned to 800 triangles each, look like plain light discs.
+
 Tested with a made-up download: `tools/blender/make_foreign_test.py` turns the code model's S15 into foreign names, centimetres,
 front along +X and loose wheel objects, written as .glb, .fbx and .obj (`cars/test-foreign.json`: game wheels, scale by length;
 `cars/test-foreign-own.json`: the model's own wheels, scale by wheelbase). All three formats and both tiers came out after the
