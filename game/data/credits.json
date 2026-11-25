@@ -129,6 +129,26 @@
         "en": "\"Toyota Corolla AE86 Trueno\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, number plates and the door lettering removed, reduced",
         "de": "„Toyota Corolla AE86 Trueno“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, Kennzeichen und der Türschriftzug entfernt, verkleinert"
       }
+    },
+    {
+      "id": "r34",
+      "kind": "model",
+      "name": "Nissan Skyline R34 GT-R",
+      "file": [
+        "game/assets/cars/r34.glb",
+        "game/assets/cars/r34-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/nissan-skyline-r34-gt-r-ff8fb2251dfa4bb9979e7022c5a6666c",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, materials replaced, emblems, lettering and the number plate removed, reduced",
+      "use": {
+        "en": "\"Nissan Skyline R34 GT-R\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, emblems, lettering and the number plate removed, reduced",
+        "de": "„Nissan Skyline R34 GT-R“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, Embleme, Schriftzüge und das Kennzeichen entfernt, verkleinert"
+      }
     }
   ]
 }

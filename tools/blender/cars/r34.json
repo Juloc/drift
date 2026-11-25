@@ -1,0 +1,65 @@
+{
+  "name": "r34",
+  "about": "Nissan Skyline GT-R (BNR34). Sizes of the real car; the model is a download (docs/ASSETS.md).",
+  "length": 4.6,
+  "width": 1.785,
+  "height": 1.36,
+  "wheelbase": 2.665,
+  "source": {
+    "file": "C:/AI/work/r34/src/nissan_skyline_r34_gt-r/scene.gltf (from nissan_skyline_r34_gt-r.zip)",
+    "title": "Nissan Skyline R34 GT-R",
+    "author": "Lexyc16 (https://sketchfab.com/Lexyc16)",
+    "url": "https://sketchfab.com/3d-models/nissan-skyline-r34-gt-r-ff8fb2251dfa4bb9979e7022c5a6666c",
+    "licence": "CC-BY-4.0",
+    "front": "-y",
+    "up": "+z",
+    "scale_by": "length",
+    "wheels": "model",
+    "slots": {
+      "^material\\.001$": "paint",
+      "^material\\.006$": "glass",
+      "^material(\\.011)?$": "light_front",
+      "^material\\.009$": "light_rear",
+      "^material\\.010$": "rubber",
+      "^material\\.(004|005|012)$": "chrome",
+      "^material\\.(002|003)$": "plastic"
+    },
+    "drop": [
+      "^material\\.(008|013|015|032)$"
+    ],
+    "targets": {
+      "phone": 14000,
+      "high": 40000
+    },
+    "drop_boxes": [
+      {
+        "material": "^material\\.004$",
+        "lo": [
+          1.74,
+          -2.37,
+          0.68
+        ],
+        "hi": [
+          1.8,
+          -2.35,
+          0.73
+        ],
+        "about": "letters in the front grille"
+      },
+      {
+        "material": "^material\\.004$",
+        "lo": [
+          1.54,
+          0.83,
+          0.78
+        ],
+        "hi": [
+          1.7,
+          0.87,
+          0.88
+        ],
+        "about": "letters on the boot lid"
+      }
+    ]
+  }
+}

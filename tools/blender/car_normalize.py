@@ -11,6 +11,8 @@ The car file (`tools/blender/cars/<car>.json`) gives the real sizes and a "sourc
                 "wheels": "game",       "game": the game's wheels (code model) at the model's wheel centres; "model": its own
                 "slots": { "regex": "slot", ... },   material name -> slot, tried before the built-in list
                 "drop": ["regex", ...], objects or materials to throw away (a driver, a number plate, a ground plane)
+                "drop_boxes": [{"material": "regex", "lo": [x, y, z], "hi": [x, y, z], "about": "..."}],   faces of a material
+                                        inside a box of the model's own coordinates (as materials.py / parts.py print them)
                 "targets": { "phone": 14000, "high": 40000 } }
 
 What it does, in this order:
@@ -118,6 +120,19 @@ for o in meshes:
         bm = bmesh.new(); bm.from_mesh(o.data)
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in bad], context="FACES")
         bm.to_mesh(o.data); bm.free()
+# boxes: faces of one material inside a box of the model's own coordinates (emblems that share a material with lamps or trim)
+for box in SRC.get("drop_boxes", []):
+    lo_, hi_, n_ = Vector(box["lo"]), Vector(box["hi"]), 0
+    for o in meshes:
+        idx = [i for i, ms in enumerate(o.material_slots) if ms.material and re.search(box["material"], ms.material.name, re.I)]
+        if not idx:
+            continue
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        gone = [f for f in bm.faces if f.material_index in idx and all(lo_[k] <= f.calc_center_median()[k] <= hi_[k] for k in range(3))]
+        n_ += len(gone)
+        bmesh.ops.delete(bm, geom=gone, context="FACES")
+        bm.to_mesh(o.data); bm.free()
+    log("dropped %d faces of %s in the box %s .. %s (%s)" % (n_, box["material"], box["lo"], box["hi"], box.get("about", "")))
 for o in [o for o in meshes if not len(o.data.polygons)]:   # emptied by a dropped material: away with the object too
     bpy.data.objects.remove(o)
 meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
