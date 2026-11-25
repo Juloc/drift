@@ -162,7 +162,7 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   return {
     flames, glow, brakeMats,
     /** A pop now as if the event came (for pictures and tests); `hold` keeps the flame that many seconds. */
-    pop(strength = 1, hold = 0) { onPop({ detail: { strength } }); if (hold) life = hold; },
+    pop(strength = 1, hold = 0) { onPop({ detail: { strength } }); if (hold) { life = hold; queue = []; } },   // held for a picture: no after-bangs (they would end it)
     dispose() { if (listen) window.removeEventListener('car.pop', onPop); },
     setGlow(hue) {
       glow.visible = hue !== null && hue !== undefined;

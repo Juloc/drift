@@ -138,15 +138,18 @@ possible without remodelling). In the game: `?model=ae86` (the car is not in `ca
   road on the template, so every copy has them; `carFx` gives one car brake lights that brighten when braking (its own copies
   of the `lamp_rear_` materials), flames and a flash at the exhaust (`cars.json` `fx.exhaust`) and underglow as two strips
   along the sills plus their light on the road (`?glow=` / the garage setting; replaces the round patch for a model car).
-- **Pops:** after a lift of the throttle (held above 0.6 for 0.4 s, then below 0.15, above 8 m/s: 2 to 4 pops 60 to 140 ms
-  apart) and at an upshift under throttle (the gear of `engine.js`'s `revs`): each pop fires `car.pop` on `window`
-  (`detail: { kind: 'lift'|'shift', strength 0..1, x, y, z }`) in the same frame as its flame, for the sound to follow.
+- **Pops:** the game fires `car.pop` on `window` (`detail.strength` 0..1) when the throttle drops from above 0.7 to below 0.2 at
+  more than 8 m/s, at most every 400 ms, and plays the bang itself (`game/main.js`, the drift session's code); the flames
+  listen to that event only (a strong pop gets one or two smaller after-bangs), so sound and picture go together. Shift
+  pops would come as the same event from the engine's virtual gearbox, if the game adds them.
 - Pictures from the game (map 2, the sunset look, `?demo=line`, white paint): `docs/screenshots/cars/ae86-game-drift-dusk.png`
   (high, 52 km/h, 45 degrees, flame) and `ae86-game-drift-phone-glow.png` (low tier, phone size, underglow on). In the game the
   black lower half still looks grey: the painted style of the look (`paintCar`'s dust near the ground) also tints the model's own
   materials; the look branch takes that style out.
-- **Waiting for the GPU PC** (off since 2026-11-26 evening): glass as the game's dark tinted glass (`"^material\\.011$": "glass"`)
-  and gun-metal rims (`"overrides"`) are in `cars/ae86.json` but not exported yet; so is the RX-7 in the own-materials way and the
+- Glass and rims without the GPU PC: `tools/glb-palette.mjs` draws a palette material's two textures again from a list
+  (`tools/blender/cars/ae86.palette.json`) and puts them into the .glb as PNG: the glass (Material.011, a matt metal plate in the
+  game) is dark tinted smooth glass, the rims gun metal with a shine; `cars/ae86.json` has the same `"overrides"` for the next
+  export. **Waiting for the GPU PC** (off since 2026-11-26 evening): the RX-7 in the own-materials way and the
   fix of the wheel sides (the first version of `prepare_car.to_gltf` flipped x, so every file names its left wheels right; the
   game does not mind, the next export of each car corrects it).
 
