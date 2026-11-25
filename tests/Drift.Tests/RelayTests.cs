@@ -266,4 +266,50 @@ public class RelayTests
         // 4 + 12 * 15 = 184 bytes of frame + 2 of WebSocket header
         Assert.InRange(perVisitor, 180, 190);
     }
+
+    [Theory]
+    [InlineData("203.0.113.5", "203.0.113.5")]
+    [InlineData("::ffff:203.0.113.5", "203.0.113.5")]
+    [InlineData("2001:db8:1:2:3:4:5:6", "2001:db8:1:2::/64")]
+    [InlineData("2001:db8:1:2:ffff:ffff:ffff:ffff", "2001:db8:1:2::/64")]
+    public void The_address_key_counts_an_ipv6_subscriber_by_its_64(string ip, string key) =>
+        Assert.Equal(key, RelayEndpoint.AddressKey(System.Net.IPAddress.Parse(ip)));
+
+    [Fact]
+    public void Addresses_with_no_connection_are_forgotten_after_a_minute()
+    {
+        var (r, t) = Make();
+        var (a, _) = Join(r, "x1"); var (b, _) = Join(r, "x2");
+        r.Leave(a);
+        Assert.Equal(2, r.KnownAddresses);
+        for (var i = 0; i < 20; i++) { t.Advance(1); r.Tick(); }   // 20 s: kept
+        Assert.Equal(2, r.KnownAddresses);
+        for (var i = 0; i < 70; i++) { t.Advance(1); r.OnMessage(b, Pose(0, 0, 0, 0, (byte)i)); r.Tick(); }
+        Assert.Equal(1, r.KnownAddresses);                         // the one with a connection stays
+    }
+
+    [Fact]
+    public void A_flood_of_text_frames_ends_in_a_kick()
+    {
+        var (r, t) = Make();
+        var (a, pa) = Join(r);
+        for (var i = 0; i < 400; i++) { r.OnText(a); t.Advance(0.001); }
+        Assert.Equal(Wire.ByeLarge, pa.Closed);
+    }
+
+    sealed class BrokenPeer : IPeer { public void Send(ReadOnlySpan<byte> frame) => throw new InvalidOperationException("socket gone"); public void Close(byte reason) { } }
+
+    [Fact]
+    public void A_socket_that_throws_when_sent_to_only_loses_its_own_place()
+    {
+        var (r, t) = Make();
+        var (ok, pok) = Join(r, "a");
+        var bad = r.Join(new BrokenPeer(), "b", 0);
+        Assert.NotNull(bad);
+        r.OnMessage(ok, Pose(1, 1)); r.OnMessage(bad!, Pose(2, 2));
+        Assert.Null(r.TickGuarded());
+        r.TickGuarded();
+        Assert.Equal(1, r.Visitors);
+        Assert.NotNull(pok.Last(Wire.Roster));
+    }
 }

@@ -69,11 +69,12 @@ public sealed class Session
     internal int Dropped; internal long DroppedSince;
     internal int Violations; internal long ViolationsSince;
     internal bool Gone;
+    internal bool Faulty; // its socket threw while sending: removed on the next tick
 }
 
 public sealed class RelayStats
 {
-    public long BytesIn, BytesOut, FramesIn, FramesOut, Accepted, Rejected, Ticks, TickTicks;
+    public long BytesIn, BytesOut, FramesIn, FramesOut, Accepted, Rejected, Ticks, TickTicks, TickErrors;
     public int Visitors, Worlds;
 }
 
@@ -97,7 +98,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     /// <summary>Size for a receive buffer: a frame longer than this is too large.</summary>
     public int MaxFrameBuffer => o.MaxFrame;
 
-    sealed class AddressState { public int Connections; public double Tokens; public long TokenAt; public Queue<long> Joins = new(); }
+    sealed class AddressState { public int Connections; public double Tokens; public long TokenAt, LastTouch; public Queue<long> Joins = new(); }
 
     double Seconds(long ts) => ts / (double)time.TimestampFrequency;
 
@@ -112,6 +113,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
         {
             var now = time.GetTimestamp();
             if (!addresses.TryGetValue(address, out var a)) addresses[address] = a = new AddressState { Tokens = o.FramesPerSecondPerAddress, TokenAt = now };
+            a.LastTouch = now;
             while (a.Joins.Count > 0 && Seconds(now - a.Joins.Peek()) > 60) a.Joins.Dequeue();
             if (a.Connections >= o.MaxPerAddress || a.Joins.Count >= o.JoinsPerMinutePerAddress) { Refuse(peer, Wire.ByeFull); return null; }
             // first world with room, else a new one
@@ -144,7 +146,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
         {
             if (s.Gone) return;
             s.Gone = true;
-            if (addresses.TryGetValue(s.Address, out var a) && a.Connections > 0) a.Connections--;
+            if (addresses.TryGetValue(s.Address, out var a)) { if (a.Connections > 0) a.Connections--; a.LastTouch = time.GetTimestamp(); }
             var members = worlds[s.World];
             members.Remove(s);
             BroadcastRoster(members);
@@ -165,18 +167,13 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             // all connections of one address share a frame budget
             var a = addresses[s.Address];
             a.Tokens = Math.Min(o.FramesPerSecondPerAddress, a.Tokens + Seconds(now - a.TokenAt) * o.FramesPerSecondPerAddress); a.TokenAt = now;
-            if (a.Tokens < 1) { Stats.Rejected++; return; }
+            a.LastTouch = now;
+            if (a.Tokens < 1) { Strike(s, now); return; }
             a.Tokens--;
-            if (f.Length != Wire.PoseLength || f[0] != Wire.Pose) { Stats.Rejected++; return; }
+            if (f.Length != Wire.PoseLength || f[0] != Wire.Pose) { Strike(s, now); return; }
             // a per-connection bucket: 15 a second sustained, a burst of 8
             s.Tokens = Math.Min(8, s.Tokens + Seconds(now - s.TokenAt) * (o.PoseHz + 3)); s.TokenAt = now;
-            if (s.Tokens < 1)
-            {
-                if (Seconds(now - s.DroppedSince) > 10) { s.Dropped = 0; s.DroppedSince = now; }
-                Stats.Rejected++;
-                if (++s.Dropped > 150) Kick(s, Wire.ByeLarge);
-                return;
-            }
+            if (s.Tokens < 1) { Strike(s, now); return; }
             s.Tokens--;
             s.LastMsg = now;
             Check(s, f, now);
@@ -192,6 +189,21 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
         var t = new string(name.Where(c => !char.IsControl(c)).Take(24).ToArray()).Trim();
         while (System.Text.Encoding.UTF8.GetByteCount(t) > 60) t = t[..^1];
         return t.Length > 0 ? t : "Driver";
+    }
+
+    /// <summary>A text frame (the protocol only has binary ones): it costs the same as any frame, so a flood of them is limited and ends in a kick.</summary>
+    public void OnText(Session s)
+    {
+        Span<byte> one = [0];
+        OnMessage(s, one);
+    }
+
+    /// <summary>A frame that was refused (over budget, wrong shape): counted, and more than 150 in 10 seconds ends the connection.</summary>
+    void Strike(Session s, long now)
+    {
+        if (Seconds(now - s.DroppedSince) > 10) { s.Dropped = 0; s.DroppedSince = now; }
+        Stats.Rejected++;
+        if (++s.Dropped > 150) Kick(s, Wire.ByeLarge);
     }
 
     /// <summary>A frame that did not fit the receive buffer: too large.</summary>
@@ -227,6 +239,15 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
         PoseAccepted?.Invoke(new PoseSample(s, x, z, h, vf, (sbyte)f[10] * Math.PI / 128, f[12], Seconds(now)));
     }
 
+    /// <summary>Tick that never throws: a failure is counted and returned for the caller to log, and the next tick runs as usual.</summary>
+    public Exception? TickGuarded()
+    {
+        try { Tick(); return null; }
+        catch (Exception e) { lock (gate) Stats.TickErrors++; return e; }
+    }
+
+    int sweep;
+
     /// <summary>Call 15 times a second: sends the snapshots and drops idle or silent visitors.</summary>
     public void Tick()
     {
@@ -234,6 +255,13 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
         {
             var t0 = Stopwatch.GetTimestamp();
             var now = time.GetTimestamp();
+            foreach (var members in worlds.ToArray())
+                foreach (var s in members.ToArray())
+                    if (s.Faulty) Leave(s); // its socket is broken: no goodbye frame, just let it go
+            // an address with no connection left is forgotten after a minute (the join history is a minute long anyway)
+            if (++sweep % 15 == 0)
+                foreach (var key in addresses.Where(kv => kv.Value.Connections == 0 && Seconds(now - kv.Value.LastTouch) > 60).Select(kv => kv.Key).ToArray())
+                    addresses.Remove(key);
             foreach (var members in worlds.ToArray())
                 foreach (var s in members.ToArray())
                 {
@@ -265,6 +293,8 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     }
 
     public int Visitors { get { lock (gate) return worlds.Sum(w => w.Count); } }
+    /// <summary>For tests: how many addresses are remembered.</summary>
+    public int KnownAddresses { get { lock (gate) return addresses.Count; } }
     public int WorldCount { get { lock (gate) return worlds.Count; } }
 
     // ---- helpers (called under the lock)
@@ -280,7 +310,8 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     void Send(Session s, ReadOnlySpan<byte> frame)
     {
         Stats.BytesOut += frame.Length + 2; Stats.FramesOut++;
-        s.Peer.Send(frame);
+        try { s.Peer.Send(frame); }
+        catch (Exception) { s.Faulty = true; } // one broken connection must not stop the others
     }
 
     void BroadcastRoster(List<Session> members)

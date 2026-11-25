@@ -8,24 +8,48 @@ namespace Drift.Relay;
 
 public static class RelayEndpoint
 {
+    /// <summary>
+    /// The key the per-address limits count under. IPv4 is the address itself. IPv6: the /64 (one subscriber or one
+    /// machine usually holds a whole /64, so counting single addresses would let one visitor use as many as it likes);
+    /// an IPv4-mapped IPv6 address counts as the IPv4 one.
+    /// </summary>
+    public static string AddressKey(System.Net.IPAddress? ip)
+    {
+        if (ip is null) return "unknown";
+        if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
+        if (ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) return ip.ToString();
+        var b = ip.GetAddressBytes();
+        Array.Clear(b, 8, 8);
+        return new System.Net.IPAddress(b) + "/64";
+    }
+
     /// <param name="addressOf">The visitor's address as the limits should see it; behind a proxy this must be the forwarded client address.</param>
     public static void Map(WebApplication app, WorldRelay relay, string path = "/ws", Func<HttpContext, string>? addressOf = null)
     {
-        addressOf ??= c => c.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        addressOf ??= c => AddressKey(c.Connection.RemoteIpAddress);
         app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20) });
         app.Map(path, async ctx =>
         {
             int.TryParse(ctx.Request.Query["car"], out var car);
             await Serve(ctx, relay, addressOf(ctx), car);
         });
-        RunTicker(relay, app.Lifetime.ApplicationStopping);
+        RunTicker(relay, app.Lifetime.ApplicationStopping, app.Logger);
     }
 
-    /// <summary>The 15 Hz timer of a relay: starts once, ends with <paramref name="stop"/>.</summary>
-    public static void RunTicker(WorldRelay relay, CancellationToken stop) => _ = Task.Run(async () =>
+    /// <summary>The 15 Hz timer of a relay: starts once, ends with <paramref name="stop"/>. A tick that fails is counted and logged (the first and every 150th), the loop goes on.</summary>
+    public static void RunTicker(WorldRelay relay, CancellationToken stop, ILogger? log = null) => _ = Task.Run(async () =>
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1.0 / 15));
-        try { while (await timer.WaitForNextTickAsync(stop)) relay.Tick(); } catch (OperationCanceledException) { }
+        try
+        {
+            while (await timer.WaitForNextTickAsync(stop))
+            {
+                var e = relay.TickGuarded();
+                var n = relay.Stats.TickErrors;
+                if (e is not null && (n == 1 || n % 150 == 0)) log?.LogError(e, "relay tick failed ({Count} so far)", n);
+            }
+        }
+        catch (OperationCanceledException) { }
     });
 
     /// <summary>
@@ -45,8 +69,7 @@ public static class RelayEndpoint
         var peer = new SocketPeer(ws);
         var session = relay.Join(peer, address, car, name, hue);
         if (session is null) { await peer.Finish(); return; }
-        joined?.Invoke(session);
-        var sender = peer.Run();
+        var sender = Task.CompletedTask;
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);
         var watcher = stillValid is null ? Task.CompletedTask : Task.Run(async () =>
         {
@@ -59,15 +82,22 @@ public static class RelayEndpoint
             catch (OperationCanceledException) { }
             catch (Exception) { relay.Drop(session, Wire.ByeSession); } // a check that fails never keeps anybody in
         });
-        var buf = new byte[1024]; // text frames (small JSON) may be longer than a pose; the relay itself refuses binary frames over its limit
-        try
+        try // everything after the join is inside: whatever goes wrong, the visitor leaves and the slot is freed
         {
+            joined?.Invoke(session);
+            sender = peer.Run();
+            var buf = new byte[1024]; // text frames (small JSON) may be longer than a pose; the relay itself refuses binary frames over its limit
             while (ws.State == WebSocketState.Open && !peer.Closing)
             {
                 var r = await ws.ReceiveAsync(buf, cts.Token);
                 if (r.MessageType == WebSocketMessageType.Close) break;
                 if (!r.EndOfMessage) { relay.OnOversize(session); break; }
-                if (r.MessageType == WebSocketMessageType.Text) { if (r.Count <= 512) onText?.Invoke(session, System.Text.Encoding.UTF8.GetString(buf, 0, r.Count)); continue; }
+                if (r.MessageType == WebSocketMessageType.Text)
+                {
+                    relay.OnText(session);   // counted like any frame: a flood of them is limited and ends in a kick
+                    if (r.Count <= 512 && !peer.Closing) onText?.Invoke(session, System.Text.Encoding.UTF8.GetString(buf, 0, r.Count));
+                    continue;
+                }
                 relay.OnMessage(session, buf.AsSpan(0, r.Count));
             }
         }
