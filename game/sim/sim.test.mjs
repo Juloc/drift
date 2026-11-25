@@ -254,16 +254,16 @@ test('the five cars: sane numbers, and different from each other', () => {
 const MAPS = read('../data/maps.json').maps.map((m) => ({ ...m, json: read('../data/maps/' + m.file) }));
 const distToSegs = (segs, x, z) => { let best = Infinity; for (let i = 0; i < segs.length; i += 4) { const dx = segs[i + 2] - segs[i], dz = segs[i + 3] - segs[i + 1], l2 = dx * dx + dz * dz; const t = l2 ? Math.max(0, Math.min(1, ((x - segs[i]) * dx + (z - segs[i + 1]) * dz) / l2)) : 0; best = Math.min(best, Math.hypot(x - (segs[i] + dx * t), z - (segs[i + 1] + dz * t))); } return best; };
 
-test('maps: five maps, the meeting place first and the lobby, each with its own name and a real loop', () => {
-  assert.deepEqual(MAPS.map((m) => m.id), [0, 1, 2, 3, 4]);
+test('maps: six maps, the meeting place first and the lobby, each with its own name and a real loop (the touge a descent)', () => {
+  assert.deepEqual(MAPS.map((m) => m.id), [0, 1, 2, 3, 4, 5]);
   assert.equal(MAPS[0].lobby, true);
-  assert.equal(new Set(MAPS.map((m) => m.name)).size, 5);
+  assert.equal(new Set(MAPS.map((m) => m.name)).size, 6);
   for (const m of MAPS) {
     const j = m.json;
     assert.equal(j.id, m.id); assert.equal(j.gates.length, 8); assert.equal(j.grid.length, 8);
-    assert.ok(j.loopLength > 350 && j.loopLength < 1500, m.name);
+    assert.ok(j.loopLength > 350 && j.loopLength < 2600, m.name);
     const c = j.centre;
-    assert.ok(Math.hypot(c[0][0] - c.at(-1)[0], c[0][1] - c.at(-1)[1]) < 12, `${m.name}: the loop closes`);
+    if (j.closed !== false) assert.ok(Math.hypot(c[0][0] - c.at(-1)[0], c[0][1] - c.at(-1)[1]) < 12, `${m.name}: the loop closes`);
   }
 });
 
@@ -299,20 +299,21 @@ test('maps: a steady driver can go round the whole loop on every map without hit
   const dart = CARS[0];
   for (const m of MAPS) {
     const pm = prepareMap(m.json), c = m.json.centre, g = m.json.grid[0];
-    const target = m.name === 'Winter track' ? 9 : m.name === 'Mountain pass' ? 11 : 15;
+    const open = m.json.closed === false, target = m.name === 'Winter track' ? 9 : m.name === 'Mountain pass' ? 11 : m.name === 'Touge' ? 11 : 15;
     let s = makeCar(g.x, g.z, g.h), hits = 0, passed = 0, idx = 0;
     // start at the centre point nearest the grid slot and count how many points of the loop the car passes in order
-    let best = Infinity; for (let i = 0; i < c.length; i++) { const d = Math.hypot(c[i][0] - g.x, c[i][1] - g.z); if (d < best) { best = d; idx = i; } }
+    let best = Infinity; for (let i = 0; i < (open ? 30 : c.length); i++) { const d = Math.hypot(c[i][0] - g.x, c[i][1] - g.z); if (d < best) { best = d; idx = i; } }
     const limit = Math.round((m.json.loopLength / target) * 2.5 / DT);
     for (let i = 0; i < limit && passed < c.length - 3; i++) {
-      const look = c[(idx + 3) % c.length];   // 3 points ahead
+      const look = open ? c[Math.min(c.length - 1, idx + 3)] : c[(idx + 3) % c.length];   // 3 points ahead
       let err = Math.atan2(look[0] - s.x, look[1] - s.z) - s.h; while (err > Math.PI) err -= 2 * Math.PI; while (err < -Math.PI) err += 2 * Math.PI;
       const sp = speedOf(s);
       s = collide(pm, step(s, { steer: Math.max(-1, Math.min(1, err * 2.2)), throttle: sp < target ? 1 : 0, brake: sp > target + 2 ? 1 : 0, handbrake: 0 }, dart, surfaceAt(pm, s.x, s.z).mu));
       if (s.hit > 2) hits++;
-      if (Math.hypot(c[(idx + 1) % c.length][0] - s.x, c[(idx + 1) % c.length][1] - s.z) < Math.hypot(c[idx][0] - s.x, c[idx][1] - s.z) + 1.5) { idx = (idx + 1) % c.length; passed++; }
+      if (open && idx >= c.length - 1) break;
+      if (Math.hypot(c[(idx + 1) % c.length][0] - s.x, c[(idx + 1) % c.length][1] - s.z) < Math.hypot(c[idx][0] - s.x, c[idx][1] - s.z) + 1.5) { idx = open ? Math.min(c.length - 1, idx + 1) : (idx + 1) % c.length; passed++; }
     }
-    assert.ok(passed >= c.length - 3, `${m.name}: the driver got round only ${passed} of ${c.length} points`);
+    assert.ok(passed >= c.length - (open ? 40 : 3), `${m.name}: the driver got round only ${passed} of ${c.length} points`);
     assert.equal(hits, 0, `${m.name}: ${hits} hits`);
   }
 });

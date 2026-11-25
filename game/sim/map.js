@@ -31,7 +31,7 @@ export function prepareMap(json) {
   addLine(json.bounds, true);
   for (const w of json.walls ?? []) addLine(w.pts, w.closed !== false);
   const roadSegs = [];
-  if (json.road && json.centre) for (let i = 0; i < json.centre.length; i++) { const p = json.centre[i], q = json.centre[(i + 1) % json.centre.length]; roadSegs.push(p[0], p[1], q[0], q[1]); }
+  if (json.road && json.centre) for (let i = 0; i < json.centre.length - (json.closed === false ? 1 : 0); i++) { const p = json.centre[i], q = json.centre[(i + 1) % json.centre.length]; roadSegs.push(p[0], p[1], q[0], q[1]); }   // (`closed: false`: a descent, not a loop)
   return { ...json, segs: Float64Array.from(segs), roadSegs: Float64Array.from(roadSegs), obstacles: json.obstacles ?? [], zones: json.zones ?? [] };
 }
 

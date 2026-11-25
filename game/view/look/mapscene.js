@@ -24,9 +24,9 @@ const bbox = (pts) => ({ x0: Math.min(...pts.map((p) => p[0])), x1: Math.max(...
 export function sceneFromMap(map, th) {
   const b = bbox(map.bounds), cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2, M = th.margin ?? 520, area = th.mode === 'area';
   const T = th.terrain ?? {};
-  const grade = th.grade ? closedGrade(map.loopLength, th.grade) : [[0, 0], [map.loopLength, 0]];
+  const grade = map.closed === false ? [[0, 0], [map.loopLength, 0]] : th.grade ? closedGrade(map.loopLength, th.grade) : [[0, 0], [map.loopLength, 0]];
   const scene = {
-    road: { closed: true, ctrl: map.centre, halfWidth: map.halfWidth, bendMin: th.bendMin ?? 0.35, bendSpan: th.bendSpan ?? 40, grade, rails: th.rails, railGap: th.railGap, overPlaza: area, lift: area ? 0.02 : 0 },
+    road: { closed: map.closed !== false, ctrl: map.centre, halfWidth: map.halfWidth, bendMin: th.bendMin ?? 0.35, bendSpan: th.bendSpan ?? 40, grade, rails: th.rails, railGap: th.railGap, overPlaza: area, lift: area ? 0.02 : 0 },
     terrain: { mode: th.mode ?? 'road', extent: [b.x0 - M, b.z0 - M, b.x1 + M, b.z1 + M], core: [b.x0 - 50, b.z0 - 50, b.x1 + 50, b.z1 + 50], flat: 1.0, blend: 6, floor: th.floor ?? -50, ...T },
     ridges: { centre: [cx, cz], rings: th.rings },
     props: (map.props ?? []).filter((p) => DRAWN.has(p.type)),
@@ -35,11 +35,15 @@ export function sceneFromMap(map, th) {
   };
   if (area) scene.plaza = { pts: map.bounds.map((p) => [...p]), rail: th.rail ?? false, surface: false, lamps: [], benches: [], trees: [] };   // (the ground of the area is the land itself, coloured by the look's `land.gravel`)
   else if (th.plaza) scene.plaza = th.plaza;
+  Object.assign(scene.road, th.road ?? {});   // a theme may add to the road (a hillside's own height, lamps)
+  for (const k of ['volcanoes', 'ridges']) if (th[k] && k === 'volcanoes') scene[k] = th[k];
+  if (th.ridges?.centre) scene.ridges = th.ridges;
   if (th.sea) scene.sea = th.sea;
   if (th.lake) scene.lake = th.lake;
   // low mist banks outside the loop (the side away from the inside), every few hundred metres
   const ring = map.centre, n = ring.length, step = Math.max(1, Math.floor(n / (th.mistCount ?? 7)));
-  for (let i = 0; i < n && th.mist !== false; i += step) {
+  if (Array.isArray(th.mist)) scene.mist = th.mist;
+  else for (let i = 0; i < n && th.mist !== false; i += step) {
     const p = ring[i], q = ring[(i + 1) % n], dx = q[0] - p[0], dz = q[1] - p[1], l = Math.hypot(dx, dz) || 1, r = [dz / l, -dx / l];
     const inside = insidePoly(ring, p[0] + r[0] * 4, p[1] + r[1] * 4) ? 1 : -1, d = 80 + (i % 3) * 30;
     scene.mist.push([Math.round(p[0] - r[0] * inside * d), Math.round(p[1] - r[1] * inside * d), 300, 100]);

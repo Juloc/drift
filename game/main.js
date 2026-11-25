@@ -342,7 +342,7 @@ function toggleCreative() {
 }
 creativeChip.addEventListener('click', toggleCreative);
 const damageEl = Object.assign(document.createElement('div'), { id: 'damage', hidden: true });
-(document.getElementById('hud') ?? document.body).append(damageEl);
+document.body.append(damageEl);   // (fixed in game.css, outside the stack)
 function toggleDamage() {
   damageOn = !damageOn;
   try { localStorage.setItem('drift.damage', damageOn ? '1' : '0'); } catch { /* not kept */ }
