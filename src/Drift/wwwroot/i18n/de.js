@@ -49,5 +49,9 @@ export default {
   'err.guest.range': 'Stunden oder Verwendungen liegen außerhalb des erlaubten Bereichs.',
   'err.guest.too_many_links': 'Es gibt schon so viele Gastlinks wie erlaubt. Beende erst einen.',
   'board.map': 'Karte',
+  'garage.glow': 'Unterbodenbeleuchtung',
+  'garage.glowHint': 'Ein Leuchten unter deinem Auto, das die anderen sehen. Aus oder eine Farbe.',
+  'garage.glowOff': 'Aus',
+  'garage.glowN': 'Leuchtfarbe {n}',
   'settings.title': 'Einstellungen',
 };

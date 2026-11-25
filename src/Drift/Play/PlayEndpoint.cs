@@ -16,7 +16,7 @@ public sealed class SessionLife(Npgsql.NpgsqlDataSource db)
 }
 
 /// <summary>Who is playing: a signed-in person or a guest, with what the others see and the check that the session still lives.</summary>
-public sealed record Player(Guid Id, string Name, int Car, int Colour, bool Guest, Func<Task<bool>> StillValid);
+public sealed record Player(Guid Id, string Name, int Car, int Colour, bool Guest, Func<Task<bool>> StillValid, int? Glow = null);
 
 /// <summary>
 /// The lobby of the signed-in people and of the guests: the shared-world relay behind the base's guard (people) or the guest door (guests). The person comes
@@ -48,7 +48,7 @@ public static class PlayEndpoint
         var sessionId = me.Id;   // the id stays the same when the cookie value is rotated: a socket must not be thrown out by a rotation
         var profile = await sp.GetRequiredService<GarageStore>().GetAsync(me.UserId, ctx.RequestAborted);
         return new Player(me.UserId, GarageStore.DisplayName(me.UserId, profile), profile.Car, profile.Colour, false,
-            () => life.AliveAsync(sessionId));
+            () => life.AliveAsync(sessionId), profile.Glow);
     }
 
     public static void MapPlay(this WebApplication app)
@@ -57,7 +57,7 @@ public static class PlayEndpoint
         var hub = app.Services.GetRequiredService<RaceHub>();
         var sockets = app.Services.GetRequiredService<PersonSockets>();
         Task Lobby(HttpContext ctx, Player p) =>
-            RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), p.Car, p.Name, p.Colour,
+            RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), p.Car, p.Name, p.Colour, glow: p.Glow,
                 stillValid: p.StillValid, checkEvery: SessionCheck,
                 onText: (_, text) => hub.OnLobbyText(p.Id, text),
                 joined: s => { sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name, p.Car, p.Colour, s, p.Guest)); },

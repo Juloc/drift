@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Drift.Garage;
 
 namespace Drift.Tests;
@@ -106,6 +107,29 @@ public class GarageTests
             cmd.Parameters.AddWithValue(id!); cmd.Parameters.AddWithValue((short)car); cmd.Parameters.AddWithValue((short)colour); cmd.Parameters.AddWithValue((object?)nick ?? DBNull.Value);
             await Assert.ThrowsAsync<Npgsql.PostgresException>(() => cmd.ExecuteNonQueryAsync());
         }
+    }
+
+    [Fact]
+    public async Task Underglow_is_off_by_default_saved_as_a_hue_and_checked()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        var c = app.Http();
+        var cookie = await app.SignedInAsync(c);
+        var first = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/garage", cookie)));
+        Assert.False(first.TryGetProperty("glow", out var off) && off.ValueKind != JsonValueKind.Null);   // off: left out or null
+        Assert.Equal(HttpStatusCode.OK, (await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", cookie, new { car = 1, colour = 2, glow = 17 }))).StatusCode);
+        Assert.Equal(17, (await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/garage", cookie)))).GetProperty("glow").GetInt32());
+        foreach (var bad in new[] { 24, -1, 99 })
+        {
+            var r = await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", cookie, new { car = 1, colour = 2, glow = bad }));
+            Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+            Assert.Equal("out_of_range", (await TestApp.Json(r)).GetProperty("fields").GetProperty("glow").GetString());
+        }
+        Assert.Equal(HttpStatusCode.OK, (await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", cookie, new { car = 1, colour = 2 }))).StatusCode);   // glow left out: off again
+        Assert.False((await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/garage", cookie)))).TryGetProperty("glow", out var again) && again.ValueKind != JsonValueKind.Null);
+        await using var cmd = db.Data.CreateCommand("update drift_profile set glow = 24");
+        await Assert.ThrowsAsync<Npgsql.PostgresException>(() => cmd.ExecuteNonQueryAsync());   // the table refuses it too
     }
 
     [Fact]

@@ -42,7 +42,7 @@ public sealed class RelayOptions
 
 public static class Wire
 {
-    public const byte Pose = 1, Welcome = 0x80, Roster = 0x81, Snapshot = 0x82, Fix = 0x83, Bye = 0x84;
+    public const byte Pose = 1, Welcome = 0x80, Roster = 0x81, Snapshot = 0x82, Fix = 0x83, Bye = 0x84, Glow = 0x85;
     public const int PoseLength = 13, EntryLength = 12;
     public const byte ByeLarge = 1, ByeViolations = 2, ByeIdle = 3, ByeSilent = 4, ByeFull = 5, ByeReplaced = 6, ByeSession = 7;
 
@@ -57,6 +57,8 @@ public sealed class Session
     public int World { get; internal set; }
     public byte Car { get; internal set; }
     public byte Hue { get; internal set; }
+    /// <summary>Underglow: 0 = none, else the hue index (0..23) plus one. Sent to the others in a frame of its own, never in the roster.</summary>
+    public byte Glow { get; internal set; }
     public string Name { get; internal set; } = "";
     public string Address { get; internal set; } = "";
     public IPeer Peer { get; internal set; } = null!;
@@ -138,7 +140,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     /// <paramref name="hue"/> (0..23) the caller says who the visitor is (a signed-in person); without them the relay picks
     /// a name from its fixed list and a free colour (the public world). The caller has checked the text of a name.
     /// </summary>
-    public Session? Join(IPeer peer, string address, int car, string? name = null, int? hue = null)
+    public Session? Join(IPeer peer, string address, int car, string? name = null, int? hue = null, int? glow = null)
     {
         lock (gate)
         {
@@ -161,6 +163,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
                 Id = id, World = w, Car = (byte)(car >= 0 && car < o.Top.Length ? car : 0), Peer = peer, Address = address,
                 LastMsg = now, LastMove = now, TokenAt = now, DroppedSince = now, ViolationsSince = now,
                 Hue = hue is >= 0 and < 24 ? (byte)hue.Value : PickHue(members),
+                Glow = glow is >= 0 and < 24 ? (byte)(glow.Value + 1) : (byte)0,
             };
             s.Name = name is { Length: > 0 } ? Clean(name) : PickName(members, s.Hue);
             members.Add(s);
@@ -362,6 +365,12 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
         }
         var frame = ms.ToArray();
         foreach (var m in members) Send(m, frame);
+        // underglow travels in a frame of its own (older pages ignore an unknown frame): count, then id and hue-plus-one of each visitor that has one
+        var lit = members.Where(m => m.Glow > 0).ToList();
+        if (lit.Count == 0) return;
+        var g = new byte[2 + lit.Count * 2]; g[0] = Wire.Glow; g[1] = (byte)lit.Count;
+        for (var i = 0; i < lit.Count; i++) { g[2 + i * 2] = lit[i].Id; g[3 + i * 2] = lit[i].Glow; }
+        foreach (var m in members) Send(m, g);
     }
 
     /// <summary>The colour word follows the car's hue (24 hues of 15 degrees, 12 words), the animal is free.</summary>

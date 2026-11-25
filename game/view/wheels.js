@@ -59,3 +59,39 @@ function mergeTwo(a, b) {
   g.setIndex(new THREE.BufferAttribute(idx, 1));
   return g;
 }
+
+/**
+ * Underglow: one glowing patch under each lit car, all in ONE instanced mesh (one draw call): an additive quad with a soft round fall-off,
+ * no real light, so it costs next to nothing on the phone tier. Colour per instance.
+ */
+export class GlowPool {
+  constructor(capacity = 16) {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d').createRadialGradient(32, 32, 2, 32, 32, 31);
+    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.55, 'rgba(255,255,255,0.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    const ctx = c.getContext('2d'); ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
+    const tex = new THREE.CanvasTexture(c);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3 });
+    this.mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), mat, capacity);
+    this.mesh.count = 0; this.mesh.frustumCulled = false; this.mesh.renderOrder = 3;
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.mesh.setColorAt(0, new THREE.Color(0));
+    this.n = 0;
+    this._c = new THREE.Color();
+    this._m = new THREE.Matrix4();
+  }
+  begin() { this.n = 0; }
+  /** x, z in drawing space, ry = the car's yaw there, hue = index 0..23, strength = 1 (a bit more at night). */
+  add(x, z, ry, hue, strength = 1) {
+    if (this.n >= this.mesh.instanceMatrix.count) return;
+    this._m.compose(_p.set(x, 0.1, z), _q.setFromAxisAngle(_up, ry), _s.set(4.4, 1, 6.2));
+    this.mesh.setMatrixAt(this.n, this._m);
+    this.mesh.setColorAt(this.n, this._c.setHSL((hue * 15) / 360, 1, 0.55).multiplyScalar(strength));
+    this.n++;
+  }
+  end() {
+    this.mesh.count = this.n;
+    this.mesh.instanceMatrix.needsUpdate = true;
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+}

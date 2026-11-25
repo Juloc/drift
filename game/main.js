@@ -20,6 +20,7 @@ import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
 import { WorldClient } from './net/world.js';
 import { Remotes, paintFor } from './view/remotes.js';
+import { GlowPool } from './view/wheels.js';
 
 const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
@@ -69,13 +70,18 @@ scene.add(carGroup, pool.mesh, pool.blobs, smoke.points, skids.mesh);
 const cam = new FollowCam(camera, coarse ? { dist: 9.5, height: 4.6, look: 4.5 } : { dist: 11, height: 5.6, look: 5 });
 const input = new Input($('touch'));
 const hud = new Hud(T);
-const remotes = online ? new Remotes({ scene, pool, smoke, skids, camera, tagsEl: $('tags'), lite }) : null;
+// underglow (?glow=0..23 here, or from the garage): one glowing patch under a lit car, one draw call for all
+const glowHue = params.has('glow') && +params.get('glow') >= 0 && +params.get('glow') < 24 ? Math.floor(+params.get('glow')) : null;
+const glowPool = new GlowPool(16);
+scene.add(glowPool.mesh);
+const glowBoost = () => (map.light?.lamps ? 1.7 : 1);
+const remotes = online ? new Remotes({ scene, pool, smoke, skids, camera, tagsEl: $('tags'), lite, glowPool, glowOf: (id) => net?.glow.get(id), glowBoost }) : null;
 // the state, declared before anything can call back (a socket may welcome us while the module still waits for a file)
 let cur, prev, score, spin = 0, simSteps = 0, paused = false;
 let lastInp = { steer: 0, throttle: 0, brake: 0, handbrake: 0 };   // what the car was told in the last step (for the HUD)
 let net = null, spawned = false, locked = false;
 const raceMode = online && document.documentElement.dataset.race === '1';   // the signed-in app: races (the public demo has none)
-const lobbyUrl = params.get('ws') || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?car=${carIndex}`;
+const lobbyUrl = params.get('ws') || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?car=${carIndex}${glowHue !== null ? '&glow=' + glowHue : ''}`;
 const fmt = (ms) => { const t = Math.max(0, Math.round(ms)); return `${Math.floor(t / 60000)}:${String(Math.floor(t / 1000) % 60).padStart(2, '0')}.${String(Math.floor((t % 1000) / 10)).padStart(2, '0')}`; };
 const show = (id, on) => { const el = $(id); if (el) el.hidden = !on; };
 let noteTimer = 0;
@@ -282,6 +288,8 @@ function frame(now) {
   carGroup.rotation.set(pitch, HEAD(drawn.h), roll, 'YXZ');
   carGroup.updateMatrix();
   spin += (vf * dt) / WHEEL.r;
+  glowPool.begin();
+  if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost());
   pool.begin();
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) pool.wheel(carGroup.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -cur.steer : 0, spin);
   pool.blob(X(drawn.x), drawn.z, BLOB[carIndex][0], BLOB[carIndex][1], HEAD(drawn.h));
@@ -291,6 +299,7 @@ function frame(now) {
     remotes.update(net.sample(now), net.roster, dt);
   }
   pool.end();
+  glowPool.end();
 
   // smoke and skid marks from the rear wheels
   const sliding = (cur.slide > 0.25 || (input.has('hand') && speedOf(cur) > 4)) && speedOf(cur) > 3 && !paused;

@@ -2,7 +2,7 @@
 // the other cars. Frame layouts: docs/ARCHITECTURE.md section 10. No DOM in here, so it can be tested in node.
 import { angDiff } from '../core/rng.js';
 
-export const POSE = 1, WELCOME = 0x80, ROSTER = 0x81, SNAPSHOT = 0x82, FIX = 0x83, BYE = 0x84;
+export const POSE = 1, WELCOME = 0x80, ROSTER = 0x81, SNAPSHOT = 0x82, FIX = 0x83, BYE = 0x84, GLOW = 0x85;
 export const DELAY_MS = 140, EXTRAPOLATE_MS = 250, MOVING_MS = 66, STILL_MS = 500;
 const TAU = Math.PI * 2;
 
@@ -63,6 +63,7 @@ export class WorldClient {
   constructor(o) {
     Object.assign(this, { onWelcome() {}, onRoster() {}, onFix() {}, onBye() {}, onState() {}, onJson() {} }, o);
     this.ws = null; this.seq = 0; this.lastSend = 0; this.retry = 1000; this.stop = false;
+    this.glow = new Map();   // id -> hue index of the underglow (a frame of its own: 0x85)
     this.me = null; this.roster = new Map(); this.buffers = new Map(); this.lastSeen = new Map();
     this.base = 0; this.lastRaw = null; this.samples = []; this.offset = null;
     this.bytesIn = 0; this.bytesOut = 0; this.framesIn = 0; this.framesOut = 0;
@@ -101,6 +102,7 @@ export class WorldClient {
           o += 4 + len;
         }
         this.roster = next;
+        for (const id of [...this.glow.keys()]) if (!next.has(id)) this.glow.delete(id);
         for (const id of [...this.buffers.keys()]) if (!next.has(id)) { this.buffers.delete(id); this.lastSeen.delete(id); }
         if (this.me) this.me = { ...this.me, ...next.get(this.me.id) };
         this.onRoster(next);
@@ -124,6 +126,12 @@ export class WorldClient {
           if (buf.length > 8) buf.shift();
           this.lastSeen.set(id, now);
         }
+        break;
+      }
+      case GLOW: {
+        const n = v.getUint8(1), next = new Map();
+        for (let i = 0; i < n; i++) next.set(v.getUint8(2 + i * 2), v.getUint8(3 + i * 2) - 1);
+        this.glow = next;
         break;
       }
       case FIX: this.onFix({ x: v.getInt16(1, true) / 20, z: v.getInt16(3, true) / 20, h: (v.getUint16(5, true) * TAU) / 65536 }); break;

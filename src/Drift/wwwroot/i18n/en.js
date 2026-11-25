@@ -49,5 +49,9 @@ export default {
   'err.guest.range': 'Hours or uses are out of range.',
   'err.guest.too_many_links': 'There are already as many guest links as allowed. End one first.',
   'board.map': 'Map',
+  'garage.glow': 'Underglow',
+  'garage.glowHint': 'A glow under your car that the others see. Off or one colour.',
+  'garage.glowOff': 'Off',
+  'garage.glowN': 'Glow colour {n}',
   'settings.title': 'Settings',
 };

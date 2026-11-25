@@ -380,4 +380,24 @@ public class RelayTests
         Assert.Equal(Wire.ByeSession, pa.Closed); Assert.Equal(Wire.ByeSession, pb.Closed);
         Assert.Equal(0, r.Visitors);
     }
+
+    [Fact]
+    public void Underglow_goes_to_the_others_in_a_frame_of_its_own_and_the_roster_stays_as_it_was()
+    {
+        var (r, _) = Make();
+        var pa = new FakePeer(); var a = r.Join(pa, "a", 0, null, null, 8)!;       // lit, hue 8
+        var pb = new FakePeer(); var b = r.Join(pb, "b", 0)!;                         // not lit
+        var pc = new FakePeer(); var c = r.Join(pc, "c", 0, null, null, 99)!;        // a wrong value: no glow
+        var g = pb.Last(Wire.Glow)!;
+        Assert.Equal(1, g[1]); Assert.Equal(a.Id, g[2]); Assert.Equal(9, g[3]);       // hue index plus one
+        Assert.Equal(0, c.Glow);
+        // the roster frame has exactly the layout it always had: count, then id, car, hue, name length, name
+        var roster = pb.Last(Wire.Roster)!;
+        Assert.Equal(3, roster[1]);
+        var o = 2; for (var i = 0; i < 3; i++) o += 4 + roster[o + 3];
+        Assert.Equal(roster.Length, o);
+        // nobody lit: no glow frame at all
+        var (r2, _) = Make(); var q = new FakePeer(); r2.Join(q, "x", 0);
+        Assert.Equal(0, q.Count(Wire.Glow));
+    }
 }

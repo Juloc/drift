@@ -45,7 +45,7 @@ function run(me) {
 /* ---------- the garage ---------- */
 async function garagePage(me) {
   const g = await api('GET', '/api/garage');
-  const state = { car: g.car, colour: g.colour };
+  const state = { car: g.car, colour: g.colour, glow: g.glow ?? null };
   const preview = h('p', { class: 'garage-preview' });
   const swatch = (hue) => { const b = h('button', { class: 'swatch', type: 'button', role: 'radio', 'aria-label': t('garage.colourN', { n: hue / 15 + 1 }) }); b.style.setProperty('--h', hue); return b; };
 
@@ -57,6 +57,9 @@ async function garagePage(me) {
     return b;
   });
   const swatches = HUES.map((hue, i) => { const b = swatch(hue); b.addEventListener('click', () => { state.colour = i; sync(); }); return b; });
+  // underglow: off, or one of the 24 hues
+  const glowOff = h('button', { class: 'btn outline', type: 'button', role: 'radio', onclick: () => { state.glow = null; sync(); } }, t('garage.glowOff'));
+  const glowSwatches = HUES.map((hue, i) => { const b = swatch(hue); b.setAttribute('aria-label', t('garage.glowN', { n: i + 1 })); b.addEventListener('click', () => { state.glow = i; sync(); }); return b; });
 
   const nick = field({ label: t('garage.nick'), name: 'nick', value: g.nick || '', maxlength: 16, autocomplete: 'off', hint: t('garage.nickHint', { name: g.name }) });
   const form = h('form', { class: 'form' }, nick);
@@ -64,6 +67,8 @@ async function garagePage(me) {
   function sync() {
     carButtons.forEach((b, i) => b.setAttribute('aria-checked', String(i === state.car)));
     swatches.forEach((b, i) => b.setAttribute('aria-checked', String(i === state.colour)));
+    glowOff.setAttribute('aria-checked', String(state.glow === null));
+    glowSwatches.forEach((b, i) => b.setAttribute('aria-checked', String(i === state.glow)));
     const name = form.querySelector('[name="nick"]').value.trim() || g.name;
     preview.replaceChildren(h('span', { class: 'dot' }), h('span', { text: t('garage.preview', { name, car: CARS[state.car].name }) }));
     preview.firstChild.style.setProperty('--h', state.colour * 15);
@@ -73,7 +78,7 @@ async function garagePage(me) {
 
   const save = async () => {
     clearErrors(form);
-    try { await api('PUT', '/api/garage', { car: state.car, colour: state.colour, ...formValues(form) }); }
+    try { await api('PUT', '/api/garage', { car: state.car, colour: state.colour, glow: state.glow, ...formValues(form) }); }
     catch (e) { if (!(e instanceof ApiError)) throw e; showErrors(form, e); toast(errorText(e), { kind: 'danger' }); return; }
     toast(t('garage.saved'), { kind: 'ok' });
   };
@@ -85,6 +90,7 @@ async function garagePage(me) {
     body: h('div', { class: 'page stack' },
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.car') }), h('div', { class: 'cars', role: 'radiogroup', 'aria-label': t('garage.car') }, carButtons)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.colour') }), h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.colour') }, swatches)),
+      h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.glow') }), h('p', { class: 'muted', text: t('garage.glowHint') }), glowOff, h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.glow') }, glowSwatches)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.name') }), form),
       boardCard(await api('GET', '/api/times')),
       h('div', { class: 'card stack' }, preview,

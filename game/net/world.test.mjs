@@ -40,3 +40,21 @@ test('before the first snapshot the car stands at the first one; no snapshots, n
 });
 
 test('the delay is two snapshot intervals', () => { assert.ok(DELAY_MS >= 2 * 66 && DELAY_MS <= 200); });
+
+import { WorldClient } from './world.js';
+
+test('the underglow frame gives the hue of each visitor that has one, and a leaving visitor takes theirs along', () => {
+  const c = new WorldClient({ url: 'ws://x' });
+  const roster = (ids) => { const b = [0x81, ids.length]; for (const id of ids) b.push(id, 0, 3, 1, 65); return new Uint8Array(b).buffer; };
+  c.handle(roster([0, 1, 2]));
+  c.handle(new Uint8Array([0x85, 2, 0, 9, 2, 1]).buffer);        // visitor 0: hue 8, visitor 2: hue 0
+  assert.equal(c.glow.get(0), 8); assert.equal(c.glow.get(2), 0); assert.equal(c.glow.has(1), false);
+  c.handle(roster([0, 1]));                                       // 2 leaves
+  assert.equal(c.glow.has(2), false); assert.equal(c.glow.get(0), 8);
+});
+
+test('an unknown frame type is ignored (older pages meet newer relays this way)', () => {
+  const c = new WorldClient({ url: 'ws://x' });
+  c.handle(new Uint8Array([0x99, 1, 2, 3]).buffer);
+  assert.equal(c.roster.size, 0);
+});

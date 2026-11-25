@@ -7,6 +7,7 @@ else {
   const url = new URL(location.href);
   url.searchParams.set('ws', `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/play/ws`);
   url.searchParams.set('car', String(g.car));
+  if (g.glow !== null && g.glow !== undefined) url.searchParams.set('glow', String(g.glow));   // only for drawing our own: the server tells the others from the garage
   history.replaceState(null, '', url);
   await import('./main.js');
 }

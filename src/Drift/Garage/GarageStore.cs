@@ -4,7 +4,7 @@ using Npgsql;
 namespace Drift.Garage;
 
 /// <summary>What a person drives: a car (0..4), a colour (0..23, steps of 15 degrees on the colour wheel) and a nickname or null.</summary>
-public sealed record Profile(int Car, int Colour, string? Nick);
+public sealed record Profile(int Car, int Colour, string? Nick, int? Glow = null);
 
 /// <summary>The garage of every person. Every statement names the owner (DATA-03).</summary>
 public sealed class GarageStore(NpgsqlDataSource db)
@@ -13,17 +13,17 @@ public sealed class GarageStore(NpgsqlDataSource db)
 
     /// <summary>The profile, or the defaults of a person who has never saved one: the first car, a colour that follows the person's id.</summary>
     public async Task<Profile> GetAsync(Guid userId, CancellationToken ct = default) =>
-        await db.FirstAsync("select car_id, colour, nick from drift_profile where user_id = $1",
-            r => new Profile(r.GetInt16(0), r.GetInt16(1), r.TextOrNull(2)), ct, userId)
+        await db.FirstAsync("select car_id, colour, nick, glow from drift_profile where user_id = $1",
+            r => new Profile(r.GetInt16(0), r.GetInt16(1), r.TextOrNull(2), r.IsDBNull(3) ? null : r.GetInt16(3)), ct, userId)
         ?? new Profile(0, DefaultColour(userId), null);
 
     public async Task<Profile> SaveAsync(Guid userId, Profile p, CancellationToken ct = default)
     {
         await db.ExecAsync(
             """
-            insert into drift_profile (user_id, car_id, colour, nick) values ($1, $2, $3, $4)
-            on conflict (user_id) do update set car_id = $2, colour = $3, nick = $4, updated_at = now()
-            """, ct, userId, (short)p.Car, (short)p.Colour, p.Nick);
+            insert into drift_profile (user_id, car_id, colour, nick, glow) values ($1, $2, $3, $4, $5)
+            on conflict (user_id) do update set car_id = $2, colour = $3, nick = $4, glow = $5, updated_at = now()
+            """, ct, userId, (short)p.Car, (short)p.Colour, p.Nick, p.Glow is { } g ? (short)g : DBNull.Value);
         return p;
     }
 

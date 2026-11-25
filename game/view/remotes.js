@@ -14,8 +14,8 @@ function partsFor(hue, lite, model) {
 export const paintFor = (hue, lite, model = 0) => partsFor(hue, lite, model);
 
 export class Remotes {
-  constructor({ scene, pool, smoke, skids, camera, tagsEl, lite }) {
-    Object.assign(this, { scene, pool, smoke, skids, camera, tagsEl, lite });
+  constructor({ scene, pool, smoke, skids, camera, tagsEl, lite, glowPool, glowOf, glowBoost }) {
+    Object.assign(this, { scene, pool, smoke, skids, camera, tagsEl, lite, glowPool, glowOf, glowBoost });
     this.cars = new Map();
     this.clay = makeClay(); this.glow = makeGlow();
     this.frame = 0;
@@ -49,6 +49,8 @@ export class Remotes {
       g.updateMatrix();
       rc.spin += (o.vf * dt) / WHEEL.r;
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.pool.wheel(g.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -o.steer : 0, rc.spin);
+      const gl = this.glowOf?.(o.id);
+      if (gl !== undefined && gl >= 0) this.glowPool.add(X(o.x), o.z, HEAD(o.h), gl, this.glowBoost?.() ?? 1);
       this.pool.blob(X(o.x), o.z, BLOB[rc.model]?.[0] ?? 1.25, BLOB[rc.model]?.[1] ?? 2.1, HEAD(o.h));
       const drifting = (o.flags & 2) !== 0 || (o.flags & 1) !== 0;
       for (let i = 0; i < 2; i++) {
