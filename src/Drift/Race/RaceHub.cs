@@ -80,7 +80,7 @@ public sealed class RaceHub
     {
         lock (gate)
         {
-            if (lobby.TryGetValue(person, out var cur) && cur.Session == s) lobby.Remove(person);
+            if (lobby.TryGetValue(person, out var cur) && cur.Session == s) { lobby.Remove(person); emoteAt.Remove(person); }
         }
     }
 

@@ -107,6 +107,16 @@ Per hour on a phone with 16 in the world: about 10 MB down, 1 MB up. With three 
 - Play in headless Chromium and write numbers and a picture: `node tools/play.mjs <w> <h> <name> [--touch] [--tier=..] [--secs=8] [--dpr=2]` (software graphics; it picks its own free DevTools port and kills its browser). Single pictures: `chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist --window-size=W,H --virtual-time-budget=15000 --screenshot=out.png "http://127.0.0.1:8150/game/index.html?tier=high&demo=orbit&t=6"`.
 - The map JSON is written by `node tools/make-map.mjs`.
 
+## Review of the games accounts (snapshot 83a1240): findings fixed (2026-11-26)
+
+Each with a test in `GameAccountReviewTests` (20 new; 205 .NET tests in all, green).
+- **H1** sign-in: at most 3 password checks per address and 1 per account at a time (as in the base), the wait is checked again after entry; the same for the checks of delete and password change; **a hash gate of its own** (`HashGate`: two game hashes at a time, the rest refused after 3 s instead of queueing) so public load cannot starve the administrator's sign-in in the base's shared queue. 80 parallel guesses: at most 6 reach the check.
+- **M1** the daily/weekly/hourly limits are reserved atomically (advisory lock; the log row is the reservation and is given back when the sign-up fails). 8 parallel solved sign-ups: exactly 3 accounts. **M2** a taken name is answered before any hash is computed; guesses at taken names count against the address (10, then the wait doubles) and do not use a place in the daily limit.
+- **M3** a nickname follows the rules of an account name (Latin letters, reserved words, the filter), and every shown name is unique across nicknames, account names and guest names (`nick_key`, migration 011; old nicknames get a key or are cleared at start).
+- **L1** a password change closes the sockets at once. **L2** the admin delete takes games accounts only (404 otherwise). **L3** an IPv6 ban is the /64 the visitor lives in. **L4** a report's name must look like a name. **L5** report handling and lifting a ban are audited. **L6** the cookie is deleted with the attributes it was set with (also the guest cookie). **L7** old sessions are purged every hour; a deleted person's reports go, reports about them lose name and id; the export lists them.
+- Notes: a ban now also ends the sockets of people already in (from that range); the maps that grew without end are pruned; the sign-up log's address hash is a **pseudonym, not an anonymisation** (the key is in the same database; an IPv4 address can be found again by trying all of them): said so in the privacy page's list, for the owner's text.
+- Not changed: the proof of work is not tied to an address (documented); no page for the administrator yet.
+
 ## Open world, step 3a: the network for 32+ (built 2026-11-26)
 
 Plan: [PLAN-0.2.md](PLAN-0.2.md) step 3. **Interest areas in the relay** (`server/Relay/WorldRelay.cs`, option `InterestRadius`, 0 = off = the old behaviour byte for byte, so the website's copy and the races are unchanged):

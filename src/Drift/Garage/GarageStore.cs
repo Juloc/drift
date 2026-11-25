@@ -21,9 +21,9 @@ public sealed class GarageStore(NpgsqlDataSource db)
     {
         await db.ExecAsync(
             """
-            insert into drift_profile (user_id, car_id, colour, nick, glow) values ($1, $2, $3, $4, $5)
-            on conflict (user_id) do update set car_id = $2, colour = $3, nick = $4, glow = $5, updated_at = now()
-            """, ct, userId, (short)p.Car, (short)p.Colour, p.Nick, p.Glow is { } g ? (short)g : DBNull.Value);
+            insert into drift_profile (user_id, car_id, colour, nick, nick_key, glow) values ($1, $2, $3, $4, $6, $5)
+            on conflict (user_id) do update set car_id = $2, colour = $3, nick = $4, nick_key = $6, glow = $5, updated_at = now()
+            """, ct, userId, (short)p.Car, (short)p.Colour, p.Nick, p.Glow is { } g ? (short)g : DBNull.Value, p.Nick is null ? DBNull.Value : Drift.GameAccounts.NameRules.Key(p.Nick));
         return p;
     }
 

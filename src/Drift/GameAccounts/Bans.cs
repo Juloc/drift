@@ -9,7 +9,7 @@ namespace Drift.GameAccounts;
 public sealed record Ban(Guid Id, string Range, DateTimeOffset Until, string? Reason, DateTimeOffset MadeAt);
 
 /// <summary>Bans of an address or a network for a time (the administrator's). They stop sign-up and sign-in from there; the key is what the limits count under (IPv4 itself, IPv6 the /64).</summary>
-public sealed partial class Bans(NpgsqlDataSource db)
+public sealed partial class Bans(NpgsqlDataSource db, IEnumerable<IAccountEvents> events)
 {
     [GeneratedRegex(@"^[0-9a-fA-F:.]+(/\d{1,3})?$")]
     private static partial Regex Plain();
@@ -27,10 +27,13 @@ public sealed partial class Bans(NpgsqlDataSource db)
         if (hours is < 1 or > 24 * 365) return Error.Invalid("games.ban_range", "The time is out of range.");
         if (range is null || !Plain().IsMatch(range) || !IPNetwork.TryParse(range.Contains('/') ? range : range + (range.Contains(':') ? "/128" : "/32"), out var net)) return Error.Invalid("games.ban_range", "Not an address or network.");
         var v6 = range.Contains(':');
+        // the limits and the checks see an IPv6 visitor as its /64 (one subscriber holds a whole /64): a single IPv6 address is banned as the /64 it lives in, never as itself
+        if (v6 && net.PrefixLength > 64) { net = new System.Net.IPNetwork(net.BaseAddress, 64); range = net.ToString(); }
         if (net.PrefixLength < (v6 ? 48 : 16)) return Error.Invalid("games.ban_range", "That network is too large.");
         var id = Ids.New();
         var made = await db.QueryAsync("insert into games_account_ban (id, range, until, reason, made_by) values ($1, $2::inet, now() + make_interval(hours => $3), $4, $5) returning until, made_at",
             r => (r.Time(0), r.Time(1)), ct, id, range, hours, reason is { Length: > 200 } ? reason[..200] : reason, by is { } g ? g : DBNull.Value);
+        foreach (var e in events) e.Banned(range);   // whoever is in from there is out now
         return new Ban(id, range, made[0].Item1, reason, made[0].Item2);
     }
 

@@ -19,18 +19,30 @@ public interface IAccountData
     Task<IReadOnlyDictionary<string, object?>> ExportAsync(Guid owner, CancellationToken ct);
 }
 
+/// <summary>Is a display name (as a comparison key) already shown by somebody else in the game (a nickname)? The account's name and the game's nicknames must not collide.</summary>
+public interface IDisplayNames
+{
+    Task<bool> TakenAsync(string key, Guid? except, CancellationToken ct);
+}
+
 /// <summary>Told when accounts or sessions end, so that open sockets close (the game implements this).</summary>
 public interface IAccountEvents
 {
     void Ended(IEnumerable<Guid> accountIds);
+    /// <summary>An address range was banned: sockets from there end now (the ban also holds for people who are already in).</summary>
+    void Banned(string range);
 }
 
 /// <summary>
 /// The games accounts: sign-up, sign-in, sessions, and the person's own changes. A module of its own (docs/ACCOUNTS-GAMES.md): it talks to the game only through
 /// <see cref="IAccountData"/> and <see cref="IAccountEvents"/>. Passwords are Argon2id through the base's hasher; an unknown name costs as much time as a known one (AUTH-08).
 /// </summary>
-public sealed class GameAccountService(NpgsqlDataSource db, PasswordHasher hasher, LoginLimiter limiter, IEnumerable<IAccountData> data, IEnumerable<IAccountEvents> events)
+public sealed class GameAccountService(NpgsqlDataSource db, PasswordHasher hasher, LoginLimiter limiter, HashGate gate, IEnumerable<IAccountData> data, IEnumerable<IAccountEvents> events, IEnumerable<IDisplayNames> display)
 {
+    /// <summary>So many password checks of one address, and of one account, may run at the same time (the check needs 64 MiB); the base uses the same idea.</summary>
+    public const int InFlightPerAddress = 3, InFlightPerAccount = 1;
+    static readonly Error Busy = Error.TooMany(5);
+
     public const int MinPassword = 8, MaxPassword = 256;
     static readonly TimeSpan MaxAge = TimeSpan.FromDays(90), Idle = TimeSpan.FromDays(30);
 
@@ -63,12 +75,14 @@ public sealed class GameAccountService(NpgsqlDataSource db, PasswordHasher hashe
     {
         var key = NameRules.Key(name);
         if (PasswordProblem(password, name) is { } problem) return new Error(ErrorKind.Invalid, "invalid", "The password is not good.", new Dictionary<string, string> { ["password"] = problem });
-        var hash = await hasher.HashAsync(password);
+        // the cheap check first: a name that is taken costs no password hash (the server must not pay Argon2 for a guess at a name)
+        if (await db.ScalarAsync<bool>("select exists (select 1 from games_account where name_key = $1) or exists (select 1 from games_account_released where name_key = $1 and until > now())", ct, key)
+            || (await Task.WhenAll(display.Select(d => d.TakenAsync(key, null, ct)))).Any(x => x)) return NameTaken();
+        var (entered, hash) = await gate.RunAsync(() => hasher.HashAsync(password));
+        if (!entered) return Busy;
         var id = Ids.New();
         try
         {
-            var taken = await db.ScalarAsync<bool>("select exists (select 1 from games_account where name_key = $1) or exists (select 1 from games_account_released where name_key = $1 and until > now())", ct, key);
-            if (taken) return NameTaken();
             await db.ExecAsync("insert into games_account (id, name, name_key, password_hash) values ($1, $2, $3, $4)", ct, id, name, key, hash);
         }
         catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation) { return NameTaken(); }
@@ -86,18 +100,29 @@ public sealed class GameAccountService(NpgsqlDataSource db, PasswordHasher hashe
     public async Task<Result<(GameIdentity Who, string Cookie)>> LoginAsync(string name, string password, string ip, CancellationToken ct = default)
     {
         var key = NameRules.Key(name);
+        // in flight: failures are counted only after the (slow) check, so a burst of simultaneous requests would pass the wait; at most 3 per address and 1 per account run at once
+        string busyIp = "busy:games:" + ip, busyAcct = "busy:games:acct:" + key;
+        if (!limiter.TryBegin(busyIp, InFlightPerAddress)) return Busy;
+        if (!limiter.TryBegin(busyAcct, InFlightPerAccount)) { limiter.End(busyIp); return Busy; }
+        try { return await LoginCoreAsync(key, password, ip, ct); }
+        finally { limiter.End(busyAcct); limiter.End(busyIp); }
+    }
+
+    async Task<Result<(GameIdentity Who, string Cookie)>> LoginCoreAsync(string key, string password, string ip, CancellationToken ct)
+    {
         string[] keys = ["ip:games:" + ip, "acct:games:" + key];
-        if (limiter.WaitSeconds(keys) is > 0 and var wait) return Error.TooMany(wait);
+        if (limiter.WaitSeconds(keys) is > 0 and var wait) return Error.TooMany(wait);   // checked after the entry: nothing slipped in between
         var row = await db.FirstAsync("select id, name, password_hash, must_change, state from games_account where name_key = $1",
             r => new Row(r.GetGuid(0), r.GetString(1), r.GetString(2), r.GetBoolean(3), r.GetString(4)), ct, key);
-        var (ok, rehash) = await hasher.VerifyAsync(password ?? "", row?.Hash ?? await hasher.DummyHashAsync());
+        var (entered, (ok, rehash)) = await gate.RunAsync(async () => await hasher.VerifyAsync(password ?? "", row?.Hash ?? await hasher.DummyHashAsync()));
+        if (!entered) return Busy;
         if (row is null || !ok || row.State != "active")
         {
             foreach (var k in keys) limiter.Fail(k);
             return new Error(ErrorKind.Unauthorized, "games.login", "Name or password is wrong.");
         }
         limiter.Succeed("acct:games:" + key);
-        if (rehash) await db.ExecAsync("update games_account set password_hash = $2 where id = $1", ct, row.Id, await hasher.HashAsync(password!));
+        if (rehash && await gate.RunAsync(() => hasher.HashAsync(password!)) is (true, var fresh)) await db.ExecAsync("update games_account set password_hash = $2 where id = $1", ct, row.Id, fresh);
         return await NewSessionAsync(row.Id, row.Name, row.MustChange, ct);
     }
 
@@ -136,21 +161,32 @@ public sealed class GameAccountService(NpgsqlDataSource db, PasswordHasher hashe
         var verified = await VerifyOwnAsync(who, current, ip, ct);
         if (!verified.Ok) return verified;
         if (PasswordProblem(next, who.Name) is { } problem) return new Error(ErrorKind.Invalid, "invalid", "The password is not good.", new Dictionary<string, string> { ["password"] = problem });
-        await db.ExecAsync("update games_account set password_hash = $2, must_change = false where id = $1", ct, who.Id, await hasher.HashAsync(next!));
+        var (entered, hash) = await gate.RunAsync(() => hasher.HashAsync(next!));
+        if (!entered) return Busy;
+        await db.ExecAsync("update games_account set password_hash = $2, must_change = false where id = $1", ct, who.Id, hash);
         await db.ExecAsync("delete from games_account_session where account_id = $1 and id <> $2", ct, who.Id, who.SessionId);
-        Tell([who.Id], onlyOthers: true);
+        Tell([who.Id]);   // the sockets of the other sessions close now (the person is on the account page, not in a drive)
         return Result.Success;
     }
 
     async Task<Result> VerifyOwnAsync(GameIdentity who, string? password, string ip, CancellationToken ct)
     {
-        string[] keys = ["ip:games:" + ip, "acct:games:" + NameRules.Key(who.Name)];
-        if (limiter.WaitSeconds(keys) is > 0 and var wait) return Error.TooMany(wait);
-        var hash = await db.ScalarAsync<string>("select password_hash from games_account where id = $1", ct, who.Id);
-        var (ok, _) = await hasher.VerifyAsync(password ?? "", hash ?? await hasher.DummyHashAsync());
-        if (!ok) { foreach (var k in keys) limiter.Fail(k); return new Error(ErrorKind.Unauthorized, "games.password_wrong", "The password is wrong."); }
-        limiter.Succeed(keys[1]);
-        return Result.Success;
+        var key = NameRules.Key(who.Name);
+        string busyIp = "busy:games:" + ip, busyAcct = "busy:games:acct:" + key;
+        if (!limiter.TryBegin(busyIp, InFlightPerAddress)) return Busy;
+        if (!limiter.TryBegin(busyAcct, InFlightPerAccount)) { limiter.End(busyIp); return Busy; }
+        try
+        {
+            string[] keys = ["ip:games:" + ip, "acct:games:" + key];
+            if (limiter.WaitSeconds(keys) is > 0 and var wait) return Error.TooMany(wait);
+            var hash = await db.ScalarAsync<string>("select password_hash from games_account where id = $1", ct, who.Id);
+            var (entered, (ok, _)) = await gate.RunAsync(async () => await hasher.VerifyAsync(password ?? "", hash ?? await hasher.DummyHashAsync()));
+            if (!entered) return Busy;
+            if (!ok) { foreach (var k in keys) limiter.Fail(k); return new Error(ErrorKind.Unauthorized, "games.password_wrong", "The password is wrong."); }
+            limiter.Succeed(keys[1]);
+            return Result.Success;
+        }
+        finally { limiter.End(busyAcct); limiter.End(busyIp); }
     }
 
     /// <summary>The person deletes the account (password asked): sessions, the game's rows and the account go; the name is free again after 30 days.</summary>
@@ -169,6 +205,8 @@ public sealed class GameAccountService(NpgsqlDataSource db, PasswordHasher hashe
         await db.InTransactionAsync(async (c, tx) =>
         {
             await c.ExecAsync(tx, "insert into games_account_released (name_key, until) select name_key, now() + interval '30 days' from games_account where id = $1 on conflict (name_key) do update set until = excluded.until", ct, id);
+            await c.ExecAsync(tx, "delete from games_account_report where reporter = $1", ct, id);   // what the person reported goes with them
+            await c.ExecAsync(tx, "update games_account_report set reported_id = null, reported_name = '(deleted)' where reported_id = $1", ct, id);   // what was said about them loses their name and id
             await c.ExecAsync(tx, "delete from games_account where id = $1", ct, id);   // sessions go with it
         }, ct);
         Tell([id]);
@@ -181,11 +219,20 @@ public sealed class GameAccountService(NpgsqlDataSource db, PasswordHasher hashe
         {
             ["account"] = await db.FirstAsync("select name, created_at, name_changed_at from games_account where id = $1",
                 r => new { name = r.GetString(0), created = r.Time(1), nameChanged = r.IsDBNull(2) ? (DateTimeOffset?)null : r.Time(2) }, ct, who.Id),
+            ["reportsSent"] = await db.QueryAsync("select reason, at from games_account_report where reporter = $1 order by at", r => new { reason = r.GetInt16(0), at = r.Time(1) }, ct, who.Id),
+            ["reportsAboutYou"] = await db.ScalarAsync<long>("select count(*) from games_account_report where reported_id = $1", ct, who.Id),
             ["sessions"] = await db.QueryAsync("select created_at, last_seen from games_account_session where account_id = $1 order by created_at", r => new { created = r.Time(0), lastSeen = r.Time(1) }, ct, who.Id),
         };
         foreach (var d in data) foreach (var (k, v) in await d.ExportAsync(who.Id, ct)) all[k] = v;
         return all;
     }
 
-    void Tell(IEnumerable<Guid> accounts, bool onlyOthers = false) { if (!onlyOthers) foreach (var e in events) e.Ended(accounts); }
+    /// <summary>Removes sessions that are too old or idle (they would never be valid again), and empty bookkeeping. Called every hour.</summary>
+    public async Task PurgeAsync(CancellationToken ct = default)
+    {
+        await db.ExecAsync("delete from games_account_session where created_at < now() - $1 or last_seen < now() - $2", ct, MaxAge, Idle);
+        await db.ExecAsync("delete from games_account_released where until < now()", ct);
+    }
+
+    void Tell(IEnumerable<Guid> accounts) { foreach (var e in events) e.Ended(accounts); }
 }

@@ -595,3 +595,251 @@ public class GameAccountTests
         Assert.Equal(1L, (long)(await db.Data.CreateCommand("select count(*) from drift_profile").ExecuteScalarAsync())!);
     }
 }
+
+/// <summary>The findings of the security review of the games accounts (snapshot 83a1240), each with its test.</summary>
+public class GameAccountReviewTests
+{
+    const string Pw = "kiwi-lemon-42";
+    static async Task<(TestDb db, TestApp app, HttpClient c)> Start() { var db = await TestDb.CreateAsync(); var app = new TestApp(db); return (db, app, app.Http()); }
+    static string Solve(string salt, string name, int bits) { for (var n = 0; ; n++) if (SignupGuard.Leading(SHA256.HashData(Encoding.UTF8.GetBytes(salt + ":" + name + ":" + n)), bits)) return n.ToString(); }
+    static async Task<object> Puzzle(TestApp app, HttpClient c, string name, string password = Pw)
+    {
+        var o = (await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/games/challenge")))).GetProperty("challenge");
+        return new { name, password, challenge = o.GetProperty("challenge").GetString(), nonce = Solve(o.GetProperty("salt").GetString()!, name, o.GetProperty("difficulty").GetInt32()) };
+    }
+    static async Task<HttpResponseMessage> SignUp(TestApp app, HttpClient c, string name, string password = Pw) => await c.SendAsync(app.Req(HttpMethod.Post, "/api/games/signup", null, await Puzzle(app, c, name, password)));
+    static async Task<string> Cookie(TestApp app, HttpClient c, string name) { var r = await SignUp(app, c, name); Assert.Equal(HttpStatusCode.OK, r.StatusCode); return TestApp.CookieOf(r); }
+    static async Task<WebSocket> Connect(TestApp app, string cookie)
+    {
+        var client = app.Server.CreateWebSocketClient();
+        client.ConfigureRequest = r => { r.Headers["Cookie"] = cookie; r.Headers["Origin"] = "http://localhost"; };
+        return await client.ConnectAsync(new Uri("ws://localhost" + PlayEndpoint.GamesPath), CancellationToken.None);
+    }
+    static async Task<bool> Closes(WebSocket ws, int seconds)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(seconds)); var buf = new byte[4096];
+        try { while (true) { var r = await ws.ReceiveAsync(buf, cts.Token); if (r.MessageType == WebSocketMessageType.Close) return true; } }
+        catch (WebSocketException) { return true; } catch (OperationCanceledException) { return false; }
+    }
+    static async Task<long> Count(TestDb db, string sql) => (long)(await db.Data.CreateCommand(sql).ExecuteScalarAsync())!;
+
+    // ---- H1
+    [Fact]
+    public async Task H1_a_burst_of_parallel_sign_ins_cannot_get_around_the_wait()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        await Cookie(app, c, "Kiwi 100");
+        var codes = await Task.WhenAll(Enumerable.Range(0, 80).Select(async i => (await c.SendAsync(app.Req(HttpMethod.Post, "/api/games/login", null, new { name = "Kiwi 100", password = "wrong-wrong-" + i }))).StatusCode));
+        var reached = codes.Count(x => x == HttpStatusCode.Unauthorized);
+        Assert.True(reached <= 6, $"{reached} guesses reached the password check (five failures, then the wait)");   // one at a time per account, then the lock
+        Assert.Equal(80, codes.Count(x => x is HttpStatusCode.Unauthorized or HttpStatusCode.TooManyRequests));        // everything else is a plain "wait", no error
+    }
+
+    [Fact]
+    public async Task H1_the_hash_gate_lets_two_in_and_sheds_the_rest_instead_of_queueing()
+    {
+        var gate = new HashGate(1, TimeSpan.FromMilliseconds(150));
+        var first = gate.RunAsync(async () => { await Task.Delay(600); return 1; });
+        await Task.Delay(50);
+        Assert.False((await gate.RunAsync(() => Task.FromResult(2))).Entered);   // full for longer than the wait: refused at once
+        Assert.Equal(1, gate.Shed);
+        Assert.True((await first).Entered);
+        Assert.True((await gate.RunAsync(() => Task.FromResult(3))).Entered);   // free again
+    }
+
+    // ---- M1, M2
+    [Fact]
+    public async Task M1_parallel_sign_ups_cannot_get_past_the_daily_limit()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var bodies = new List<object>();
+        for (var i = 0; i < 8; i++) bodies.Add(await Puzzle(app, c, "Par " + i + "x"));   // eight solved puzzles first, then all at the same moment
+        var codes = await Task.WhenAll(bodies.Select(async b => (await c.SendAsync(app.Req(HttpMethod.Post, "/api/games/signup", null, b))).StatusCode));
+        Assert.Equal(SignupGuard.PerAddressDay, codes.Count(x => x == HttpStatusCode.OK));
+        Assert.Equal(SignupGuard.PerAddressDay, await Count(db, "select count(*) from games_account"));
+        Assert.Equal(SignupGuard.PerAddressDay, await Count(db, "select count(*) from games_account_signup_log"));
+    }
+
+    [Fact]
+    public async Task M1_a_sign_up_that_fails_gives_its_place_back()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        await Cookie(app, c, "Kiwi 110");
+        for (var i = 0; i < 4; i++) Assert.Equal(HttpStatusCode.Conflict, (await SignUp(app, c, "Kiwi 110")).StatusCode);   // taken: no account, no place used
+        Assert.Equal(HttpStatusCode.BadRequest, (await SignUp(app, c, "Kiwi 111", "short")).StatusCode);                   // a bad password: the same
+        Assert.Equal(1, await Count(db, "select count(*) from games_account_signup_log"));
+        await Cookie(app, c, "Kiwi 112"); await Cookie(app, c, "Kiwi 113");
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await SignUp(app, c, "Kiwi 114")).StatusCode);   // now the three places are used
+    }
+
+    [Fact]
+    public async Task M2_guessing_at_free_names_is_limited_and_a_taken_name_costs_no_password_hash()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        await Cookie(app, c, "Kiwi 120");
+        HttpStatusCode last = 0;
+        for (var i = 0; i < 14; i++) last = (await SignUp(app, c, "Kiwi 120")).StatusCode;
+        Assert.Equal(HttpStatusCode.TooManyRequests, last);   // ten guesses, then the wait
+    }
+
+    // ---- M3
+    [Theory]
+    [InlineData("Иван Иванов", "invalid")] [InlineData("Juloc", "reserved")] [InlineData("Admin", "reserved")] [InlineData("sh1thead", "not_allowed")] [InlineData("ab", "too_short")]
+    public async Task M3_a_nickname_follows_the_rules_of_an_account_name(string nick, string code)
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var cookie = await Cookie(app, c, "Kiwi 130");
+        var r = await c.SendAsync(app.Req(HttpMethod.Put, "/api/games/garage", cookie, new { car = 0, colour = 1, nick }));
+        Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+        Assert.Equal(code, (await TestApp.Json(r)).GetProperty("fields").GetProperty("nick").GetString());
+        // a hub person is held to the same rules
+        var hub = await app.SignedInAsync(c);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", hub, new { car = 0, colour = 1, nick }))).StatusCode);
+    }
+
+    [Fact]
+    public async Task M3_every_shown_name_is_unique_across_nicknames_account_names_and_guests()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var admin = await app.SignedInAsync(c);
+        var a = await Cookie(app, c, "Kiwi 140"); var b = await Cookie(app, c, "Kiwi 141");
+        Task<HttpResponseMessage> Nick(string cookie, string nick, string prefix = "/api/games") => c.SendAsync(app.Req(HttpMethod.Put, prefix + "/garage", cookie, new { car = 0, colour = 1, nick }));
+        Assert.Equal(HttpStatusCode.OK, (await Nick(a, "Flash Gordon")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await Nick(b, "flash gordon")).StatusCode);              // another nickname, other case
+        Assert.Equal(HttpStatusCode.Conflict, (await Nick(b, "Kiwi 140")).StatusCode);                  // another account's name
+        Assert.Equal(HttpStatusCode.OK, (await Nick(b, "Kiwi 141")).StatusCode);                        // one's own account name is fine
+        Assert.Equal(HttpStatusCode.Conflict, (await Nick(admin, "Flash Gordon", "/api")).StatusCode);   // a hub person against an account's nickname
+        Assert.Equal(HttpStatusCode.OK, (await Nick(admin, "Bolt Man", "/api")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await SignUp(app, c, "Bolt Man")).StatusCode);           // an account name against a hub person's nickname
+        var token = await app.GuestLinkAsync(c, admin);
+        Assert.Equal(HttpStatusCode.BadRequest, (await app.JoinAsync(c, token, "BOLT MAN")).StatusCode);   // a guest against a nickname
+        Assert.Equal(HttpStatusCode.OK, (await app.JoinAsync(c, token, "Nice Guest")).StatusCode);
+    }
+
+    [Fact]
+    public async Task M3_old_nicknames_get_a_key_or_are_cleared_at_start()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var one = Guid.NewGuid(); var two = Guid.NewGuid(); var three = Guid.NewGuid();
+        foreach (var (id, nick) in new[] { (one, "Old Nick"), (two, "old nick"), (three, "Иван") })
+            await db.Data.CreateCommand($"insert into drift_profile (user_id, car_id, colour, nick) values ('{id}', 0, 0, '{nick}')").ExecuteNonQueryAsync();
+        await db.Data.CreateCommand($"insert into games_account (id, name, name_key, password_hash) values ('{one}', 'xxx', 'xxx', 'x'), ('{two}', 'yyy', 'yyy', 'y'), ('{three}', 'zzz', 'zzz', 'z')").ExecuteNonQueryAsync();   // so the sweep keeps their rows
+        await app.Services.GetRequiredService<Drift.Owners>().SweepAsync();
+        var nicks = new List<string?>();
+        await using (var rd = await db.Data.CreateCommand("select nick from drift_profile order by user_id").ExecuteReaderAsync()) while (await rd.ReadAsync()) nicks.Add(rd.IsDBNull(0) ? null : rd.GetString(0));
+        Assert.Equal(1, nicks.Count(n => n == "Old Nick" || n == "old nick"));   // one keeps its name, the duplicate is cleared
+        Assert.Contains(null, nicks);                                           // the Cyrillic one is cleared
+        Assert.Equal(1, await Count(db, "select count(*) from drift_profile where nick_key is not null"));
+    }
+
+    // ---- L1 .. L7, the notes
+    [Fact]
+    public async Task L1_a_password_change_closes_the_sockets_at_once()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var one = await Cookie(app, c, "Kiwi 150");
+        var two = TestApp.CookieOf(await c.SendAsync(app.Req(HttpMethod.Post, "/api/games/login", null, new { name = "Kiwi 150", password = Pw })));
+        using var ws = await Connect(app, two);
+        Assert.False(await Closes(ws, 1));
+        Assert.Equal(HttpStatusCode.NoContent, (await c.SendAsync(app.Req(HttpMethod.Post, "/api/games/password", one, new { current = Pw, next = "another-pass-77" }))).StatusCode);
+        Assert.True(await Closes(ws, 3));
+    }
+
+    [Fact]
+    public async Task L2_the_admin_delete_touches_games_accounts_only()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var admin = await app.SignedInAsync(c);
+        var member = await app.MemberAsync(c, admin, "ben");
+        await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", member, new { car = 2, colour = 3 }));
+        var hubId = (await db.Data.CreateCommand("select id::text from users where name = 'ben'").ExecuteScalarAsync())!.ToString();
+        Assert.Equal(HttpStatusCode.NotFound, (await c.SendAsync(app.Req(HttpMethod.Delete, $"/api/games-admin/accounts/{hubId}", admin))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await c.SendAsync(app.Req(HttpMethod.Delete, $"/api/games-admin/accounts/{Guid.NewGuid()}", admin))).StatusCode);
+        Assert.Equal(1, await Count(db, $"select count(*) from drift_profile where user_id = '{hubId}'"));
+    }
+
+    [Fact]
+    public async Task L3_an_ipv6_ban_is_the_64_it_lives_in()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var admin = await app.SignedInAsync(c);
+        var r = await c.SendAsync(app.Req(HttpMethod.Post, "/api/games-admin/bans", admin, new { range = "2001:db8:1:2::77", hours = 1 }));
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        Assert.Equal("2001:db8:1:2::/64", (await TestApp.Json(r)).GetProperty("range").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.SendAsync(app.Req(HttpMethod.Post, "/api/games-admin/bans", admin, new { range = "2001:db8::/32", hours = 1 }))).StatusCode);
+        Assert.True(await app.Services.GetRequiredService<Bans>().BannedAsync("2001:db8:1:2::/64"));   // the key the limits use for that visitor
+    }
+
+    [Fact]
+    public async Task L4_a_report_names_a_name_and_nothing_else()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var cookie = await Cookie(app, c, "Kiwi 160");
+        foreach (var bad in new[] { "<script>", "a\nb", "http://x.example/x?y=1", "x; drop table", "a@b.example", new string('a', 41) })   // what has a character a name cannot have, or is too long, is refused (a long name-shaped text of letters and spaces cannot be told from a name: the reason is fixed, the text is short)
+            Assert.Equal(HttpStatusCode.BadRequest, (await c.SendAsync(app.Req(HttpMethod.Post, "/api/games/report", cookie, new { name = bad, reason = 0 }))).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await c.SendAsync(app.Req(HttpMethod.Post, "/api/games/report", cookie, new { name = "Red Fox", reason = 0 }))).StatusCode);
+    }
+
+    [Fact]
+    public async Task L5_handling_a_report_and_lifting_a_ban_are_in_the_audit_log()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var admin = await app.SignedInAsync(c);
+        var cookie = await Cookie(app, c, "Kiwi 170");
+        await c.SendAsync(app.Req(HttpMethod.Post, "/api/games/report", cookie, new { name = "Red Fox", reason = 1 }));
+        var id = (await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/games-admin/reports", admin)))).GetProperty("reports").EnumerateArray().Single().GetProperty("id").GetString();
+        await c.SendAsync(app.Req(HttpMethod.Post, $"/api/games-admin/reports/{id}/handle", admin));
+        var ban = (await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Post, "/api/games-admin/bans", admin, new { range = "10.9.8.7", hours = 1 })))).GetProperty("id").GetString();
+        await c.SendAsync(app.Req(HttpMethod.Delete, $"/api/games-admin/bans/{ban}", admin));
+        Assert.Equal(1, await Count(db, "select count(*) from account_audit where event = 'games.report_handled'"));
+        Assert.Equal(1, await Count(db, "select count(*) from account_audit where event = 'games.unban'"));
+    }
+
+    [Fact]
+    public async Task L6_the_cookie_is_deleted_with_the_attributes_it_was_set_with()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var cookie = await Cookie(app, c, "Kiwi 180");
+        var out1 = await c.SendAsync(app.Req(HttpMethod.Post, "/api/games/logout", cookie));
+        var set = string.Join(";", out1.Headers.GetValues("Set-Cookie")).ToLowerInvariant();
+        Assert.Contains("httponly", set); Assert.Contains("samesite=strict", set); Assert.Contains("path=/", set); Assert.Contains("expires=", set);
+        // over HTTPS (the real name is __Host-games) the deletion carries Secure as well: the browser refuses to touch a __Host- cookie otherwise
+        var https = app.Req(HttpMethod.Post, "/api/games/login", null, new { name = "Kiwi 180", password = Pw });
+        https.Headers.Add("X-Forwarded-Proto", "https");
+        Assert.Contains("games=", string.Join(";", (await c.SendAsync(https)).Headers.GetValues("Set-Cookie")));
+    }
+
+    [Fact]
+    public async Task L7_old_sessions_are_purged_and_reports_go_with_the_account_or_lose_its_name()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var a = await Cookie(app, c, "Kiwi 190"); var b = await Cookie(app, c, "Kiwi 191");
+        var idA = (await db.Data.CreateCommand("select id::text from games_account where name = 'Kiwi 190'").ExecuteScalarAsync())!.ToString();
+        var idB = (await db.Data.CreateCommand("select id::text from games_account where name = 'Kiwi 191'").ExecuteScalarAsync())!.ToString();
+        await db.Data.CreateCommand($"update games_account_session set last_seen = now() - interval '40 days' where account_id = '{idB}'").ExecuteNonQueryAsync();
+        await app.Services.GetRequiredService<GameAccountService>().PurgeAsync();
+        Assert.Equal(0, await Count(db, $"select count(*) from games_account_session where account_id = '{idB}'"));
+        Assert.Equal(1, await Count(db, $"select count(*) from games_account_session where account_id = '{idA}'"));
+        // A reports "Kiwi 191" (a lobby name that resolves to B's id) and B reports A: rows by hand, the lobby is not needed for this
+        await db.Data.CreateCommand($"insert into games_account_report (id, reporter, reported_name, reported_id, reason) values ('{Guid.NewGuid()}', '{idA}', 'Kiwi 191', '{idB}', 0), ('{Guid.NewGuid()}', '{idB}', 'Kiwi 190', '{idA}', 1)").ExecuteNonQueryAsync();
+        var export = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/games/export", a)));
+        Assert.Equal(1, export.GetProperty("reportsSent").GetArrayLength());
+        Assert.Equal(1, export.GetProperty("reportsAboutYou").GetInt32());
+        Assert.Equal(HttpStatusCode.NoContent, (await c.SendAsync(app.Req(HttpMethod.Post, "/api/games/delete", a, new { password = Pw }))).StatusCode);
+        Assert.Equal(0, await Count(db, $"select count(*) from games_account_report where reporter = '{idA}' or reported_id = '{idA}'"));
+        Assert.Equal(1, await Count(db, "select count(*) from games_account_report where reported_name = '(deleted)'"));
+        Assert.Equal(0, await Count(db, $"select count(*) from games_account_report where row_to_json(games_account_report)::text like '%{idA}%'"));
+    }
+
+    [Fact]
+    public async Task A_ban_ends_the_sockets_of_people_who_are_already_in()
+    {
+        var (db, app, c) = await Start(); await using var _1 = db; await using var _2 = app;
+        var admin = await app.SignedInAsync(c);
+        var cookie = await Cookie(app, c, "Kiwi 200");
+        using var ws = await Connect(app, cookie);
+        Assert.False(await Closes(ws, 1));
+        Assert.Equal(HttpStatusCode.OK, (await c.SendAsync(app.Req(HttpMethod.Post, "/api/games-admin/bans", admin, new { range = "127.0.0.0/24", hours = 1 }))).StatusCode);
+        Assert.True(await Closes(ws, 3));
+    }
+}

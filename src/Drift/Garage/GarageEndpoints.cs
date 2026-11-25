@@ -11,10 +11,6 @@ public sealed record GarageRequest(int? Car, int? Colour, string? Nick, int? Glo
 /// <summary>The garage: the person's car, colour and nickname. The person comes from the session, never from the request.</summary>
 internal static partial class GarageEndpoints
 {
-    // letters, digits, space, dash, underscore, dot: no markup, no look-alike control characters
-    [GeneratedRegex(@"^[\p{L}\p{N}][\p{L}\p{N} ._-]*$")]
-    private static partial Regex NickPattern();
-
     public static void MapGarage(this IEndpointRouteBuilder app)
     {
         // the same garage for a hub person (/api, the base's guard) and for a games account (/api/games, its own door)
@@ -26,7 +22,7 @@ internal static partial class GarageEndpoints
             return Results.Ok(Body(me, await garage.GetAsync(me, ctx.RequestAborted), ctx.AccountName()));
         });
 
-        app.MapPut(prefix + "/garage", async (GarageRequest body, HttpContext ctx, GarageStore garage) =>
+        app.MapPut(prefix + "/garage", async (GarageRequest body, HttpContext ctx, GarageStore garage, Owners owners) =>
         {
             var me = ctx.Owner();
             var v = new Validator();
@@ -35,11 +31,12 @@ internal static partial class GarageEndpoints
             var nick = v.OptionalText("nick", body.Nick, 16);
             int? glow = null;
             if (body.Glow is { } gl) glow = v.Int("glow", gl, 0, 23);   // absent or null: no underglow
-            if (nick.Length == 1) v.Fail("nick", Validator.TooShort);
-            if (nick.Length > 1 && !NickPattern().IsMatch(nick)) v.Fail("nick", Validator.NotValid);
-            if (nick.Length > 1 && v.Ok && !NameFilter.Allowed(nick)) v.Fail("nick", "not_allowed");
+            // a nickname is a name everybody sees: the same rules as an account's name (Latin letters, reserved words, the filter), and nobody else shows or owns it
+            if (nick.Length > 0 && NameRules.Problem(nick) is { } problem) v.Fail("nick", problem);
             if (v.Error is { } error) return error.ToHttp();
-            return Results.Ok(Body(me, await garage.SaveAsync(me, new Profile(car, colour, nick.Length == 0 ? null : nick, glow), ctx.RequestAborted), ctx.AccountName()));
+            if (nick.Length > 0 && await owners.NameTakenAsync(NameRules.Key(nick), me, ctx.RequestAborted)) return new Error(ErrorKind.Conflict, "games.name_taken", "This name is taken.", new Dictionary<string, string> { ["nick"] = "taken" }).ToHttp();
+            try { return Results.Ok(Body(me, await garage.SaveAsync(me, new Profile(car, colour, nick.Length == 0 ? null : nick, glow), ctx.RequestAborted), ctx.AccountName())); }
+            catch (Npgsql.PostgresException e) when (e.SqlState == Npgsql.PostgresErrorCodes.UniqueViolation) { return new Error(ErrorKind.Conflict, "games.name_taken", "This name is taken.", new Dictionary<string, string> { ["nick"] = "taken" }).ToHttp(); }
         });
         }
     }

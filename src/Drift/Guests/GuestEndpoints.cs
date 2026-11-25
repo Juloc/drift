@@ -40,13 +40,14 @@ public static class GuestEndpoints
 
     public static void MapGuests(this WebApplication app)
     {
-        app.MapPost(JoinPath, async (JoinRequest body, HttpContext ctx, GuestService guests, RateLimit limit) =>
+        app.MapPost(JoinPath, async (JoinRequest body, HttpContext ctx, GuestService guests, RateLimit limit, Owners owners) =>
         {
             if (!OwnPage(ctx.Request)) return Error.Forbidden("request.refused", "Request refused.").ToHttp();
             if (!limit.Allow("guest-join", ctx.ClientIp(), 10, out var wait)) return Error.TooMany(wait).ToHttp();
             var name = (body.Name ?? "").Trim();
             if (!GuestService.ValidName(name)) return new Error(ErrorKind.Invalid, "invalid", "The name is not valid.", new Dictionary<string, string> { ["name"] = name.Length < 2 ? "too_short" : name.Length > 16 ? "too_long" : "invalid" }).ToHttp();
             if (NameRules.Problem(name) is "not_allowed" or "reserved") return new Error(ErrorKind.Invalid, "invalid", "The name is not allowed.", new Dictionary<string, string> { ["name"] = "not_allowed" }).ToHttp();
+            if (await owners.NameTakenAsync(NameRules.Key(name), Guid.Empty, ctx.RequestAborted)) return new Error(ErrorKind.Invalid, "invalid", "The name is taken.", new Dictionary<string, string> { ["name"] = "taken" }).ToHttp();
             if (string.IsNullOrEmpty(body.Token) || body.Token.Length > 100) return Error.Unauthorized("guest.link", "This guest link is not valid (any more).").ToHttp();
             // a random colour from the 24 hues; the first car
             var made = await guests.RedeemAsync(body.Token, name, Random.Shared.Next(24), ctx.RequestAborted);
@@ -63,7 +64,7 @@ public static class GuestEndpoints
             var g = ctx.Guest();
             await guests.EndSessionAsync(g.Id, ctx.RequestAborted);
             sockets.DropAll([g.Id], Wire.ByeSession);
-            ctx.Response.Cookies.Delete(CookieName(ctx.Request));
+            ctx.Response.Cookies.Delete(CookieName(ctx.Request), new CookieOptions { HttpOnly = true, Secure = ctx.Request.IsHttps, SameSite = SameSiteMode.Strict, Path = "/", IsEssential = true });
             return Results.NoContent();
         });
 

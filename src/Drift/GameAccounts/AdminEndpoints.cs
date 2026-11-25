@@ -43,15 +43,22 @@ public static class AdminEndpoints
             return Results.Ok(new { password = temp });
         });
 
-        g.MapDelete("/accounts/{id:guid}", async (Guid id, HttpContext ctx, GameAccountService accounts, AuditStore audit) =>
+        g.MapDelete("/accounts/{id:guid}", async (Guid id, HttpContext ctx, GameAccountService accounts, AuditStore audit, NpgsqlDataSource db) =>
         {
+            // only a games account: this door must not delete a hub person's rows by guessing a Guid
+            if (!await db.ScalarAsync<bool>("select exists (select 1 from games_account where id = $1)", ctx.RequestAborted, id)) return Error.NotFound().ToHttp();
             await accounts.DeleteAsync(id, ctx.RequestAborted);
             await audit.AddAsync(ctx.Person().UserName, "games.delete", ctx.ClientIp(), id.ToString(), ctx.RequestAborted);
             return Results.NoContent();
         });
 
         g.MapGet("/reports", async (Reports reports, CancellationToken ct) => Results.Ok(new { reports = (await reports.OpenAsync(ct)).Select(r => new { id = r.Id, name = r.Name, reportedId = r.ReportedId, reason = r.Reason, at = r.At }) }));
-        g.MapPost("/reports/{id:guid}/handle", async (Guid id, Reports reports, CancellationToken ct) => { await reports.HandleAsync(id, ct); return Results.NoContent(); });
+        g.MapPost("/reports/{id:guid}/handle", async (Guid id, HttpContext ctx, Reports reports, AuditStore audit) =>
+        {
+            await reports.HandleAsync(id, ctx.RequestAborted);
+            await audit.AddAsync(ctx.Person().UserName, "games.report_handled", ctx.ClientIp(), id.ToString(), ctx.RequestAborted);
+            return Results.NoContent();
+        });
 
         g.MapGet("/bans", async (Bans bans, CancellationToken ct) => Results.Ok(new { bans = (await bans.ListAsync(ct)).Select(b => new { id = b.Id, range = b.Range, until = b.Until, reason = b.Reason }) }));
         g.MapPost("/bans", async (BanRequest body, HttpContext ctx, Bans bans, AuditStore audit) =>
@@ -60,7 +67,12 @@ public static class AdminEndpoints
             if (made.Ok) await audit.AddAsync(ctx.Person().UserName, "games.ban", ctx.ClientIp(), body.Range, ctx.RequestAborted);
             return made.ToHttp(b => Results.Ok(new { id = b.Id, range = b.Range, until = b.Until }));
         });
-        g.MapDelete("/bans/{id:guid}", async (Guid id, Bans bans, CancellationToken ct) => { await bans.RemoveAsync(id, ct); return Results.NoContent(); });
+        g.MapDelete("/bans/{id:guid}", async (Guid id, HttpContext ctx, Bans bans, AuditStore audit) =>
+        {
+            await bans.RemoveAsync(id, ctx.RequestAborted);
+            await audit.AddAsync(ctx.Person().UserName, "games.unban", ctx.ClientIp(), id.ToString(), ctx.RequestAborted);
+            return Results.NoContent();
+        });
     }
 
     static async Task<IResult> SetState(Guid id, string state, HttpContext ctx, NpgsqlDataSource db, AuditStore audit, IEnumerable<IAccountEvents> events)

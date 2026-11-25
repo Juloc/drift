@@ -133,6 +133,14 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     /// <summary>Ends every connection from the outside (a race is over): each is told why.</summary>
     public void DropAll(byte reason) { lock (gate) foreach (var members in worlds.ToArray()) foreach (var s in members.ToArray()) if (!s.Gone) Kick(s, reason); }
 
+    /// <summary>Ends every connection whose address matches (a banned range): each is told why. Returns how many.</summary>
+    public int DropWhere(Func<string, bool> addressMatches, byte reason)
+    {
+        var n = 0;
+        lock (gate) foreach (var members in worlds.ToArray()) foreach (var s in members.ToArray()) if (!s.Gone && addressMatches(s.Address)) { Kick(s, reason); n++; }
+        return n;
+    }
+
     /// <summary>Changes the size of the map the poses must stay inside (a race on another map).</summary>
     public void SetBounds(double newHalfX, double newHalfZ) { lock (gate) { halfX = newHalfX; halfZ = newHalfZ; } }
     readonly Random rnd = random ?? Random.Shared;

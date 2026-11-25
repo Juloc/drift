@@ -1,3 +1,4 @@
+using Base.Accounts;
 using Base.Core;
 using Base.Web;
 using Base.Web.Auth;
@@ -44,6 +45,9 @@ public static class GameAccountEndpoints
     public static GameIdentity GameAccount(this HttpContext ctx) => ctx.Items[Key] as GameIdentity ?? throw new InvalidOperationException("Not behind the games door.");
     public static bool IsGameAccount(this HttpContext ctx) => ctx.Items.ContainsKey(Key);
 
+    static void DeleteCookie(HttpContext ctx) =>
+        ctx.Response.Cookies.Delete(CookieName(ctx.Request), new CookieOptions { HttpOnly = true, Secure = ctx.Request.IsHttps, SameSite = SameSiteMode.Strict, Path = "/", IsEssential = true });   // a __Host- cookie is only deleted with the attributes it was set with
+
     static void SetCookie(HttpContext ctx, string value) =>
         ctx.Response.Cookies.Append(CookieName(ctx.Request), value, new CookieOptions { HttpOnly = true, Secure = ctx.Request.IsHttps, SameSite = SameSiteMode.Strict, Path = "/", Expires = DateTimeOffset.UtcNow.AddDays(90), IsEssential = true });
 
@@ -51,16 +55,34 @@ public static class GameAccountEndpoints
 
     public static void MapGameAccounts(this WebApplication app)
     {
-        app.MapPost(Prefix + "/signup", async (SignUpRequest body, HttpContext ctx, GameAccountService accounts, SignupGuard guard, Bans bans, LegalPages legal) =>
+        var purgeAccounts = app.Services.GetRequiredService<GameAccountService>();
+        _ = Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
+            try { do { try { await purgeAccounts.PurgeAsync(app.Lifetime.ApplicationStopping); } catch (Exception e) when (e is not OperationCanceledException) { app.Logger.LogWarning(e, "purging old games sessions failed"); } } while (await timer.WaitForNextTickAsync(app.Lifetime.ApplicationStopping)); }
+            catch (OperationCanceledException) { }
+        });
+
+        app.MapPost(Prefix + "/signup", async (SignUpRequest body, HttpContext ctx, GameAccountService accounts, SignupGuard guard, Bans bans, LegalPages legal, LoginLimiter limiter) =>
         {
             if (!legal.Complete) return Error.Forbidden("games.signup_closed", "Sign-up is not open yet.").ToHttp();
-            if (await bans.BannedAsync(ctx.ClientIp(), ctx.RequestAborted)) return Error.Forbidden("games.banned", "This address is blocked for now.").ToHttp();
+            var ip = ctx.ClientIp();
+            if (await bans.BannedAsync(ip, ctx.RequestAborted)) return Error.Forbidden("games.banned", "This address is blocked for now.").ToHttp();
             var name = (body.Name ?? "").Trim();
             if (NameRules.Problem(name) is { } np) return Fields("name", np);
-            if (await guard.CheckAsync(ctx.ClientIp(), name, body.Challenge, body.Nonce, ctx.RequestAborted) is { } refused) return refused.ToHttp();
+            // guessing at free names is limited too: a name that is taken counts against the address (the wait doubles)
+            var guesses = "ip:games-signup:" + ip;
+            if (limiter.WaitSeconds(guesses) is > 0 and var wait) return Error.TooMany(wait).ToHttp();
+            var (refused, reservation) = await guard.ReserveAsync(ip, name, body.Challenge, body.Nonce, ctx.RequestAborted);
+            if (refused is not null) return refused.ToHttp();
             var made = await accounts.SignUpAsync(name, body.Password ?? "", ctx.RequestAborted);
-            if (!made.Ok) return made.Error!.ToHttp();
-            await guard.CountAsync(ctx.ClientIp(), ctx.RequestAborted);
+            if (!made.Ok)
+            {
+                await guard.ReleaseAsync(reservation, ctx.RequestAborted);   // no account: the place in the daily limit goes back
+                if (made.Error!.Code == "games.name_taken") limiter.Fail(guesses);
+                return made.Error!.ToHttp();
+            }
+            guard.Confirm(ip);
             SetCookie(ctx, made.Value.Cookie);
             return Results.Ok(new { name = made.Value.Who.Name });
         });
@@ -79,7 +101,7 @@ public static class GameAccountEndpoints
         app.MapPost(Prefix + "/logout", async (HttpContext ctx, GameAccountService accounts) =>
         {
             await accounts.EndSessionAsync(ctx.GameAccount().SessionId, ctx.RequestAborted);
-            ctx.Response.Cookies.Delete(CookieName(ctx.Request));
+            DeleteCookie(ctx);
             return Results.NoContent();
         });
 
@@ -90,7 +112,7 @@ public static class GameAccountEndpoints
         {
             var r = await accounts.DeleteOwnAsync(ctx.GameAccount(), body.Password, ctx.ClientIp(), ctx.RequestAborted);
             if (!r.Ok) return r.ToHttp();
-            ctx.Response.Cookies.Delete(CookieName(ctx.Request));
+            DeleteCookie(ctx);
             return Results.NoContent();
         });
 

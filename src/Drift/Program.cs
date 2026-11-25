@@ -37,6 +37,7 @@ builder.Services.AddSingleton<GuestService>();
 // the Juloc Games account: a module of its own (Drift.GameAccounts); the game plugs in through three small interfaces
 builder.Services.AddSingleton<GameAccountService>();
 builder.Services.AddSingleton(sp => new SignupGuard(sp.GetRequiredService<Npgsql.NpgsqlDataSource>(), TimeProvider.System));
+builder.Services.AddSingleton<HashGate>();
 builder.Services.AddSingleton<Bans>();
 builder.Services.AddSingleton(sp => new LegalPages(sp.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>().WebRootFileProvider, sp.GetRequiredService<ILoggerFactory>().CreateLogger<LegalPages>()));
 builder.Services.AddSingleton(sp => new Reports(sp.GetRequiredService<Npgsql.NpgsqlDataSource>(), sp.GetServices<IPlayerDirectory>(), TimeProvider.System));
@@ -44,6 +45,7 @@ builder.Services.AddSingleton<Owners>();
 builder.Services.AddSingleton<IAccountData>(sp => sp.GetRequiredService<Owners>());
 builder.Services.AddSingleton<IAccountEvents>(sp => sp.GetRequiredService<Owners>());
 builder.Services.AddSingleton<IPlayerDirectory>(sp => sp.GetRequiredService<Owners>());
+builder.Services.AddSingleton<IDisplayNames>(sp => sp.GetRequiredService<Owners>());
 builder.Services.AddSingleton<TuningStore>();
 builder.Services.AddSingleton<StatsStore>();
 builder.Services.AddSingleton(sp => new StatsTracker(sp.GetRequiredService<StatsStore>(), TimeProvider.System));
