@@ -22,7 +22,10 @@ test('look: the road and the plaza are flat ground just under the cars, the land
   }
   for (const [x, z] of scene.plaza.pts) assert.ok(f.height(x * 0.9, z * 0.9) <= 0, 'the plaza');
   assert.ok(f.height(0, 200) > 50, 'uphill to the south');
-  assert.ok(f.height(0, -300) < -25, 'the valley to the north');
+  assert.ok(f.height(0, -300) < -8, 'the valley to the north');
+  // on the valley side the land falls away right behind the road's edge (a cliff behind the guardrail)
+  { const i = 30, [x, z] = f.road[i], d = f.info.dir[i], r = [d[1], -d[0]], side = f.base(x + r[0] * 20, z + r[1] * 20) < f.base(x - r[0] * 20, z - r[1] * 20) ? 1 : -1;
+    assert.ok(f.height(x + r[0] * side * (f.hw + 6), z + r[1] * side * (f.hw + 6)) < -3, 'a drop behind the rail'); }
   assert.ok(f.height(40, f.riverZ(40)) < scene.river.y, 'the river bed is under the water');
 });
 

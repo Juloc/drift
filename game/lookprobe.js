@@ -141,10 +141,12 @@ function simStep(i) {
   score = scoreStep(score, { slip: bodySlip(cur), speed: speedOf(cur), hit: 0, turned: turnedAngle(cur) }, DT);
   simTime += DT;
   spin += (bodyVelocity(cur).vf * DT) / S15.wheelY;
-  // smoke and skid marks from the rear wheels, 30 times a second
+  // smoke and skid marks from the rear wheels, 40 times a second
   const sliding = (Math.abs(bodySlip(cur)) > 0.2 || inp.handbrake > 0) && speedOf(cur) > 3;
-  if (i % 4 === 0) rearWheels(cur).forEach(([x, z], k) => {
-    if (sliding) smoke.emit(x, 0.35, z, X(cur.vx) * 0.06, cur.vz * 0.06, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
+  if (i % 3 === 0) rearWheels(cur).forEach(([x, z], k) => {
+    // the smoke drifts off to the left of the way the car is going (as in the mockup), not into the camera behind it
+    const t = Math.atan2(cur.vx, cur.vz), push = look.smoke.drift ?? 0, lx = -Math.cos(t) * push, lz = Math.sin(t) * push;
+    if (sliding) smoke.emit(x, 0.35, z, X(cur.vx * 0.06 + lx), cur.vz * 0.06 + lz, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
     skids.mark(k, x, z, 0, 0, sliding);
   });
   smoke.update(DT);

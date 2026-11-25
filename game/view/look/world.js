@@ -71,7 +71,8 @@ export function buildWorld(scene, look, tierName = 'high') {
   rocks(S, f, look, tier, rnd, sideInfo, lite);
 
   const group = new THREE.Group();
-  const solid = new THREE.Mesh(S.build(), new THREE.MeshLambertMaterial({ vertexColors: true }));
+  // facets as in the mockup (land, trees, rocks, mountains): flat shading with the soft colour gradients; the road and the cars stay smooth
+  const solid = new THREE.Mesh(S.build(), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: look.facets !== false }));
   solid.receiveShadow = true;
   const lights = new THREE.Mesh(G.build(), makeGlow());
   const roadMesh = new THREE.Mesh(Rb.build(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: look.road.roughness ?? 0.5, metalness: 0, envMapIntensity: look.road.sheen ?? 0.8 }));
@@ -130,7 +131,7 @@ function ridges(S, scene, look, tier) {
     const N = scene.ridges.notch, na = N ? Math.atan2(N.z - cz, N.x - cx) : 0;
     const open = (a) => { if (!N || k >= N.rings) return 0; let d = Math.abs(a - na) % (Math.PI * 2); if (d > Math.PI) d = Math.PI * 2 - d; return 1 - smoothstep(N.width * 0.5, N.width, d); };
     const lower = (a, h) => (N ? h + (N.floor - h) * open(a) : h);
-    const peak0 = (a) => { const v = 1 - Math.abs(noise2(Math.cos(a) * 2.6 + k * 11, Math.sin(a) * 2.6 - k * 5)); const w = noise2(a * 9 + k * 3, k * 7) * 0.5 + 0.5; return h0 + (h1 - h0) * (v * v * 0.8 + w * 0.2); };
+    const peak0 = (a) => { const v = 1 - Math.abs(noise2(Math.cos(a) * 2.6 + k * 11, Math.sin(a) * 2.6 - k * 5)); const w = noise2(a * 9 + k * 3, k * 7) * 0.5 + 0.5; return h0 + (h1 - h0) * (v * v * v * 0.85 + w * 0.15); };
     const peak = (a) => lower(a, peak0(a));
     const mid = base.clone().lerp(skirt, 0.5);
     const rows = [[-300, (a) => lower(a, -150), skirt], [-150, (a) => lower(a, peak0(a) * 0.15 + noise2(a * 31, k) * 12 - 30), mid], [-70, (a) => lower(a, peak0(a) * 0.5 + noise2(a * 23, k) * 10), base], [25, peak, rim]];
@@ -266,13 +267,13 @@ function railRun(S, G, look, line, every, lite) {
     const [ax, az] = line[i], [bx, bz] = line[i + 1], dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
     if (len < 0.01) continue;
     const ry = Math.atan2(X(dx), dz);
-    S.box(0.08, 0.2, len + 0.05, X((ax + bx) / 2), 0.62, (az + bz) / 2, beam, { r: 0, ry, jitter: 0 });
-    S.box(0.1, 0.12, len + 0.05, X((ax + bx) / 2), 0.78, (az + bz) / 2, light, { r: 0, ry, jitter: 0 });
+    S.box(0.08, 0.2, len + 0.05, X((ax + bx) / 2), 0.52, (az + bz) / 2, beam, { r: 0, ry, jitter: 0 });   // a W-beam at 0.75 m, as on real roads
+    S.box(0.1, 0.1, len + 0.05, X((ax + bx) / 2), 0.66, (az + bz) / 2, light, { r: 0, ry, jitter: 0 });
     for (let d = (every - acc) % every; d < len; d += every) {
       const t = d / len, px = X(ax + dx * t), pz = az + dz * t;
-      S.box(0.13, lite ? 0.9 : 1.0, 0.13, px, lite ? 0.45 : 0.4, pz, post, { r: 0, ry });
+      S.box(0.13, 3.0, 0.13, px, -0.75, pz, post, { r: 0, ry });   // long posts: on a cliff edge the land below may already fall away
       G.reflectors = ((G.reflectors ?? 0) + 1) % 3;   // an amber reflector on every third post
-      if (G.reflectors === 0) G.box(0.16, 0.1, 0.16, px, 0.94, pz, glow(R.reflector, 2.4), { r: 0, ry });
+      if (G.reflectors === 0) G.box(0.16, 0.1, 0.16, px, 0.8, pz, glow(R.reflector, 2.4), { r: 0, ry });
     }
     acc = (acc + len) % every;
   }
@@ -357,6 +358,8 @@ function trees(S, f, scene, look, tier, rnd, lite) {
       const e = f.edge(x, z);
       if (e < f.shelf + 1.5 || (near && e > 45)) continue;
       const y = f.height(x, z);
+      // the valley side stays open near the road (the view down to the river), trees there only further out
+      if (f.base(x, z) < -2 && e < (f.openValley ?? 0)) continue;
       if (y < ry + 2 || f.slope(x, z, y) > 0.85) continue;
       if (f.wet(x, z, 4)) continue;
       // away from the road, cherries stay low by the river and pines thin out on the valley floor

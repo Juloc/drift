@@ -115,14 +115,18 @@ export function makeField(scene, { cell = 6 } = {}) {
   const edge = (x, z) => Math.max(0, Math.min(distToPath(road, x, z).d - hw, distToPoly(scene.plaza.pts, x, z)));
   const height = (x, z) => {
     const e = edge(x, z);
+    // land that falls away may start right at the road's edge (a cliff behind the guardrail: nothing can poke up over the road);
+    // land that rises keeps the flat shelf first, wide enough for the grid
+    const b = base(x, z);
+    if (b < 0 && T.drop) { const k = smoothstep(T.drop[0], T.drop[1], e); return -0.15 * (1 - k) + b * k; }
     if (e < shelf) return -0.15;
     const k = smoothstep(shelf, shelf + T.blend, e);
-    return -0.15 * (1 - k) + base(x, z) * k;
+    return -0.15 * (1 - k) + b * k;
   };
   const slope = (x, z, h = height(x, z)) => Math.hypot(height(x + 1, z) - h, height(x, z + 1) - h);
   /** is a point on water (river or lake)? */
   const wet = (x, z, margin = 0) => (Math.abs(z - riverZ(x)) < R.width / 2 + margin && x < (R.x1 ?? Infinity)) || (scene.lake && Math.hypot((x - scene.lake.x) / (scene.lake.rx + margin), (z - scene.lake.z) / (scene.lake.rz + margin)) < 1);
-  return { road, info, hw, shelf, base, edge, height, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20 };
+  return { road, info, hw, shelf, base, edge, height, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
 }
 
 /** Bends of a road: places where the heading turns by more than `min` rad over `span` metres; the sign is the turn (+ = right). */
