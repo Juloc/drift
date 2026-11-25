@@ -98,7 +98,7 @@ public sealed class TandemChain
 /// multiplier and its role. The car is told on a change ({ t: "tandem", on, mult, role, q } at most four times a second) and when a chain is banked
 /// ({ t: "tandem.bank", points }); the best chain of a signed-in person is written to the boards (kind 3). Guests are judged and told, but write nothing.
 /// </summary>
-public sealed class TandemTracker(IBestTimes? best, int map = 0, Func<Guid, int>? feelOf = null)
+public sealed class TandemTracker(IBestTimes? best, int map = 0, Func<Guid, int>? feelOf = null, Func<Guid, bool>? creativeOf = null)
 {
     public const int Board = 3;
     sealed class Car(Guid person, string name, bool guest, int carId) { public Guid Person = person; public string Name = name; public bool Guest = guest; public int CarId = carId; public TandemCar Pose; public double At = -1, Stepped = -1; public TandemChain Chain = new(); public double Sent = -9; public int SentMult = -1; public TandemRole SentRole; public bool SentOn; public byte PartnerId; }
@@ -143,7 +143,7 @@ public sealed class TandemTracker(IBestTimes? best, int map = 0, Func<Guid, int>
                 if (ev is { } points)
                 {
                     Send(p.Session, new { t = "tandem.bank", points });
-                    if (!me.Guest) (banked ??= []).Add((me.Person, points, me.CarId));
+                    if (!me.Guest && !(creativeOf?.Invoke(me.Person) ?? false)) (banked ??= []).Add((me.Person, points, me.CarId));
                 }
             }
             // told on a change, at most four times a second

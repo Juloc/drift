@@ -433,6 +433,24 @@ public class RaceHubTests
     }
 
     [Fact]
+    public void A_creative_session_races_and_sees_its_result_but_nothing_counts_for_the_boards()
+    {
+        var rig = new Rig("anna", "ben");
+        rig.Say("anna", """{"t":"mode","v":"creative"}"""); rig.Say("ben", """{"t":"mode","v":"bogus"}""");   // anna is in the creative mode; a value that does not exist is dropped
+        Assert.True(rig.Hub.CreativeOf(rig.People["anna"].Id)); Assert.False(rig.Hub.CreativeOf(rig.People["ben"].Id));
+        rig.ToTheStart("anna", "ben");
+        rig.DriveAll(new() { ["anna"] = 22, ["ben"] = 18 }, 3);
+        rig.Pass(2);
+        var rows = rig.Racing["ben"].Peer.Last("result")!.Value.GetProperty("rows").EnumerateArray().ToList();
+        Assert.True(rows.Single(r => r.GetProperty("name").GetString() == "anna").GetProperty("creative").GetBoolean());
+        Assert.False(rows.Single(r => r.GetProperty("name").GetString() == "ben").GetProperty("creative").GetBoolean());
+        Assert.NotEmpty(rig.Best.Written);
+        Assert.All(rig.Best.Written, w => Assert.Equal(rig.People["ben"].Id, w.Who));   // only ben's times were written
+        rig.Say("anna", """{"t":"mode","v":"normal"}""");
+        Assert.False(rig.Hub.CreativeOf(rig.People["anna"].Id));
+    }
+
+    [Fact]
     public void A_racer_who_leaves_is_dnf_and_the_others_still_get_their_result()
     {
         var rig = new Rig("anna", "ben");

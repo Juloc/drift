@@ -14,6 +14,8 @@ public sealed class Runner(Guid person, string name, int car, int hue, double to
     public bool Tuned { get; set; }
     /// <summary>The feel of driving (0 arcade, 1 pro): the times the runner sets are kept under it.</summary>
     public int Feel { get; set; }
+    /// <summary>Creative mode: the result is shown, but nothing is written to the boards or the stats.</summary>
+    public bool Creative { get; set; }
     /// <summary>The gate to cross next; the grid stands after gate 0, so the first one is gate 1.</summary>
     public int NextGate { get; internal set; } = 1;
     public int LapsDone { get; internal set; }

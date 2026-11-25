@@ -97,7 +97,7 @@ public interface IRaceChallenges
 /// runs the judging on the poses it accepted and tells the car how it stands ({ t: "challenge", id, value, stars, left, done, failed, saved }) twice a second; a finished run of a
 /// signed-in person is saved if it is better. Guests are judged and told but nothing is saved. Lap challenges are judged by the race logic (<see cref="LapAsync"/>).
 /// </summary>
-public sealed class ChallengeTracker(IReadOnlyList<ChallengeDef> defs, ChallengeStore? store, Func<Session, double>? tandemTotal = null) : IRaceChallenges
+public sealed class ChallengeTracker(IReadOnlyList<ChallengeDef> defs, ChallengeStore? store, Func<Session, double>? tandemTotal = null, Func<Guid, bool>? creativeOf = null) : IRaceChallenges
 {
     sealed class Live(Guid person, bool guest) { public Guid Person = person; public bool Guest = guest; public ChallengeRun? Run; public double TandemBase, LastX, LastZ, LastT = -1, Sent = -9; public bool Has; }
     readonly object gate = new();
@@ -154,7 +154,7 @@ public sealed class ChallengeTracker(IReadOnlyList<ChallengeDef> defs, Challenge
             if (run.Done || p.Seconds - l.Sent >= 0.5)
             {
                 l.Sent = p.Seconds;
-                if (run.Done && !l.Guest && store is not null) save = (l.Person, run.Def, run.Stars, run.Value);
+                if (run.Done && !l.Guest && !(creativeOf?.Invoke(l.Person) ?? false) && store is not null) save = (l.Person, run.Def, run.Stars, run.Value);
                 Send(p.Session, new { t = "challenge", id = run.Def.Id, value = Math.Round(run.Value, 1), stars = run.Stars, left = Math.Round(Math.Max(0, run.Def.Time - run.T), 1), done = run.Done, failed = run.Failed, saved = false });
                 if (run.Done) l.Run = null;
             }

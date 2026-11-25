@@ -15,6 +15,7 @@ Keyboard, touch and a controller (Gamepad API, the standard layout that browsers
 | Pause | P | **Start** | |
 | Sound on/off, music switch | M, the chips | | the chips |
 | Damage on/off | V | | |
+| Creative mode (no scores, no damage) | K | | the violet chip |
 | Emotes | 1 to 0 | **d-pad** (up, right, down, left = the first four) | the emote button |
 | Fullscreen, quality, HUD, debug | F, Q, H, G | | |
 

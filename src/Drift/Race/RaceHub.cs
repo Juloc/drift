@@ -30,6 +30,8 @@ public sealed class RaceHub
         public int Slot;
         /// <summary>The feel of driving (0 arcade, 1 pro) the person had when they joined the race: the times they set are kept under it.</summary>
         public int Feel;
+        /// <summary>The person plays in the creative mode: nothing of this race counts for the boards or the stats.</summary>
+        public bool Creative;
     }
 
     readonly TimeProvider time;
@@ -84,7 +86,7 @@ public sealed class RaceHub
     {
         lock (gate)
         {
-            if (lobby.TryGetValue(person, out var cur) && cur.Session == s) { lobby.Remove(person); emoteAt.Remove(person); feels.Remove(person); }
+            if (lobby.TryGetValue(person, out var cur) && cur.Session == s) { lobby.Remove(person); emoteAt.Remove(person); feels.Remove(person); creatives.Remove(person); }
         }
     }
 
@@ -95,6 +97,9 @@ public sealed class RaceHub
     public const double EmoteGap = 1.5;
     readonly Dictionary<Guid, double> emoteAt = [];
     readonly Dictionary<Guid, int> feels = [];
+    readonly HashSet<Guid> creatives = [];
+    /// <summary>Does the person play in the creative mode right now (they said so in the lobby)?</summary>
+    public bool CreativeOf(Guid person) { lock (gate) return creatives.Contains(person); }
     /// <summary>The feel a person last said they play with (0 arcade when they said nothing).</summary>
     public int FeelOf(Guid person) { lock (gate) return feels.GetValueOrDefault(person); }
     public int emotesDropped;
@@ -116,7 +121,7 @@ public sealed class RaceHub
                     track = r.TryGetProperty("map", out var mp) && mp.TryGetInt32(out var mi) && tracks.TryGetValue(mi, out var chosen) ? chosen : tracks[tracks.Keys.Min()];
                     laps = r.TryGetProperty("laps", out var l) && l.TryGetInt32(out var li) ? Math.Clamp(li, 1, 5) : track.Laps;
                     parts.Clear(); answered.Clear();
-                    parts.Add(new Part(me) { Feel = feels.GetValueOrDefault(person) });
+                    parts.Add(new Part(me) { Feel = feels.GetValueOrDefault(person), Creative = creatives.Contains(person) });
                     starter = person; phase = Phase.Invite; phaseStart = Now;
                     // a time trial is a race of one: nobody is invited, the grid opens at the next tick, the times count like any
                     var solo = r.TryGetProperty("solo", out var so) && so.ValueKind == JsonValueKind.True;
@@ -130,7 +135,7 @@ public sealed class RaceHub
                         Send(m.Session, m.Person == person ? new { t = "race.wait", by = me.Name, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) } : new { t = "race.invite", by = me.Name, tuned = me.Tuned, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) });
                     break;
                 case "race.join":
-                    if (phase == Phase.Invite && parts.Count < MaxRacers && parts.All(p => p.Member.Person != person)) { parts.Add(new Part(me) { Feel = feels.GetValueOrDefault(person) }); Send(me.Session, new { t = "race.joined" }); }
+                    if (phase == Phase.Invite && parts.Count < MaxRacers && parts.All(p => p.Member.Person != person)) { parts.Add(new Part(me) { Feel = feels.GetValueOrDefault(person), Creative = creatives.Contains(person) }); Send(me.Session, new { t = "race.joined" }); }
                     answered.Add(person);
                     break;
                 case "race.decline":
@@ -138,6 +143,9 @@ public sealed class RaceHub
                     break;
                 case "feel":   // the feel of driving the person plays with now (0 arcade, 1 pro); kept for the race they join
                     if (r.TryGetProperty("v", out var fv) && fv.TryGetInt32(out var f) && f is 0 or 1) feels[person] = f; else emotesDropped++;
+                    break;
+                case "mode":   // { v: "creative" | "normal" }: the creative mode is a switch of the session; its races never count for boards or stats
+                    if (r.TryGetProperty("v", out var mv) && mv.ValueKind == JsonValueKind.String && mv.GetString() is "creative" or "normal") { if (mv.GetString() == "creative") creatives.Add(person); else creatives.Remove(person); } else emotesDropped++;
                     break;
                 case "emote":   // a fixed set, no text: one of Emotes numbers, at most one per 1.5 s per person, shown to the lobby over the sender's car
                     if (r.TryGetProperty("e", out var ep) && ep.TryGetInt32(out var e) && e >= 0 && e < Emotes)
@@ -235,7 +243,7 @@ public sealed class RaceHub
                         foreach (var (p, i) in parts.Select((p, i) => (p, i)))
                         {
                             p.Slot = i;
-                            p.Runner = new Runner(p.Member.Person, p.Member.Name, p.Member.Car, p.Member.Hue, tops[Math.Clamp(p.Member.Car, 0, tops.Length - 1)] * p.Member.TopFactor) { Slot = i, Guest = p.Member.Guest, Tuned = p.Member.Tuned, Feel = p.Feel };
+                            p.Runner = new Runner(p.Member.Person, p.Member.Name, p.Member.Car, p.Member.Hue, tops[Math.Clamp(p.Member.Car, 0, tops.Length - 1)] * p.Member.TopFactor) { Slot = i, Guest = p.Member.Guest, Tuned = p.Member.Tuned, Feel = p.Feel, Creative = p.Creative };
                             run.Runners.Add(p.Runner);
                         }
                         phase = Phase.Countdown; phaseStart = now; lastCount = 4;
@@ -326,8 +334,8 @@ public sealed class RaceHub
             try
             {
                 var bestDrift = Math.Max(r.Drift.Best, r.Drift.Pending);   // the chain still running at the end counts
-                if (r.CleanLaps && !r.Guest && bestDrift >= 1) drift = await store.RecordAsync(r.Person, track.MapId, RaceStore.Drift, (int)bestDrift, r.Car, r.Feel);
-                if (r.Finished && r.CleanLaps && !r.Guest)   // a guest's time is shown in the result, never stored
+                if (r.CleanLaps && !r.Guest && !r.Creative && bestDrift >= 1) drift = await store.RecordAsync(r.Person, track.MapId, RaceStore.Drift, (int)bestDrift, r.Car, r.Feel);
+                if (r.Finished && r.CleanLaps && !r.Guest && !r.Creative)   // a guest's time is shown in the result, never stored
                 {
                     if (r.BestLap is { } bl) { lap = await store.RecordAsync(r.Person, track.MapId, RaceStore.Lap, (int)Math.Round(bl), r.Car, r.Feel); if (challenges is not null) await challenges.LapAsync(r.Person, track.MapId, bl); }
                     if (finishedRun.Laps == track.Laps && r.FinishMs is { } fm) race = await store.RecordAsync(r.Person, track.MapId, RaceStore.Race, (int)Math.Round(fm), r.Car, r.Feel);
@@ -335,7 +343,7 @@ public sealed class RaceHub
             }
             catch (Exception) { /* a database problem must not stop the result from reaching the racers */ }
             // the counters: a finished race counts for a person (not for a guest); a win needs somebody to beat, a podium three racers
-            try { if (r.Finished && !r.Guest && stats is not null) { var pos = order.IndexOf(r) + 1; await stats.RaceDoneAsync(r.Person, pos == 1 && order.Count >= 2, pos <= 3 && order.Count >= 3); } }
+            try { if (r.Finished && !r.Guest && !r.Creative && stats is not null) { var pos = order.IndexOf(r) + 1; await stats.RaceDoneAsync(r.Person, pos == 1 && order.Count >= 2, pos <= 3 && order.Count >= 3); } }
             catch (Exception) { /* the result must still reach the racers */ }
             flags[r.Person] = (lap, race, drift);
         }
@@ -348,7 +356,7 @@ public sealed class RaceHub
                 bestLap = r.BestLap is { } b ? (int?)(int)b : null,
                 drift = (int)r.Drift.Total, bestDrift = (int)Math.Max(r.Drift.Best, r.Drift.Pending), newDrift = flags[r.Person].Drift,
                 points = Math.Round((r.Finished && i < PositionPoints.Length ? PositionPoints[i] : 0) + r.Drift.Total / 100, 1),
-                dnf = r.Dnf, clean = r.CleanLaps, tuned = r.Tuned,
+                dnf = r.Dnf, clean = r.CleanLaps, tuned = r.Tuned, creative = r.Creative,
                 newLap = flags[r.Person].Lap, newRace = flags[r.Person].Race,
             }).ToArray();
             Broadcast(new { t = "result", rows, laps = finishedRun.Laps });

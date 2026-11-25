@@ -103,3 +103,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf5; fon
 /* ----- damage readout: one small line under the speed ----- */
 #damage { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 100px; margin-left: 56px; padding: 3px 10px; border-radius: 10px; background: var(--card); font: 700 12px system-ui, sans-serif; pointer-events: none; }
 #damage[hidden] { display: none; }
+
+/* ----- the creative mode: always visible while it is on ----- */
+#creative-banner { position: absolute; left: 50%; top: 168px; transform: translateX(-50%); padding: 4px 16px; border-radius: 14px; background: #7a2bd9; color: #fff; font: 800 13px system-ui, sans-serif; letter-spacing: 0.06em; pointer-events: none; white-space: nowrap; z-index: 5; }
+#creative-banner[hidden] { display: none; }
+#creative { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 246px; min-height: 44px; padding: 0 12px; border: 2px solid rgba(27,35,48,0.35); border-radius: 12px; background: var(--card); color: var(--ink); font: 800 12px system-ui, sans-serif; opacity: 0.85; pointer-events: auto; }
+#creative[aria-pressed="true"] { background: #7a2bd9; color: #fff; border-color: #fff; opacity: 1; }

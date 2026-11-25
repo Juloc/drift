@@ -72,6 +72,18 @@ public class TandemTrackerTests
     }
 
     [Fact]
+    public void A_chain_of_a_creative_session_is_told_but_never_written_to_the_board()
+    {
+        var r = new Rig(); r.Tracker = new TandemTracker(r.Best, 0, null, _ => true); r.Tracker.Follow(r.Relay);
+        var a = r.Add("a"); var b = r.Add("b");
+        r.Drive(a, b, 5, gap: 4);
+        r.Drive(a, b, 3, gap: 4, slipB: 0.0, z0: 5 * 22);
+        Assert.NotNull(a.P.Last("tandem.bank"));
+        Thread.Sleep(300);
+        Assert.Empty(r.Best.Written);
+    }
+
+    [Fact]
     public void Cars_far_apart_or_drifting_different_ways_get_nothing()
     {
         var r = new Rig(); var a = r.Add("a"); var b = r.Add("b");
