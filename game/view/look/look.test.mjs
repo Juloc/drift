@@ -11,22 +11,24 @@ import { step, makeCar, bodySlip, speedOf, DT } from '../../sim/physics.js';
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const scene = read('../../data/probe-sunset.json'), look = read('../../data/looks/sunset.json'), cars = read('../../data/cars.json').cars;
 
-test('look: the road and the plaza are flat ground just under the cars, the land rises on one side and falls on the other', () => {
+test('look: the road and the plaza are the ground just under the cars (the road at its drawn height), the land rises on one side and falls on the other', () => {
   const f = makeField(scene, { cell: 3.5 });
   for (let i = 0; i < f.road.length; i += 7) {
     const [x, z] = f.road[i];
-    assert.ok(Math.abs(f.height(x, z) + 0.15) < 1e-9, 'on the road');
+    assert.ok(Math.abs(f.height(x, z) - f.roadYs[i] + 0.15) < 1e-9, 'on the road, at its drawn height');
     const d = f.info.dir[i], r = [d[1], -d[0]];
     // nothing of the land comes above the road within the road and a metre beside it
-    for (const o of [-f.hw - 1, 0, f.hw + 1]) assert.ok(f.height(x + r[0] * o, z + r[1] * o) <= 0);
+    for (const o of [-f.hw - 1, 0, f.hw + 1]) assert.ok(f.relHeight(x + r[0] * o, z + r[1] * o) <= 0);
   }
   for (const [x, z] of scene.plaza.pts) assert.ok(f.height(x * 0.9, z * 0.9) <= 0, 'the plaza');
   assert.ok(f.height(0, 200) > 50, 'uphill to the south');
   assert.ok(f.height(0, -300) < -8, 'the valley to the north');
   // on the valley side the land falls away right behind the road's edge (a cliff behind the guardrail)
   { const i = 30, [x, z] = f.road[i], d = f.info.dir[i], r = [d[1], -d[0]], side = f.base(x + r[0] * 20, z + r[1] * 20) < f.base(x - r[0] * 20, z - r[1] * 20) ? 1 : -1;
-    assert.ok(f.height(x + r[0] * side * (f.hw + 6), z + r[1] * side * (f.hw + 6)) < -3, 'a drop behind the rail'); }
-  assert.ok(f.height(40, f.riverZ(40)) < scene.river.y, 'the river bed is under the water');
+    assert.ok(f.relHeight(x + r[0] * side * (f.hw + 6), z + r[1] * side * (f.hw + 6)) < -3, 'a drop behind the rail'); }
+  assert.ok(f.relHeight(40, f.riverZ(40)) < scene.river.y, 'the river bed is under the water');
+  // the road's drawn height falls along it (the pass goes down into the valley); the plaza stays at 0
+  assert.equal(f.roadYs[0], 0); assert.ok(f.roadYs.at(-1) < -20);
 });
 
 test('look: the shelf beside the road is wide enough that no grid triangle lifts the land over the road edge', () => {
@@ -78,7 +80,7 @@ test('look: a whole world builds on both tiers within its budget (one lit mesh, 
   const high = buildWorld(scene, look, 'high'), low = buildWorld(scene, look, 'low');
   assert.equal(high.group.children.length, 4); assert.equal(low.group.children.length, 4);
   assert.ok(low.triangles < high.triangles);
-  assert.ok(low.triangles < 45000, `phone tier: ${low.triangles} triangles`);
-  assert.ok(high.triangles < 260000, `high tier: ${high.triangles} triangles`);
+  assert.ok(low.triangles < 70000, `phone tier: ${low.triangles} triangles`);   // the whole picture on a phone: about 120k with cars and smoke
+  assert.ok(high.triangles < 450000, `high tier: ${high.triangles} triangles`);
   assert.equal(high.lampHeads.length, scene.plaza.lamps.length);
 });

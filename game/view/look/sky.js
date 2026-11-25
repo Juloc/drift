@@ -61,7 +61,8 @@ export function makeSky(look, radius = 1800) {
 
 /** Soft flat patches of mist at the given places ([x, z, width, depth] in simulation axes) at height y. */
 export function makeMist(look, patches) {
-  const geos = patches.map(([x, z, w, d], i) => new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2).translate(X(x), look.mist.y + (i % 3) * 2.5, z));
+  // a patch is [x, z, width, depth] or [x, z, width, depth, height] (absolute; without it the look's mist height)
+  const geos = patches.map(([x, z, w, d, y], i) => new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2).translate(X(x), (y ?? look.mist.y) + (i % 3) * 2.5, z));
   const mat = new THREE.ShaderMaterial({
     uniforms: { uColour: { value: new THREE.Color(look.mist.colour) }, uOpacity: { value: look.mist.opacity } },
     vertexShader: /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,

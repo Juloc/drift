@@ -19,6 +19,7 @@ import { makeSky, makeMist, makeSkyEnvironment, sunDirection } from './view/look
 import { Puffs } from './view/look/puffs.js';
 import { mergeParked } from './view/look/parked.js';
 import { Post } from './view/look/post.js';
+import { paintCar } from './view/look/paint.js';
 import { ProbeHud } from './view/probehud.js';
 
 const params = new URLSearchParams(location.search);
@@ -74,7 +75,7 @@ const world = buildWorld(scene0, look, tierName);
 scene.add(world.group);
 const f = world.field;
 // low mist over the valley floor and the lake (places from the scene; the phone tier takes the first few)
-const mistAt = scene0.mist.slice(0, tier.mist);
+const mistAt = scene0.mist.slice(0, tier.mist).map(([x, z, w, d]) => [x, z, w, d, f.groundY(x, z) + look.mist.y]);   // the mist lies relative to the road's height nearby
 const mist = makeMist(look, mistAt);
 scene.add(mist);
 const halos = new Halos(16);
@@ -107,6 +108,8 @@ if (probe.url) {
 }
 const parkedSrc = scene0.parked.map((p, i) => ({ probe: parkedCars[i], matrix: new THREE.Matrix4().compose(new THREE.Vector3(X(p.x), 0, p.z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, HEAD(p.h), 0)), new THREE.Vector3(1, 1, 1)), paint: new THREE.Color(p.paint) }));
 const parked = mergeParked(parkedSrc);
+const carPaint = paintCar(carGroup, sun, look.car);   // the painted look (steps, soft contour, dust)
+paintCar(parked, sun, look.car);
 for (const p of parkedSrc) p.probe.group.traverse((o) => o.geometry?.dispose?.());
 scene.add(parked);
 const pool = new WheelPool(8);
@@ -132,8 +135,10 @@ function follow(s, dt) {
   if (!camAt.ready) { camAt.yaw = aim; camAt.ready = true; }
   camAt.yaw += angDiff(camAt.yaw, aim) * (1 - Math.exp(-4 * dt));
   const fx = Math.sin(camAt.yaw), fz = Math.cos(camAt.yaw), rx = fz, rz = -fx;   // forward and right (simulation axes)
-  camera.position.set(X(s.x - fx * C.dist + rx * C.side), C.height, s.z - fz * C.dist + rz * C.side);
-  camera.lookAt(X(s.x + fx * C.look), C.lookY, s.z + fz * C.look);
+  // heights follow the road's visible height profile (the physics underneath stays flat)
+  const cx = s.x - fx * C.dist + rx * C.side, cz = s.z - fz * C.dist + rz * C.side, lx = s.x + fx * C.look, lz = s.z + fz * C.look;
+  camera.position.set(X(cx), C.height + Math.max(f.groundY(cx, cz), f.groundY(s.x, s.z)), cz);
+  camera.lookAt(X(lx), C.lookY + f.groundY(lx, lz), lz);
 }
 function simStep(i) {
   prev = cur;
@@ -149,8 +154,9 @@ function simStep(i) {
     // the smoke drifts off to the left of the way the car is going (as in the mockup), not into the camera behind it
     const t = Math.atan2(cur.vx, cur.vz), push = look.smoke.drift ?? 0, lx = -Math.cos(t) * push, lz = Math.sin(t) * push;
     const out = look.smoke.offset ?? 0;   // the clouds start a little outside the wheel, on the side the tail swings to
-    if (sliding) smoke.emit(x + X(-Math.cos(t)) * out, 0.35, z + Math.sin(t) * out, X(cur.vx * 0.06 + lx), cur.vz * 0.06 + lz, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
-    skids.mark(k, x, z, 0, 0, sliding);
+    const gy = f.groundY(X(x), z);
+    if (sliding) smoke.emit(x + X(-Math.cos(t)) * out, 0.35 + gy, z + Math.sin(t) * out, X(cur.vx * 0.06 + lx), cur.vz * 0.06 + lz, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
+    skids.mark(k, x, z, 0, 0, sliding, gy);
   });
   smoke.update(DT);
   if (view === 'drive') follow(cur, DT);
@@ -182,11 +188,16 @@ function draw(now) {
   const alpha = running ? loop.advance(dt, simStep) : 1;
   const s = { ...cur, x: prev.x + (cur.x - prev.x) * alpha, z: prev.z + (cur.z - prev.z) * alpha, h: prev.h + angDiff(prev.h, cur.h) * alpha };
   const { vf } = bodyVelocity(cur);
-  carGroup.position.set(X(s.x), 0, s.z);
-  carGroup.rotation.set(Math.max(-0.05, Math.min(0.05, -cur.ax * 0.004)), HEAD(s.h), Math.max(-0.08, Math.min(0.08, -cur.w * vf * 0.0035)), 'YXZ');
+  // the car stands on the road's visible height and leans with its slope (only drawn)
+  const gy = f.groundY(s.x, s.z), sh = Math.sin(s.h), ch = Math.cos(s.h);
+  const grade = (f.groundY(s.x + sh * 1.3, s.z + ch * 1.3) - f.groundY(s.x - sh * 1.3, s.z - ch * 1.3)) / 2.6;
+  carGroup.position.set(X(s.x), gy, s.z);
+  carPaint.uBase.value = gy;
+  smoke.car.value.set(X(s.x), gy, s.z);
+  carGroup.rotation.set(Math.max(-0.05, Math.min(0.05, -cur.ax * 0.004)) - Math.atan(grade), HEAD(s.h), Math.max(-0.08, Math.min(0.08, -cur.w * vf * 0.0035)), 'YXZ');
   probe.setWheels(cur.steer, spin);
   pool.begin();
-  pool.blob(X(s.x), s.z, 1.15, 2.3, HEAD(s.h));
+  pool.blob(X(s.x), s.z, 1.15, 2.3, HEAD(s.h), gy);
   for (const p of scene0.parked) pool.blob(X(p.x), p.z, 1.15, 2.3, HEAD(p.h));
   pool.end();
   smoke.sync();
@@ -198,7 +209,8 @@ function draw(now) {
   }
   // the sun's shadow box follows the driver; the sky dome follows the camera
   const cx = view === 'overview' ? X(scene0.views.overview.look[0]) : X(s.x), cz = view === 'overview' ? scene0.views.overview.look[2] : s.z;   // (?view=cam keeps the driver's)
-  sun.target.position.set(cx, 0, cz); sun.position.set(cx + sunDir.x * 120, sunDir.y * 120 + 30, cz + sunDir.z * 120);
+  const ty = view === 'overview' ? 0 : gy;
+  sun.target.position.set(cx, ty, cz); sun.position.set(cx + sunDir.x * 120, ty + sunDir.y * 120 + 30, cz + sunDir.z * 120);
   halos.resize(renderer.domElement.height, camera.fov);
   const kmh = speedOf(cur) * 3.6;
   const H = scene0.hud;

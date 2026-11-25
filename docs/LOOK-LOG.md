@@ -138,3 +138,38 @@ HUD match the mockup closely. What is still different and why:
 4. **Numbers in the HUD**: real values of the bot's drive (score 31, ×1,0, 56 km/h) instead of a long drift (18.460, ×4,2, 124 km/h);
    only lap, best and position are sample values from the scene.
 5. **Detail density**: the mockup's midground has several layers of small trees; ours one.
+
+## The limit lifted: a visible height profile for the road (rounds 11 and 12, the orchestrator's decision)
+
+The road now lies on a drawn height profile (`road.grade` in the scene: metres along the road against height; the plaza at 0, the pass
+falls about 42 m over 370 m). Every other height of the scene (terrain profile, river, lake, bridge, mist) is relative to the road's
+height nearby, so the land, the cliff above and the drop below move with the road. The car, the camera, the smoke, the skid marks and
+the car's shadow are set onto that height; the car leans with the slope. **The physics stays 2D and untouched**: the cars still drive
+on flat ground; server, relay and collision see nothing of it.
+
+How it would come into the game later (only the view): a map gets a `grade` (or a height function) next to its centre line;
+`field.js` gives `groundY(x, z)` from the nearest point of the road; the game's renderer sets every car's drawn y (own and remote, from
+the same x, z the relay already sends) and its pitch from the slope; the follow camera, the smoke and the skid marks take `groundY` too.
+Costs: one nearest-point search per car per frame (a few hundred segments: microseconds; a coarse grid lookup would make it constant),
+no extra draw calls, no network bytes. What it cannot do: jumps or a road that crosses itself at two heights (the physics would not
+know); for a mountain pass that is fine.
+
+## Rounds 11 and 12 (2026-11-25)
+
+Done: the road's height profile (above); a deep valley right behind the guardrail with the river, the lake bend and the arched bridge
+mid-right and a forested far slope; the camera at 2.4 m and 7.2 m behind the car; the owner's "car and road far too smooth, the
+surroundings not detailed enough": the car in a painted style (`view/look/paint.js`: the light in soft steps, a darker soft contour,
+a clear-coat gloss instead of a mirror, satin rims, dust low on the sills); the road with grain (a small shader, no texture), darker
+wheel tracks in both lanes, patches and cracks, broken and worn edge lines, worn centre dashes, many old tyre marks through the bends,
+a gravel-to-grass shoulder; around it grass tufts and small stones at the roadside, bushes, petals under the cherry trees, pines in
+groups of different sizes, a carpet of far trees on the valley floor and the far slope, power poles with sagging wires along the slope,
+two stone lanterns and a red shrine gate where the road leaves the plaza; the smoke clears around the car's body, so the car is always
+seen.
+
+Biggest differences left (picture `probe-sunset-drift.png` of this round):
+1. Smoke: the mockup's big billows next to the car read as round, lit balls; ours sit mostly at the left edge and look like a pale
+   wall where many overlap.
+2. Mist: the mockup has white mist banks lying in the valley; ours is faint.
+3. Valley floor: the far trees are sparse dots on green; the mockup's valley is a soft forest of pines with pink cherries in it.
+4. Sky: the clouds are faint; the mockup has bright peach bands round the sun.
+5. Left cliff: the mockup's slope is lit warm with green ledges; ours is a dark violet rock face.

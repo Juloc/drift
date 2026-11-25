@@ -14,11 +14,16 @@ export class Puffs {
     geo.setAttribute('aAlpha', this.alpha);
     const mat = new THREE.MeshLambertMaterial({ color: look.smoke.colour, emissive: new THREE.Color(look.smoke.shade).multiplyScalar(look.smoke.glow ?? 0.5), transparent: true, depthWrite: false, flatShading: !!look.facets });
     this.opacity = look.smoke.opacity ?? 0.45;
+    /** the car's centre (drawing space): puffs fade out around it, so the car is always seen clearly through its own smoke */
+    this.car = { value: new THREE.Vector3(0, -999, 0) };
     mat.onBeforeCompile = (sh) => {
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aAlpha;\nvarying float vAlpha;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvAlpha = aAlpha;');
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aAlpha;\nvarying float vAlpha;\nvarying vec3 vPuffW;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvAlpha = aAlpha;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\nvPuffW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;');
       sh.uniforms.uNear = { value: look.smoke.near ?? 3 };
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAlpha;\nuniform float uNear;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a *= vAlpha;')
-        .replace('#include <opaque_fragment>', '#include <opaque_fragment>\nvec3 fn = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));\ngl_FragColor.a *= smoothstep(0.0, 0.12, abs(dot(fn, normalize(vViewPosition)))) * smoothstep(uNear, uNear + 2.5, length(vViewPosition));');
+      sh.uniforms.uCar = this.car;
+      sh.uniforms.uClear = { value: look.smoke.clear ?? 0 };
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAlpha;\nvarying vec3 vPuffW;\nuniform float uNear, uClear;\nuniform vec3 uCar;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a *= vAlpha;')
+        .replace('#include <opaque_fragment>', '#include <opaque_fragment>\nvec3 fn = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));\ngl_FragColor.a *= smoothstep(0.0, 0.3, abs(dot(fn, normalize(vViewPosition)))) * smoothstep(uNear, uNear + 2.5, length(vViewPosition)) * (uClear > 0.0 ? smoothstep(uClear, uClear + 1.8, distance(vPuffW.xz, uCar.xz)) : 1.0);');
     };
     this.mesh = new THREE.InstancedMesh(geo, mat, capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -48,7 +53,7 @@ export class Puffs {
     for (let i = 0; i < this.cap; i++) {
       const k = this.age[i] / this.life[i];
       if (k >= 1) { this.mesh.setMatrixAt(i, _m.makeScale(0, 0, 0)); this.alpha.array[i] = 0; continue; }
-      const size = (0.8 + k * 3.0) * this.grow[i];
+      const size = (0.55 + k * 2.2) * this.grow[i];
       _p.fromArray(this.pos, i * 3); _q.setFromEuler(_e.set(this.rot[i * 3], this.rot[i * 3 + 1], this.rot[i * 3 + 2])); _s.set(size, size * 0.75, size);
       this.mesh.setMatrixAt(i, _m.compose(_p, _q, _s));
       this.alpha.array[i] = this.opacity * Math.sqrt(1 - k) * Math.min(1, k * 6);   // full for most of its life, then gone

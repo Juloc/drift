@@ -40,20 +40,20 @@ export function pointAt(pts, info, d) {
 }
 
 const flat = new WeakMap(), rings = new WeakMap();
-/** Distance from a point to a polyline (open) and to which side of it the point lies (+1 = the right of the direction of travel). */
+/** Distance from a point to a polyline (open), to which side of it the point lies (+1 = the right of the direction of travel), and the nearest segment and where on it (0..1). */
 export function distToPath(pts, x, z) {
   let a = flat.get(pts);
   if (!a) flat.set(pts, (a = Float64Array.from(pts.flat())));
-  let best = Infinity, side = 1;
+  let best = Infinity, side = 1, seg = 0, along = 0;
   for (let i = 0; i < a.length - 2; i += 2) {
     const ax = a[i], az = a[i + 1], dx = a[i + 2] - ax, dz = a[i + 3] - az;
     // cheap reject: the segment's box is farther away than the best so far
     if ((x < ax - best && x < ax + dx - best) || (x > ax + best && x > ax + dx + best) || (z < az - best && z < az + dz - best) || (z > az + best && z > az + dz + best)) continue;
     const l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2));
     const ex = x - ax - dx * t, ez = z - az - dz * t, d = Math.sqrt(ex * ex + ez * ez);
-    if (d < best) { best = d; side = (x - ax) * dz - (z - az) * dx < 0 ? -1 : 1; }
+    if (d < best) { best = d; side = (x - ax) * dz - (z - az) * dx < 0 ? -1 : 1; seg = i / 2; along = t; }
   }
-  return { d: best, side };
+  return { d: best, side, seg, t: along };
 }
 
 export function insidePoly(poly, x, z) {
@@ -97,6 +97,12 @@ export function makeField(scene, { cell = 6 } = {}) {
   const wave = T.shift ? (x) => { const P = T.shift; if (x <= P[0][0]) return P[0][1]; for (let i = 1; i < P.length; i++) if (x <= P[i][0]) return P[i - 1][1] + ((P[i][1] - P[i - 1][1]) * (x - P[i - 1][0])) / (P[i][0] - P[i - 1][0]); return P[P.length - 1][1]; }
     : (x) => T.wave[0] * Math.sin(x / T.wave[1]);
   const riverZ = (x) => R.z + wave(x);
+  // the road's visible height along its length (`road.grade`: [[metres along, height], ...]); only drawn: the physics stays flat (2D)
+  const G = scene.road.grade ?? [[0, 0]];
+  const roadY = (sAlong) => { if (sAlong <= G[0][0]) return G[0][1]; for (let i = 1; i < G.length; i++) if (sAlong <= G[i][0]) { const k = (sAlong - G[i - 1][0]) / (G[i][0] - G[i - 1][0]); return G[i - 1][1] + (G[i][1] - G[i - 1][1]) * k * k * (3 - 2 * k); } return G[G.length - 1][1]; };
+  const roadYs = info.s.map(roadY);
+  /** the height of the driving ground under a point (the road's height at its nearest point; the plaza and its surroundings at the road's start) */
+  const groundY = (x, z) => { const q = distToPath(road, x, z); return roadY(info.s[q.seg] + (info.s[q.seg + 1] - info.s[q.seg]) * q.t); };
   const shelf = T.flat + cell * 1.45;   // up to here from the edge of the road the land stays just under the road
   /** the land without the road: the valley's profile, gently waving, and some noise that is quiet near the river */
   const base = (x, z) => {
@@ -114,7 +120,9 @@ export function makeField(scene, { cell = 6 } = {}) {
   };
   /** distance to the edge of the ground the cars drive on (0 on it) */
   const edge = (x, z) => Math.max(0, Math.min(distToPath(road, x, z).d - hw, distToPoly(scene.plaza.pts, x, z)));
-  const height = (x, z) => {
+  const height = (x, z) => groundY(x, z) + relHeight(x, z);
+  /** the land's height relative to the driving ground near it */
+  const relHeight = (x, z) => {
     const e = edge(x, z);
     // land that falls away may start right at the road's edge (a cliff behind the guardrail: nothing can poke up over the road);
     // land that rises keeps the flat shelf first, wide enough for the grid
@@ -127,7 +135,7 @@ export function makeField(scene, { cell = 6 } = {}) {
   const slope = (x, z, h = height(x, z)) => Math.hypot(height(x + 1, z) - h, height(x, z + 1) - h);
   /** is a point on water (river or lake)? */
   const wet = (x, z, margin = 0) => (Math.abs(z - riverZ(x)) < R.width / 2 + margin && x < (R.x1 ?? Infinity)) || (scene.lake && Math.hypot((x - scene.lake.x) / (scene.lake.rx + margin), (z - scene.lake.z) / (scene.lake.rz + margin)) < 1);
-  return { road, info, hw, shelf, base, edge, height, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
+  return { road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
 }
 
 /** Bends of a road: places where the heading turns by more than `min` rad over `span` metres; the sign is the turn (+ = right). */
