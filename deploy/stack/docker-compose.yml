@@ -2,13 +2,13 @@
 #
 # What it is: the app and its PostgreSQL, and one volume ("data") that holds everything worth keeping: the database, the server's key file and the database password.
 # No variables, no .env file and no secret in this file (OPS-02): the init step makes a random database password at the very first start and keeps it in the volume; nobody types a secret.
-# Only ONE port is published, to this machine only: 127.0.0.1:8110. A reverse proxy (Caddy) on the same machine routes the public host name to it; the app sees the visitor's address
-# in X-Forwarded-For from that proxy only (see docs/DEPLOY.md). The image is pinned to a version tag built by .github/workflows/release.yml.
+# Only ONE port is published: 8110 on the Docker host. The reverse proxy (Caddy) runs in a container of its own on the same host and reaches the app through that host port; it routes the
+# public host name to it. The app sees the visitor's address in X-Forwarded-For from that proxy (a private network) only (see docs/DEPLOY.md). The image is pinned to a version tag built by .github/workflows/release.yml.
 # To update: change the tag below to the new version, then `docker compose pull && docker compose up -d`.
 #
 #   docker compose up -d
 #   docker compose logs app          # the setup code for the first account (the administrator)
-#   curl http://127.0.0.1:8110/api/health
+#   curl http://<docker host>:8110/api/health
 name: drift
 
 services:
@@ -90,9 +90,9 @@ services:
         read_only: true
         volume:
           subpath: db-secret
-    # only this machine reaches the port; the reverse proxy with HTTPS is in front of it
+    # the reverse proxy with HTTPS is in front of it; the port itself is reachable from the local network too (see docs/DEPLOY.md)
     ports:
-      - "127.0.0.1:8110:8080"
+      - "8110:8080"
     security_opt:
       - no-new-privileges:true
     cap_drop:
