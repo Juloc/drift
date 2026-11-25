@@ -232,3 +232,27 @@ Biggest differences left:
 3. The bridge disappears in the mist and haze over the lake; the mockup shows it as a clear dark silhouette.
 4. Top-left: the cherry tree in the mockup is pink and lit (#bd5076); ours is dark red in the shade of the slope.
 5. Car (RX-7) and HUD values (short drift) as before.
+
+## Rounds 19 and 20 (2026-11-26): the composition of the mockup; now on the shared modules
+
+The branch was set up again on master (the look's parts are now shared modules, `game/view/look/stage.js` builds the picture for the
+probe and the game); rounds 15 to 18 were carried over (the cloud layer now lives in `stage.js`). The probe uses the game's own
+chase camera (`LookChase` in `view/camera.js`), which got one option: `turn` (degrees, + = to the right) turns the view away from the
+road into the valley beside it.
+
+Done: the camera turned 24 degrees into the valley and set a little to the left of the car, so the valley with river, mist and forest
+lies mid-right, the road curves right in front of it, the car sits big left of the middle seen from behind-left, the sun is in the
+right third over the mountains; the uphill land on the left made much lower (a sunny slope with the cherry trees, pines and rocks in
+the top left corner instead of a dark cliff); a more saturated orange round the sun; a darker mauve road; the bridge darker and
+without mist round it; stronger pink blossom; warmer rock.
+
+Distances (same boxes as before): mean 31 → 28; brightness 116 (mockup 108), contrast 40 (42), saturation 0.36 (0.37); middle-left 4,
+middle-right 15, road-near 20, top-left 24, bottom-right 26, near-sun 69 → 30, top-right 32, bottom-left 40, smoke 9 → 41, sky-top 43.
+
+Biggest differences left:
+1. Smoke: with the camera now left of the car the billows lie between the lens and the car and fade there; the mockup's big billows
+   fill the lower left. Next: let them grow larger beside and behind the car, keep them off the lens.
+2. Sky top: paler and more cream than the mockup's pink.
+3. The bridge is not seen from here (behind the valley rim); the mockup shows it mid-right over the river.
+4. The tail lights are red bars; the mockup shows two separate lamps (a question of the car model).
+5. HUD values from a short drift, as before.

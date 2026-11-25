@@ -7,6 +7,7 @@ import { newScore, scoreStep } from './sim/score.js';
 import { lineBot } from './sim/linebot.js';
 import { FixedLoop } from './sim/loop.js';
 import { S15 } from './view/s15.js';
+import { LookChase } from './view/camera.js';
 import { WheelPool } from './view/wheels.js';
 import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
@@ -73,20 +74,9 @@ let cur = makeCar(D.x, D.z, D.h), prev = cur, score = newScore(), lastInp = { st
 
 const view = params.get('view') ?? 'drive';
 const rearWheels = (s) => { const ry = HEAD(s.h), c = Math.cos(ry), sn = Math.sin(ry); return [-1, 1].map((sx) => { const lx = sx * S15.wheelX, lz = -S15.wheelZ; return [X(s.x) + lx * c + lz * sn, s.z - lx * sn + lz * c]; }); };
-// the camera of the mockup: low (just over the roof), close behind the car and a little to its right, looking along where the car
-// is going (between its nose and its travel) and so down the road; it follows softly
-const C = look.camera, camAt = { yaw: D.h, ready: false };
-function follow(s, dt) {
-  const travel = speedOf(s) > 4 ? Math.atan2(s.vx, s.vz) : s.h;
-  const aim = s.h + angDiff(s.h, travel) * C.travel;
-  if (!camAt.ready) { camAt.yaw = aim; camAt.ready = true; }
-  camAt.yaw += angDiff(camAt.yaw, aim) * (1 - Math.exp(-4 * dt));
-  const fx = Math.sin(camAt.yaw), fz = Math.cos(camAt.yaw), rx = fz, rz = -fx;   // forward and right (simulation axes)
-  // heights follow the road's visible height profile (the physics underneath stays flat)
-  const cx = s.x - fx * C.dist + rx * C.side, cz = s.z - fz * C.dist + rz * C.side, lx = s.x + fx * C.look, lz = s.z + fz * C.look;
-  camera.position.set(X(cx), C.height + Math.max(f.groundY(cx, cz), f.groundY(s.x, s.z)), cz);
-  camera.lookAt(X(lx), C.lookY + f.groundY(lx, lz), lz);
-}
+// the camera of the mockup: the look's chase camera of the game (view/camera.js), on the road's drawn height
+const chase = new LookChase(camera, look.camera, f.groundY);
+const follow = (s, dt) => chase.update(s, 0, dt);
 function simStep(i) {
   prev = cur;
   const inp = bot(i * DT, cur);
@@ -142,7 +132,7 @@ function draw(now) {
   for (const p of scene0.parked) pool.blob(X(p.x), p.z, 1.15, 2.3, HEAD(p.h));
   pool.end();
   smoke.sync();
-  if (camera.fov !== C.fov) { camera.fov = C.fov; camera.updateProjectionMatrix(); }
+  if (camera.fov !== look.camera.fov) { camera.fov = look.camera.fov; camera.updateProjectionMatrix(); }
   if (view !== 'drive') {
     // ?view=overview, or ?view=cam&cam=x,y,z,lookX,lookY,lookZ (simulation axes) for any other place
     const o = view === 'cam' ? ((c) => ({ pos: c.slice(0, 3), look: c.slice(3, 6) }))((params.get('cam') ?? '0,80,80,0,0,0').split(',').map(Number)) : scene0.views.overview;
