@@ -77,7 +77,7 @@ export function step(s, input, car, mu = 1, dt = DT) {
   const lowK = clamp(speed / K.lowSpeed, 0, 1);
 
   // --- the steering wheel
-  const lock = (K.lockMax * Math.min(1.25, car.agility)) / (1 + (av / K.lockSpeed) ** 2);
+  const lock = (K.lockMax * (car.lockScale ?? 1) * Math.min(1.25, car.agility)) / (1 + (av / K.lockSpeed) ** 2);
   const beta = vf > 0.5 ? Math.atan2(vr, vf) : 0;
   const over = Math.max(0, Math.abs(beta) - K.assistDead);
   const assistOn = smooth((av - 3) / 5);
@@ -110,11 +110,12 @@ export function step(s, input, car, mu = 1, dt = DT) {
   const loadR = shiftR, loadF = 1 - shiftR;
 
   // --- tyres
+  const bal = car.balance ?? 0;   // tuning: more grip at the front, less at the rear (or the other way)
   const slideEff = Math.min(1, car.slide + (1 - car.slide) * (1 - mu) * 1.2);
-  const gripF = car.grip * mu * G * loadF;
-  const gripR = car.grip * mu * G * loadR * (hb ? K.hbGrip : 1);
+  const gripF = car.grip * (1 + bal) * mu * G * loadF;
+  const gripR = car.grip * (1 - bal) * mu * G * loadR * (hb ? car.hbGrip ?? K.hbGrip : 1);
   const fxR = Math.abs(driveRear - dir * brakeRear);
-  const circle = Math.sqrt(Math.max(0, 1 - (K.circle * fxR / Math.max(1e-6, car.grip * mu * G * loadR)) ** 2));
+  const circle = Math.sqrt(Math.max(0, 1 - (K.circle * fxR / Math.max(1e-6, car.grip * (1 - bal) * mu * G * loadR)) ** 2));
   const vden = Math.max(av, 2);
   const alphaF = Math.atan2(vr + a * s.w, vden) - steer * dir;
   const alphaR = Math.atan2(vr - b * s.w, vden);

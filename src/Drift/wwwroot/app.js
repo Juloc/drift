@@ -45,6 +45,7 @@ function run(me) {
 /* ---------- the garage ---------- */
 async function garagePage(me) {
   const g = await api('GET', '/api/garage');
+  const tuning = await api('GET', '/api/tuning');
   const state = { car: g.car, colour: g.colour, glow: g.glow ?? null };
   const preview = h('p', { class: 'garage-preview' });
   const swatch = (hue) => { const b = h('button', { class: 'swatch', type: 'button', role: 'radio', 'aria-label': t('garage.colourN', { n: hue / 15 + 1 }) }); b.style.setProperty('--h', hue); return b; };
@@ -64,7 +65,29 @@ async function garagePage(me) {
   const nick = field({ label: t('garage.nick'), name: 'nick', value: g.nick || '', maxlength: 16, autocomplete: 'off', hint: t('garage.nickHint', { name: g.name }) });
   const form = h('form', { class: 'form' }, nick);
 
+  // tuning of the chosen car: four sliders, 10 points in all; moving one past what is left stops where the points end
+  const TUNE = ['steer', 'balance', 'power', 'handbrake'];
+  const tuneBox = h('div', { class: 'stack' });
+  const points = h('p', { class: 'muted' });
+  function drawTuning() {
+    const cur = tuning.cars[state.car];
+    const used = () => TUNE.reduce((a, k) => a + Math.abs(cur[k]), 0);
+    points.textContent = t('tune.points', { used: used(), budget: tuning.budget });
+    tuneBox.replaceChildren(...TUNE.map((k) => {
+      const out = h('span', { class: 'tune-val', text: String(cur[k]) });
+      const input = h('input', { type: 'range', min: String(-tuning.max), max: String(tuning.max), step: '1', value: String(cur[k]), 'aria-label': t('tune.' + k) });
+      input.addEventListener('input', () => {
+        const want = Number(input.value), room = tuning.budget - (used() - Math.abs(cur[k]));
+        cur[k] = Math.sign(want) * Math.min(Math.abs(want), room); input.value = String(cur[k]); out.textContent = String(cur[k]);
+        points.textContent = t('tune.points', { used: used(), budget: tuning.budget });
+      });
+      return h('div', { class: 'tune-row' }, h('div', { class: 'tune-head' }, h('span', { class: 'tune-name', text: t('tune.' + k) }), out), input, h('div', { class: 'tune-ends' }, h('span', { text: t('tune.' + k + '.neg') }), h('span', { text: t('tune.' + k + '.pos') })));
+    }));
+  }
+  const tuneReset = h('button', { class: 'btn ghost', type: 'button', onclick: () => { for (const k of TUNE) tuning.cars[state.car][k] = 0; drawTuning(); } }, t('tune.reset'));
+
   function sync() {
+    drawTuning();
     carButtons.forEach((b, i) => b.setAttribute('aria-checked', String(i === state.car)));
     swatches.forEach((b, i) => b.setAttribute('aria-checked', String(i === state.colour)));
     glowOff.setAttribute('aria-checked', String(state.glow === null));
@@ -78,7 +101,7 @@ async function garagePage(me) {
 
   const save = async () => {
     clearErrors(form);
-    try { await api('PUT', '/api/garage', { car: state.car, colour: state.colour, glow: state.glow, ...formValues(form) }); }
+    try { await api('PUT', '/api/garage', { car: state.car, colour: state.colour, glow: state.glow, ...formValues(form) }); await api('PUT', '/api/tuning/' + state.car, tuning.cars[state.car]); }
     catch (e) { if (!(e instanceof ApiError)) throw e; showErrors(form, e); toast(errorText(e), { kind: 'danger' }); return; }
     toast(t('garage.saved'), { kind: 'ok' });
   };
@@ -90,6 +113,7 @@ async function garagePage(me) {
     body: h('div', { class: 'page stack' },
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.car') }), h('div', { class: 'cars', role: 'radiogroup', 'aria-label': t('garage.car') }, carButtons)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.colour') }), h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.colour') }, swatches)),
+      h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('tune.title') }), h('p', { class: 'muted', text: t('tune.intro') }), points, tuneBox, h('div', { class: 'cluster' }, tuneReset)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.glow') }), h('p', { class: 'muted', text: t('garage.glowHint') }), glowOff, h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.glow') }, glowSwatches)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.name') }), form),
       boardCard(await api('GET', '/api/times')),

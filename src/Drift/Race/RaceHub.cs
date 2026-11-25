@@ -5,7 +5,7 @@ using Drift.Relay;
 namespace Drift.Race;
 
 /// <summary>What the lobby knows about a person who is connected: the garage's choice, for the invitation and the race.</summary>
-public sealed record LobbyMember(Guid Person, string Name, int Car, int Hue, Session Session, bool Guest = false);
+public sealed record LobbyMember(Guid Person, string Name, int Car, int Hue, Session Session, bool Guest = false, double TopFactor = 1, bool Tuned = false);
 
 /// <summary>
 /// The races of the signed-in lobby, one at a time (docs/ARCHITECTURE.md section 4):
@@ -67,7 +67,7 @@ public sealed class RaceHub
         lock (gate)
         {
             lobby[m.Person] = m;
-            if (phase == Phase.Invite && parts.All(p => p.Member.Person != m.Person)) Send(m.Session, new { t = "race.invite", by = parts[0].Member.Name, map = track.MapId, mapName = track.Name, laps, ms = Math.Max(0, (int)((phaseStart + InviteSeconds - Now) * 1000)) });
+            if (phase == Phase.Invite && parts.All(p => p.Member.Person != m.Person)) Send(m.Session, new { t = "race.invite", by = parts[0].Member.Name, tuned = parts[0].Member.Tuned, map = track.MapId, mapName = track.Name, laps, ms = Math.Max(0, (int)((phaseStart + InviteSeconds - Now) * 1000)) });
             else if (phase != Phase.Idle) Send(m.Session, new { t = "race.busy", n = parts.Count });
         }
     }
@@ -102,7 +102,7 @@ public sealed class RaceHub
                     parts.Add(new Part(me));
                     starter = person; phase = Phase.Invite; phaseStart = Now;
                     foreach (var m in lobby.Values)
-                        Send(m.Session, m.Person == person ? new { t = "race.wait", by = me.Name, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) } : new { t = "race.invite", by = me.Name, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) });
+                        Send(m.Session, m.Person == person ? new { t = "race.wait", by = me.Name, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) } : new { t = "race.invite", by = me.Name, tuned = me.Tuned, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) });
                     break;
                 case "race.join":
                     if (phase == Phase.Invite && parts.Count < MaxRacers && parts.All(p => p.Member.Person != person)) { parts.Add(new Part(me)); Send(me.Session, new { t = "race.joined" }); }
@@ -131,7 +131,7 @@ public sealed class RaceHub
             if (p is null || phase != Phase.Grid || p.Race is not null) { raceRelay.Drop(s, p?.Race is not null ? Wire.ByeReplaced : Wire.ByeSession); return false; }
             p.Race = s;
             var g = track.Grid[p.Slot];
-            Send(s, new { t = "grid", map = track.MapId, slot = p.Slot, x = g.X, z = g.Z, h = g.H, laps, n = parts.Count, racers = parts.Select(x => x.Member.Name).ToArray() });
+            Send(s, new { t = "grid", map = track.MapId, slot = p.Slot, x = g.X, z = g.Z, h = g.H, laps, n = parts.Count, racers = parts.Select(x => x.Member.Name).ToArray(), tuned = parts.Select(x => x.Member.Tuned).ToArray() });
             return true;
         }
     }
@@ -188,7 +188,7 @@ public sealed class RaceHub
                         foreach (var (p, i) in parts.Select((p, i) => (p, i)))
                         {
                             p.Slot = i;
-                            p.Runner = new Runner(p.Member.Person, p.Member.Name, p.Member.Car, p.Member.Hue, tops[Math.Clamp(p.Member.Car, 0, tops.Length - 1)]) { Slot = i, Guest = p.Member.Guest };
+                            p.Runner = new Runner(p.Member.Person, p.Member.Name, p.Member.Car, p.Member.Hue, tops[Math.Clamp(p.Member.Car, 0, tops.Length - 1)] * p.Member.TopFactor) { Slot = i, Guest = p.Member.Guest, Tuned = p.Member.Tuned };
                             run.Runners.Add(p.Runner);
                         }
                         phase = Phase.Countdown; phaseStart = now; lastCount = 4;
@@ -296,7 +296,7 @@ public sealed class RaceHub
                 bestLap = r.BestLap is { } b ? (int?)(int)b : null,
                 drift = (int)r.Drift.Total,
                 points = Math.Round((r.Finished && i < PositionPoints.Length ? PositionPoints[i] : 0) + r.Drift.Total / 100, 1),
-                dnf = r.Dnf, clean = r.CleanLaps,
+                dnf = r.Dnf, clean = r.CleanLaps, tuned = r.Tuned,
                 newLap = flags[r.Person].Lap, newRace = flags[r.Person].Race,
             }).ToArray();
             Broadcast(new { t = "result", rows, laps = finishedRun.Laps });

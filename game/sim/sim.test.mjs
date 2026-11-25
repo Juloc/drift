@@ -317,3 +317,35 @@ test('maps: a steady driver can go round the whole loop on every map without hit
     assert.equal(hits, 0, `${m.name}: ${hits} hits`);
   }
 });
+
+import { applyTuning, cost, valid, isTuned, topFactor, NONE as NO_TUNING, BUDGET } from './tuning.js';
+
+test('tuning: a budget of 10 points over four sliders of -3 to +3', () => {
+  assert.equal(cost({ steer: 3, balance: -2, power: 1, handbrake: -1 }), 7);
+  assert.ok(valid({ steer: 3, balance: 3, power: 3, handbrake: 1 }) && cost({ steer: 3, balance: 3, power: 3, handbrake: 1 }) === BUDGET);
+  assert.ok(!valid({ steer: 3, balance: 3, power: 3, handbrake: 2 }), 'eleven points');
+  assert.ok(!valid({ steer: 4, balance: 0, power: 0, handbrake: 0 }) && !valid({ steer: 1.5, balance: 0, power: 0, handbrake: 0 }));
+  assert.ok(!isTuned(NO_TUNING) && isTuned({ ...NO_TUNING, power: -1 }));
+});
+
+test('tuning: no tuning changes nothing; every slider has its counterweight', () => {
+  const base = CARS[0], none = applyTuning(base, NO_TUNING);
+  for (const k of ['power', 'top', 'grip', 'slide', 'agility']) assert.equal(none[k], base[k]);
+  const up = (k, v) => applyTuning(base, { ...NO_TUNING, [k]: v });
+  assert.ok(up('steer', 3).lockScale > 1 && up('steer', 3).top < base.top);            // more angle, less top speed
+  assert.ok(up('steer', -3).lockScale < 1 && up('steer', -3).top > base.top);
+  assert.ok(up('power', 3).power > base.power && up('power', 3).grip < base.grip);       // more power, less grip
+  assert.ok(up('handbrake', 3).hbGrip < 0.2 && up('handbrake', 3).slide < base.slide);   // more bite, a slide that is harder to hold
+  assert.ok(up('balance', 3).balance > 0 && up('balance', -3).balance < 0);
+  assert.equal(topFactor({ ...NO_TUNING, steer: 3 }), 1 - 0.036);
+  // the top speed moves by at most 3.6 %: the server's checks keep their 15 % of room
+  assert.ok(topFactor({ ...NO_TUNING, steer: -3 }) <= 1.036 + 1e-9);
+});
+
+test('tuning: the physics follows the numbers (every slider changes how the car drives)', () => {
+  const circle = (t) => { let s = { ...makeCar(), vz: 14 }, acc = 0, n = 0; const car = applyTuning(CARS[0], { ...NO_TUNING, ...t }); for (let i = 0; i < 5 / DT; i++) { s = step(s, { steer: 0.35, throttle: speedOf(s) < 14 ? 0.6 : 0.1, brake: 0, handbrake: 0 }, car); if (i * DT > 3) { acc += speedOf(s) * Math.abs(s.w); n++; } } return acc / n; };
+  assert.deepEqual(circle({}), circle({}));
+  assert.notEqual(circle({}), circle({ balance: 3 }));
+  assert.notEqual(circle({ steer: 3 }), circle({}));   // more angle is not simply better: past the tyre's peak the front pushes wide
+  assert.notEqual(circle({ power: 3 }), circle({}));
+});

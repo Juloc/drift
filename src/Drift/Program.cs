@@ -32,6 +32,7 @@ builder.AddBase(new BaseAppOptions("drift", "Drift", typeof(Program).Assembly)
 });
 builder.Services.AddSingleton<GarageStore>();
 builder.Services.AddSingleton<GuestService>();
+builder.Services.AddSingleton<TuningStore>();
 builder.Services.AddSingleton<PersonSockets>();
 builder.Services.AddSingleton<SessionLife>();
 builder.Services.AddSingleton(new WorldRelay(TimeProvider.System, PlayEndpoint.Options));
@@ -63,6 +64,7 @@ Serve("/play", "game");
 Serve("/vendor/three", Path.Combine("vendor", "three"));
 app.MapBase();
 app.MapGarage();
+app.MapTuning();
 app.MapPlay();
 { var t0 = app.Services.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>()[0]; app.Services.GetRequiredService<WorldRelay>().SetGeometry(t0.Segments, t0.Obstacles); }   // the lobby is the car park: its walls count for the checks
 app.MapGuests();

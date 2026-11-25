@@ -5,6 +5,7 @@ import * as THREE from '../vendor/three/three.module.js';
 import { step, makeCar, bodySlip, bodyVelocity, speedOf, turnedAngle, DT } from './sim/physics.js';
 import { prepareMap, surfaceAt, collide } from './sim/map.js';
 import { newScore, scoreStep } from './sim/score.js';
+import { applyTuning, NAMES as TUNE_NAMES, valid as tuneValid } from './sim/tuning.js';
 import { FixedLoop } from './sim/loop.js';
 import { orbitBot } from './sim/bot.js';
 import { createView, TIERS } from './view/scene.js';
@@ -26,10 +27,10 @@ const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
-    online: 'driving here', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
+    online: 'driving here', tunedMark: 'tuned', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
-    online: 'fahren hier', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
+    online: 'fahren hier', tunedMark: 'getunt', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
 document.documentElement.lang = de ? 'de' : 'en';
@@ -46,7 +47,10 @@ const [cars, mapJson] = await Promise.all([
 ]);
 const online = document.documentElement.dataset.mode === 'online';
 const carIndex = params.has('car') ? Math.min(cars.length - 1, +params.get('car') || 0) : online ? Math.floor(Math.random() * cars.length) : 0;
-const car = cars[carIndex];
+// ?tune=steer,balance,power,handbrake (each -3..3, at most 10 points together): the garage's tuning of this car, seen by this page only
+const tuneParts = (params.get('tune') ?? '').split(',').map(Number);
+const tune = Object.fromEntries(TUNE_NAMES.map((k, i) => [k, tuneParts[i] ?? 0]));
+const car = applyTuning(cars[carIndex], tuneValid(tune) ? tune : Object.fromEntries(TUNE_NAMES.map((k) => [k, 0])));
 let map = prepareMap(mapJson);
 let mapList = null, mapGroup = null, mapId = 0;
 const mapCache = new Map([[0, mapJson]]);
@@ -135,7 +139,7 @@ function openNet(url, inRace) {
 let racing = false;
 function lobbyMessage(j) {
   if (j.t === 'race.invite') {
-    $('invite-text').textContent = T.invite.replace('{by}', j.by).replace('{laps}', j.laps).replace('{map}', j.mapName ?? '');
+    $('invite-text').textContent = T.invite.replace('{by}', j.by).replace('{laps}', j.laps).replace('{map}', j.mapName ?? '') + (j.tuned ? ` (${T.tunedMark})` : '');
     show('invite', true);
     clearTimeout(lobbyMessage.timer); lobbyMessage.timer = setTimeout(() => show('invite', false), j.ms);
   } else if (j.t === 'race.wait') note(T.waiting);
@@ -174,7 +178,7 @@ function showResult(j) {
   body.replaceChildren();
   for (const r of j.rows) {
     const tr = document.createElement('tr');
-    const cells = [r.dnf ? '-' : r.pos, r.name, r.ms == null ? T.dnf : fmt(r.ms), r.bestLap == null ? '' : fmt(r.bestLap), r.drift, r.points];
+    const cells = [r.dnf ? '-' : r.pos, r.tuned ? `${r.name} (${T.tunedMark})` : r.name, r.ms == null ? T.dnf : fmt(r.ms), r.bestLap == null ? '' : fmt(r.bestLap), r.drift, r.points];
     for (const c of cells) { const td = document.createElement('td'); td.textContent = c; tr.append(td); }
     if (r.newRace || r.newLap) { const td = document.createElement('td'); td.textContent = T.newBest; tr.append(td); }
     body.append(tr);
