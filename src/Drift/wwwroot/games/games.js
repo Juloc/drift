@@ -6,7 +6,7 @@ const T = de ? {
   tabIn: 'Anmelden', tabUp: 'Konto anlegen', name: 'Name', pw: 'Passwort', pw2: 'Passwort wiederholen', go: 'Anmelden', create: 'Konto anlegen',
   hName: '3 bis 16 Zeichen, Buchstaben, Ziffern, Leerzeichen, Punkt, Bindestrich, Unterstrich. Alle sehen diesen Namen. Nimm bitte nicht deinen echten Namen.',
   hPw: 'Mindestens 8 Zeichen. Das Passwort kannst du nicht zurückholen: wer es vergisst, fragt den, der das Spiel betreibt.',
-  help: 'Passwort vergessen? Frag den Betreiber, er setzt es zurück.', legalPre: 'Mit dem Konto stimmst du dem zu:', privacy: 'Datenschutz', imprint: 'Impressum',
+  help: 'Passwort vergessen? Frag den Betreiber, er setzt es zurück.', legalPre: 'Mit dem Konto stimmst du dem zu:', privacy: 'Datenschutz', imprint: 'Impressum', credits: 'Credits und Lizenzen',
   hello: (n) => `Angemeldet als ${n}.`, play: 'Drift spielen', chPw: 'Passwort ändern', cur: 'Aktuelles Passwort', next: 'Neues Passwort', save: 'Speichern', exp: 'Meine Daten herunterladen', out: 'Abmelden',
   dSum: 'Konto löschen', dText: 'Das löscht dein Konto, deine Garage, deine Zeiten und deine Statistik für alle Spiele. Das geht nicht rückgängig. Der Name bleibt 30 Tage gesperrt.', dLabel: 'Zur Bestätigung dein Passwort', dGo: 'Konto endgültig löschen',
   cTitle: 'Herausforderungen', cIntro: 'Bis zu drei Sterne je Aufgabe, vom Server aus deiner Fahrt bestätigt.', cPlay: 'Spielen', cLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde.',
@@ -22,7 +22,7 @@ const T = de ? {
   tabIn: 'Sign in', tabUp: 'Create account', name: 'Name', pw: 'Password', pw2: 'Repeat password', go: 'Sign in', create: 'Create account',
   hName: '3 to 16 characters: letters, digits, space, dot, dash, underscore. Everybody sees this name. Please do not use your real name.',
   hPw: 'At least 8 characters. A password cannot be recovered: whoever forgets it asks the one who runs the game.',
-  help: 'Forgot the password? Ask the one who runs the game, they reset it.', legalPre: 'With an account you agree to:', privacy: 'Privacy', imprint: 'Imprint',
+  help: 'Forgot the password? Ask the one who runs the game, they reset it.', legalPre: 'With an account you agree to:', privacy: 'Privacy', imprint: 'Imprint', credits: 'Credits and licences',
   hello: (n) => `Signed in as ${n}.`, play: 'Play Drift', chPw: 'Change password', cur: 'Current password', next: 'New password', save: 'Save', exp: 'Download my data', out: 'Sign out',
   dSum: 'Delete account', dText: 'This deletes your account, your garage, your times and your statistics for all games. It cannot be undone. The name stays reserved for 30 days.', dLabel: 'Your password, to confirm', dGo: 'Delete the account for good',
   cTitle: 'Challenges', cIntro: 'Up to three stars each, confirmed by the server from your driving.', cPlay: 'Play', cLap: 'Set a clean lap in a race or time trial.',
@@ -37,7 +37,7 @@ const T = de ? {
 document.documentElement.lang = de ? 'de' : 'en';
 const $ = (id) => document.getElementById(id);
 const text = { title: T.title, intro: T.intro, 'tab-in': T.tabIn, 'tab-up': T.tabUp, 'l-name-in': T.name, 'l-pw-in': T.pw, 'in-go': T.go, 'in-help': T.help, 'l-name-up': T.name, 'l-pw-up': T.pw, 'l-pw2-up': T.pw2, 'up-go': T.create,
-  'h-name': T.hName, 'h-pw': T.hPw, 'legal-pre': T.legalPre, 'a-privacy': T.privacy, 'a-imprint': T.imprint, play: T.play, 'b-pw': T.chPw, 'l-cur': T.cur, 'l-new': T.next, 'pw-go': T.save, 'b-export': T.exp, 'b-out': T.out,
+  'h-name': T.hName, 'h-pw': T.hPw, 'legal-pre': T.legalPre, 'a-privacy': T.privacy, 'a-credits': T.credits, 'a-credits2': T.credits, 'a-imprint': T.imprint, play: T.play, 'b-pw': T.chPw, 'l-cur': T.cur, 'l-new': T.next, 'pw-go': T.save, 'b-export': T.exp, 'b-out': T.out,
   'c-title': T.cTitle, 'c-intro': T.cIntro, 'g-title': T.gTitle, 'l-nick': T.lNick, 'h-nick': T.hNick, 'g-save': T.save, 'd-sum': T.dSum, 'd-text': T.dText, 'l-del': T.dLabel, 'del-go': T.dGo };
 for (const [id, v] of Object.entries(text)) $(id).textContent = v;
 document.title = T.title;

@@ -226,6 +226,7 @@ function settingsPage(me) {
       me.roles.includes('admin') ? guestCard() : null,
       me.roles.includes('admin') ? gamesAdminCard() : null,
       me.roles.includes('admin') ? peopleCard(me) : null, me.roles.includes('admin') ? hubCard(me) : null,
-      me.roles.includes('admin') ? installationCard() : null, aboutCard(me)),
+      me.roles.includes('admin') ? installationCard() : null, aboutCard(me),
+      h('p', { class: 'muted' }, h('a', { href: '/credits/', target: '_blank', rel: 'noopener', text: t('credits.link') }))),
   };
 }

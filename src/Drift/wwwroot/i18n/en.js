@@ -108,6 +108,7 @@ export default {
   'gadmin.banned': 'Banned: whoever is in from there is out now.',
   'gadmin.banRefused': 'That ban was refused.',
   'gadmin.failed': 'That did not work.',
+  'credits.link': 'Credits and licences',
   'challenges.title': 'Challenges',
   'challenges.intro': 'Earn up to three stars on each. The server confirms them from your driving.',
   'challenges.play': 'Play',

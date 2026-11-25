@@ -108,6 +108,7 @@ export default {
   'gadmin.banned': 'Gesperrt: wer von dort drin ist, ist jetzt draußen.',
   'gadmin.banRefused': 'Diese Sperre wurde abgelehnt.',
   'gadmin.failed': 'Das hat nicht geklappt.',
+  'credits.link': 'Credits und Lizenzen',
   'challenges.title': 'Herausforderungen',
   'challenges.intro': 'Hol dir auf jeder bis zu drei Sterne. Der Server bestätigt sie aus deiner Fahrt.',
   'challenges.play': 'Spielen',

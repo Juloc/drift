@@ -109,3 +109,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf5; fon
 #creative-banner[hidden] { display: none; }
 #creative { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 246px; min-height: 44px; padding: 0 12px; border: 2px solid rgba(27,35,48,0.35); border-radius: 12px; background: var(--card); color: var(--ink); font: 800 12px system-ui, sans-serif; opacity: 0.85; pointer-events: auto; }
 #creative[aria-pressed="true"] { background: #7a2bd9; color: #fff; border-color: #fff; opacity: 1; }
+
+/* ----- the credits link: small, bottom right ----- */
+#credits-link { position: fixed; right: max(10px, env(safe-area-inset-right)); bottom: max(6px, env(safe-area-inset-bottom)); z-index: 2; font: 600 11px system-ui, sans-serif; color: var(--ink); opacity: 0.55; text-decoration: none; padding: 4px 6px; }
+#credits-link:hover, #credits-link:focus { opacity: 1; text-decoration: underline; }
+@media (pointer: coarse) { #credits-link { display: none; } }   /* the touch buttons sit there; the credits are on the account page too */
