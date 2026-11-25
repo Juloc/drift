@@ -48,3 +48,16 @@ test('going backwards the chase camera stays behind the nose, it does not swing 
   assert.ok(camera.position.z < -5, `the camera is behind the car (z ${camera.position.z})`);
   assert.ok(rig.cams.chase.yaw < 0.2 && rig.cams.chase.yaw > -0.2, `yaw ${rig.cams.chase.yaw}`);
 });
+
+test('the look chase camera swings out with the drift angle (docs/FOCUS.md): sliding sideways moves it sideways, driving straight does not', () => {
+  const C = { dist: 6, height: 1.7, side: 0, look: 14, lookY: 1.2, travel: 0.6, fov: 52, turn: 0, swing: 3 };
+  const run = (vx, vz) => {
+    const camera = new THREE.PerspectiveCamera(52, 1.6, 0.1, 500), rig = new CameraRig(camera, { look: C, ground: () => 0 });
+    const s = state(0, 0, 0, vx, vz);
+    for (let i = 0; i < 240; i++) rig.update(s, 35, 1 / 60);
+    return camera.position.x;
+  };
+  const straight = run(0, 25), sideways = run(14, 20);   // facing +z; the second travels 35 degrees to one side of the nose
+  assert.ok(Math.abs(straight) < 0.05, `straight: ${straight}`);
+  assert.ok(Math.abs(sideways - straight) > 1, `the swing is ${sideways - straight} m`);
+});

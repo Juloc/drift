@@ -143,3 +143,12 @@ test('what the relay believes: whichever car is hit by whichever at its own top 
     assert.ok(v <= 1.15 * target.top + 2, `${rammer.name} into ${target.name}: ${v.toFixed(1)} m/s against ${(1.15 * target.top + 2).toFixed(1)}`);
   }
 });
+
+test('walls are hard (docs/FOCUS.md): a scrape at 25 degrees costs well over a third of the speed, a head-on hit nearly all of it', () => {
+  const sp = 22, speedOf2 = (s) => Math.hypot(s.vx, s.vz);
+  const h = Math.PI / 2 - 0.45;   // the nose 26 degrees into the wall at x = 3
+  const scrape = collideBody(wallMap(), car(0.9, 0, h, Math.sin(h) * sp, Math.cos(h) * sp));
+  assert.ok(speedOf2(scrape) < sp * 0.7, `a scrape keeps ${(speedOf2(scrape) / sp * 100).toFixed(0)} % of the speed`);
+  const head = collideBody(wallMap(), car(1.5, 0, Math.PI / 2, sp, 0));
+  assert.ok(speedOf2(head) < sp * 0.15, `a head-on hit keeps ${(speedOf2(head) / sp * 100).toFixed(0)} %`);
+});

@@ -312,3 +312,7 @@ All five milestones of SCOPE are built. Waits for the owner: design and details,
 - **A run:** timed from the first gate to 14 m before the end of the road ("Run 1:32.4" as a note), then the car goes back to the top after 2.5 s; R also goes back to the top.
 - **Checked:** the steady-driver test drives it down without a hit (sim test); the line bot needs about 110 s with many wall touches (a crude bot: a person is meant to need about 90 s, not measured); picture `docs/screenshots/game-touge-wide.png`.
 - **Not done yet:** the touge is still map 5, the lobby and the server's lobby geometry are still map 0 (slice 5 moves them); no zones scoring (slice 4); hard walls and the camera (slice 3).
+
+## Touge, slice 3 (hard walls, camera)
+- **Walls are hard:** `BODY.restitution` 0.25 -> 0.12 and `wallFriction` 0.35 -> 0.9 (sim/collision.js): a scrape at about 26 degrees at 22 m/s keeps under 70 % of the speed, a head-on hit under 15 % (test). The collision pose fixture (`tests/vectors/collision-poses.json`) was made again and the relay replay test passes; cars hitting cars use the other friction and are unchanged. Not tuned by feel yet (slice 6): the numbers are a first step.
+- **Camera:** the look chase camera's `swing` (metres per radian of drift angle, look session) is on in the touge look (3.0); a test shows it moves the camera sideways with the drift and not on a straight. Other looks have swing 0.
