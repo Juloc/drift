@@ -3,6 +3,25 @@
 // two triangles a puff.
 import * as THREE from '../../../vendor/three/three.module.js';
 
+/** A soft wisp (look.smoke.texture 'wisp'): one blurred blob whose alpha is frayed by value noise, light on top, shaded below; no round edges. */
+function wispTexture(light, shade, size = 128) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const x = c.getContext('2d'), img = x.createImageData(size, size), L = new THREE.Color(light), D = new THREE.Color(shade);
+  const h = (i, j) => { const v = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return v - Math.floor(v); };
+  const vn = (u, v) => { const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, su = fu * fu * (3 - 2 * fu), sv = fv * fv * (3 - 2 * fv);
+    return (h(i, j) * (1 - su) + h(i + 1, j) * su) * (1 - sv) + (h(i, j + 1) * (1 - su) + h(i + 1, j + 1) * su) * sv; };
+  const fbm = (u, v) => vn(u, v) * 0.5 + vn(u * 2.1, v * 2.1) * 0.3 + vn(u * 4.3, v * 4.3) * 0.2;
+  for (let py = 0; py < size; py++) for (let px = 0; px < size; px++) {
+    const u = px / size - 0.5, v = py / size - 0.5, r = Math.hypot(u, v * 1.15) * 2, n = fbm(px / size * 5 + 3, py / size * 5 + 7);
+    const a = Math.max(0, Math.min(1, (1 - r * r * 1.15) * 1.25 - (1 - n) * 0.75)) ** 1.6;
+    const t = Math.min(1, Math.max(0, 0.65 - v * 1.3 + (n - 0.5) * 0.3)), i = (py * size + px) * 4;
+    img.data[i] = (D.r + (L.r - D.r) * t) * 255; img.data[i + 1] = (D.g + (L.g - D.g) * t) * 255; img.data[i + 2] = (D.b + (L.b - D.b) * t) * 255; img.data[i + 3] = a * 255;
+  }
+  x.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 /** A cluster of soft round puffs on a canvas (no file). */
 function billowTexture(light, shade, size = 128) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -29,7 +48,7 @@ export class Billows {
     this.car = { value: new THREE.Vector3(0, -999, 0) };
     const S = look.smoke;
     this.material = new THREE.ShaderMaterial({
-      uniforms: { tMap: { value: billowTexture(S.colour, S.shade) }, uCar: this.car, uCarView: { value: new THREE.Vector4(0, 0, 0, 0) }, uClear: { value: S.clear ?? 0 }, uNear: { value: S.near ?? 3 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
+      uniforms: { tMap: { value: S.texture === 'wisp' ? wispTexture(S.colour, S.shade) : billowTexture(S.colour, S.shade) }, uCar: this.car, uCarView: { value: new THREE.Vector4(0, 0, 0, 0) }, uClear: { value: S.clear ?? 0 }, uNear: { value: S.near ?? 3 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
       vertexShader: /* glsl */ `
         attribute vec4 aData; attribute vec2 aAlpha;
         uniform vec4 uCarView;   // the car in view space (xyz) and its radius on screen (w, in view units at its depth)
@@ -66,6 +85,8 @@ export class Billows {
     this.life0 = S.life ?? 2.0; this.lifeK = S.lifeGrow ?? 1.6; this.grow0 = S.start ?? 2.0; this.growK = S.spread ?? 6.5;
     this.burst = S.burst ?? 1; this.burstTime = S.burstTime ?? 0.5; this.fade = S.fade ?? 0.5;
     this.clock = 0; this.lastEmit = -9; this.slideStart = 0;
+    // never a wall: the puffs rise at most `maxRise` m over where they started and grow to at most `maxSize` m
+    this.maxRise = S.maxRise ?? 99; this.maxSize = S.maxSize ?? 99; this.base = new Float32Array(this.cap);
   }
   /** The car's place for the fade (drawing space) and the camera: puffs in front of the car that would cover it fade out. */
   aim(camera, radius = 1.6) {
@@ -75,7 +96,7 @@ export class Billows {
   rnd() { this.seed = (this.seed * 16807) % 2147483647; return this.seed / 2147483647; }
   emit(x, y, z, vx, vz, strength) {
     const i = this.next; this.next = (this.next + 1) % this.cap;
-    this.pos.set([x, y + 0.3, z], i * 3);
+    this.pos.set([x, y + 0.3, z], i * 3); this.base[i] = y;
     this.vel.set([vx + (this.rnd() - 0.5) * 1.4, 0.35 + strength * 0.4, vz + (this.rnd() - 0.5) * 1.4], i * 3);
     if (this.clock - this.lastEmit > 0.4) this.slideStart = this.clock;
     this.lastEmit = this.clock;
@@ -88,6 +109,7 @@ export class Billows {
       if (this.age[i] >= this.life[i]) continue;
       this.age[i] += dt;
       for (let a = 0; a < 3; a++) this.pos[i * 3 + a] += this.vel[i * 3 + a] * dt;
+      if (this.pos[i * 3 + 1] > this.base[i] + this.maxRise) { this.pos[i * 3 + 1] = this.base[i] + this.maxRise; this.vel[i * 3 + 1] = 0; }
       this.vel[i * 3] *= 1 - dt * 0.7; this.vel[i * 3 + 2] *= 1 - dt * 0.7;
     }
   }
@@ -96,7 +118,7 @@ export class Billows {
     for (let i = 0; i < this.cap; i++) {
       const k = this.age[i] / this.life[i];
       d[i * 4] = this.pos[i * 3]; d[i * 4 + 1] = this.pos[i * 3 + 1]; d[i * 4 + 2] = this.pos[i * 3 + 2];
-      d[i * 4 + 3] = k >= 1 ? 0 : (this.grow0 + k * this.growK) * this.grow[i] * this.scale;
+      d[i * 4 + 3] = k >= 1 ? 0 : Math.min(this.maxSize, (this.grow0 + k * this.growK) * this.grow[i] * this.scale);
       al[i * 2] = k >= 1 ? 0 : this.opacity * Math.pow(1 - k, 1 / this.fade) * Math.min(1, k * 5);   // fade < 1: thins out sooner al[i * 2 + 1] = this.spin[i] + k * 0.6;
     }
     this.data.needsUpdate = true; this.alpha.needsUpdate = true;

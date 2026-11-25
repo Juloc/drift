@@ -30,7 +30,8 @@ export function disposeTree(root) {
  * @returns the stage: { renderer, post, scene, camera, tier, tierName, sun, sunDir, hemi, sky, world, field, mist, halos, env, skids, smoke, buildMs, carTier, load(look, scene), resize(), render(), aimSun(x, y, z) }
  */
 export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpan = 36 }) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+  // a tier without the after-pass (the phone) draws straight to the screen: let the browser smooth the edges there (MSAA); the after-pass has its own
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !(look.tiers[tierName] ?? look.tiers.low)?.post, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   // the mood: ACES tone mapping on both tiers; the high tier adds bloom and a colour grade (post.js), the vignette is CSS
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -39,7 +40,8 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
   const camera = new THREE.PerspectiveCamera(55, 1, 0.5, 2600);
   const hemi = new THREE.HemisphereLight(0xffffff, 0x888888, 1);
   const sun = new THREE.DirectionalLight(0xffffff, 1);
-  scene.add(hemi, sun, sun.target);
+  const key2 = new THREE.DirectionalLight(0xffffff, 0);   // look.key2: a second warm light (grazing light from the bright side of the sky)
+  scene.add(hemi, sun, sun.target, key2, key2.target);
   // a look may lack a tier (older looks have high and low only): medium falls back to low
   const tierOf = (lk, name) => lk.tiers[name] ?? lk.tiers[name === 'medium' ? 'low' : 'high'];
   const tier0 = tierOf(look, tierName);
@@ -73,6 +75,7 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
       stage.sunDir = sunDirection(newLook);
       hemi.color.set(newLook.fill.sky); hemi.groundColor.set(newLook.fill.ground); hemi.intensity = newLook.fill.intensity;
       sun.color.set(newLook.sun.colour); sun.intensity = newLook.sun.intensity;
+      const k2 = newLook.key2; key2.intensity = k2?.intensity ?? 0; if (k2) { key2.color.set(k2.colour); key2.position.set(-k2.dir[0] * 100, k2.dir[1] * 100, k2.dir[2] * 100); }
       stage.sky = makeSky(newLook, 2200);
       scene.add(stage.sky);
       // the cloud bands of their own (in front of the dome, so the bloom does not wash them out)
@@ -144,6 +147,9 @@ export function carMaker(stage) {
     const { look, env, carTier } = stage;
     const materials = carMaterials({ tier: carTier, paint: new THREE.Color(paint).getHex(), env });
     if (look.car?.tail) materials.light_rear.color.set(look.car.tail).multiplyScalar(look.car.tailGlow ?? 1);
+    // look.car.gloss: { env, roughness, coat }: how much of the sky the paint mirrors (dusk: less, so the roof shows its shape, not white)
+    const gl = look.car?.gloss;
+    if (gl) { const p = materials.paint; if (gl.env !== undefined) p.envMapIntensity = gl.env; if (gl.roughness !== undefined) p.roughness = gl.roughness; if (gl.coat !== undefined && p.clearcoatRoughness !== undefined) p.clearcoatRoughness = gl.coat; if (gl.clearcoat !== undefined && p.clearcoat !== undefined) p.clearcoat = gl.clearcoat; }
     const m = model ? await loadCarModel(model, { tier: carTier, materials }) : null;
     return m ? { ...m, materials } : buildS15({ paint: new THREE.Color(paint).getHex(), kit, tier: carTier, env });
   };

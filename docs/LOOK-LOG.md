@@ -349,3 +349,72 @@ On master the land is no longer a shadow receiver (the drift chat: the VSM pass 
 to keep the high tier under 400k triangles a frame: high cell 4.5 m, 550 + 320 cedars, 3500 far trees, cedar 5 tiers; medium cell 6 m,
 320 + 200 cedars, 2000 far trees. Measured (probe, drift view, including shadow and bloom passes): high 336k triangles / 49 calls
 (world 250k; before 995k), medium 190k / 49 (world 108k), low world 59k. The picture is unchanged by eye.
+
+## Touge round 3 (2026-11-26): the orchestrator's review of round 2
+
+1. Smoke: a soft wisp texture drawn from value noise (`look.smoke.texture: 'wisp'`: one blurred blob with frayed alpha, light on top,
+   shaded below), fewer and bigger sprites (90 on high), so the trails run into each other without round edges.
+2. The bright spots on the roof and the rear window were the clear coat's highlight (not bloom): `look.car.gloss` (env, roughness, coat,
+   clearcoat) tames the paint for dusk; carMaker applies it to the paint material of every car.
+3. Light: a second warm key light from the bright side of the sky (`look.key2`), stronger fill, greener cedars and land: the
+   foreground keeps its own colours instead of dark violet silhouettes.
+4. Volcanoes lower, hazed towards a warm haze colour (`look.volcano.hazeColour`), a lit crater rim; a lighter, warmer fog.
+5. The lake mirrors the orange sky (water `light` orange, stronger glow).
+6. The dark smudge behind the drift-score card was the blurred peak of a volcano behind the frosted card: the peaks are lower now.
+   A seam in the sky (the azimuth of the cloud streaks jumped at +-180 degrees) is gone: azimuth now measured from the sun.
+7. Road: neutral grey asphalt, little sheen, clear edge and centre lines.
+Numbers unchanged: high 336k triangles / 49 calls.
+
+## Touge round 4 (2026-11-26): the new chief's review, points 1 to 4
+
+1. Sky: the hard vertical edge in the cloud streaks (the azimuth seam) was fixed in round 3; checked again: gone.
+2. Mountains: five ridge rings staggered behind the lake, each lighter and rosier than the one before (`look.ridges`), drawn unlit
+   (`look.farUnlit`: a mesh of its own with the layer colours, so they do not lie dark in their own shade against the low sun); the
+   volcanoes are lathes with concave, soft flanks and a small crater (no sharp-edged cones); the touge look is smooth (`facets: false`).
+3. Lake: the sky in the water by direction: bright orange on the side towards the sun, darker towards the viewer, and a path of light
+   to the sun (finer lake grid); less of its own glow, so the gradient shows.
+4. Smoke: puffs never rise more than `maxRise` (1.3 m) over where they started and never grow past `maxSize` (4.2 m): no smoke high up
+   behind the HUD cards; soft wisps, light on top, shaded underneath.
+Numbers: high 343k triangles / 50 calls, phone tier 82k / 22. Tests 128 green.
+
+## Touge round 5 (2026-11-26): first pictures from the game (master 260ae7f, `?map=touge`)
+
+Done: the painted car style can no longer touch a car unless the look asks for it (`paintCar` returns at once without
+`look.car.painted`; a model's own `own_*`, `lamp_*`, `fx_*` materials are always left alone): no dust, no contour, the gloss untouched.
+The phone tier draws at full resolution with the browser's edge smoothing (no after-pass there) and fewer triangles instead of a small
+buffer; the probe's credit line sits small at the right edge on touch. Density thinned again for the game's numbers.
+
+What the game picture shows (`docs/screenshots/game-touge-look-wide.png`, `game-touge-look-phone.png`; side by side with the mockup in
+the notes folder: `touge-spiel-vs-mockup-1.png`):
+- Sky: violet with soft cloud bands and an orange band low over the mountains; no seam. The mockup's sky is warmer and pinker.
+- Mountains: several layers behind each other, but dark violet and close in tone; the volcano is a faint shape on the left.
+- Lake: not in this frame (it lies behind the guardrail on the left at this point of the road).
+- Smoke: none in this frame (the bot is at 8 degrees, not drifting).
+- Car: the game's own car colour (blue); tail lights orange-red without glow; no burnt-out spots on the roof.
+- Road: dark grey-violet with a yellow centre dash and a white edge line; no brown polygons in this frame.
+- Cedars: dark green cones on the slope to the right, no warm grazing light visible on them.
+- Phone: sharp edges now, no pixel stairs.
+Numbers in the game: high 424k triangles / 50 calls (world 283k; the rest are the cars and the shadow pass: still over 400k),
+phone 126k / 21.
+
+## Touge round 6 (2026-11-26): against touge.png (the owner's mockup) and ABNAHME-TOUGE.md
+
+The measure is now `~/projects/drift-mockups/touge.png`: a cool dusk, the warmth from the lights. Done in the shared modules:
+- Lake (C): `look.water.mirror`: a water shader that evaluates the sky's gradient along the reflected view ray (far water shows the
+  horizon band, near water the deep sky), ripples stretched along the view for vertical streaks, Fresnel with the dark water colour.
+  An island in the lake (`lake.island`: x, z, r, h) with trees.
+- Far (B): cooler, bluer ridge layers; haze bands between them (far mist patches); a thin dark plume from the highest volcano
+  (`look.volcano.plume`).
+- Middle ground (D): the carpet of cedars may come within 30 m of the road (`tier.carpetNear`), and the valley floor no longer blocks it
+  (`terrain.floor`); denser carpet on every tier.
+- Sky (A): deep blue-violet top, violet, a narrow orange band; the moon higher and to the right of the view.
+- Road (F): no yellow centre line (the dashes take the asphalt colour), darker grey-violet; fewer columns on the high tier
+  (`look.road.columns: 'mid'`); the road is no shadow receiver (`look.road.receiveShadow: false`).
+Game numbers (`?map=touge&demo=line&t=23`): high 360k triangles / 49 calls (was 546k), phone 133k / 22 (was 147k).
+
+## Touge round 7 (2026-11-26): on master 163f325, pictures from the game (`?map=touge&demo=line`, t 24 = hairpin over the lake, t 12 = drift)
+
+Done: the cedar carpet goes where the camera looks (`terrain.forest`: the hillside between road and lake), no mist patch over the lake
+(so the mirror water shows), a cooler high tier (less sky glow, no warmth in the grade), and the guardrail beams merged into longer
+pieces where the line is nearly straight (with rails on both sides of 2 km of road they were tens of thousands of triangles; the phone
+went from 169k to 130k). Game numbers: high 353k / 48 calls (valley view), 355k / 49 (drift); phone 130k / 22.

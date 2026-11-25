@@ -130,7 +130,7 @@ body.touch .c-angle .angle .k { font-size: 11px; }
 @media (prefers-reduced-motion: reduce) { .c-score .pill { transition: none; } }
 
 #credit { position: fixed; left: 50%; bottom: 2px; transform: translateX(-50%); margin: 0; font: 400 10px/1.2 var(--font); color: oklch(1 0 0 / 0.7); text-shadow: 0 1px 3px oklch(0.2 0.06 330 / 0.6); white-space: nowrap; pointer-events: none; z-index: 1; }
-body.touch #credit { font-size: 7px; bottom: auto; top: 1px; }
+body.touch #credit { font-size: 7px; left: auto; right: 6px; bottom: auto; top: 50%; transform: none; max-width: 30vw; white-space: normal; text-align: right; opacity: 0.7; }   /* small, at the right edge between the cards and the buttons */
 
 #pdebug { position: fixed; left: 8px; top: 8px; margin: 0; padding: 6px 8px; font: 12px/1.35 ui-monospace, Menlo, monospace; background: rgba(0,0,0,0.65); color: #dff; border-radius: 6px; pointer-events: none; white-space: pre-wrap; z-index: 9; }
 #pdebug[hidden] { display: none; }
