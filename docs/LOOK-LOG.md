@@ -418,3 +418,13 @@ Done: the cedar carpet goes where the camera looks (`terrain.forest`: the hillsi
 (so the mirror water shows), a cooler high tier (less sky glow, no warmth in the grade), and the guardrail beams merged into longer
 pieces where the line is nearly straight (with rails on both sides of 2 km of road they were tens of thousands of triangles; the phone
 went from 169k to 130k). Game numbers: high 353k / 48 calls (valley view), 355k / 49 (drift); phone 130k / 22.
+
+## Touge round 8 (2026-11-26)
+
+Done: a neutral tone curve on request (`look.grade.tone: 'neutral'`: Khronos PBR Neutral instead of ACES, set in stage.load; hues stay,
+the high tier no longer turns the sky peach), no lift or warmth in the grade, a darker sky glow and cloud light; the lake darker with a
+wider reflected horizon band (`look.water.bandWidth`) and stronger streaks; the land under the road dark green instead of olive; the
+moon moved into the lake view. Game numbers unchanged: high 353k / 48, phone 130k / 22.
+In the game picture (t 24): high tier and phone now share the cool violet sky with the orange band; the ground is dark green; the moon
+shows at the top edge (on the wide picture partly behind the drift-score card); the lake is dark blue-violet but its orange streaked
+reflection still does not show; the smoke still covers the tail in this view.

@@ -69,6 +69,9 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
       const tier = tierOf(newLook, tierName);
       Object.assign(stage, { look: newLook, scene0: newScene, tier });
       renderer.toneMappingExposure = newLook.grade.exposure;
+      // look.grade.tone 'neutral': Khronos PBR Neutral keeps hues (orange stays orange, the sky does not turn peach); default ACES
+      renderer.toneMapping = newLook.grade.tone === 'neutral' ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+      scene.traverse((o) => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
       stage.post?.setGrade(newLook.grade);
       scene.fog = new THREE.Fog(newLook.fog.colour, newLook.fog.near, newLook.fog.far);
       scene.background = new THREE.Color(newLook.fog.colour);
