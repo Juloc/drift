@@ -2,6 +2,10 @@
 
 Versions follow SemVer. The version stands in `Directory.Build.props`.
 
+## 0.3.0
+
+- The game wears the new look: the shared look stage (sky, light, world, mist, smoke, tyre marks), the HUD from the mockup, the RX-7 for everybody, the road on a drawn height profile (view only), the maps drawn in the new style.
+
 ## 0.2.3
 
 - Look probe rounds 9 to 14: the road on a drawn height profile with a deep valley (view only, physics unchanged), painted car style, detailed road and surroundings, painted billow smoke.
