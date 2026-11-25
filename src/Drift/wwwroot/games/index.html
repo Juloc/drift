@@ -46,8 +46,8 @@
       <p><a id="play" class="btn primary wide" href="/play/games.html"></a></p>
       <form id="f-garage" class="form">
         <h2 id="g-title" class="card-title"></h2>
-        <div id="g-cars" class="row" role="radiogroup"></div>
-        <div id="g-colours" class="row" role="radiogroup"></div>
+        <div id="g-cars" class="wrap" role="radiogroup"></div>
+        <div id="g-colours" class="wrap" role="radiogroup"></div>
         <label class="field"><span id="l-nick" class="label"></span><input id="g-nick" class="input" maxlength="16" autocomplete="off"><small id="h-nick" class="muted"></small></label>
         <p id="g-error" class="field-error" role="alert" hidden></p>
         <button id="g-save" class="btn primary" type="submit"></button> <span id="g-saved" class="muted" hidden></span>
@@ -58,7 +58,7 @@
         <p id="pw-error" class="field-error" role="alert" hidden></p>
         <button id="pw-go" class="btn primary" type="submit"></button>
       </form>
-      <div class="row">
+      <div class="wrap">
         <button id="b-pw" class="btn outline" type="button"></button>
         <a id="b-export" class="btn outline" href="/api/games/export" download="my-games-data.json"></a>
         <button id="b-out" class="btn outline" type="button"></button>

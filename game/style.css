@@ -74,9 +74,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf5; fon
 
 /* ----- emotes: a fixed set of symbols, no free text ----- */
 .tag .emo { margin-left: 6px; font-size: 22px; vertical-align: middle; }
-#emotes { position: fixed; left: max(14px, env(safe-area-inset-left)); top: 150px; z-index: 4; display: flex; flex-wrap: wrap; gap: 6px; max-width: 280px; }
+#emotes { position: fixed; left: calc(max(14px, env(safe-area-inset-left)) + 54px); top: 44%; z-index: 4; display: flex; flex-wrap: wrap; gap: 6px; max-width: 280px; }
 #emotes[hidden] { display: none; }
 #emotes button { width: 44px; height: 44px; font-size: 22px; border: 2px solid rgba(27,35,48,0.35); border-radius: 12px; background: var(--card); }
-#emote-open { position: fixed; left: max(14px, env(safe-area-inset-left)); top: 100px; z-index: 4; width: 44px; height: 44px; font-size: 22px; border: 2px solid rgba(27,35,48,0.35); border-radius: 12px; background: var(--card); opacity: 0.8; }
+#emote-open { position: fixed; left: max(14px, env(safe-area-inset-left)); top: 44%; z-index: 4; width: 44px; height: 44px; font-size: 22px; border: 2px solid rgba(27,35,48,0.35); border-radius: 12px; background: var(--card); opacity: 0.8; }
 #emote-open[hidden] { display: none; }
 #me .emo { margin-left: 6px; font-size: 18px; }
