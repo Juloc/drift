@@ -9,13 +9,16 @@ import { homedir } from 'node:os';
 const [w, h, name, ...rest] = process.argv.slice(2);
 const opt = Object.fromEntries(rest.map((a) => a.replace(/^--/, '').split('=')).map(([k, v]) => [k, v ?? true]));
 const chrome = `${homedir()}/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`;
-const port = 9333;
+const port = 20000 + Math.floor(Math.random() * 20000); // a free one of our own: other projects' browsers may listen on others
 const url = `http://127.0.0.1:8150/game/index.html?debug=1${opt.touch ? '&touch=1' : ''}${opt.tier ? '&tier=' + opt.tier : ''}${opt.query ? '&' + opt.query : ''}`;
-const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, '--user-data-dir=/tmp/claude-1000/drift-play-profile', '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
+const profile = `/tmp/claude-1000/drift-play-${port}`;
+const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
+const stop = () => { try { process.kill(-proc.pid, 'SIGKILL'); } catch {} };
+process.on('exit', stop);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let target;
 for (let i = 0; i < 50 && !target; i++) { await sleep(300); try { target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((t) => t.type === 'page'); } catch {} }
-if (!target) { proc.kill(); throw new Error('no browser'); }
+if (!target) { stop(); throw new Error('no browser'); }
 const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((r) => (ws.onopen = r));
 let id = 0; const pending = new Map(); const logs = [];
@@ -62,9 +65,11 @@ if (opt.touch) {
 }
 const frames = (await evalJs('window.__drift.info.frames')) - f0, ms = Date.now() - t0;
 const stats = JSON.parse(await evalJs(`(()=>{const r=__drift.renderer.info.render;const s=__drift.state;const sc=__drift.score;return JSON.stringify({triangles:r.triangles,calls:r.calls,tier:__drift.view.tier,buffer:[__drift.renderer.domElement.width,__drift.renderer.domElement.height],speedKmh:Math.round(Math.hypot(s.vx,s.vz)*3.6),pos:[Math.round(s.x),Math.round(s.z)],score:Math.round(sc.pending+sc.banked),dbg:document.getElementById('debug').textContent})})()`));
+const parts = JSON.parse(await evalJs(`(()=>{const o=[];__drift.view.scene.traverse(m=>{if(m.geometry&&m.geometry.index){const n=m.geometry.index.count/3*(m.isInstancedMesh?m.count:1);o.push([m.type,Math.round(n)])}else if(m.isPoints){o.push(['Points',0])}});return JSON.stringify(o)})()`));
 const shot = await send('Page.captureScreenshot', { format: 'png' });
 mkdirSync('docs/screenshots', { recursive: true });
 const file = `docs/screenshots/${name}.png`;
 writeFileSync(file, Buffer.from(shot.result.data, 'base64'));
-console.log(JSON.stringify({ name, size: `${w}x${h}`, dpr: opt.dpr ?? 1, realFps: +(frames / (ms / 1000)).toFixed(1), msPerFrame: +(ms / frames).toFixed(1), ...stats, touchState, consoleProblems: logs.filter((l) => /error|Error|exception/.test(l)), file }, null, 1));
-ws.close(); proc.kill();
+console.log(JSON.stringify({ name, size: `${w}x${h}`, dpr: opt.dpr ?? 1, realFps: +(frames / (ms / 1000)).toFixed(1), msPerFrame: +(ms / frames).toFixed(1), ...stats, touchState, meshTriangles: parts, consoleProblems: logs.filter((l) => /error|Error|exception/.test(l)), file }, null, 1));
+ws.close(); stop(); await sleep(300);
+import('node:fs').then((fs) => fs.rmSync(profile, { recursive: true, force: true }));
