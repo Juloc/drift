@@ -2,16 +2,16 @@
   "name": "Sunset (soft, painted)",
   "note": "Colours, light, mood and density of a look; the shapes come from the scene. Another look (night harbour, desert, winter, car park) is another file like this one. Colours are before tone mapping (ACES), which softens and warms them.",
   "sky": {
-    "top": "#b07a98",
-    "mid": "#f09a98",
-    "horizon": "#ffb08a",
+    "top": "#c07e96",
+    "mid": "#f49c94",
+    "horizon": "#ff9e74",
     "below": "#f2a99c",
     "midHeight": 0.2,
-    "sun": "#fcebbe",
-    "sunGlow": 1.3,
-    "glow": "#ff8a74",
+    "sun": "#fff0c0",
+    "sunGlow": 1.15,
+    "glow": "#ff7a5a",
     "sunSize": 3.1,
-    "glowStrength": 0.9,
+    "glowStrength": 0.8,
     "clouds": { "lit": "#ffcaa2", "shade": "#b25a88", "amount": 1.0, "layer": 0.85, "bright": 1.25 },
     "bands": [
       { "az": -14, "el": 7, "w": 34, "h": 3.2 },
@@ -23,13 +23,13 @@
       { "az": -55, "el": 8, "w": 28, "h": 2.6 }
     ]
   },
-  "sun": { "dir": [0.74, 0.045, -1], "colour": "#ffb070", "intensity": 3.4 },
+  "sun": { "dir": [0.64, 0.1, -1], "colour": "#ffb070", "intensity": 3.4 },
   "fill": { "sky": "#8a72cc", "ground": "#c48a8a", "intensity": 1.95 },
   "fog": { "colour": "#f0a8a2", "near": 400, "far": 4200 },
   "mist": { "colour": "#ffdcdc", "opacity": 0.85, "y": -64 },
   "grade": { "exposure": 0.95, "bloom": 0.55, "threshold": 1.8, "warmth": 1.1, "saturation": 1.08, "contrast": 0.94, "grain": 0.035, "lift": "#120610" },
   "land": { "valley": "#7a8a48", "mid": "#97934a", "high": "#b39a6a", "warm": "#ad9a50", "cool": "#7f8f48", "rock": "#a8828a", "rockDark": "#7e6474", "gravel": "#9a7c80", "sand": "#d9ad9d" },
-  "road": { "asphalt": "#4a3f52", "asphaltLight": "#564a5e", "edge": "#fbf3f0", "centre": "#f2b84e", "plaza": "#665d71", "bay": "#efe9e4", "kerb": "#cfc3c4", "roughness": 0.75, "sheen": 0.18, "edgeWidth": 0.34, "track": "#3f3446" },
+  "road": { "asphalt": "#563c50", "asphaltLight": "#604658", "edge": "#fbf3f0", "centre": "#f2b84e", "plaza": "#665d71", "bay": "#efe9e4", "kerb": "#cfc3c4", "roughness": 0.75, "sheen": 0.18, "edgeWidth": 0.34, "track": "#3a2a3a" },
   "water": { "deep": "#9a7cb8", "light": "#ffbf86", "glint": "#ffc58c", "glow": 1.5 },
   "bridge": { "stone": "#e2b29c", "shade": "#c08e88" },
   "ridges": ["#7a5070", "#9a6080", "#b47088", "#c8828e", "#dc9a9a"],
@@ -91,5 +91,6 @@
   "facets": true,
   "car": { "tail": "#ff0a2a", "tailGlow": 1.7, "rim": 0.45, "gloss": 0.45, "dirt": "#7a5a52", "steps": true, "rims": "#9aa0a8" },
   "pole": { "wood": "#5b4140", "wire": "#2c2430" },
-  "lantern": { "stone": "#b7a8a6", "gate": "#c8423f" }
+  "lantern": { "stone": "#b7a8a6", "gate": "#c8423f" },
+  "surface": { "facet": 0.12, "blotch": 0.22, "grain": 0.08 }
 }
