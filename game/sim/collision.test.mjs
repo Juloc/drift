@@ -121,7 +121,7 @@ test('damage: small bumps cost nothing, hard hits a lot, it is capped, heals slo
 
 test('the weights are in cars.json, in kilograms, and a heavy car is thrown about less than a light one', () => {
   assert.ok(cars.every((c) => c.mass >= 700 && c.mass <= 2500), 'every car has a weight');
-  assert.ok(cars.find((c) => c.name === 'Ox').mass > cars.find((c) => c.name === 'Pip').mass);
+  assert.ok(cars.find((c) => c.name === 'Ox').mass > cars.find((c) => c.name === 'AE86').mass);
   const ram = (ma, mb) => {
     const a = car(-1.9, 0, Math.PI / 2, 20, 0), b = car(1.9, 0, -Math.PI / 2, 0, 0);
     return collideCars(a, b, { ma, mb });

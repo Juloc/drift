@@ -127,6 +127,29 @@ The model has **no interior** (opaque black glass) and its pop-up lamps are **fi
 possible without remodelling). In the game: `?model=ae86` (the car is not in `cars.json` yet). Pictures
 `docs/screenshots/cars/ae86-{front,rear,side,phone,drift-phone,drift-wide}.png`.
 
+### The AE86 as car 1, and its effects (2026-11-26)
+
+- Car 1 ("Pip") is now the **AE86** (`game/data/cars.json`: mass 940, power 7.6, top 33, grip 1.05, slide 0.78, agility 1.25,
+  `"model": "ae86"`; the name also in `GarageStore.CarNames`, the garage bars in `src/Drift/wwwroot/app.js`, `engine.js`'s
+  name and the sim tests; engine sound and the relay's speed check stay per slot). The game takes the model from the car
+  (`cars[carIndex].model`, else `rx7`); `?model=<file>` and `?paint=ffffff` remain for pictures.
+- `game/view/carfx.js` (tests in `carfx.test.mjs`): `dressCar` puts an underbody (floor pan, axles, drive shaft, differential,
+  exhaust pipe and silencer, one draw call), a contact shadow in the car's footprint (no circle) and a headlight pool on the
+  road on the template, so every copy has them; `carFx` gives one car brake lights that brighten when braking (its own copies
+  of the `lamp_rear_` materials), flames and a flash at the exhaust (`cars.json` `fx.exhaust`) and underglow as two strips
+  along the sills plus their light on the road (`?glow=` / the garage setting; replaces the round patch for a model car).
+- **Pops:** after a lift of the throttle (held above 0.6 for 0.4 s, then below 0.15, above 8 m/s: 2 to 4 pops 60 to 140 ms
+  apart) and at an upshift under throttle (the gear of `engine.js`'s `revs`): each pop fires `car.pop` on `window`
+  (`detail: { kind: 'lift'|'shift', strength 0..1, x, y, z }`) in the same frame as its flame, for the sound to follow.
+- Pictures from the game (map 2, the sunset look, `?demo=line`, white paint): `docs/screenshots/cars/ae86-game-drift-dusk.png`
+  (high, 52 km/h, 45 degrees, flame) and `ae86-game-drift-phone-glow.png` (low tier, phone size, underglow on). In the game the
+  black lower half still looks grey: the painted style of the look (`paintCar`'s dust near the ground) also tints the model's own
+  materials; the look branch takes that style out.
+- **Waiting for the GPU PC** (off since 2026-11-26 evening): glass as the game's dark tinted glass (`"^material\\.011$": "glass"`)
+  and gun-metal rims (`"overrides"`) are in `cars/ae86.json` but not exported yet; so is the RX-7 in the own-materials way and the
+  fix of the wheel sides (the first version of `prepare_car.to_gltf` flipped x, so every file names its left wheels right; the
+  game does not mind, the next export of each car corrects it).
+
 ### Batch 1 (2026-11-26): six more downloads
 
 The same steps per car, about 15 to 30 minutes of looking and writing the car file; the runs take 2 to 4 s per tier.

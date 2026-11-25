@@ -5,7 +5,7 @@
 /** One entry per car id of data/cars.json. `cyl` sets the firing frequency (cylinders / 2 firings per revolution); `sub` the weight of the octave below; `grit` the roughness. */
 export const ENGINES = [
   { name: 'Dart',   idle: 1000, max: 7400, cyl: 4, gears: 5, sub: 0.45, grit: 0.35, turbo: false, tone: 1400 },   // a lively four
-  { name: 'Pip',    idle: 1200, max: 8200, cyl: 3, gears: 5, sub: 0.25, grit: 0.55, turbo: false, tone: 2000 },   // a small, buzzy three
+  { name: 'AE86',   idle: 1200, max: 8200, cyl: 3, gears: 5, sub: 0.25, grit: 0.55, turbo: false, tone: 2000 },   // a small, buzzy three
   { name: 'Bruno',  idle: 700,  max: 5600, cyl: 8, gears: 4, sub: 0.75, grit: 0.30, turbo: false, tone: 800 },    // a low V8
   { name: 'Marlin', idle: 900,  max: 7000, cyl: 6, gears: 5, sub: 0.55, grit: 0.15, turbo: false, tone: 1700 },   // a smooth six
   { name: 'Ox',     idle: 750,  max: 4300, cyl: 4, gears: 4, sub: 0.60, grit: 0.60, turbo: true,  tone: 900 },    // a heavy turbo diesel

@@ -207,7 +207,7 @@ def find_wheels(objs):
     within its radius belongs to the wheel (rim, disc), except what stays (calipers)."""
     _box.clear()
     found = {}
-    for name, (sx, sy) in zip(WHEELS, ((-1, -1), (1, -1), (-1, 1), (1, 1))):
+    for name, (sx, sy) in zip(WHEELS, ((1, -1), (-1, -1), (1, 1), (-1, 1))):   # Blender: left = +x, front = -y
         cands = []
         for o in objs:
             if STAYS.search(o.name) or any(ms.material and STAYS.search(ms.material.name) for ms in o.material_slots):
@@ -262,9 +262,9 @@ for o in meshes:
 R = sum(r for _, r, _ in wheels.values()) / 4
 yf = (wheels["wheel_fl"][0].y + wheels["wheel_fr"][0].y) / 2 - cy
 yr = (wheels["wheel_rl"][0].y + wheels["wheel_rr"][0].y) / 2 - cy
-xf = (wheels["wheel_fr"][0].x - wheels["wheel_fl"][0].x) / 2
-xr = (wheels["wheel_rr"][0].x - wheels["wheel_rl"][0].x) / 2
-wheel_at = {"wheel_fl": Vector((-xf, yf, R)), "wheel_fr": Vector((xf, yf, R)), "wheel_rl": Vector((-xr, yr, R)), "wheel_rr": Vector((xr, yr, R))}
+xf = (wheels["wheel_fl"][0].x - wheels["wheel_fr"][0].x) / 2
+xr = (wheels["wheel_rl"][0].x - wheels["wheel_rr"][0].x) / 2
+wheel_at = {"wheel_fl": Vector((xf, yf, R)), "wheel_fr": Vector((-xf, yf, R)), "wheel_rl": Vector((xr, yr, R)), "wheel_rr": Vector((-xr, yr, R))}
 log("wheelbase %.3f m (real %.3f), track %.3f / %.3f, tyre radius %.3f" % (yr - yf, CFG["wheelbase"], 2 * xf, 2 * xr, R))
 wheel_parts = {n: p for n, (_, _, p) in wheels.items()}
 in_wheel = {o for p in wheel_parts.values() for o in p}
@@ -315,6 +315,20 @@ def own_material(m, kind):
     return slot_mats[key]
 
 
+# "overrides": {"regex": {"color": [r, g, b] (linear), "metal": x, "rough": y}}: a model's own material made a little better
+# (the AE86's black rims get some metal shine); applied before the palette is made
+for rx, ov in SRC.get("overrides", {}).items():
+    for m in {ms.material for o in meshes for ms in o.material_slots if ms.material and re.search(rx, ms.material.name, re.I)}:
+        b = m.node_tree.nodes.get("Principled BSDF") if m.use_nodes else None
+        if not b:
+            continue
+        if "color" in ov:
+            b.inputs["Base Color"].default_value = (*ov["color"], 1.0)
+        if "metal" in ov:
+            b.inputs["Metallic"].default_value = ov["metal"]
+        if "rough" in ov:
+            b.inputs["Roughness"].default_value = ov["rough"]
+        log("override %s: %s" % (m.name, ov))
 if OWN:   # the car file's "slots" name the game's slots and the lamps; every other material stays the model's own
     for name in table:
         hit = next((v for rx, v in SRC.get("slots", {}).items() if re.search(rx, name, re.I)), None)

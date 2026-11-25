@@ -35,8 +35,9 @@ def own_of(name):
 
 
 def to_gltf(v):
-    """Blender (x right, y back, z up) -> glTF (x left, y up, z front): the exporter's +Y up with the car looking along -Y."""
-    return Vector((-v.x, v.z, -v.y))
+    """Blender (z up, the car looking along -Y) -> glTF (y up, z front): the exporter's +Y up keeps x and turns (y, z) into (z, -y).
+    So the car's left is +X in both (the first version flipped x here and named the wheels of every file left for right)."""
+    return Vector((v.x, v.z, -v.y))
 
 
 def triangles(obj):

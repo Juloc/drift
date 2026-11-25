@@ -9,7 +9,7 @@ public sealed record Profile(int Car, int Colour, string? Nick, int? Glow = null
 /// <summary>The garage of every person. Every statement names the owner (DATA-03).</summary>
 public sealed class GarageStore(NpgsqlDataSource db)
 {
-    public static readonly string[] CarNames = ["Dart", "Pip", "Bruno", "Marlin", "Ox"];
+    public static readonly string[] CarNames = ["Dart", "AE86", "Bruno", "Marlin", "Ox"];
 
     /// <summary>The profile, or the defaults of a person who has never saved one: the first car, a colour that follows the person's id.</summary>
     public async Task<Profile> GetAsync(Guid userId, CancellationToken ct = default) =>

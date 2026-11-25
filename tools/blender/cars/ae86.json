@@ -19,7 +19,8 @@
       "^material\\.001$": "paint",
       "^material\\.(007|012)$": "lamp_front",
       "^material\\.005$": "lamp_front",
-      "^material\\.(006|014)$": "lamp_rear"
+      "^material\\.(006|014)$": "lamp_rear",
+      "^material\\.011$": "glass"
     },
     "drop": [
       "^tofu_shop",
@@ -51,6 +52,18 @@
     ],
     "wheel_tris_high": 5000,
     "wheel_tris_phone": 1500,
-    "smooth_angle": 30
+    "smooth_angle": 30,
+    "overrides": {
+      "^material\\.003$": {
+        "color": [
+          0.22,
+          0.22,
+          0.235
+        ],
+        "metal": 1.0,
+        "rough": 0.26,
+        "about": "the rims: gun metal with a shine instead of near black"
+      }
+    }
   }
 }

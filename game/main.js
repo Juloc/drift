@@ -14,6 +14,8 @@ import { lineBot } from './sim/linebot.js';
 import { createStage, loadLook } from './view/look/stage.js';
 import { sceneFromMap } from './view/look/mapscene.js';
 import { Fleet } from './view/look/fleet.js';
+import { carFx } from './view/carfx.js';
+import { ENGINES } from './sim/engine.js';
 import { WheelPool } from './view/wheels.js';
 import { CameraRig } from './view/camera.js';
 import { Input } from './view/input.js';
@@ -90,10 +92,12 @@ document.body.classList.toggle('lite', lite);
 const stage = createStage({ canvas: $('view'), look: first.look, scene0: first.scene, tierName });
 const { renderer, scene, camera } = stage;
 const carModel = /^[a-z0-9-]{1,24}$/.test(params.get('model') ?? '') ? params.get('model') : cars[carIndex]?.model ?? 'rx7';   // ?model=ae86 shows another file (game/assets/cars/)
-let fleet = await new Fleet(stage, { model: carModel }).load();   // the RX-7 for everybody unless the car or the address names a model (the code S15 where the file cannot be used)
+let fleet = await new Fleet(stage, { model: carModel, fx: cars[carIndex]?.fx }).load();   // the RX-7 for everybody unless the car or the address names a model (the code S15 where the file cannot be used)
 const ownHue = (car.colour % 360) / 360;
-let ownColour = new THREE.Color().setHSL(ownHue, 0.62, 0.42);
+let ownColour = /^[0-9a-f]{6}$/i.test(params.get('paint') ?? '') ? new THREE.Color('#' + params.get('paint')) : new THREE.Color().setHSL(ownHue, 0.62, 0.42);   // ?paint=ffffff: a paint for pictures (the garage has hues only)
 let mine = fleet.spawn(ownColour);
+const fxFor = (c) => (fleet.file ? carFx(c, cars[carIndex]?.fx, { lite, announce: true }) : null);   // brake lights, exhaust flames (event car.pop), underglow strips
+let mineFx = fxFor(mine);
 const carGroup = new THREE.Group();
 carGroup.add(mine.group);
 const pool = new WheelPool(16);   // (only its shadow blobs are used: the cars bring their own wheels)
@@ -141,9 +145,10 @@ async function ensureMap(id) {
     look = a.look;
     if (newLook || true) {   // the cars are made for the look they are seen in (the sun's strength is in the painted style)
       fleet.dispose();
-      fleet = await new Fleet(stage, { model: carModel }).load();
+      fleet = await new Fleet(stage, { model: carModel, fx: cars[carIndex]?.fx }).load();
       if (remotes) { remotes.fleet = fleet; remotes.clear(); }
       mine = fleet.spawn(ownColour);
+      mineFx = fxFor(mine);
       if (practice) togglePractice(false);
     }
     carGroup.add(mine.group);
@@ -528,10 +533,11 @@ function frame(now) {
   stage.smoke.car.value.set(X(drawn.x), gy, drawn.z);
   spin += (vf * dt) / WHEEL_R;
   glowPool.begin();
-  if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy);
+  if (mineFx) { mineFx.setGlow(glowHue); mineFx.update(paused ? 0 : dt, { throttle: lastInp.throttle, brake: lastInp.brake, speed: speedOf(cur), top: car.top, engine: ENGINES[carIndex] }); }   // a model car: strips along the sills, not a patch
+  else if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy);
   pool.begin();
   mine.setWheels(cur.steer, spin);
-  pool.blob(X(drawn.x), drawn.z, BLOB[0], BLOB[1], HEAD(drawn.h), gy);
+  if (!fleet.file) pool.blob(X(drawn.x), drawn.z, BLOB[0], BLOB[1], HEAD(drawn.h), gy);   // a model car brings its own contact shadow
   if (net) {
     const moving = speedOf(cur) > 0.3 || input.read().throttle > 0;
     net.sendPose({ x: cur.x, z: cur.z, h: cur.h, vf, steer: cur.steer }, bodySlip(cur), (input.has('hand') ? 1 : 0) | (cur.slide > 0.3 ? 2 : 0) | (cur.hit > 0 ? 4 : 0), moving, now);
@@ -598,5 +604,5 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
-window.__drift = { get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; } };
+window.__drift = { get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; } };
 requestAnimationFrame(frame);
