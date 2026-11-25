@@ -33,12 +33,12 @@ public sealed class RaceStore(NpgsqlDataSource db) : IBestTimes
             select exists (select 1 from up)
             """, ct, (short)map, userId, (short)kind, ms, (short)car);
 
-    /// <summary>The best ten, best first, with the names the others know (nickname or neutral name, never the account name); <paramref name="me"/> marks the caller's row.</summary>
+    /// <summary>The best ten, best first, with the names the others know (nickname, a games account's chosen name, or a neutral name; never a hub account name); <paramref name="me"/> marks the caller's row.</summary>
     public async Task<List<BoardRow>> TopAsync(int map, int kind, int count = 10, Guid? me = null, CancellationToken ct = default) =>
         await db.QueryAsync(
             """
-            select t.user_id, p.nick, coalesce(p.colour, 8), t.ms, t.car_id
-            from drift_best_time t left join drift_profile p on p.user_id = t.user_id
+            select t.user_id, coalesce(p.nick, ga.name), coalesce(p.colour, 8), t.ms, t.car_id
+            from drift_best_time t left join drift_profile p on p.user_id = t.user_id left join games_account ga on ga.id = t.user_id
             where t.map_id = $1 and t.kind = $2
             order by case when $2 = 2 then -t.ms else t.ms end asc limit $3
             """,

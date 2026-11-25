@@ -47,10 +47,12 @@ internal static class TuningEndpoints
 {
     public static void MapTuning(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/tuning", async (HttpContext ctx, TuningStore store) =>
-            Results.Ok(new { cars = (await store.AllAsync(ctx.Person().UserId, ctx.RequestAborted)).Select(t => new { steer = t.Steer, balance = t.Balance, power = t.Power, handbrake = t.Handbrake }), budget = Tuning.Budget, max = Tuning.Max }));
+        foreach (var prefix in new[] { "/api", Drift.GameAccounts.GameAccountEndpoints.Prefix })
+        {
+        app.MapGet(prefix + "/tuning", async (HttpContext ctx, TuningStore store) =>
+            Results.Ok(new { cars = (await store.AllAsync(ctx.Owner(), ctx.RequestAborted)).Select(t => new { steer = t.Steer, balance = t.Balance, power = t.Power, handbrake = t.Handbrake }), budget = Tuning.Budget, max = Tuning.Max }));
 
-        app.MapPut("/api/tuning/{car:int}", async (int car, TuningRequest body, HttpContext ctx, TuningStore store) =>
+        app.MapPut(prefix + "/tuning/{car:int}", async (int car, TuningRequest body, HttpContext ctx, TuningStore store) =>
         {
             var v = new Validator();
             if (car < 0 || car >= GarageStore.CarNames.Length) return Error.NotFound().ToHttp();
@@ -58,8 +60,9 @@ internal static class TuningEndpoints
                 v.Int("power", body.Power, -Tuning.Max, Tuning.Max), v.Int("handbrake", body.Handbrake, -Tuning.Max, Tuning.Max));
             if (v.Ok && t.Cost > Tuning.Budget) return new Error(ErrorKind.Invalid, "tuning.budget", "More than 10 points.").ToHttp();
             if (v.Error is { } error) return error.ToHttp();
-            await store.SaveAsync(ctx.Person().UserId, car, t, ctx.RequestAborted);
+            await store.SaveAsync(ctx.Owner(), car, t, ctx.RequestAborted);
             return Results.Ok(new { steer = t.Steer, balance = t.Balance, power = t.Power, handbrake = t.Handbrake });
         });
+        }
     }
 }

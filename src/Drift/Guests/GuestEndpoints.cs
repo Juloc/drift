@@ -1,6 +1,7 @@
 using Base.Core;
 using Base.Web;
 using Base.Web.Auth;
+using Drift.GameAccounts;
 using Drift.Play;
 using Drift.Race;
 using Drift.Relay;
@@ -45,6 +46,7 @@ public static class GuestEndpoints
             if (!limit.Allow("guest-join", ctx.ClientIp(), 10, out var wait)) return Error.TooMany(wait).ToHttp();
             var name = (body.Name ?? "").Trim();
             if (!GuestService.ValidName(name)) return new Error(ErrorKind.Invalid, "invalid", "The name is not valid.", new Dictionary<string, string> { ["name"] = name.Length < 2 ? "too_short" : name.Length > 16 ? "too_long" : "invalid" }).ToHttp();
+            if (NameRules.Problem(name) is "not_allowed" or "reserved") return new Error(ErrorKind.Invalid, "invalid", "The name is not allowed.", new Dictionary<string, string> { ["name"] = "not_allowed" }).ToHttp();
             if (string.IsNullOrEmpty(body.Token) || body.Token.Length > 100) return Error.Unauthorized("guest.link", "This guest link is not valid (any more).").ToHttp();
             // a random colour from the 24 hues; the first car
             var made = await guests.RedeemAsync(body.Token, name, Random.Shared.Next(24), ctx.RequestAborted);

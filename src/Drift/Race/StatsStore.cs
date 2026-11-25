@@ -90,11 +90,12 @@ internal static class StatsEndpoints
 {
     public static void MapStats(this WebApplication app)
     {
-        app.MapGet("/api/stats", async (HttpContext ctx, StatsStore store, CancellationToken ct) =>
-        {
-            var s = await store.GetAsync(ctx.Person().UserId, ct);
-            return Results.Ok(new { km = Math.Round(s.Km, 1), seconds = (int)s.Seconds, races = s.Races, wins = s.Wins, podiums = s.Podiums, bestDrift = s.BestDrift });
-        });
+        foreach (var prefix in new[] { "/api", Drift.GameAccounts.GameAccountEndpoints.Prefix })
+            app.MapGet(prefix + "/stats", async (HttpContext ctx, StatsStore store, CancellationToken ct) =>
+            {
+                var s = await store.GetAsync(ctx.Owner(), ct);
+                return Results.Ok(new { km = Math.Round(s.Km, 1), seconds = (int)s.Seconds, races = s.Races, wins = s.Wins, podiums = s.Podiums, bestDrift = s.BestDrift });
+            });
         // every minute the open sockets' totals are written; a failed write is logged and tried again with the next minute's numbers
         var tracker = app.Services.GetRequiredService<StatsTracker>();
         _ = Task.Run(async () =>

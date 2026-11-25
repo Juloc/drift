@@ -86,6 +86,12 @@ public sealed class RaceHub
 
     static JsonDocument? ParseOrNull(string text) { try { return JsonDocument.Parse(text); } catch (JsonException) { return null; } }
 
+    /// <summary>How many emotes there are (the client draws a symbol each), the least gap between two of one person, and how many were refused.</summary>
+    public const int Emotes = 10;
+    public const double EmoteGap = 1.5;
+    readonly Dictionary<Guid, double> emoteAt = [];
+    public int emotesDropped;
+
     public void OnLobbyText(Guid person, string text)
     {
         JsonElement r;
@@ -123,6 +129,18 @@ public sealed class RaceHub
                 case "race.decline":
                     answered.Add(person);
                     break;
+                case "emote":   // a fixed set, no text: one of Emotes numbers, at most one per 1.5 s per person, shown to the lobby over the sender's car
+                    if (r.TryGetProperty("e", out var ep) && ep.TryGetInt32(out var e) && e >= 0 && e < Emotes)
+                    {
+                        if (emoteAt.TryGetValue(person, out var last) && Now - last < EmoteGap) { emotesDropped++; break; }
+                        emoteAt[person] = Now;
+                        foreach (var m in lobby.Values) Send(m.Session, new { t = "emote", id = (int)me.Session.Id, e });
+                    }
+                    else emotesDropped++;
+                    break;
+                default:
+                    emotesDropped++;   // an unknown control message is counted, never answered
+                    break;
             }
         }
     }
@@ -146,6 +164,12 @@ public sealed class RaceHub
             Send(s, new { t = "grid", map = track.MapId, slot = p.Slot, x = g.X, z = g.Z, h = g.H, laps, n = parts.Count, racers = parts.Select(x => x.Member.Name).ToArray(), tuned = parts.Select(x => x.Member.Tuned).ToArray() });
             return true;
         }
+    }
+
+    /// <summary>Who is behind a name in the lobby right now: one person, or null (nobody, or the name is shared).</summary>
+    public Guid? FindByName(string name)
+    {
+        lock (gate) { var hits = lobby.Values.Where(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase)).Select(m => m.Person).Distinct().ToList(); return hits.Count == 1 ? hits[0] : null; }
     }
 
     /// <summary>What the lobby knows about a connected person (the garage's choice at the time they joined the lobby).</summary>

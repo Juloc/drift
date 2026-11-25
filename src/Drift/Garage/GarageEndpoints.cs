@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Base.Core;
 using Base.Web;
 using Base.Web.Auth;
+using Drift.GameAccounts;
 
 namespace Drift.Garage;
 
@@ -16,15 +17,18 @@ internal static partial class GarageEndpoints
 
     public static void MapGarage(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/garage", async (HttpContext ctx, GarageStore garage) =>
+        // the same garage for a hub person (/api, the base's guard) and for a games account (/api/games, its own door)
+        foreach (var prefix in new[] { "/api", GameAccountEndpoints.Prefix })
         {
-            var me = ctx.Person();
-            return Results.Ok(Body(me.UserId, await garage.GetAsync(me.UserId, ctx.RequestAborted)));
+        app.MapGet(prefix + "/garage", async (HttpContext ctx, GarageStore garage) =>
+        {
+            var me = ctx.Owner();
+            return Results.Ok(Body(me, await garage.GetAsync(me, ctx.RequestAborted), ctx.AccountName()));
         });
 
-        app.MapPut("/api/garage", async (GarageRequest body, HttpContext ctx, GarageStore garage) =>
+        app.MapPut(prefix + "/garage", async (GarageRequest body, HttpContext ctx, GarageStore garage) =>
         {
-            var me = ctx.Person();
+            var me = ctx.Owner();
             var v = new Validator();
             var car = v.Int("car", body.Car, 0, GarageStore.CarNames.Length - 1);
             var colour = v.Int("colour", body.Colour, 0, 23);
@@ -33,15 +37,17 @@ internal static partial class GarageEndpoints
             if (body.Glow is { } gl) glow = v.Int("glow", gl, 0, 23);   // absent or null: no underglow
             if (nick.Length == 1) v.Fail("nick", Validator.TooShort);
             if (nick.Length > 1 && !NickPattern().IsMatch(nick)) v.Fail("nick", Validator.NotValid);
+            if (nick.Length > 1 && v.Ok && !NameFilter.Allowed(nick)) v.Fail("nick", "not_allowed");
             if (v.Error is { } error) return error.ToHttp();
-            return Results.Ok(Body(me.UserId, await garage.SaveAsync(me.UserId, new Profile(car, colour, nick.Length == 0 ? null : nick, glow), ctx.RequestAborted)));
+            return Results.Ok(Body(me, await garage.SaveAsync(me, new Profile(car, colour, nick.Length == 0 ? null : nick, glow), ctx.RequestAborted), ctx.AccountName()));
         });
+        }
     }
 
-    private static object Body(Guid userId, Profile p) => new
+    private static object Body(Guid userId, Profile p, string? accountName) => new
     {
         car = p.Car, colour = p.Colour, nick = p.Nick, glow = p.Glow,
-        name = GarageStore.DisplayName(userId, p),   // what the others see above the car: the nickname or a neutral name, never the account name
+        name = GarageStore.DisplayName(userId, p, accountName),   // what the others see above the car: the nickname, a games account's chosen name, or a neutral name (never a hub account name)
         cars = GarageStore.CarNames,
     };
 }
