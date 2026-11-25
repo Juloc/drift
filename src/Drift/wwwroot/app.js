@@ -46,6 +46,7 @@ function run(me) {
 async function garagePage(me) {
   const g = await api('GET', '/api/garage');
   const tuning = await api('GET', '/api/tuning');
+  const stats = await api('GET', '/api/stats');
   const state = { car: g.car, colour: g.colour, glow: g.glow ?? null };
   const preview = h('p', { class: 'garage-preview' });
   const swatch = (hue) => { const b = h('button', { class: 'swatch', type: 'button', role: 'radio', 'aria-label': t('garage.colourN', { n: hue / 15 + 1 }) }); b.style.setProperty('--h', hue); return b; };
@@ -116,12 +117,21 @@ async function garagePage(me) {
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('tune.title') }), h('p', { class: 'muted', text: t('tune.intro') }), points, tuneBox, h('div', { class: 'cluster' }, tuneReset)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.glow') }), h('p', { class: 'muted', text: t('garage.glowHint') }), glowOff, h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.glow') }, glowSwatches)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.name') }), form),
+      statsCard(stats),
       boardCard(await api('GET', '/api/times')),
       h('div', { class: 'card stack' }, preview,
         h('div', { class: 'cluster' },
           h('button', { class: 'btn primary', type: 'button', onclick: save }, icon('check'), t('common.save')),
           h('a', { class: 'btn outline', href: '/play/', target: '_blank', rel: 'noopener' }, icon('bolt'), t('garage.play'))))),
   };
+}
+
+/* ---------- stats of the person ---------- */
+const hours = (sec) => `${Math.floor(sec / 3600)}:${String(Math.floor(sec / 60) % 60).padStart(2, '0')}`;
+function statsCard(s) {
+  const cell = (label, value) => h('div', { class: 'stat-cell' }, h('b', { text: String(value) }), h('span', { text: label }));
+  return h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('stats.title') }),
+    h('div', { class: 'stat-grid' }, cell(t('stats.km'), s.km), cell(t('stats.races'), s.races), cell(t('stats.wins'), s.wins), cell(t('stats.podiums'), s.podiums), cell(t('stats.drift'), s.bestDrift), cell(t('stats.time'), hours(s.seconds))));
 }
 
 /* ---------- the best times ---------- */

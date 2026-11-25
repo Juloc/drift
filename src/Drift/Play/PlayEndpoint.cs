@@ -56,12 +56,13 @@ public static class PlayEndpoint
         var relay = app.Services.GetRequiredService<WorldRelay>();
         var hub = app.Services.GetRequiredService<RaceHub>();
         var sockets = app.Services.GetRequiredService<PersonSockets>();
+        var stats = app.Services.GetRequiredService<StatsTracker>();
         Task Lobby(HttpContext ctx, Player p) =>
             RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), p.Car, p.Name, p.Colour, glow: p.Glow,
                 stillValid: p.StillValid, checkEvery: SessionCheck,
                 onText: (_, text) => hub.OnLobbyText(p.Id, text),
-                joined: s => { sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },
-                left: s => { sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); });
+                joined: s => { stats.Join(s, p.Id, p.Guest); sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },
+                left: s => { sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); _ = stats.LeaveAsync(s); });
         app.Map(Path, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         app.Map(GuestPath, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         RelayEndpoint.RunTicker(relay, app.Lifetime.ApplicationStopping, app.Logger);

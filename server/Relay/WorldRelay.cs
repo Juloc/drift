@@ -127,7 +127,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     readonly Dictionary<string, AddressState> addresses = [];
     public RelayStats Stats { get; } = new();
     /// <summary>Called, under the relay's lock, for every accepted pose: keep it short (queue it, do not call back into the relay).</summary>
-    public Action<PoseSample>? PoseAccepted { get; set; }
+    public Action<PoseSample>? PoseAccepted { get; set; }   // several may hook in with +=
     /// <summary>Size for a receive buffer: a frame longer than this is too large.</summary>
     public int MaxFrameBuffer => o.MaxFrame;
 

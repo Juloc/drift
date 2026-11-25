@@ -64,5 +64,12 @@ export default {
   'err.tuning.budget': 'That is more than ten points.',
   'board.drift': 'Best single drift',
   'board.yours': 'Your place: {place} ({value})',
+  'stats.title': 'Your stats',
+  'stats.km': 'km driven',
+  'stats.races': 'Races',
+  'stats.wins': 'Wins',
+  'stats.podiums': 'Podiums',
+  'stats.drift': 'Best drift',
+  'stats.time': 'Time played (h:mm)',
   'settings.title': 'Settings',
 };

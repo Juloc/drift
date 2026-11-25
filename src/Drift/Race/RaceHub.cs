@@ -51,11 +51,15 @@ public sealed class RaceHub
     public RaceHub(TimeProvider time, RaceTrack track, IBestTimes store, WorldRelay raceRelay, double[] tops)
         : this(time, new Dictionary<int, RaceTrack> { [track.MapId] = track }, store, raceRelay, tops) { }
 
+    IRaceStats? stats;
+    /// <summary>Where finished races are counted (wins, podiums); optional.</summary>
+    public RaceHub WithStats(IRaceStats s) { stats = s; return this; }
+
     /// <param name="tracks">every map a race can be on, by id; the one with the lowest id is the default</param>
     public RaceHub(TimeProvider time, IReadOnlyDictionary<int, RaceTrack> tracks, IBestTimes store, WorldRelay raceRelay, double[] tops)
     {
         this.time = time; this.tracks = tracks; this.track = tracks[tracks.Keys.Min()]; this.store = store; this.raceRelay = raceRelay; this.tops = tops;
-        raceRelay.PoseAccepted = p => poses.Enqueue(p);
+        raceRelay.PoseAccepted += p => poses.Enqueue(p);
     }
 
     public Phase Current { get { lock (gate) return phase; } }
@@ -295,6 +299,9 @@ public sealed class RaceHub
                 }
             }
             catch (Exception) { /* a database problem must not stop the result from reaching the racers */ }
+            // the counters: a finished race counts for a person (not for a guest); a win needs somebody to beat, a podium three racers
+            try { if (r.Finished && !r.Guest && stats is not null) { var pos = order.IndexOf(r) + 1; await stats.RaceDoneAsync(r.Person, pos == 1 && order.Count >= 2, pos <= 3 && order.Count >= 3); } }
+            catch (Exception) { /* the result must still reach the racers */ }
             flags[r.Person] = (lap, race, drift);
         }
         lock (gate)

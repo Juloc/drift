@@ -15,6 +15,7 @@ public static class RaceEndpoints
         var hub = app.Services.GetRequiredService<RaceHub>();
         var raceRelay = app.Services.GetRequiredKeyedService<WorldRelay>("race");
         var sockets = app.Services.GetRequiredService<PersonSockets>();
+        var stats = app.Services.GetRequiredService<StatsTracker>();
         async Task RaceSocket(HttpContext ctx)
         {
             var p = await PlayEndpoint.WhoAsync(ctx);
@@ -22,8 +23,8 @@ public static class RaceEndpoints
             var m = hub.Member(p.Id);   // the car, name and colour the person came to the lobby with: the same in the race and in the result
             await RelayEndpoint.Serve(ctx, raceRelay, ctx.ClientIp(), m?.Car ?? p.Car, m?.Name ?? p.Name, m?.Hue ?? p.Colour, glow: p.Glow,
                 stillValid: p.StillValid, checkEvery: PlayEndpoint.SessionCheck,
-                joined: s => { if (hub.RaceConnected(p.Id, s)) sockets.Register(p.Id, true, raceRelay, s); },
-                left: s => { sockets.Unregister(p.Id, true, s); hub.RaceLeft(p.Id, s); },
+                joined: s => { if (hub.RaceConnected(p.Id, s)) { stats.Join(s, p.Id, p.Guest); sockets.Register(p.Id, true, raceRelay, s); } },
+                left: s => { sockets.Unregister(p.Id, true, s); hub.RaceLeft(p.Id, s); _ = stats.LeaveAsync(s); },
                 onText: (_, text) => hub.OnRaceText(p.Id, text));
         }
         app.Map(Path, async (HttpContext ctx) => await RaceSocket(ctx));

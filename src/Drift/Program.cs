@@ -33,6 +33,8 @@ builder.AddBase(new BaseAppOptions("drift", "Drift", typeof(Program).Assembly)
 builder.Services.AddSingleton<GarageStore>();
 builder.Services.AddSingleton<GuestService>();
 builder.Services.AddSingleton<TuningStore>();
+builder.Services.AddSingleton<StatsStore>();
+builder.Services.AddSingleton(sp => new StatsTracker(sp.GetRequiredService<StatsStore>(), TimeProvider.System));
 builder.Services.AddSingleton<PersonSockets>();
 builder.Services.AddSingleton<SessionLife>();
 builder.Services.AddSingleton(new WorldRelay(TimeProvider.System, PlayEndpoint.Options));
@@ -40,7 +42,7 @@ builder.Services.AddSingleton(new WorldRelay(TimeProvider.System, PlayEndpoint.O
 builder.Services.AddKeyedSingleton("race", (_, _) => new WorldRelay(TimeProvider.System, new RelayOptions { MaxPerWorld = RaceHub.MaxRacers, MaxWorlds = 1, MaxPerAddress = 16, JoinsPerMinutePerAddress = 120, FramesPerSecondPerAddress = 400 }));
 builder.Services.AddSingleton<RaceStore>();
 builder.Services.AddSingleton<IReadOnlyDictionary<int, RaceTrack>>(LoadTracks());
-builder.Services.AddSingleton(sp => new RaceHub(TimeProvider.System, sp.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>(), sp.GetRequiredService<RaceStore>(), sp.GetRequiredKeyedService<WorldRelay>("race"), [35, 31, 39, 36, 28]));
+builder.Services.AddSingleton(sp => new RaceHub(TimeProvider.System, sp.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>(), sp.GetRequiredService<RaceStore>(), sp.GetRequiredKeyedService<WorldRelay>("race"), [35, 31, 39, 36, 28]).WithStats(sp.GetRequiredService<StatsStore>()));
 
 var app = builder.Build();
 await app.StartBaseAsync();
@@ -69,6 +71,8 @@ app.MapPlay();
 { var t0 = app.Services.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>()[0]; app.Services.GetRequiredService<WorldRelay>().SetGeometry(t0.Segments, t0.Obstacles); }   // the lobby is the car park: its walls count for the checks
 app.MapGuests();
 app.MapRace();
+app.MapStats();
+{ var tr = app.Services.GetRequiredService<StatsTracker>(); tr.Follow(app.Services.GetRequiredService<WorldRelay>()); tr.Follow(app.Services.GetRequiredKeyedService<WorldRelay>("race")); }
 app.Run();
 return 0;
 

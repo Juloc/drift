@@ -47,3 +47,9 @@
 
 .board li.mine { font-weight: 750; color: var(--accent); }
 .board-mine { margin: var(--s2) 0 0; font-size: var(--text-s); color: var(--text-2); }
+
+/* ----- stats ----- */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: var(--s3); }
+.stat-cell { display: grid; gap: 2px; padding: var(--s3); border-radius: var(--r-m); background: var(--glass); border: 1px solid var(--glass-edge); }
+.stat-cell b { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.stat-cell span { font-size: var(--text-s); color: var(--text-2); }

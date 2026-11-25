@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using Drift.Race;
 using Drift.Relay;
@@ -709,5 +710,117 @@ public class BoardTests
         var g = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/guest/times?map=0", guest)));
         Assert.Equal(10, g.GetProperty("lap").GetProperty("top").GetArrayLength());
         Assert.False(g.GetProperty("lap").TryGetProperty("mine", out var m) && m.ValueKind != System.Text.Json.JsonValueKind.Null);   // a guest has no place
+    }
+}
+
+public class StatsTests
+{
+    sealed class CountingStats : IRaceStats
+    {
+        public List<(Guid Who, bool Win, bool Podium)> Done { get; } = [];
+        public Task RaceDoneAsync(Guid userId, bool win, bool podium, CancellationToken ct = default) { Done.Add((userId, win, podium)); return Task.CompletedTask; }
+    }
+
+    static async Task<Guid> Person(TestDb db, string name)
+    {
+        var id = Guid.NewGuid();
+        await using var u = db.Data.CreateCommand("insert into users (id, name, password_hash, totp_secret, roles) values ($1, $2, 'x', 'x', '{member}')");
+        u.Parameters.AddWithValue(id); u.Parameters.AddWithValue(name); await u.ExecuteNonQueryAsync();
+        return id;
+    }
+
+    [Fact]
+    public async Task The_counters_add_up_per_person_and_the_best_drift_comes_from_the_board()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        await app.SignedInAsync(app.Http());
+        var store = new StatsStore(db.Data);
+        var a = await Person(db, "a"); var b = await Person(db, "b");
+        Assert.Equal(new PersonStats(0, 0, 0, 0, 0, 0), await store.GetAsync(a));
+        await store.AddDrivingAsync(a, 1500, 60); await store.AddDrivingAsync(a, 500, 30);
+        await store.RaceDoneAsync(a, true, true); await store.RaceDoneAsync(a, false, true); await store.RaceDoneAsync(a, false, false);
+        await new RaceStore(db.Data).RecordAsync(a, 0, RaceStore.Drift, 1234, 0);
+        await new RaceStore(db.Data).RecordAsync(a, 1, RaceStore.Drift, 2345, 0);
+        var s = await store.GetAsync(a);
+        Assert.Equal(2.0, s.Km, 6); Assert.Equal(90, s.Seconds, 6);
+        Assert.Equal((3, 1, 2, 2345), (s.Races, s.Wins, s.Podiums, s.BestDrift));
+        Assert.Equal(new PersonStats(0, 0, 0, 0, 0, 0), await store.GetAsync(b));                // nobody else's numbers
+    }
+
+    [Fact]
+    public async Task The_tracker_counts_distance_from_accepted_poses_and_time_from_the_open_socket_and_ignores_guests()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        await app.SignedInAsync(app.Http());
+        var time = new FakeTime();
+        var relay = new WorldRelay(time, new RelayOptions { MaxPerAddress = 99, JoinsPerMinutePerAddress = 99 });
+        var store = new StatsStore(db.Data);
+        var tracker = new StatsTracker(store, time);
+        tracker.Follow(relay);
+        var person = await Person(db, "p"); var guestId = Guid.NewGuid();
+        var s = relay.Join(new FakePeer(), "a", 0)!; var g = relay.Join(new FakePeer(), "b", 0)!;
+        tracker.Join(s, person, false); tracker.Join(g, guestId, true);
+        byte n = 0;
+        byte[] Pose(double x) { var f = new byte[13]; f[0] = 1; f[1] = ++n; Wire.Put16(f, 2, (int)Math.Round(x * 20)); Wire.Put16(f, 4, 0); Wire.Put16(f, 8, 20 * 50); return f; }
+        for (var i = 0; i < 10; i++) { relay.OnMessage(s, Pose(i * 10)); relay.OnMessage(g, Pose(i * 10)); time.Advance(0.5); }   // 20 m/s
+        await tracker.FlushAsync();
+        var after1 = await store.GetAsync(person);
+        Assert.InRange(after1.Km * 1000, 85, 95); Assert.InRange(after1.Seconds, 4.9, 5.1);
+        time.Advance(10);
+        await tracker.LeaveAsync(s); await tracker.LeaveAsync(g);
+        var after2 = await store.GetAsync(person);
+        Assert.InRange(after2.Seconds, 14.9, 15.1);                                              // the time since the last write was added once, not twice
+        await using var q = db.Data.CreateCommand("select count(*) from drift_stats where user_id = $1");
+        q.Parameters.AddWithValue(guestId);
+        Assert.Equal(0L, await q.ExecuteScalarAsync());                                          // a guest has no row
+    }
+
+    [Fact]
+    public async Task The_stats_api_needs_a_person_and_a_guest_cannot_read_it()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        var c = app.Http();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await c.GetAsync("/api/stats")).StatusCode);
+        var admin = await app.SignedInAsync(c);
+        var s = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/stats", admin)));
+        Assert.Equal(0, s.GetProperty("races").GetInt32());
+        var guest = await TestApp.GuestCookieAsync(await app.JoinAsync(c, await app.GuestLinkAsync(c, admin), "Ann"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await c.SendAsync(app.Req(HttpMethod.Get, "/api/stats", guest))).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_finished_race_counts_wins_need_somebody_to_beat_podiums_need_three_racers_and_guests_are_not_counted()
+    {
+        var time = new FakeTime();
+        var lobby = new WorldRelay(time, new RelayOptions { MaxPerAddress = 99, JoinsPerMinutePerAddress = 99 });
+        var raceWorld = new WorldRelay(time, new RelayOptions { MaxPerWorld = 8, MaxWorlds = 1, MaxPerAddress = 99, JoinsPerMinutePerAddress = 99 });
+        var counting = new CountingStats();
+        var hub = new RaceHub(time, RaceTrack.FromJson(RaceTrackTests.MapJson), new FakeBest(), raceWorld, [35, 31, 39, 36, 28]).WithStats(counting);
+        var ids = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() }; var names = new[] { "a", "b", "g" };
+        var rs = new Session[3];
+        for (var i = 0; i < 3; i++) hub.LobbyJoined(new LobbyMember(ids[i], names[i], 0, 3, lobby.Join(new TextPeer(), "l" + i, 0, names[i], 3)!, Guest: i == 2));
+        hub.OnLobbyText(ids[0], """{"t":"race.start","laps":1}""");
+        hub.OnLobbyText(ids[1], """{"t":"race.join"}"""); hub.OnLobbyText(ids[2], """{"t":"race.join"}""");
+        void Pass(double secs) { for (double t = 0; t < secs; t += 0.1) { time.Advance(0.1); hub.Tick(); } }
+        Pass(2);
+        for (var i = 0; i < 3; i++) { rs[i] = raceWorld.Join(new TextPeer(), "r" + i, 0, names[i], 3)!; hub.RaceConnected(ids[i], rs[i]); }
+        Pass(4);
+        var track = RaceTrack.FromJson(RaceTrackTests.MapJson);
+        var speeds = new[] { 24.0, 20.0, 16.0 }; var paths = speeds.Select(v => RaceTrackTests.Way(track, 1, v / 15, 30, -46)).ToArray();
+        byte seq = 0;
+        for (var k = 0; k < paths.Max(p => p.Count); k++)
+        {
+            seq++;
+            for (var i = 0; i < 3; i++) if (k < paths[i].Count) { var p = paths[i][k]; var f = new byte[13]; f[0] = 1; f[1] = seq; Wire.Put16(f, 2, (int)Math.Round(p.X * 20)); Wire.Put16(f, 4, (int)Math.Round(p.Z * 20)); Wire.Put16(f, 6, (int)Math.Round(((p.H % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI) * 65536) & 0xFFFF); Wire.Put16(f, 8, (int)(speeds[i] * 50)); raceWorld.OnMessage(rs[i], f); }
+            time.Advance(1.0 / 15); hub.Tick();
+        }
+        Pass(3);
+        Assert.Equal(2, counting.Done.Count);                                             // a and b; the guest is not counted
+        Assert.Contains(counting.Done, d => d.Who == ids[0] && d.Win && d.Podium);        // first of three: a win and a podium
+        Assert.Contains(counting.Done, d => d.Who == ids[1] && !d.Win && d.Podium);
+        Assert.DoesNotContain(counting.Done, d => d.Who == ids[2]);
     }
 }
