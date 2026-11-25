@@ -14,6 +14,7 @@ import { lineBot } from './sim/linebot.js';
 import { createStage, loadLook } from './view/look/stage.js';
 import { sceneFromMap } from './view/look/mapscene.js';
 import { Fleet } from './view/look/fleet.js';
+import { readDevice, startTier, TierPicker } from './view/look/autotier.js';
 import { WheelPool } from './view/wheels.js';
 import { CameraRig } from './view/camera.js';
 import { Input } from './view/input.js';
@@ -34,12 +35,12 @@ const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
     online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', tunedMark: 'tuned', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
-    keysSoft: 'Keyboard: soft (gas and steering build up)', keysDirect: 'Keyboard: direct (all or nothing)', leverOn: 'Mouse throttle lever on (L): wheel or drag up and down; the brake resets it', leverOff: 'Mouse throttle lever off (L)', volume: 'Volume', camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', creativeOn: 'Creative mode on (K): no scores count, no damage', creativeOff: 'Creative mode off (K)', creativeBanner: 'CREATIVE: scores do not count', creativeChip: 'Creative', damageLabel: 'Damage', damageOn: 'Damage on (V)', damageOff: 'Damage off (V)', soundOn: 'Sound on (M)', soundOff: 'Sound off (M)', musicOff: 'Music: off (placeholder)', musicOn: 'Music: on (placeholder, no music yet)', chLap: 'Set a clean lap in a race or time trial', chDone: 'Challenge finished', chConfirmed: 'confirmed', chFailed: 'ended by a hit', chTitle: 'Challenge',
+    keysSoft: 'Keyboard: soft (gas and steering build up)', keysDirect: 'Keyboard: direct (all or nothing)', leverOn: 'Mouse throttle lever on (L): wheel or drag up and down; the brake resets it', leverOff: 'Mouse throttle lever off (L)', volume: 'Volume', quality: 'Graphics', camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', creativeOn: 'Creative mode on (K): no scores count, no damage', creativeOff: 'Creative mode off (K)', creativeBanner: 'CREATIVE: scores do not count', creativeChip: 'Creative', damageLabel: 'Damage', damageOn: 'Damage on (V)', damageOff: 'Damage off (V)', soundOn: 'Sound on (M)', soundOff: 'Sound off (M)', musicOff: 'Music: off (placeholder)', musicOn: 'Music: on (placeholder, no music yet)', chLap: 'Set a clean lap in a race or time trial', chDone: 'Challenge finished', chConfirmed: 'confirmed', chFailed: 'ended by a hit', chTitle: 'Challenge',
     feelArcade: 'Arcade', feelPro: 'Pro (fewer aids)', feelKey: 'Feel of driving (X)', tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
     online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', tunedMark: 'getunt', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
-    keysSoft: 'Tastatur: weich (Gas und Lenken bauen sich auf)', keysDirect: 'Tastatur: direkt (alles oder nichts)', leverOn: 'Maus-Gashebel an (L): Rad oder Ziehen nach oben und unten; die Bremse setzt ihn zur\u00fcck', leverOff: 'Maus-Gashebel aus (L)', volume: 'Lautstärke', camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', creativeOn: 'Kreativ-Modus an (K): keine Wertung, kein Schaden', creativeOff: 'Kreativ-Modus aus (K)', creativeBanner: 'KREATIV: nichts davon z\u00e4hlt', creativeChip: 'Kreativ', damageLabel: 'Schaden', damageOn: 'Schaden an (V)', damageOff: 'Schaden aus (V)', soundOn: 'Ton an (M)', soundOff: 'Ton aus (M)', musicOff: 'Musik: aus (Platzhalter)', musicOn: 'Musik: an (Platzhalter, noch keine Musik)', chLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde', chDone: 'Herausforderung beendet', chConfirmed: 'bestätigt', chFailed: 'durch einen Treffer beendet', chTitle: 'Herausforderung',
+    keysSoft: 'Tastatur: weich (Gas und Lenken bauen sich auf)', keysDirect: 'Tastatur: direkt (alles oder nichts)', leverOn: 'Maus-Gashebel an (L): Rad oder Ziehen nach oben und unten; die Bremse setzt ihn zur\u00fcck', leverOff: 'Maus-Gashebel aus (L)', volume: 'Lautstärke', quality: 'Grafik', camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', creativeOn: 'Kreativ-Modus an (K): keine Wertung, kein Schaden', creativeOff: 'Kreativ-Modus aus (K)', creativeBanner: 'KREATIV: nichts davon z\u00e4hlt', creativeChip: 'Kreativ', damageLabel: 'Schaden', damageOn: 'Schaden an (V)', damageOff: 'Schaden aus (V)', soundOn: 'Ton an (M)', soundOff: 'Ton aus (M)', musicOff: 'Musik: aus (Platzhalter)', musicOn: 'Musik: an (Platzhalter, noch keine Musik)', chLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde', chDone: 'Herausforderung beendet', chConfirmed: 'bestätigt', chFailed: 'durch einen Treffer beendet', chTitle: 'Herausforderung',
     feelArcade: 'Arcade', feelPro: 'Pro (weniger Hilfen)', feelKey: 'Fahrgef\u00fchl (X)', tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
@@ -83,12 +84,17 @@ let mapId = startId, look = first.look;
 
 // ----- view: the stage of the look (renderer, light, sky, the world of the map, mist, halos, tyre marks, smoke: view/look/stage.js), the cars and the camera
 const forced = params.get('tier');
-const tierName = forced === 'high' ? 'high' : forced === 'low' || forced === 'medium' ? 'low' : coarse ? 'low' : 'high';
-const lite = tierName === 'low';
+let tierName = ['high', 'medium', 'low'].includes(forced) ? forced : coarse ? 'low' : 'high';
+let lite = tierName === 'low';
 document.body.classList.toggle('touch', coarse);
 document.body.classList.toggle('lite', lite);
 const stage = createStage({ canvas: $('view'), look: first.look, scene0: first.scene, tierName });
 const { renderer, scene, camera } = stage;
+// quality: ?tier= wins, then the setting kept on the device (drift.quality = auto|high|medium|low), then a guess from the device; in auto the first seconds are measured (TierPicker)
+let qualitySetting = 'auto'; try { qualitySetting = localStorage.getItem('drift.quality') ?? 'auto'; } catch { /* no storage */ }
+const picked = forced ? { tier: tierName, auto: false } : startTier(qualitySetting, readDevice(renderer));
+let picker = picked.auto ? new TierPicker(picked.tier) : null;
+if (picked.tier !== tierName) { stage.setTier(picked.tier); tierName = picked.tier; lite = tierName === 'low'; document.body.classList.toggle('lite', lite); }
 let fleet = await new Fleet(stage, { model: 'rx7' }).load();   // the RX-7 for everybody (the code S15 where the file cannot be used)
 const ownHue = (car.colour % 360) / 360;
 let ownColour = new THREE.Color().setHSL(ownHue, 0.62, 0.42);
@@ -126,6 +132,21 @@ const fmt = (ms) => { const t = Math.max(0, Math.round(ms)); return `${Math.floo
 const show = (id, on) => { const el = $(id); if (el) el.hidden = !on; };
 let noteTimer = 0;
 const note = (text) => { const el = $('note'); if (!el) return; el.textContent = text; el.hidden = false; clearTimeout(noteTimer); noteTimer = setTimeout(() => (el.hidden = true), 3500); };
+
+/** Another quality tier while playing: the world is built again, the cars too when their materials depend on it. */
+async function changeTier(name) {
+  const carTierBefore = stage.carTier;
+  carGroup.remove(mine.group);
+  stage.setTier(name); tierName = name; lite = name === 'low';
+  document.body.classList.toggle('lite', lite);
+  if (stage.carTier !== carTierBefore) {
+    fleet.dispose(); fleet = await new Fleet(stage, { model: 'rx7' }).load();
+    if (remotes) { remotes.fleet = fleet; remotes.clear(); remotes.maxNear = lite ? 3 : 6; }
+    mine = fleet.spawn(ownColour);
+    if (practice) togglePractice(false);
+  }
+  carGroup.add(mine.group);
+}
 
 /** Makes the map with this id the one that is drawn and driven on (loads its files the first time). Races are on any of the maps; the lobby is map 0. */
 let mapLoading = null;
@@ -348,6 +369,11 @@ showSound(); chips.append(soundChip, musicChip);
 const volume = Object.assign(document.createElement('input'), { id: 'volume', type: 'range', min: 0, max: 1, step: 0.05, value: sound.volume, ariaLabel: T.volume, title: T.volume });
 volume.addEventListener('input', () => { if (!sound.unlocked) unlockSound(); if (sound.muted) sound.setMuted(false); sound.setVolume(+volume.value); showSound(); });
 chips.append(volume);
+// graphics quality: auto / high / medium / low (kept on the device; a change applies after a reload, the automatic one measures the first seconds)
+const qualityChip = Object.assign(document.createElement('button'), { id: 'quality', type: 'button', title: T.quality });
+const QUALITY = ['auto', 'high', 'medium', 'low'], showQuality = () => { qualityChip.textContent = qualitySetting === 'auto' ? 'Auto' : qualitySetting[0].toUpperCase() + qualitySetting.slice(1, 3); };
+qualityChip.addEventListener('click', () => { qualitySetting = QUALITY[(QUALITY.indexOf(qualitySetting) + 1) % 4]; try { localStorage.setItem('drift.quality', qualitySetting); } catch { /* not kept */ } showQuality(); if (qualitySetting !== 'auto') changeTier(qualitySetting); else { picker = new TierPicker(tierName); } note(`${T.quality}: ${qualitySetting}`); });
+showQuality(); chips.append(qualityChip);
 
 // ----- a challenge (?challenge=<id>, from the garage's list): judged here at once with the same functions as the server, which judges it again from the poses and keeps the stars
 let chDef = null, chRun = null, chStarted = false, chServer = null;
@@ -585,6 +611,8 @@ function frame(now) {
   if (freecam) { camera.position.set(X(freecam[0]), freecam[1], freecam[2]); camera.lookAt(X(freecam[3]), freecam[4], freecam[5]); camera.fov = freecam[6] ?? 50; camera.updateProjectionMatrix(); }   // ?freecam=x,y,z,lookX,lookY,lookZ[,fov] (simulation axes): a camera anywhere, for pictures
   stage.aimSun(X(drawn.x), gy, drawn.z);
   stage.halos.resize(renderer.domElement.height, camera.fov);
+  const next = picker?.sample(dt * 1000);
+  if (next && next !== tierName) changeTier(next);
   if (sound.unlocked) {   // the engine and the tyres of your car, and the four nearest others
     const others = net ? net.sample(now).map((o) => ({ id: o.id, x: o.x, z: o.z, speed: o.vf, throttle: (o.flags & 2) ? 0.9 : Math.abs(o.vf) > 1 ? 0.6 : 0, slide: (o.flags & 3) ? 0.8 : 0, car: net.roster.get(o.id)?.car ?? 0, top: cars[net.roster.get(o.id)?.car ?? 0]?.top ?? 33 })) : [];
     sound.update({ speed: speedOf(cur), throttle: lastInp.throttle, slide: paused ? 0 : cur.slide, car: carIndex, top: car.top }, others, { x: drawn.x, z: drawn.z, heading: drawn.h });
