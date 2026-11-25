@@ -342,3 +342,10 @@ went down before; two steps at most, then it stays), `startTier(setting, device)
 again when `stage.carTier` changed). Looks may have a `medium` tier (the touge has one; others fall back to low). Probe:
 `?tier=auto` (headless software rendering picks low, as it should). Tests: `autotier.test.mjs`. The setting in the game (Auto, High,
 Medium, Low) is the drift chat's part.
+
+## Touge triangle budget (2026-11-26)
+
+On master the land is no longer a shadow receiver (the drift chat: the VSM pass drew every receiver again). The touge's tiers thinned
+to keep the high tier under 400k triangles a frame: high cell 4.5 m, 550 + 320 cedars, 3500 far trees, cedar 5 tiers; medium cell 6 m,
+320 + 200 cedars, 2000 far trees. Measured (probe, drift view, including shadow and bloom passes): high 336k triangles / 49 calls
+(world 250k; before 995k), medium 190k / 49 (world 108k), low world 59k. The picture is unchanged by eye.
