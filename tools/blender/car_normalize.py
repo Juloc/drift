@@ -118,7 +118,9 @@ for o in meshes:
         bm = bmesh.new(); bm.from_mesh(o.data)
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in bad], context="FACES")
         bm.to_mesh(o.data); bm.free()
-meshes = [o for o in meshes if len(o.data.polygons)]
+for o in [o for o in meshes if not len(o.data.polygons)]:   # emptied by a dropped material: away with the object too
+    bpy.data.objects.remove(o)
+meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
 tris0 = sum(len(p.vertices) - 2 for o in meshes for p in o.data.polygons)
 log("imported %s: %d meshes, %d triangles, %d materials" % (os.path.basename(A.model), len(meshes), tris0, len({ms.material for o in meshes for ms in o.material_slots})))
 
@@ -249,7 +251,20 @@ for o in meshes:
 log("materials -> slots:")
 for name, (slot, why) in sorted(table.items(), key=lambda t: (t[1][0], t[0])):
     log("   %-34s %-12s %s" % (name[:34], slot, why))
+def grey_of(m):
+    """The material's brightness in sRGB (0..1): the base colour, 0.5 with a texture; kept for the wheels' vertex colours."""
+    if not m or not m.use_nodes or "Principled BSDF" not in m.node_tree.nodes:
+        return 0.5
+    inp = m.node_tree.nodes["Principled BSDF"].inputs["Base Color"]
+    if inp.is_linked:
+        return 0.5
+    r, g, b = inp.default_value[:3]
+    return min(0.85, (0.2126 * r + 0.7152 * g + 0.0722 * b) ** (1 / 2.2))
+
+
 for o in meshes:
+    if o in in_wheel:
+        o["greys"] = [grey_of(ms.material) for ms in o.material_slots]
     for ms in o.material_slots:
         ms.material = slot_material(table[ms.material.name if ms.material else "(none)"][0])
 
@@ -280,8 +295,8 @@ if SRC.get("wheels", "game") == "game":
         bpy.data.objects.remove(o)
     carlib.code_wheels(A.wheels, wheel_at, R, log)
 else:
-    # the model's own wheels: one node per wheel at its centre; rubber (tyre, dark) and the rest (rim: chrome on the high tier,
-    # light grey vertex colours in the single rubber mesh on the phone)
+    # the model's own wheels: one node per wheel at its centre; rubber (tyre, dark) and the rest (rim, disc: chrome on the high
+    # tier, in the single rubber mesh on the phone); every part keeps its own material's brightness in the vertex colours
     for name, parts in wheel_parts.items():
         at = wheel_at[name]
         c = wheels[name][0] - Vector((cx, cy, ground))
@@ -293,8 +308,10 @@ else:
                 if ms.material.name.split(".")[0] != "rubber":
                     ms.material = slot_material("chrome")
             cl = o.data.color_attributes.new("Color", "BYTE_COLOR", "CORNER")
-            for poly in o.data.polygons:
-                g = 0.07 if o.material_slots[poly.material_index].material.name.startswith("rubber") else 0.72   # sRGB, as the code model's
+            greys = list(o.get("greys", []))
+            for poly in o.data.polygons:   # sRGB: the tyre dark as the code model's, the rest as bright as its own material was
+                rub = o.material_slots[poly.material_index].material.name.startswith("rubber")
+                g = 0.07 if rub else (greys[poly.material_index] if poly.material_index < len(greys) else 0.72)
                 for li in poly.loop_indices:
                     cl.data[li].color_srgb = (g, g, g, 1)
             o.data.color_attributes.active_color = cl
@@ -319,9 +336,7 @@ else:
             own += [x for x in bpy.context.scene.objects if x not in before]
         for o in own:
             select_only([o]); bpy.ops.object.material_slot_remove_unused()
-            if o.data.materials[0].name.split(".")[0] != "rubber":   # only the rubber draws vertex colours
-                while o.data.color_attributes:
-                    o.data.color_attributes.remove(o.data.color_attributes[0])
+
             o.parent = empty
             o.name = o.data.name = "%s_%s" % (name, o.data.materials[0].name.split(".")[0])
         log("%s: the model's wheel at (%.3f, %.3f, %.3f)" % (name, at.x, at.y, at.z))

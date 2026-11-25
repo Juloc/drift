@@ -7,8 +7,9 @@ import { SLOTS, WHEEL_NAMES, slotOf, countOf } from './carglb.js';
 
 const dir = new URL('../assets/cars/', import.meta.url);
 const parse = (file) => { const b = fs.readFileSync(new URL(file, dir)); return new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), ''); };
-const limits = { 's15-test.glb': { tris: 15000, calls: 12, kb: 600 }, 's15-test-hi.glb': { tris: 40000, calls: 20, kb: 2000 },
-  'rx7.glb': { tris: 15000, calls: 12, kb: 600 }, 'rx7-hi.glb': { tris: 40000, calls: 20, kb: 2000 } };
+// every model file in game/assets/cars: the phone limits, or the high tier's for a -hi file (docs/CAR-MODELS.md)
+const limits = Object.fromEntries(fs.readdirSync(dir).filter((f) => f.endsWith('.glb'))
+  .map((f) => [f, f.endsWith('-hi.glb') ? { tris: 40000, calls: 20, kb: 2000 } : { tris: 15000, calls: 12, kb: 600 }]));
 
 for (const [file, lim] of Object.entries(limits)) {
   test(`${file} follows the rules`, async () => {
