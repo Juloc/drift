@@ -63,3 +63,12 @@ body.touch #chips-toggle { width: 40px; height: 40px; }
 #chips > #volume { width: 90px; height: 44px; writing-mode: horizontal-tb; direction: ltr; }
 body.touch #fs { top: 238px; }
 @media (pointer: fine) { #fs { display: none; } }
+
+/* the summary at the end of a run */
+#summary { position: fixed; left: 50%; top: 34%; transform: translate(-50%, -50%); z-index: 6; min-width: 280px; padding: 16px 26px 18px; border-radius: 24px; background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); backdrop-filter: var(--blur); color: var(--white); font: 500 20px/1.3 var(--font); pointer-events: none; }
+#summary[hidden] { display: none; }
+#summary h3 { margin: 0 0 8px; font-size: 26px; }
+#summary div { display: flex; justify-content: space-between; gap: 28px; }
+#summary b { font-weight: 700; }
+body.touch #summary { font-size: 13px; min-width: 200px; padding: 8px 16px; top: 40%; }
+body.touch #summary h3 { font-size: 16px; }
