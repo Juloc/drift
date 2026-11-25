@@ -2,6 +2,10 @@
 
 Versions follow SemVer. The version stands in `Directory.Build.props`.
 
+## 0.2.3
+
+- Look probe rounds 9 to 14: the road on a drawn height profile with a deep valley (view only, physics unchanged), painted car style, detailed road and surroundings, painted billow smoke.
+
 ## 0.2.2
 
 - Reverse works: the brake brakes while the car rolls forward and becomes reverse at a stop; the camera stays behind the car.
