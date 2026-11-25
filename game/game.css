@@ -52,4 +52,14 @@ body.touch #back { left: max(var(--gap), env(safe-area-inset-left)); top: 284px 
 #chips > #volume { width: 44px; height: 120px; writing-mode: vertical-lr; direction: rtl; padding: 0 !important; accent-color: var(--accent); pointer-events: auto; }
 body.touch #chips > #volume { width: 90px; height: 40px; writing-mode: horizontal-tb; direction: ltr; }
 .hint { top: 215px; }
-#hud > #damage { position: fixed !important; left: 50% !important; top: 128px !important; transform: translateX(-50%) !important; margin: 0 !important; background: oklch(0.5 0.2 27 / 0.7); color: #fff; border: 1px solid var(--glass-edge); font-family: var(--font); }
+#damage { position: fixed; left: 50%; top: 128px; transform: translateX(-50%); margin: 0; z-index: 3; background: oklch(0.5 0.2 27 / 0.7); color: #fff; border: 1px solid var(--glass-edge); font-family: var(--font); }
+
+/* the switches stand behind one menu button on every device (the PC too); creative mode is paused and not shown */
+#chips-toggle { display: block; width: 44px; height: 44px; position: fixed !important; left: max(var(--gap), env(safe-area-inset-left)) !important; top: 190px !important; z-index: 4; }
+body.touch #chips-toggle { width: 40px; height: 40px; }
+#chips { display: none; flex-direction: row; flex-wrap: wrap; top: 190px; left: 64px; max-width: 60vw; gap: 6px; }
+#chips.open { display: flex; }
+#chips > #creative { display: none; }
+#chips > #volume { width: 90px; height: 44px; writing-mode: horizontal-tb; direction: ltr; }
+body.touch #fs { top: 238px; }
+@media (pointer: fine) { #fs { display: none; } }

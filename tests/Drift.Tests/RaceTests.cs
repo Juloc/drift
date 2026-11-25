@@ -533,8 +533,8 @@ public class MapFileTests
     public void There_are_five_maps_with_their_own_ids_and_every_one_is_a_track()
     {
         var maps = Maps().ToList();
-        Assert.Equal([0, 1, 2, 3, 4], maps.Select(m => m.Id));
-        Assert.Equal(5, maps.Select(m => m.Name).Distinct().Count());
+        Assert.Equal([0, 1, 2, 3, 4, 5], maps.Select(m => m.Id));
+        Assert.Equal(6, maps.Select(m => m.Name).Distinct().Count());
         foreach (var m in maps)
         {
             var t = RaceTrack.FromJson(m.Json);
@@ -542,7 +542,7 @@ public class MapFileTests
             Assert.Equal(m.Name, t.Name);
             Assert.Equal(8, t.Gates.Count);
             Assert.True(t.Grid.Count >= 8);
-            Assert.InRange(t.LoopLength, 350, 1500);
+            Assert.InRange(t.LoopLength, 350, 2600);
             Assert.InRange(t.Laps, 1, 5);
             var g0 = t.Gates[0];
             Assert.All(t.Grid, s => Assert.True((s.X - g0.Cx) * g0.Dx + (s.Z - g0.Cz) * g0.Dz > 0, $"{m.Name}: a grid slot is behind the line"));
@@ -554,6 +554,7 @@ public class MapFileTests
     {
         foreach (var m in Maps())
         {
+            if (JsonDocument.Parse(m.Json).RootElement.TryGetProperty("closed", out var closed) && !closed.GetBoolean()) continue;   // a descent (the touge) is not a loop: its gates are met once, in order, from the plaza to the end
             var track = RaceTrack.FromJson(m.Json);
             var run = new RaceRun(track, 1); var r = new Runner(Guid.NewGuid(), "A", 0, 0, 35); run.Runners.Add(r); run.Start(0);
             using var doc = JsonDocument.Parse(m.Json);
@@ -738,7 +739,7 @@ public class BoardTests
         var r = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=0", admin)));
         Assert.Equal(10, r.GetProperty("lap").GetProperty("top").GetArrayLength());
         Assert.Equal(13, r.GetProperty("lap").GetProperty("mine").GetProperty("place").GetInt32());   // not among the ten, but told its place
-        Assert.Equal(5, r.GetProperty("maps").GetArrayLength());
+        Assert.Equal(6, r.GetProperty("maps").GetArrayLength());
         Assert.Equal(0, r.GetProperty("drift").GetProperty("top").GetArrayLength());
         var guest = await TestApp.GuestCookieAsync(await app.JoinAsync(c, await app.GuestLinkAsync(c, admin), "Ann"));
         var g = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/guest/times?map=0", guest)));

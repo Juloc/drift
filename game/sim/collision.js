@@ -6,7 +6,7 @@
 // q = (cos h, -sin h). A point at a forward and b right of the centre moves, for a yaw rate w, with w * (a q - b f); an impulse J at that point changes w by (a q.J - b f.J) / I.
 // The mass is 1 for a wall contact (it drops out against a fixed wall) and relative for two cars (data/cars.json `mass` / REF_MASS); the inertia is that of a plate: m * (L^2 + W^2) / 12.
 
-export const BODY = { length: 4.4, width: 1.9, restitution: 0.25, wallFriction: 0.35, carFriction: 0.2, maxJump: 40 };
+export const BODY = { length: 4.4, width: 1.9, restitution: 0.12, wallFriction: 0.9, carFriction: 0.2, maxJump: 40 };
 const INERTIA = (BODY.length ** 2 + BODY.width ** 2) / 12;   // per unit of mass: a body of mass m has m * INERTIA
 /** The reference mass (kg) the game's relative masses are measured against: a car of 1200 kg has mass 1. */
 export const REF_MASS = 1200;

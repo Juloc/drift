@@ -68,7 +68,7 @@ export class ProbeHud {
     pos.append(el('span', 'k', T.position), this.posV);
     // bottom left: a minimap that turns with the car (heading up), about 150 m across
     const mp = card('c-map');
-    const m = svg('svg', { viewBox: '-60 -82 120 120', class: 'minimap', 'aria-hidden': 'true' });
+    const m = svg('svg', { viewBox: '-108 -148 216 216', class: 'minimap', 'aria-hidden': 'true' });
     const d = (pts, close) => 'M' + pts.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' L') + (close ? ' Z' : '');
     this.world = svg('g', {});
     this.shapePath = (sh) => { const g = svg('g', {}); if (sh.plaza?.length) g.append(svg('path', { d: d(sh.plaza, true), class: 'mm-plaza' })); g.append(svg('path', { d: d(sh.road, sh.closed), class: 'mm-road' })); return g; };
@@ -76,7 +76,7 @@ export class ProbeHud {
     this.world.append(this.shapeG);
     this.dots = svg('g', {});
     this.world.append(this.dots);
-    m.append(this.world, svg('path', { d: 'M0 -9 L7 7 L0 3.5 L-7 7 Z', class: 'mm-me' }));
+    m.append(this.world, svg('path', { d: 'M0 -9 L7 7 L0 3.5 L-7 7 Z', class: 'mm-me', transform: 'scale(1.6)' }));
     mp.append(m);
     // bottom centre: the drift angle on a wide open arc (no card), ticks every 15 degrees from -90 to +90
     const an = el('div', 'c-angle');
@@ -154,7 +154,7 @@ export class ProbeHud {
     for (const key of ['gas', 'brake', 'hand']) this.set('bar' + key, Math.round(sm[key] * 20) / 20, (v) => this.bars[key].style.setProperty('--v', v));
     // the minimap turns the world so that the car looks up; the arrow stays in the middle
     this.world.setAttribute('transform', `rotate(${(180 - (car.h * 180) / Math.PI).toFixed(2)}) translate(${(-car.x).toFixed(2)} ${(-car.z).toFixed(2)})`);
-    this.set('dots', others.length, () => { this.dots.replaceChildren(...others.map(() => svg('circle', { r: 3.2, class: 'mm-other' }))); });
+    this.set('dots', others.length, () => { this.dots.replaceChildren(...others.map(() => svg('circle', { r: 5, class: 'mm-other' }))); });
     others.forEach((o, i) => this.dots.children[i].setAttribute('transform', `translate(${o[0].toFixed(1)} ${o[1].toFixed(1)})`));
     if (sc.event) this.toast(sc.event.type === 'bank' ? `+${fmtNum(sc.event.points, this.lang)}` : T.lost, sc.event.type);
     if (this.toastTimer > 0 && (this.toastTimer -= dt) <= 0) { this.toastEl.textContent = ''; this.toastEl.className = 'p-toast'; }

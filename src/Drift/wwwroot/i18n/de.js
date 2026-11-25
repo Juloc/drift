@@ -12,6 +12,7 @@ export default {
   'garage.preview': 'Die anderen sehen {name} im {car}.',
   'garage.saved': 'Gespeichert',
   'garage.play': 'Fahren',
+  'garage.touge': 'Touge (Vorschau)',
   'garage.stat.power': 'Kraft',
   'garage.stat.top': 'Höchsttempo',
   'garage.stat.grip': 'Grip',

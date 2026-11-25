@@ -291,7 +291,7 @@ function road(S, f, look, onPlaza, rnd, lite, scene) {
   for (const sd of [-1, 1]) ribbon(S, f, [sd * (hw - 0.45) - ew, sd * (hw - 0.45) + ew], (i) => k.copy(edge).lerp(asphalt, Math.max(0, noise2(f.info.s[i] / 3, sd * 5)) * 0.8).clone(),
     { y: 0.04, keep: (i) => off(i) && noise2(f.info.s[i] / 1.7, sd * 9) > -0.55 });
   // centre dashes with worn gaps
-  for (let d = 4; d < f.info.length - 4; d += 7.5) {
+  if (scene.road.centreLine !== false) for (let d = 4; d < f.info.length - 4; d += 7.5) {   // (the touge has white edge lines only)
     const p = pointAt(f.road, f.info, d), q = pointAt(f.road, f.info, d + 3);
     if (onPlaza(p.x, p.z)) continue;
     const dx = q.x - p.x, dz = q.z - p.z, y0 = f.roadY(d), y1 = f.roadY(d + 3), worn = noise2(d / 11, 2);
@@ -621,6 +621,9 @@ function details(S, G, f, scene, look, tier, rnd, lite, sideInfo, onPlaza) {
       G.box(0.36, 0.3, 0.52, X(m.x), y + 1.85, m.z, glow(look.lamp.light, 2.4), { r: 0, ry });
       S.cone(0.75, 0.45, X(m.x), y + 2.3, m.z, stoneC, { seg: 4, ry: ry + Math.PI / 4 });
       S.ball(0.12, X(m.x), y + 2.6, m.z, stoneC, { detail: 0 });
+    } else if (m.type === 'clip') {   // a clipping point of the zone scoring: a short white post with a glowing pink head, where the line should touch
+      S.cyl(0.07, 0.09, 1.1, X(m.x), y + 0.55, m.z, C('#f4efee'), { seg: 6 });
+      G.box(0.22, 0.22, 0.22, X(m.x), y + 1.2, m.z, glow('#ff5a96', 2.6), { r: 0 });
     } else if (m.type === 'gate') {
       S.push(trs(X(m.x), y, m.z, 0, ry, 0));
       // a torii: two red pillars, a tie beam and a black-capped top beam; m.width / m.height scale it (a road torii is wide)
