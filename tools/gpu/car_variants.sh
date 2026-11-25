@@ -14,6 +14,7 @@ for v in $variants; do
   case $v in
     smooth) out=$car.glb; wheels=s15-test.glb ;;
     smooth-hi) out=$car-hi.glb; wheels=s15-test-hi.glb ;;
+    loft) out=$car-loft.glb; wheels=s15-test.glb ;;
   esac
   log=/tmp/claude-1000/car-$car-$v.log
   t0=$(date +%s)

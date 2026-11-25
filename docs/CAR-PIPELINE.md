@@ -101,10 +101,24 @@ rules and looked like the original in the showroom; a 5 000 triangle budget deci
 were found and fixed on the way ("trim" contains "rim", "black" contains the German "lack"). **Not tried yet: a real download**
 (odd names, many parts, textures only, missing faces, non-symmetric details); expect to add names to `slots` and `drop` per car.
 
-## Next for generated cars (proposal, on hold: downloads first)
+## Emergency way for generated cars: the loft (tried once, S15)
 
-A clean body built over the generated shell, by script: cross-sections along the car (about 20 to 30 rings, 16 to 24 points
-each, symmetric) found by casting rays at the TRELLIS shell, lofted into one even quad mesh; windows and lamps as their own
-inset parts at the contour lines; wing and mirrors as simple separate parts fitted to the shell; smooth shading, glossy paint.
-TRELLIS stays the blueprint for proportions; the mesh the game sees is regular. Needs the owner's yes first.
+Only for a car without a usable free model. `car_variants.sh <car> loft` runs `car_from_trellis.py --variant loft`: TRELLIS is the
+blueprint, the body the game sees is new.
+- **Sections:** 56 stations along the car (denser at the ends), 36 rays per half section from the section's middle; rays
+  pointing up go from inside (first surface: not the wing, not a mirror), rays from 75 degrees down come from outside
+  (the outermost: flares, sills, tyres). Taken from the shell **before** the wheel wells are cut. A 3x3 median and a light blur,
+  mirrored to the other side, lofted into one closed quad mesh, the ends capped.
+- **Attachments:** faces of the generated mesh more than 3.5 cm outside the loft and above 0.75 m (mirrors, wing) are added,
+  thinned to 1 500 faces; crumbs under 60 faces dropped.
+- Wells cut again (boolean); no texture: plain slot colours. Slot edges are cut along the blurred texture (glass, lamps, and the
+  dark low parts as plastic), the well walls are plastic, a dark lip around a well is paint.
+- S15: 13 593 triangles, 9 draw calls, 334 KB, 6 s on the PC. Pictures in the session notes (`car-s15/s15-loft-*.png`).
+
+**Verdict (S15):** clearly better than the thinned-out scan: the big panels are smooth (no bumps), clean round wells, the wing
+and the mirrors stay. **Still far from the mockup:** the front is a soft lump (no grille, intakes or lamp shapes; a front face
+lies across the sections and is not caught by them), window and lamp edges still zigzag (they follow a blurred texture),
+no crisp creases or panel lines. Reaching the mockup would mean modelling lamps, grille and creases as parts: that is hand work
+per car. Good enough at most as a stand-in for a car nobody has a model of; downloads first.
+
 Not checked in this try: a drift on the car park with the files, a real phone, the website's copy.

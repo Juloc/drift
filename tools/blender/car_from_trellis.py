@@ -35,13 +35,14 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--raw", required=True)
 ap.add_argument("--car", required=True)
 ap.add_argument("--wheels", required=True, help="a .glb with wheel_fl/fr/rl/rr after the rules (the code model's s15-test.glb or -hi)")
-ap.add_argument("--variant", choices=["smooth", "smooth-hi"], required=True)
+ap.add_argument("--variant", choices=["smooth", "smooth-hi", "loft"], required=True)
 ap.add_argument("--out", required=True)
 ap.add_argument("--blend", help="also save the scene as .blend (for looking at it by hand)")
 A = ap.parse_args(argv)
 CFG = json.load(open(A.car))
 R = CFG["regions"]
 T0 = time.time()
+LOFT = A.variant == "loft"   # a new even body over the generated shell, no texture (plain slot colours)
 TIER = "high" if A.variant.endswith("-hi") else "phone"
 
 
@@ -140,23 +141,35 @@ w0, h0 = img0.size
 px0 = np.empty(w0 * h0 * 4, dtype=np.float32); img0.pixels.foreach_get(px0); px0 = px0.reshape(h0, w0, 4)[:, :, :3].sum(2)
 dy, dx = np.unravel_index(np.argmin(px0), px0.shape)
 DARK_UV = ((dx + 0.5) / w0, (dy + 0.5) / h0)
-cbm = bmesh.new()
-for n, w in wheel_at.items():
-    inner, outer = abs(w.x) - WW / 2 - CUT["inboard"], 1.4
-    m = Matrix.Translation((math.copysign((inner + outer) / 2, w.x), w.y, CUT["axle_z"])) @ Matrix.Rotation(math.pi / 2, 4, "Y")
-    bmesh.ops.create_cone(cbm, cap_ends=True, cap_tris=False, segments=48, radius1=CUT["radius"], radius2=CUT["radius"], depth=outer - inner, matrix=m, calc_uvs=False)
-cuv = cbm.loops.layers.uv.new(me.uv_layers.active.name)   # the same name as the car's UV map: the boolean keeps one map
-for f in cbm.faces:
-    for l in f.loops:
-        l[cuv].uv = DARK_UV
-cutter = bpy.data.objects.new("cutter", bpy.data.meshes.new("cutter")); bpy.context.scene.collection.objects.link(cutter)
-cbm.to_mesh(cutter.data); cbm.free()
-cutter.data.materials.append(me.materials[0])
+
+
+def cut_wells(obj, uv_name=None):
+    """Boolean difference with one cylinder per wheel (axle along X, from inboard of the tyre to outside the car)."""
+    cbm = bmesh.new()
+    for n, w in wheel_at.items():
+        inner, outer = abs(w.x) - WW / 2 - CUT["inboard"], 1.4
+        m = Matrix.Translation((math.copysign((inner + outer) / 2, w.x), w.y, CUT["axle_z"])) @ Matrix.Rotation(math.pi / 2, 4, "Y")
+        bmesh.ops.create_cone(cbm, cap_ends=True, cap_tris=False, segments=48, radius1=CUT["radius"], radius2=CUT["radius"], depth=outer - inner, matrix=m, calc_uvs=False)
+    if uv_name:   # the same name as the car's UV map: the boolean keeps one map
+        cuv = cbm.loops.layers.uv.new(uv_name)
+        for f in cbm.faces:
+            for l in f.loops:
+                l[cuv].uv = DARK_UV
+    cutter = bpy.data.objects.new("cutter", bpy.data.meshes.new("cutter")); bpy.context.scene.collection.objects.link(cutter)
+    cbm.to_mesh(cutter.data); cbm.free()
+    if obj.data.materials:
+        cutter.data.materials.append(obj.data.materials[0])
+    mod = obj.modifiers.new("wells", "BOOLEAN")
+    mod.operation = "DIFFERENCE"; mod.solver = "EXACT"; mod.object = cutter; mod.use_hole_tolerant = True
+    select_only([obj]); bpy.ops.object.modifier_apply(modifier="wells")
+    bpy.data.objects.remove(cutter)
+
+
 tris0 = len(me.polygons)
-mod = car.modifiers.new("wells", "BOOLEAN")
-mod.operation = "DIFFERENCE"; mod.solver = "EXACT"; mod.object = cutter; mod.use_hole_tolerant = True
-select_only([car]); bpy.ops.object.modifier_apply(modifier="wells")
-bpy.data.objects.remove(cutter)
+_pbm = bmesh.new(); _pbm.from_mesh(me)
+PRE_BVH = BVHTree.FromBMesh(_pbm)   # the shell before the wells (tyres in place): what the loft's sections are taken from
+_pbm.free()
+cut_wells(car, me.uv_layers.active.name)
 log("wheel wells: boolean with 4 cylinders (radius %.3f, axle at %.3f): %d -> %d faces" % (CUT["radius"], CUT["axle_z"], tris0, len(me.polygons)))
 bm = bmesh.new(); bm.from_mesh(me)
 bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=0.0005)
@@ -238,7 +251,8 @@ img.pixels.foreach_set(RGBA.ravel()); img.update()
 
 
 PIXB = PIX.copy()   # a 3x3 box blur of the texture: the numbers for slots and contours, less noisy than single texels
-PIXB[1:-1, 1:-1] = sum(PIX[1 + dy:PIX.shape[0] - 1 + dy, 1 + dx:PIX.shape[1] - 1 + dx] for dy in (-1, 0, 1) for dx in (-1, 0, 1)) / 9
+for _ in range(CFG.get("loft", {}).get("blur_passes", 3) if LOFT else 1):
+    PIXB[1:-1, 1:-1] = sum(PIXB[1 + dy:PIXB.shape[0] - 1 + dy, 1 + dx:PIXB.shape[1] - 1 + dx] for dy in (-1, 0, 1) for dx in (-1, 0, 1)) / 9
 
 
 def colour_at(p, blur=False):
@@ -255,7 +269,112 @@ def colour_at(p, blur=False):
 # ---------------------------------------------------------------- 6. decimate (symmetric), slots
 target = CFG["targets"][A.variant]
 tris = len(me.polygons)
-if target and target < tris:
+if LOFT:
+    # A new, even body over the generated one: cross-sections along the car, each found by rays from inside the section's
+    # middle out to the generated shell (+x half, mirrored), smoothed, then lofted into one closed mesh of quads.
+    # Parts that stand out of that body (mirrors, wing, splitter) are taken over from the generated mesh and thinned out.
+    Lc = CFG.get("loft", {})
+    NS, NA = Lc.get("stations", 56), Lc.get("angles", 36)
+    y0, y1 = min(v.co.y for v in me.vertices), max(v.co.y for v in me.vertices)
+    trim = Lc.get("trim", 0.02)
+    y0, y1 = y0 + trim, y1 - trim   # the very ends are capped (a section there would be all misses)
+    Y = [y0 + (y1 - y0) * (1 - math.cos(math.pi * (i + 0.5) / NS)) / 2 for i in range(NS)]   # denser at the ends
+    TH = [math.pi * j / (NA - 1) for j in range(NA)]   # 0 = up, pi = down, on the +x side
+
+    def ray(o, d):
+        return PRE_BVH.ray_cast(o, d)[0]
+
+    FLIP = math.radians(Lc.get("outside_from_deg", 75))   # rays further down than this come from outside (flares, sills, tyres)
+
+    rad, cz = np.full((NS, NA), np.nan), np.zeros(NS)
+    for i, y in enumerate(Y):
+        top, bot = ray(Vector((0, y, 5)), Vector((0, 0, -1))), ray(Vector((0, y, -1)), Vector((0, 0, 1)))
+        zt, zb = (top.z if top else 1.0), (bot.z if bot else 0.15)
+        cz[i] = (zt + zb) / 2
+        c = Vector((0, y, cz[i]))
+        for j, th in enumerate(TH):
+            d = Vector((math.sin(th), 0, math.cos(th)))
+            # upwards from inside (the first surface: not the wing, not a mirror), sideways and down from outside (the outermost)
+            p = ray(c, d) if th < FLIP else ray(c + d * 4.0, -d)
+            if p is not None:
+                rad[i, j] = (p - c).length
+            elif th >= FLIP:
+                rad[i, j] = 0.02   # nothing there from outside: the body does not reach this far
+    for i in range(NS):   # gaps: from the neighbours on the ring
+        row = rad[i]; ok = ~np.isnan(row)
+        if ok.any():
+            rad[i] = np.interp(np.arange(NA), np.flatnonzero(ok), row[ok])
+    from_median = np.copy(rad)
+    for i in range(1, NS - 1):   # spikes: a 3x3 median, then a light [1 2 1] blur along the car and around the ring
+        for j in range(NA):
+            from_median[i, j] = np.median(rad[i - 1:i + 2, max(0, j - 1):j + 2])
+    rad = from_median
+    for _ in range(Lc.get("blur", 1)):
+        rad[1:-1] = (rad[:-2] + 2 * rad[1:-1] + rad[2:]) / 4
+        rad[:, 1:-1] = (rad[:, :-2] + 2 * rad[:, 1:-1] + rad[:, 2:]) / 4
+    lbm = bmesh.new()
+    rings = []
+    for i, y in enumerate(Y):
+        pts = [Vector((rad[i, j] * math.sin(t), y, cz[i] + rad[i, j] * math.cos(t))) for j, t in enumerate(TH)]
+        ring = [lbm.verts.new(p) for p in pts]
+        ring += [lbm.verts.new(Vector((-p.x, p.y, p.z))) for p in reversed(pts[1:-1])]   # the -x half, mirrored
+        rings.append(ring)
+    n = len(rings[0])
+    for a, b in zip(rings, rings[1:]):
+        for j in range(n):
+            lbm.faces.new((a[j], a[(j + 1) % n], b[(j + 1) % n], b[j]))
+    for ring, yy, zc in ((rings[0], Y[0], cz[0]), (rings[-1], Y[-1], cz[-1])):   # the ends: a fan to the middle
+        hub = lbm.verts.new(Vector((0, yy, zc)))
+        for j in range(n):
+            lbm.faces.new((hub, ring[j], ring[(j + 1) % n]))
+    bmesh.ops.recalc_face_normals(lbm, faces=lbm.faces[:])
+    lbvh = BVHTree.FromBMesh(lbm)
+    loft_faces = len(lbm.faces)
+    # attachments: faces of the generated mesh clearly outside the new body
+    abm = bmesh.new(); vmap = {}
+    for f in sbm.faces:
+        cen = f.calc_center_median()
+        loc, nrm, _, _ = lbvh.find_nearest(cen)
+        if loc is not None and cen.z > Lc.get("attach_above", 0.75) and (cen - loc).dot(nrm) > Lc.get("attach", 0.025):
+            vs = []
+            for v in f.verts:
+                if v.index not in vmap:
+                    vmap[v.index] = abm.verts.new(v.co)
+                vs.append(vmap[v.index])
+            try:
+                abm.faces.new(vs)
+            except ValueError:
+                pass
+    # drop crumbs (pieces of fewer than 30 faces)
+    abm.faces.ensure_lookup_table(); seen = set(); crumbs = []
+    for f in abm.faces:
+        if f in seen:
+            continue
+        part, stack = [], [f]; seen.add(f)
+        while stack:
+            g = stack.pop(); part.append(g)
+            for e in g.edges:
+                for h in e.link_faces:
+                    if h not in seen:
+                        seen.add(h); stack.append(h)
+        if len(part) < Lc.get("crumb_faces", 60):
+            crumbs += part
+    bmesh.ops.delete(abm, geom=crumbs, context="FACES")
+    bmesh.ops.delete(abm, geom=[v for v in abm.verts if not v.link_faces], context="VERTS")
+    att = bpy.data.objects.new("attachments", bpy.data.meshes.new("attachments")); bpy.context.scene.collection.objects.link(att)
+    abm.to_mesh(att.data); abm.free()
+    na = len(att.data.polygons)
+    if na > Lc.get("attach_faces", 1500):
+        mod = att.modifiers.new("decimate", "DECIMATE"); mod.ratio = Lc.get("attach_faces", 1500) / na; mod.use_symmetry = True; mod.symmetry_axis = "X"
+        select_only([att]); bpy.ops.object.modifier_apply(modifier="decimate")
+    loft = bpy.data.meshes.new("loft"); lbm.to_mesh(loft); lbm.free()
+    old = car.data; car.data = loft; bpy.data.meshes.remove(old); me = car.data
+    select_only([car, att]); bpy.context.view_layer.objects.active = car; bpy.ops.object.join()
+    cut_wells(car)
+    log("loft: %d sections x %d points -> %d faces; %d faces of attachments (from %d outside); wells cut: %d faces" % (
+        NS, 2 * NA - 2, loft_faces, len(me.polygons) and min(na, Lc.get("attach_faces", 1500)), na, len(me.polygons)))
+    bm = bmesh.new(); bm.from_mesh(me); bmesh.ops.triangulate(bm, faces=bm.faces[:]); bm.to_mesh(me); bm.free(); me.update()
+elif target and target < tris:
     mod = car.modifiers.new("decimate", "DECIMATE")
     mod.decimate_type = "COLLAPSE"; mod.ratio = target / tris; mod.use_symmetry = True; mod.symmetry_axis = "X"; mod.use_collapse_triangulate = True
     select_only([car]); bpy.ops.object.modifier_apply(modifier="decimate")
@@ -281,9 +400,24 @@ FIELDS = {
     "light_front": lambda p, c: 0.6 - max(c) if in_head(p) else None,
     "glass": lambda p, c: 0.35 - max(c) if p.z > R["belt"] else None,
 }
+if LOFT:   # the loft has no texture: the dark parts low down (grille, intakes, underbody) get a clean edge too
+    FIELDS["plastic"] = lambda p, c: (0.3 - max(c)) if p.z <= R["belt"] and not near_well(p) else None
+
+
+def near_well(p):
+    """On the lip of a wheel well: dark there is the generated tyre's shadow, not a part of the car."""
+    return any(math.hypot(p.y - w.y, p.z - CUT["axle_z"]) < CUT["radius"] + 0.12 for w in wheel_at.values())
+
+
+def in_well(p):
+    """On the walls of a cut wheel well (the cylinder and its inner disc)."""
+    return any(math.hypot(p.y - w.y, p.z - CUT["axle_z"]) < CUT["radius"] + 0.01 and abs(p.x) > abs(w.x) - WW / 2 - CUT["inboard"] - 0.01
+               for w in wheel_at.values())
 
 
 def slot_for(cen, col):
+    if LOFT and in_well(cen):
+        return "plastic"
     v, mn = max(col), min(col)
     sat = (v - mn) / v if v > 1e-4 else 0
     for slot, field in FIELDS.items():
@@ -292,6 +426,8 @@ def slot_for(cen, col):
             return slot
     if v > 0.45 and sat < 0.35:
         return "paint"
+    if LOFT:
+        return "paint"   # plastic only through its field above (a clean edge), never by a lone dark face
     if v < 0.35:
         return "plastic"
     return "paint" if cen.z > 0.3 else "plastic"
@@ -346,7 +482,7 @@ mats = {}
 for s_ in SLOTS:
     m = bpy.data.materials.new(s_); m.use_nodes = True
     bsdf = m.node_tree.nodes["Principled BSDF"]
-    if s_ in ("paint", "plastic"):
+    if s_ in ("paint", "plastic") and not LOFT:
         tex = m.node_tree.nodes.new("ShaderNodeTexImage"); tex.image = img
         m.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
     mats[s_] = m
@@ -389,7 +525,7 @@ if A.blend:
     bpy.ops.wm.save_as_mainfile(filepath=A.blend)
 if problems:
     sys.exit(1)
-carlib.export_glb(A.out, textures=True)
+carlib.export_glb(A.out, textures=not LOFT)
 kb = os.path.getsize(A.out) / 1024
 log("wrote %s: %.0f KB (limit %d KB)" % (A.out, kb, prepare_car.LIMITS[TIER]["kb"]))
 if kb > prepare_car.LIMITS[TIER]["kb"]:
