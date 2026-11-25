@@ -42,7 +42,7 @@ export function makeSky(look, radius = 1800) {
         // soft streaks of cloud above the horizon, lit from below on the sun's side
         float az = atan(d.x, d.z);
         float n = fbm(vec2(az * 3.2 + 1.7, e * 26.0)) * 0.75 + fbm(vec2(az * 10.0, e * 60.0)) * 0.25;   // long thin streaks
-        float dens = smoothstep(0.46, 0.62, n) * smoothstep(0.05, 0.09, e) * (1.0 - smoothstep(0.2, 0.28, e)) * uClouds;
+        float dens = smoothstep(0.38, 0.54, n) * smoothstep(0.035, 0.07, e) * (1.0 - smoothstep(0.22, 0.32, e)) * uClouds;
         vec3 cc = mix(uCloudShade, uCloudLit, clamp(pow(c, 3.0) * 1.6 + 0.1, 0.0, 1.0)) + uGlow * pow(c, 20.0) * 1.2;   // golden edges near the sun
         col = mix(col, cc, dens);
         float disc = smoothstep(uSunCos - 0.0004, uSunCos + 0.0001, dot(d, uSunDir));

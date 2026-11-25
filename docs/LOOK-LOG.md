@@ -52,3 +52,31 @@ Biggest differences left (picture `probe-sunset-drift.png` of this round):
    slope with a few rocks; the cherries are small in the corner.
 5. Colour: the mockup's whole picture is a little more saturated and contrasty (deep violet shadows, bright peach light); ours is
    a little grey-pink.
+
+## Round 5 (2026-11-25)
+
+Done: the sun moved out from under the position card and given a stronger golden glow; whiter, fuller smoke (less see-through at its
+edges); the left slope steeper with rock showing in patches between the grass (faceted); two big cherry trees placed 10 to 20 m ahead
+on the left so their blossom reaches into the top left corner, as in the mockup; a little more saturation and more violet in the
+shadows.
+
+Biggest differences left (picture `probe-sunset-drift.png` of this round):
+1. Valley: still the thin band behind the guardrail (the limit above).
+2. Smoke: still a little glassy (see-through faceted shells); the mockup's puffs read as solid, sunlit balls.
+3. Clouds: the mockup has distinct pink cloud bands around the sun; ours are faint.
+4. Road: the sun's sheen on the right half of the road is stronger and more orange than in the mockup.
+5. Middle: the mockup's midground right of the road has rounded green hills with pines in front of the mountains; ours goes from the
+   guardrail straight to the far valley and mountains.
+
+## Round 6 (2026-11-25)
+
+Done: more distinct cloud bands (lower threshold, a deeper pink shade), less sun sheen on the road (more matt asphalt), the smoke nearly
+opaque. Tried and dropped: solid smoke with a screen-door fade (no sorting needed, but the grain shows; the bloom does not hide it).
+
+Biggest differences left (picture `probe-sunset-drift.png` of this round):
+1. Valley: the thin band behind the guardrail (the limit above).
+2. Smoke: the faceted puffs still look a little like glass where several overlap (transparent shells in one instanced mesh are not
+   sorted); the mockup's smoke reads as soft, solid balls.
+3. Clouds: they sit mostly behind the drift-score card at this camera; the open sky right of it shows few.
+4. Midground right: the mockup has rounded green hills with pines between the road and the far mountains.
+5. Car: the mockup's car shows more of its flank and a stronger red glow of the tail lights.

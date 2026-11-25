@@ -1,5 +1,5 @@
-// Tyre smoke as big soft clouds: round puffs in one instanced mesh (one draw call), lit by the sun, fading out through a per-puff
-// opacity, towards their own edges (so no hard outline) and close to the camera (so the camera never sits in a wall of smoke). Same calls as fx.js's Smoke (emit, update), plus sync() once per drawn frame.
+// Tyre smoke as big clouds: faceted puffs in one instanced mesh (one draw call), lit by the sun, fading out through a per-puff
+// opacity, towards their own edges and close to the camera (so the camera never sits in a wall of smoke). Same calls as fx.js's Smoke (emit, update), plus sync() once per drawn frame.
 import * as THREE from '../../../vendor/three/three.module.js';
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _e = new THREE.Euler();
@@ -18,7 +18,7 @@ export class Puffs {
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aAlpha;\nvarying float vAlpha;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvAlpha = aAlpha;');
       sh.uniforms.uNear = { value: look.smoke.near ?? 3 };
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAlpha;\nuniform float uNear;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a *= vAlpha;')
-        .replace('#include <opaque_fragment>', '#include <opaque_fragment>\nvec3 fn = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));\ngl_FragColor.a *= smoothstep(0.0, 0.3, abs(dot(fn, normalize(vViewPosition)))) * smoothstep(uNear, uNear + 2.5, length(vViewPosition));');
+        .replace('#include <opaque_fragment>', '#include <opaque_fragment>\nvec3 fn = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));\ngl_FragColor.a *= smoothstep(0.0, 0.12, abs(dot(fn, normalize(vViewPosition)))) * smoothstep(uNear, uNear + 2.5, length(vViewPosition));');
     };
     this.mesh = new THREE.InstancedMesh(geo, mat, capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
