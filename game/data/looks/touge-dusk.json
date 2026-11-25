@@ -36,7 +36,7 @@
     "dark": "#1c3428",
     "mid": "#284634",
     "top": "#3a5a40",
-    "shape": { "layers": 6, "width": 0.2, "tier": 0.24 }
+    "shape": { "layers": 5, "width": 0.2, "tier": 0.24 }
   },
   "cherry": { "trunk": "#5e4444", "blossom": ["#ff6fa0", "#ff86b0", "#e0507e", "#ffa3c2"] },
   "rail": { "beam": "#9a98a8", "beamLight": "#c8c6d4", "post": "#4a4858", "reflector": "#ffad42" },
@@ -48,13 +48,13 @@
   "camera": { "dist": 6.0, "height": 1.7, "side": 0.0, "look": 14, "lookY": 1.2, "travel": 0.6, "fov": 52, "turn": 0, "swing": 3.0 },
   "tiers": {
     "high": {
-      "cell": 3.5,
-      "far": 16,
-      "pines": 1600,
+      "cell": 4.5,
+      "far": 20,
+      "pines": 550,
       "cherries": 0,
-      "nearPines": 420,
+      "nearPines": 320,
       "nearCherries": 0,
-      "rocks": 60,
+      "rocks": 40,
       "ridge": 260,
       "mist": 7,
       "railPost": 3,
@@ -66,15 +66,15 @@
       "scale": 1,
       "env": 128,
       "details": { "tufts": 1400, "stones": 500, "bushes": 180, "petals": 70, "poles": 0 },
-      "carpet": 5000,
+      "carpet": 3500,
       "billows": 220
     },
     "medium": {
-      "cell": 5.5,
-      "far": 24,
-      "pines": 700,
+      "cell": 6,
+      "far": 28,
+      "pines": 320,
       "cherries": 0,
-      "nearPines": 260,
+      "nearPines": 200,
       "nearCherries": 0,
       "rocks": 40,
       "ridge": 160,
@@ -88,7 +88,7 @@
       "scale": 1,
       "env": 64,
       "details": { "tufts": 700, "stones": 250, "bushes": 90, "petals": 35, "poles": 0 },
-      "carpet": 2400,
+      "carpet": 2000,
       "billows": 120
     },
     "low": {
