@@ -13,6 +13,8 @@ The car file (`tools/blender/cars/<car>.json`) gives the real sizes and a "sourc
                 "drop": ["regex", ...], objects or materials to throw away (a driver, a number plate, a ground plane)
                 "drop_boxes": [{"material": "regex", "lo": [x, y, z], "hi": [x, y, z], "about": "..."}],   faces of a material
                                         inside a box of the model's own coordinates (as materials.py / parts.py print them)
+                "slot_boxes": [{"material": "regex", "slot": "light_rear", "lo": [...], "hi": [...]}],   another slot for the faces
+                                        of a material inside a box (a lamp material shared by the front and the rear)
                 "targets": { "phone": 14000, "high": 40000 } }
 
 What it does, in this order:
@@ -133,6 +135,22 @@ for box in SRC.get("drop_boxes", []):
         bmesh.ops.delete(bm, geom=gone, context="FACES")
         bm.to_mesh(o.data); bm.free()
     log("dropped %d faces of %s in the box %s .. %s (%s)" % (n_, box["material"], box["lo"], box["hi"], box.get("about", "")))
+# slot boxes: faces of a material inside a box get another slot (a lamp material shared by the front and the rear lamps)
+for box in SRC.get("slot_boxes", []):
+    lo_, hi_, n_ = Vector(box["lo"]), Vector(box["hi"]), 0
+    target = bpy.data.materials.get(box["slot"]) or bpy.data.materials.new(box["slot"])   # its name is the slot
+    for o in meshes:
+        idx = [i for i, ms in enumerate(o.material_slots) if ms.material and re.search(box["material"], ms.material.name, re.I)]
+        hits = [p for p in o.data.polygons if p.material_index in idx and all(lo_[k] <= (p.center)[k] <= hi_[k] for k in range(3))]
+        if not hits:
+            continue
+        if target.name not in [ms.material.name for ms in o.material_slots if ms.material]:
+            o.data.materials.append(target)
+        ti = [ms.material.name if ms.material else None for ms in o.material_slots].index(target.name)
+        for p in hits:
+            p.material_index = ti
+        n_ += len(hits)
+    log("gave %d faces of %s in the box %s .. %s the slot %s" % (n_, box["material"], box["lo"], box["hi"], box["slot"]))
 for o in [o for o in meshes if not len(o.data.polygons)]:   # emptied by a dropped material: away with the object too
     bpy.data.objects.remove(o)
 meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]

@@ -149,6 +149,26 @@
         "en": "\"Nissan Skyline R34 GT-R\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, emblems, lettering and the number plate removed, reduced",
         "de": "„Nissan Skyline R34 GT-R“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, Embleme, Schriftzüge und das Kennzeichen entfernt, verkleinert"
       }
+    },
+    {
+      "id": "s14",
+      "kind": "model",
+      "name": "Nissan 200SX Silvia S14",
+      "file": [
+        "game/assets/cars/s14.glb",
+        "game/assets/cars/s14-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/nissan-200sx-silvia-s14-f2a917a924734a89a020e7f970e55e7c",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, materials replaced, the number plates and their lettering removed, reduced",
+      "use": {
+        "en": "\"Nissan 200SX Silvia S14\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, the number plates and their lettering removed, reduced",
+        "de": "„Nissan 200SX Silvia S14“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, die Kennzeichen und ihre Schrift entfernt, verkleinert"
+      }
     }
   ]
 }
