@@ -1,0 +1,111 @@
+{
+ "look": "sunset",
+ "note": "Bergpass: the loop on a mountain, the land rises inside it and falls to a valley outside; the road swells and dips (drawn only).",
+ "mode": "road",
+ "rails": "both",
+ "grade": {
+  "amp": 9,
+  "waves": 3,
+  "phase": 0.6
+ },
+ "terrain": {
+  "profile": [
+   [
+    -2000,
+    320
+   ],
+   [
+    -700,
+    160
+   ],
+   [
+    -320,
+    84
+   ],
+   [
+    -140,
+    40
+   ],
+   [
+    -70,
+    19
+   ],
+   [
+    -28,
+    7
+   ],
+   [
+    -9,
+    1.4
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    9,
+    -1.5
+   ],
+   [
+    28,
+    -9
+   ],
+   [
+    70,
+    -30
+   ],
+   [
+    160,
+    -80
+   ],
+   [
+    420,
+    -150
+   ],
+   [
+    2000,
+    -220
+   ]
+  ],
+  "drop": [
+   0.5,
+   4.5
+  ],
+  "openValley": 40,
+  "hills": {
+   "amp": 16,
+   "from": -35,
+   "to": -55,
+   "near": 0
+  },
+  "floor": -70
+ },
+ "rings": [
+  [
+   1000,
+   40,
+   120
+  ],
+  [
+   1200,
+   80,
+   180
+  ],
+  [
+   1450,
+   110,
+   240
+  ],
+  [
+   1750,
+   140,
+   300
+  ],
+  [
+   2100,
+   170,
+   360
+  ]
+ ],
+ "mistCount": 8
+}

@@ -92,7 +92,7 @@ app.MapBase();
 app.MapGarage();
 app.MapTuning();
 app.MapPlay();
-{ var t0 = app.Services.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>()[0]; app.Services.GetRequiredService<WorldRelay>().SetGeometry(t0.Segments, t0.Obstacles); }   // the lobby is the car park: its walls count for the checks
+{ var t0 = app.Services.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>()[0]; var lobby = app.Services.GetRequiredService<WorldRelay>(); lobby.SetGeometry(t0.Segments, t0.Obstacles); lobby.SetBounds(t0.HalfX, t0.HalfZ); }   // the lobby is map 0 (the meeting place): its walls and its size count for the checks
 app.MapGuests();
 app.MapGameAccounts();
 app.MapGameAdmin();

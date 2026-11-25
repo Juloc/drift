@@ -1,5 +1,5 @@
 // Writes the four other maps (harbour at night, mountain pass, desert, winter track) and game/data/maps.json from compact descriptions.
-// Run: node tools/make-maps.mjs   (the car park is made by tools/make-map.mjs). The JSON files are committed; this is how they were made.
+// Run: node tools/make-maps.mjs   (the meeting place is made by tools/make-meeting.mjs; the car park of the first milestones, tools/make-map.mjs, stays as the test map of the physics). The JSON files are committed; this is how they were made.
 // Physics is flat; hills and the like are only drawn. A check at the end stops the script when something stands where a car must drive.
 import { writeFileSync } from 'node:fs';
 import { rect, spline, round, loopLength, offsetLoop, makeGates, makeGrid, mulberry, distToLoop, bbox } from './maplib.mjs';
@@ -7,6 +7,7 @@ import { rect, spline, round, loopLength, offsetLoop, makeGates, makeGrid, mulbe
 const out = (file, map) => writeFileSync(new URL(`../game/data/maps/${file}`, import.meta.url), JSON.stringify(map) + '\n');
 const wob = (a, b, wobbles, n, ph = 1) => Array.from({ length: n }, (_, k) => { const t = (2 * Math.PI * k) / n, f = 1 + wobbles[0] * Math.sin(3 * t + ph) + wobbles[1] * Math.cos(2 * t + 2 * ph); return [round(a * f * Math.cos(t)), round(b * f * Math.sin(t))]; });
 const maps = [];
+const SCENES = { 0: 'meeting', 1: 'harbour', 2: 'pass', 3: 'desert', 4: 'winter' };   // the theme of each map (game/data/scenes/): how the land around the road is drawn
 
 /** Everything every map has in common: sampled loop, gates, grid, length, then the checks. */
 function finish(id, file, name, laps, m, centreCtrl, { per = 8, gateHalf = 18, halfWidth, gridSide = 4 }) {
@@ -38,7 +39,7 @@ function finish(id, file, name, laps, m, centreCtrl, { per = 8, gateHalf = 18, h
   }
   if (!map) throw new Error(`${name}: no place for the grid along the loop`);
   for (const p of map.centre) clear(map, p[0], p[1], 4, 'the loop');
-  maps.push({ id, file, name, laps });
+  maps.push({ id, file, name, laps, scene: SCENES[id] });
   out(file, map);
   console.log(`${name}: loop ${map.loopLength} m, ${map.centre.length} points, ${map.walls?.length ?? 0} walls, ${map.obstacles?.length ?? 0} obstacles, ${map.props.length} props`);
   return map;
@@ -145,6 +146,6 @@ function finish(id, file, name, laps, m, centreCtrl, { per = 8, gateHalf = 18, h
   }, ctrl, { gateHalf: 20, halfWidth: 11 });
 }
 
-// the list of maps (the car park is 0 and also the lobby)
-writeFileSync(new URL('../game/data/maps.json', import.meta.url), JSON.stringify({ maps: [{ id: 0, file: '01-car-park.json', name: 'Car park', laps: 3, lobby: true }, ...maps] }) + '\n');
+// the list of maps (the meeting place, made by tools/make-meeting.mjs, is 0 and also the lobby)
+writeFileSync(new URL('../game/data/maps.json', import.meta.url), JSON.stringify({ maps: [{ id: 0, file: '01-meeting-place.json', name: 'Meeting place', laps: 2, lobby: true, scene: SCENES[0] }, ...maps] }) + '\n');
 console.log('wrote maps.json with', maps.length + 1, 'maps');

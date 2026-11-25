@@ -82,9 +82,9 @@ export class GlowPool {
   }
   begin() { this.n = 0; }
   /** x, z in drawing space, ry = the car's yaw there, hue = index 0..23, strength = 1 (a bit more at night). */
-  add(x, z, ry, hue, strength = 1) {
+  add(x, z, ry, hue, strength = 1, y = 0) {
     if (this.n >= this.mesh.instanceMatrix.count) return;
-    this._m.compose(_p.set(x, 0.1, z), _q.setFromAxisAngle(_up, ry), _s.set(4.4, 1, 6.2));
+    this._m.compose(_p.set(x, 0.1 + y, z), _q.setFromAxisAngle(_up, ry), _s.set(4.4, 1, 6.2));
     this.mesh.setMatrixAt(this.n, this._m);
     this.mesh.setColorAt(this.n, this._c.setHSL((hue * 15) / 360, 1, 0.55).multiplyScalar(strength));
     this.n++;

@@ -56,20 +56,23 @@ export function buildWorld(scene, look, tierName = 'high') {
     const r = right(f.info.dir[i]), hr = f.base(p[0] + r[0] * 16, p[1] + r[1] * 16), hl = f.base(p[0] - r[0] * 16, p[1] - r[1] * 16);
     return { valley: hr < hl ? 1 : -1, drop: Math.min(hr, hl), rise: Math.max(hr, hl) };
   });
-  const onPlaza = (x, z) => insidePoly(scene.plaza.pts, x, z);
+  const nearPlaza = scene.plaza && !scene.road.overPlaza && scene.road.railGap ? (x, z) => distToPoly(scene.plaza.pts, x, z) < scene.road.railGap : () => false;   // the rails stay open beside the meeting place
+  const onPlaza = scene.plaza && !scene.road.overPlaza ? (x, z) => insidePoly(scene.plaza.pts, x, z) : () => false;   // (`overPlaza`: the road is drawn on top of the flat area, as a track on a quay or a desert)
 
   land(S, f, scene, look, tier);
   ridges(S, scene, look, tier);
   const water = river(f, scene, look);
-  bridge(S, f, scene, look, lite);
+  if (scene.bridge) bridge(S, f, scene, look, lite);
   // the road has its own mesh: a slightly glossy material that shines in the low sun (the page gives it the sky as reflection)
   const Rb = new Builder({ seed: 7, jitter: 0, wobble: 0, bake: false });
-  road(Rb, f, look, onPlaza, mulberry32(23), lite);
-  plaza(S, G, f, scene, look, lite, lampHeads);
-  roadside(S, G, f, look, tier, sideInfo, onPlaza);
+  road(Rb, f, look, onPlaza, mulberry32(23), lite, scene);
+  zones(Rb, f, scene, look);
+  if (scene.plaza) plaza(S, G, f, scene, look, lite, lampHeads);
+  roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza);
   trees(S, f, scene, look, tier, rnd, lite);
   rocks(S, f, look, tier, rnd, sideInfo, lite);
   details(S, G, f, scene, look, tier, mulberry32(29), lite, sideInfo, onPlaza);
+  if (scene.props) props(S, G, f, scene, look, lite, lampHeads);
 
   const group = new THREE.Group();
   // facets as in the mockup (land, trees, rocks, mountains): flat shading with the soft colour gradients; the road and the cars stay smooth
@@ -89,8 +92,9 @@ export function buildWorld(scene, look, tierName = 'high') {
       float grain = rh(floor(vRoadPos.xz * 22.0)) * 0.55 + rn(vRoadPos.xz * 3.0) * 0.3 + rn(vRoadPos.xz * 0.35) * 0.45;
       diffuseColor.rgb *= 0.78 + grain * 0.32;`);
   };
-  group.add(solid, lights, water, roadMesh);
-  return { group, field: f, lampHeads, road: roadMesh, triangles: [solid, lights, water, roadMesh].reduce((n, m) => n + m.geometry.index.count / 3, 0) };
+  group.add(solid, lights, roadMesh);
+  if (water) group.add(water);
+  return { group, field: f, lampHeads, road: roadMesh, triangles: [solid, lights, water, roadMesh].filter(Boolean).reduce((n, m) => n + m.geometry.index.count / 3, 0) };
 }
 
 // ---------------------------------------------------------------- the land: a grid over the extent, fine near the road (the core), coarser
@@ -113,7 +117,7 @@ function land(S, f, scene, look, tier) {
   const H = new Float32Array(nx * nz), E = new Float32Array(nx * nz), Y = new Float32Array(nx * nz);
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { E[j * nx + i] = f.edge(xs[i], zs[j]); H[j * nx + i] = f.relHeight(xs[i], zs[j]); Y[j * nx + i] = f.groundY(xs[i], zs[j]); }
   const valley = C(L.valley), mid = C(L.mid), high = C(L.high), warm = C(L.warm), cool = C(L.cool), rock = C(L.rock), rockDark = C(L.rockDark), gravel = C(L.gravel), sand = C(L.sand);
-  const ry = scene.river.y, k = new THREE.Color(), r = new THREE.Color();
+  const ry = f.floor, k = new THREE.Color(), r = new THREE.Color();
   const g = gridGeo(nz, nx, (j, i) => {
     const x = xs[i], z = zs[j], h = H[j * nx + i], e = E[j * nx + i];
     const i0 = Math.max(0, i - 1), i1 = Math.min(nx - 1, i + 1), j0 = Math.max(0, j - 1), j1 = Math.min(nz - 1, j + 1);
@@ -124,7 +128,9 @@ function land(S, f, scene, look, tier) {
     k.lerp(n > 0 ? warm : cool, Math.abs(n) * 0.55);
     r.copy(rock).lerp(rockDark, 0.5 + 0.5 * noise2(x / 13, z / 13));
     k.lerp(r, smoothstep(0.75, 1.3, slope) * (0.55 + 0.45 * Math.max(0, noise2(x / 9 + 5, z / 9))));   // rock shows in patches on steep ground
-    k.lerp(gravel, 1 - smoothstep(1.5, 4.5, e));
+    // the ground of the driving area (and the strip beside the road): `groundVar` > 0 lets it vary in patches (a sand field, a snow field, a quay) instead of one flat colour
+    if (L.groundVar) { const gv = gravel.clone().lerp(noise2(x / 23 + 4, z / 23) > 0 ? warm : cool, Math.abs(noise2(x / 17, z / 17 + 8)) * L.groundVar); k.lerp(gv, 1 - smoothstep(1.5, 4.5, e)); }
+    else k.lerp(gravel, 1 - smoothstep(1.5, 4.5, e));
     k.lerp(sand, smoothstep(ry + 4, ry + 0.8, h));
     // a little irregularity in the grid away from the road, so the facets do not look like a chessboard
     const cw = Math.min(xs[i1] - xs[i0], zs[j1] - zs[j0]) / 2, jit = e > f.shelf + cw * 2 ? cw * 0.28 : 0;
@@ -158,13 +164,15 @@ function ridges(S, scene, look, tier) {
 
 // ---------------------------------------------------------------- the river (unlit, so it keeps the sky's colours) and the bridge
 function river(f, scene, look) {
-  const R = scene.river, W = look.water, [x0] = scene.terrain.extent, x1 = Math.min(scene.terrain.extent[2], R.x1 ?? Infinity), deep = C(W.deep), light = C(W.light), k = new THREE.Color();
-  const n = Math.ceil((x1 - x0) / 10) + 1;
-  const geos = [gridGeo(n, 5, (r, c) => {
+  const R = scene.river, W = look.water, [x0] = scene.terrain.extent, x1 = R ? Math.min(scene.terrain.extent[2], R.x1 ?? Infinity) : 0, deep = C(W?.deep ?? '#000000'), light = C(W?.light ?? '#000000'), k = new THREE.Color();
+  const n = R ? Math.ceil((x1 - x0) / 10) + 1 : 0;
+  const geos = R ? [gridGeo(n, 5, (r, c) => {
     const x = x0 + (r / (n - 1)) * (x1 - x0), z = f.riverZ(x) + (c - 2) * R.width * 0.25;
     k.copy(deep).lerp(light, c === 2 ? 0.6 + 0.2 * noise2(x / 40, 3) : c === 1 || c === 3 ? 0.4 : 0.1);
     return [X(x), f.groundY(x, z) + R.y, z, k];   // heights in the scene are relative to the road's height nearby
-  })];
+  })] : [];
+  // a sea (a harbour): one sheet over the whole extent at a fixed level, lighter towards the middle of the picture
+  if (scene.sea) { const [a0, b0, a1, b1] = scene.terrain.extent; geos.push(gridGeo(5, 5, (r, c) => { const x = a0 + (c / 4) * (a1 - a0), z = b0 + (r / 4) * (b1 - b0); k.copy(deep).lerp(light, 0.2 + 0.25 * noise2(x / 120, z / 120)); return [X(x), scene.sea.y, z, k]; })); }
   // the lake: rings of an ellipse, lighter towards the middle
   const K = scene.lake, ky = K ? f.groundY(K.x, K.z) + K.y : 0;
   if (K) geos.push(gridGeo(8, 49, (r, c) => {
@@ -172,6 +180,7 @@ function river(f, scene, look) {
     k.copy(deep).lerp(light, 0.15 + (1 - q) * 0.55);
     return [X(K.x + Math.cos(a) * K.rx * q), ky, K.z + Math.sin(a) * K.rz * q, k];
   }));
+  if (!geos.length) return null;
   const g = mergeGeometries(geos.map((x) => orient(x, UP)));
   // the sky's colours in the water (emissive) and the low sun as a long glint (a sharp specular highlight)
   const m = new THREE.MeshPhongMaterial({ vertexColors: true, color: 0x9a8fc0, emissive: new THREE.Color(W.light).multiplyScalar(W.glow ?? 0.35), specular: new THREE.Color(W.glint).multiplyScalar(2.2), shininess: 140 });
@@ -222,15 +231,15 @@ function ribbon(S, f, offs, colour, { y = 0.02, keep = () => true, dy = () => 0,
     if (run.length < 2) continue;
     const g = gridGeo(run.length, offs.length, (r, c) => {
       const i = run[r], p = f.road[i], rv = right(f.info.dir[i]), o = offs[c] + shift(i);
-      return [X(p[0] + rv[0] * o), y + dy(i, c) + f.roadYs[i], p[1] + rv[1] * o, colour(i, c, o)];
+      return [X(p[0] + rv[0] * o), y + (f.lift ?? 0) + dy(i, c) + f.roadYs[i], p[1] + rv[1] * o, colour(i, c, o)];
     });
     S.add(orient(g, UP), null, { keepColors: true, jitter: 0, wobble: 0 });
   }
 }
 
-function road(S, f, look, onPlaza, rnd, lite) {
+function road(S, f, look, onPlaza, rnd, lite, scene) {
   const R = look.road, hw = f.hw, asphalt = C(R.asphalt), light = C(R.asphaltLight), track = C(R.track ?? R.asphalt).multiplyScalar(0.8), k = new THREE.Color(), gravel = C(look.land.gravel), grass = C(look.land.cool);
-  const off = (i) => !onPlaza(f.road[i][0], f.road[i][1]);
+  const off = (i) => !onPlaza(f.road[i][0], f.road[i][1]), lift = f.lift;
   // asphalt in columns: lighter in the middle and at the edges, darker where the wheels run (two tracks per lane), patchy along the road
   const cols = lite ? [-hw, -3.6, -1.4, 1.4, 3.6, hw] : [-hw, -4.4, -3.6, -2.8, -1.4, -0.6, 0.6, 1.4, 2.8, 3.6, 4.4, hw];
   const tracks = [-3.6, -1.4, 1.4, 3.6];
@@ -242,8 +251,8 @@ function road(S, f, look, onPlaza, rnd, lite) {
     return k.clone();
   });
   // shoulders: gravel at the asphalt, grass further out (not a hard edge)
-  ribbon(S, f, [hw - 0.05, hw + 0.9, hw + 2.6], (i, c) => (c === 0 ? gravel.clone().multiplyScalar(0.9) : c === 1 ? gravel.clone().lerp(grass, 0.35) : grass.clone().lerp(gravel, 0.25)), { y: 0.0, dy: (i, c) => (c === 2 ? -0.25 : c === 1 ? -0.06 : 0), keep: off });
-  ribbon(S, f, [-hw - 2.6, -hw - 0.9, -hw + 0.05], (i, c) => (c === 2 ? gravel.clone().multiplyScalar(0.9) : c === 1 ? gravel.clone().lerp(grass, 0.35) : grass.clone().lerp(gravel, 0.25)), { y: 0.0, dy: (i, c) => (c === 0 ? -0.25 : c === 1 ? -0.06 : 0), keep: off });
+  if (R.shoulder !== false) ribbon(S, f, [hw - 0.05, hw + 0.9, hw + 2.6], (i, c) => (c === 0 ? gravel.clone().multiplyScalar(0.9) : c === 1 ? gravel.clone().lerp(grass, 0.35) : grass.clone().lerp(gravel, 0.25)), { y: 0.0, dy: (i, c) => (c === 2 ? -0.25 : c === 1 ? -0.06 : 0), keep: off });
+  if (R.shoulder !== false) ribbon(S, f, [-hw - 2.6, -hw - 0.9, -hw + 0.05], (i, c) => (c === 2 ? gravel.clone().multiplyScalar(0.9) : c === 1 ? gravel.clone().lerp(grass, 0.35) : grass.clone().lerp(gravel, 0.25)), { y: 0.0, dy: (i, c) => (c === 0 ? -0.25 : c === 1 ? -0.06 : 0), keep: off });
   // edge lines, worn: broken into pieces, some fainter
   const edge = C(R.edge), centre = C(R.centre), ew = (R.edgeWidth ?? 0.16) / 2;
   for (const sd of [-1, 1]) ribbon(S, f, [sd * (hw - 0.45) - ew, sd * (hw - 0.45) + ew], (i) => k.copy(edge).lerp(asphalt, Math.max(0, noise2(f.info.s[i] / 3, sd * 5)) * 0.8).clone(),
@@ -253,12 +262,20 @@ function road(S, f, look, onPlaza, rnd, lite) {
     const p = pointAt(f.road, f.info, d), q = pointAt(f.road, f.info, d + 3);
     if (onPlaza(p.x, p.z)) continue;
     const dx = q.x - p.x, dz = q.z - p.z, y0 = f.roadY(d), y1 = f.roadY(d + 3), worn = noise2(d / 11, 2);
-    S.box(0.16, 0.02, 3 * (worn > 0.3 ? 0.6 : 1), X((p.x + q.x) / 2), 0.045 + (y0 + y1) / 2, (p.z + q.z) / 2, k.copy(centre).lerp(asphalt, Math.max(0, worn) * 0.5).clone(), { r: 0, jitter: 0, ry: Math.atan2(X(dx), dz), rx: -Math.atan2(y1 - y0, 3) });
+    S.box(0.16, 0.02, 3 * (worn > 0.3 ? 0.6 : 1), X((p.x + q.x) / 2), 0.045 + lift + (y0 + y1) / 2, (p.z + q.z) / 2, k.copy(centre).lerp(asphalt, Math.max(0, worn) * 0.5).clone(), { r: 0, jitter: 0, ry: Math.atan2(X(dx), dz), rx: -Math.atan2(y1 - y0, 3) });
+  }
+  // the start line: two rows of black and white squares across the road at the first gate
+  if (scene.startLine) {
+    const { a, b, d } = scene.startLine, mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, r = [d[1], -d[0]], ry = Math.atan2(X(d[0]), d[1]), y = f.groundY(mx, mz) + 0.05 + lift, sq = 0.6;
+    for (let row = 0; row < 2; row++) for (let c = 0, n = Math.floor((hw * 2) / sq); c < n; c++) {
+      const o = -hw + sq * (c + 0.5), x = mx + r[0] * o + d[0] * (row - 0.5) * sq, z = mz + r[1] * o + d[1] * (row - 0.5) * sq;
+      S.box(sq, 0.012, sq, X(x), y, z, (c + row) % 2 ? C('#f6f1ee') : C('#18141c'), { r: 0, jitter: 0, ry });
+    }
   }
   // patches (darker rectangles of newer asphalt) and cracks (thin dark lines)
   const patch = C(R.asphalt).multiplyScalar(0.78), crack = C(R.asphalt).multiplyScalar(0.55);
   for (let d = 30; d < f.info.length - 10; d += lite ? 41 : 17) {
-    const p = pointAt(f.road, f.info, d), ry = Math.atan2(X(p.dir[0]), p.dir[1]), r = [p.dir[1], -p.dir[0]], o = (rnd() - 0.5) * hw * 1.4, y = f.roadY(d) + 0.03;
+    const p = pointAt(f.road, f.info, d), ry = Math.atan2(X(p.dir[0]), p.dir[1]), r = [p.dir[1], -p.dir[0]], o = (rnd() - 0.5) * hw * 1.4, y = f.roadY(d) + 0.03 + lift;
     if (rnd() < 0.5) S.box(1.2 + rnd() * 2, 0.01, 1.5 + rnd() * 3, X(p.x + r[0] * o), y, p.z + r[1] * o, patch, { r: 0, jitter: 0.02, ry: ry + (rnd() - 0.5) * 0.2 });
     else for (let c = 0, cx = p.x + r[0] * o, cz = p.z + r[1] * o, a = ry + (rnd() - 0.5) * 2; c < 4; c++) {
       const len = 0.6 + rnd() * 0.9, nx = cx + Math.sin(a) * len, nz = cz + Math.cos(a) * len;
@@ -278,9 +295,25 @@ function road(S, f, look, onPlaza, rnd, lite) {
   }
 }
 
+// ---------------------------------------------------------------- patches of another ground on the driving area (ice, wet, an asphalt patch): flat shapes on the glossy road mesh
+function zones(S, f, scene, look) {
+  const Z = look.zone ?? {}, def = { ice: '#4a6ea8', wet: '#262e48', asphalt: '#3c3440', sand: '#d6a866', snow: '#e8eef8' };
+  for (const z of scene.zones ?? []) {
+    const colour = C(Z[z.kind] ?? def[z.kind] ?? '#555555'), k = new THREE.Color(), y = 0.028 + (f.lift ?? 0) + (z.kind === 'ice' ? 0.004 : 0);
+    if (z.r !== undefined) {
+      const n = 28, g = gridGeo(2, n + 1, (r, c) => { const a = (c / n) * Math.PI * 2, rr = z.r * (r ? 1 : 0.0); k.copy(colour).lerp(C('#ffffff'), r ? 0 : 0.18); return [X(z.x + Math.cos(a) * rr), y + f.groundY(z.x, z.z), z.z + Math.sin(a) * rr, k]; });
+      S.add(orient(g, UP), null, { keepColors: true, jitter: 0, wobble: 0 });
+    } else {
+      const g = gridGeo(2, 2, (r, c) => [X(c ? z.x1 : z.x0), y + f.groundY((z.x0 + z.x1) / 2, (z.z0 + z.z1) / 2), r ? z.z1 : z.z0, colour]);
+      S.add(orient(g, UP), null, { keepColors: true, jitter: 0, wobble: 0 });
+    }
+  }
+}
+
 // ---------------------------------------------------------------- the meeting place: surface, bays, kerb, a rail on the valley side, lamps, benches, its own trees
 function plaza(S, G, f, scene, look, lite, lampHeads) {
   const P = scene.plaza, R = look.road, pts = P.pts;
+  if (P.surface !== false) {
   const tris = THREE.ShapeUtils.triangulateShape(pts.map(([x, z]) => new THREE.Vector2(x, z)), []);
   const pos = [], col = [], base = C(R.plaza), k = new THREE.Color();
   for (const t of tris) for (const v of t) { const [x, z] = pts[v]; pos.push(X(x), 0.012, z); k.copy(base).lerp(C(R.asphaltLight), 0.3 + 0.3 * noise2(x / 20, z / 20)); col.push(k.r, k.g, k.b); }
@@ -288,34 +321,36 @@ function plaza(S, G, f, scene, look, lite, lampHeads) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.setIndex([...Array(pos.length / 3).keys()]);
   S.add(orient(g, UP), null, { keepColors: true, jitter: 0, wobble: 0 });
+  }
   const B = P.bays, white = C(R.bay);
-  for (let x = B.x0; x <= B.x1 + 0.01; x += B.pitch) S.box(0.14, 0.02, B.z1 - B.z0, X(x), 0.03, (B.z0 + B.z1) / 2, white, { r: 0, jitter: 0 });
+  if (B) for (let x = B.x0; x <= B.x1 + 0.01; x += B.pitch) S.box(0.14, 0.02, B.z1 - B.z0, X(x), 0.03, (B.z0 + B.z1) / 2, white, { r: 0, jitter: 0 });
   // kerb round the edge (not where the road leaves) and a guardrail where the land beyond falls away
   // where the road leaves the plaza: the road's point just outside it, nearest to it
-  const start = f.road.filter((p) => !insidePoly(pts, p[0], p[1])).reduce((a, p) => (distToPoly(pts, p[0], p[1]) < distToPoly(pts, a[0], a[1]) ? p : a));
+  const outside = f.road.filter((p) => !insidePoly(pts, p[0], p[1])), start = outside.length ? outside.reduce((a, p) => (distToPoly(pts, p[0], p[1]) < distToPoly(pts, a[0], a[1]) ? p : a)) : [1e9, 1e9];
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i], q = pts[(i + 1) % pts.length], dx = q[0] - p[0], dz = q[1] - p[1], len = Math.hypot(dx, dz);
     const mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2, ry = Math.atan2(X(dx), dz);
     const nx = dz / len, nz = -dx / len, out = insidePoly(pts, mx + nx * 2, mz + nz * 2) ? -1 : 1;   // the normal pointing away from the plaza
     const t = ((start[0] - p[0]) * dx + (start[1] - p[1]) * dz) / (len * len);
     const roadHere = t > 0 && t < 1 && Math.abs((start[0] - p[0]) * dz - (start[1] - p[1]) * dx) / len < 3;
-    if (!roadHere) S.box(0.3, 0.16, len, X(mx), 0.08, mz, C(R.kerb), { r: 0, ry });
+    if (!roadHere && P.wall && !(Math.abs(nz) > 0.9 && mz > 30)) S.box(0.5, P.wall, len, X(mx), P.wall / 2, mz, C(look.bridge?.stone ?? R.kerb), { r: 0.04, ry });   // a low stone wall where the plaza meets the slope (not on the side of the road)
+    else if (!roadHere && P.kerb !== false) S.box(0.3, 0.16, len, X(mx), 0.08, mz, C(R.kerb), { r: 0, ry });
     const fall = f.base(mx + nx * out * 14, mz + nz * out * 14) < -2;
     if (P.rail && fall && !roadHere) railRun(S, G, look, [[p[0] + nx * out * 0.7, p[1] + nz * out * 0.7], [q[0] + nx * out * 0.7, q[1] + nz * out * 0.7]], 4, lite);
   }
   const L = look.lamp;
-  for (const [x, z] of P.lamps) {
+  for (const [x, z] of P.lamps ?? []) {
     S.cyl(0.11, 0.16, 6.2, X(x), 3.1, z, C(L.pole), { seg: 6 });
     S.box(0.18, 0.18, 1.6, X(x), 6.2, z - 0.7, C(L.pole), { r: 0 });
     G.box(0.5, 0.06, 0.32, X(x), 6.08, z - 1.35, glow(L.light, 2.2), { r: 0 });
     lampHeads.push([X(x), 6.0, z - 1.35]);
   }
-  for (const [x, z, h] of P.benches) {
+  for (const [x, z, h] of P.benches ?? []) {
     S.box(2.0, 0.08, 0.5, X(x), 0.48, z, C('#8a6a5e'), { r: 0, ry: -h });
     S.box(2.0, 0.42, 0.07, X(x), 0.75, z + Math.cos(h) * -0.24, C('#8a6a5e'), { r: 0, ry: -h });
     for (const s of [-0.8, 0.8]) S.box(0.08, 0.46, 0.45, X(x + s), 0.23, z, C(look.rail.post), { r: 0, ry: -h });
   }
-  for (const [x, z, kind] of P.trees) (kind === 'pine' ? pine : cherry)(S, look, x, f.height(x, z), z, 9 + (x % 3), mulberry32(Math.abs(x * 31 + z)), lite);
+  for (const [x, z, kind] of P.trees ?? []) (kind === 'pine' ? pine : cherry)(S, look, x, f.height(x, z), z, 9 + (x % 3), mulberry32(Math.abs(x * 31 + z)), lite);
 }
 
 // a guardrail (W-beam on posts) along a polyline in simulation axes
@@ -339,7 +374,7 @@ function railRun(S, G, look, line, every, lite, yAt = () => 0) {
 }
 
 // ---------------------------------------------------------------- along the road: guardrails on the valley side, reflector posts on the other, chevrons in the bends
-function roadside(S, G, f, look, tier, sideInfo, onPlaza) {
+function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza = () => false) {
   const hw = f.hw, right = (d) => [d[1], -d[0]];
   // guardrail runs: consecutive points where the land on the valley side falls by more than 2.5 m (one rail per side)
   for (const side of [-1, 1]) {
@@ -347,7 +382,7 @@ function roadside(S, G, f, look, tier, sideInfo, onPlaza) {
     const flush = () => { if (run.length > 2) railRun(S, G, look, run, tier.railPost, tier.cell > 5, f.groundY); run = []; };
     f.road.forEach((p, i) => {
       const si = sideInfo[i];
-      if (si.valley === side && si.drop < -2.5 && !onPlaza(p[0], p[1])) { const r = right(f.info.dir[i]); run.push([p[0] + r[0] * side * (hw + 1.5), p[1] + r[1] * side * (hw + 1.5)]); }
+      if (((si.valley === side && si.drop < -2.5) || scene.road.rails === 'both') && !onPlaza(p[0], p[1]) && !nearPlaza(p[0], p[1])) { const r = right(f.info.dir[i]); run.push([p[0] + r[0] * side * (hw + 1.5), p[1] + r[1] * side * (hw + 1.5)]); }
       else flush();
     });
     flush();
@@ -407,7 +442,7 @@ function cherry(S, look, x, y, z, h, rnd, lite) {
 }
 
 function trees(S, f, scene, look, tier, rnd, lite) {
-  const [x0, z0, x1, z1] = scene.terrain.extent, B = scene.bridge, ry = scene.river.y;
+  const [x0, z0, x1, z1] = scene.terrain.extent, ry = f.floor;
   const [cx0, cz0, cx1, cz1] = scene.terrain.core ?? scene.terrain.extent;
   // `near`: only within 45 m of the road or the plaza (the frame of every picture), else anywhere (half of them near the core)
   const place = (count, kind, near) => {
@@ -474,7 +509,7 @@ function rocks(S, f, look, tier, rnd, sideInfo, lite) {
     boulder(p.x + r[0] * s * o, p.z + r[1] * s * o, 1.0 + rnd() * 1.6); n++;
   }
   for (let tries = 0; tries < tier.rocks * 30 && n < tier.rocks; tries++) {
-    const [x0, z0, x1, z1] = [-180, -300, 380, 200], x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0);
+    const [x0, z0, x1, z1] = f.core, x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0);
     if (f.edge(x, z) < f.shelf + 3) continue;
     if (f.slope(x, z) < 0.55) continue;
     boulder(x, z, 1.2 + rnd() * 1.8); n++;
@@ -557,6 +592,43 @@ function details(S, G, f, scene, look, tier, rnd, lite, sideInfo, onPlaza) {
       S.box(4.2, 0.2, 0.36, 0, 3.25, 0, C('#2e2428'), { r: 0.03, rz: 0 });
       S.box(0.18, 0.5, 0.2, 0, 3.0, 0, red, { r: 0 });
       S.pop();
+    }
+  }
+}
+
+// ---------------------------------------------------------------- things a scene lists itself (from the physics map's props): containers, lamp poles, a crane, bollards, rocks, pines
+function props(S, G, f, scene, look, lite, lampHeads) {
+  const Pr = look.props ?? {}, tint = Pr.tint ? C(Pr.tint) : null, tintBy = Pr.tintBy ?? 0, rnd = mulberry32(41);
+  const metal = C(Pr.metal ?? '#5c6070'), L = look.lamp;
+  const paint = (hex) => { const c = C(hex); if (tint) c.lerp(tint, tintBy); return c; };
+  for (const p of scene.props) {
+    const y = f.height(p.x, p.z);
+    if (p.type === 'container') {
+      const c = paint(p.color), h = 2.6;
+      for (let l = 0; l < (p.levels ?? 1); l++) {
+        S.box(p.w, h, p.d, X(p.x), y + h / 2 + l * h, p.z, c.clone().multiplyScalar(0.85 + 0.15 * ((l + p.x) % 2)), { r: 0.04, jitter: 0.02 });
+        S.box(p.w + 0.1, 0.12, p.d + 0.1, X(p.x), y + h + l * h, p.z, c.clone().multiplyScalar(0.7), { r: 0, jitter: 0 });   // the darker roof edge
+      }
+    } else if (p.type === 'pole') {
+      S.cyl(0.14, 0.2, 9, X(p.x), y + 4.5, p.z, metal, { seg: 6 });
+      S.box(1.7, 0.16, 0.16, X(p.x), y + 8.8, p.z, metal, { r: 0 });
+      if (L && p.lamp !== false) { for (const s of [-0.7, 0.7]) G.box(0.5, 0.08, 0.34, X(p.x) + s, y + 8.65, p.z, glow(L.light, 2.4), { r: 0 }); lampHeads.push([X(p.x), y + 8.6, p.z]); }
+    } else if (p.type === 'crane') {
+      const ry = p.ry ?? 0, c = paint('#d4a017');
+      S.push(trs(X(p.x), y, p.z, 0, ry, 0));
+      for (const sx of [-9, 9]) for (const sz of [-4, 4]) S.box(0.9, 24, 0.9, sx, 12, sz, c.clone().multiplyScalar(0.8), { r: 0, jitter: 0.01 });
+      S.box(24, 1.6, 12, 0, 24.4, 0, c, { r: 0.02 });
+      S.box(50, 1.2, 2.4, 0, 26.2, 0, c.clone().multiplyScalar(0.9), { r: 0 });
+      S.box(1.6, 3.4, 1.6, 8, 22.2, 0, metal, { r: 0 });
+      G.box(0.5, 0.3, 0.5, 8, 26.4, 0, glow('#ff4a3a', 2.4), { r: 0 });
+      S.pop();
+    } else if (p.type === 'bollard') {
+      S.cyl(0.18, 0.22, 0.6, X(p.x), y + 0.3, p.z, metal, { seg: 6 });
+    } else if (p.type === 'rock') {
+      const r = (p.r ?? 2) * 1.15, k = C(look.land.rock).lerp(C(look.land.rockDark), rnd() * 0.7);
+      S.ball(r, X(p.x), y + r * 0.35, p.z, k, { detail: lite ? 0 : 1, sx: 0.9 + rnd() * 0.3, sy: 0.75 + rnd() * 0.25, sz: 0.9 + rnd() * 0.3, ry: rnd() * 3, rx: rnd() * 0.25 });
+    } else if (p.type === 'pine') {
+      pine(S, look, p.x, y - 0.2, p.z, (p.h ?? 7) * 1.5, rnd, lite);
     }
   }
 }

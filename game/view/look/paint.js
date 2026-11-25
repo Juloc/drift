@@ -22,7 +22,7 @@ export function paintCar(root, sun, o = {}) {
         sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vWY;').replace('#include <project_vertex>', '#include <project_vertex>\nvWY = (modelMatrix * vec4(transformed, 1.0)).y;');
         sh.fragmentShader = sh.fragmentShader
           .replace('#include <common>', '#include <common>\nvarying float vWY;\nuniform float uBase, uRim, uKey;\nuniform vec3 uDirt;')
-          .replace('#include <color_fragment>', '#include <color_fragment>\nfloat dust = 1.0 - smoothstep(0.16, 0.45, vWY - uBase);\ndiffuseColor.rgb = mix(diffuseColor.rgb, uDirt, dust * 0.5);')
+          .replace('#include <color_fragment>', '#include <color_fragment>\nfloat dust = 1.0 - smoothstep(0.16, 0.45, abs(vWY - uBase));\ndiffuseColor.rgb = mix(diffuseColor.rgb, uDirt, dust * 0.5);')
           .replace('#include <lights_fragment_end>', steps ? `#include <lights_fragment_end>
             { vec3 dd = reflectedLight.directDiffuse; float l = dot(dd, vec3(0.3333));
               float t = clamp(l / uKey, 0.0, 1.0), st = 0.18 + 0.42 * smoothstep(0.06, 0.13, t) + 0.4 * smoothstep(0.42, 0.5, t);

@@ -19,12 +19,27 @@ export function sampleOpen(ctrl, step = 2) {
   return out;
 }
 
-/** Along a polyline: cumulative length, unit direction of travel and the heading (simulation's: atan2(dx, dz)) at each point. */
-export function pathInfo(pts) {
+/** Points along a closed Catmull-Rom curve through `ctrl`, about `step` metres apart; the first point is repeated at the end (so the loop is a polyline that ends where it began). */
+export function sampleClosed(ctrl, step = 2) {
+  const out = [], n = ctrl.length;
+  for (let i = 0; i < n; i++) {
+    const p0 = ctrl[(i + n - 1) % n], p1 = ctrl[i], p2 = ctrl[(i + 1) % n], p3 = ctrl[(i + 2) % n];
+    const k = Math.max(1, Math.ceil(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / step));
+    for (let j = 0; j < k; j++) {
+      const t = j / k, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((a) => 0.5 * (2 * p1[a] + (-p0[a] + p2[a]) * t + (2 * p0[a] - 5 * p1[a] + 4 * p2[a] - p3[a]) * t2 + (-p0[a] + 3 * p1[a] - 3 * p2[a] + p3[a]) * t3)));
+    }
+  }
+  out.push([...out[0]]);
+  return out;
+}
+
+/** Along a polyline: cumulative length, unit direction of travel and the heading (simulation's: atan2(dx, dz)) at each point. `closed`: the last point is the first again, and the ends look across the seam. */
+export function pathInfo(pts, closed = false) {
   const n = pts.length, s = [0], dir = [], head = [];
   for (let i = 1; i < n; i++) s.push(s[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   for (let i = 0; i < n; i++) {
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
+    const a = closed && i === 0 ? pts[n - 2] : pts[Math.max(0, i - 1)], b = closed && i === n - 1 ? pts[1] : pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
     dir.push([dx / l, dz / l]); head.push(Math.atan2(dx, dz));
   }
   return { s, dir, head, length: s[n - 1] };
@@ -91,10 +106,15 @@ export function profileAt(profile, z) {
  * is made wide enough that no triangle of that size can lift the land over the road's edge.
  */
 export function makeField(scene, { cell = 6 } = {}) {
-  const road = sampleOpen(scene.road.ctrl, 2), info = pathInfo(road), hw = scene.road.halfWidth;
-  const T = scene.terrain, R = scene.river;
+  const closed = scene.road.closed === true;
+  const road = closed ? sampleClosed(scene.road.ctrl, 2) : sampleOpen(scene.road.ctrl, 2), info = pathInfo(road, closed), hw = scene.road.halfWidth;
+  const T = scene.terrain, R = scene.river ?? { z: 1e9, width: 0, y: T.floor ?? -50 };   // a scene without a river (a loop, a harbour) still has a floor to measure from
+  const plazaPts = scene.plaza?.pts ?? null;
+  // which side of a closed road is its inside (+1 = right of the direction of travel): the land rises there ('road' mode) and falls away outside
+  const rightOf = (p, d) => [p[0] + d[1], p[1] - d[0]];
+  const insideSide = closed ? (insidePoly(road, ...rightOf(road[0], info.dir[0])) ? 1 : -1) : 1;
   // the valley's line: either a gentle wave, or `shift` ([[x, dz], ...]: the profile moved along z with x, so that the valley follows the road)
-  const wave = T.shift ? (x) => { const P = T.shift; if (x <= P[0][0]) return P[0][1]; for (let i = 1; i < P.length; i++) if (x <= P[i][0]) return P[i - 1][1] + ((P[i][1] - P[i - 1][1]) * (x - P[i - 1][0])) / (P[i][0] - P[i - 1][0]); return P[P.length - 1][1]; }
+  const wave = T.mode ? () => 0 : T.shift ? (x) => { const P = T.shift; if (x <= P[0][0]) return P[0][1]; for (let i = 1; i < P.length; i++) if (x <= P[i][0]) return P[i - 1][1] + ((P[i][1] - P[i - 1][1]) * (x - P[i - 1][0])) / (P[i][0] - P[i - 1][0]); return P[P.length - 1][1]; }
     : (x) => T.wave[0] * Math.sin(x / T.wave[1]);
   const riverZ = (x) => R.z + wave(x);
   // the road's visible height along its length (`road.grade`: [[metres along, height], ...]); only drawn: the physics stays flat (2D)
@@ -105,9 +125,13 @@ export function makeField(scene, { cell = 6 } = {}) {
   const groundY = (x, z) => { const q = distToPath(road, x, z); return roadY(info.s[q.seg] + (info.s[q.seg + 1] - info.s[q.seg]) * q.t); };
   const shelf = T.flat + cell * 1.45;   // up to here from the edge of the road the land stays just under the road
   /** the land without the road: the valley's profile, gently waving, and some noise that is quiet near the river */
+  // `terrain.mode`: 'road' keys the profile by the signed distance to a closed road (inside negative: the land rises there, outside it falls away), 'area' by the distance to the
+  // flat driving area (`plaza`: a quay, a desert, a snow field) and 0 inside it; without a mode the profile runs across the valley along z
+  const across = T.mode === 'road' ? (x, z) => { const q = distToPath(road, x, z); return q.d * (q.side === insideSide ? -1 : 1); }
+    : T.mode === 'area' ? (x, z) => distToPoly(plazaPts, x, z) : (x, z) => z - wave(x);
   const base = (x, z) => {
-    const zz = z - wave(x), h = profileAt(T.profile, zz);
-    const quiet = smoothstep(R.width * 0.6, R.width * 0.6 + 30, Math.abs(zz - R.z));
+    const zz = across(x, z), h = profileAt(T.profile, zz);
+    const quiet = T.mode ? 1 : smoothstep(R.width * 0.6, R.width * 0.6 + 30, Math.abs(zz - R.z));
     const n = noise2(x / 60, z / 60) * 0.65 + noise2(x / 21, z / 21) * 0.3 + noise2(x / 7, z / 7) * 0.05;
     // the valley floor gets low rolling hills away from the road (they hide nothing: the road's own edge is higher on screen)
     const H = T.hills ?? { amp: 22, from: -20, to: -45, near: 0 };
@@ -119,7 +143,7 @@ export function makeField(scene, { cell = 6 } = {}) {
     return v;
   };
   /** distance to the edge of the ground the cars drive on (0 on it) */
-  const edge = (x, z) => Math.max(0, Math.min(distToPath(road, x, z).d - hw, distToPoly(scene.plaza.pts, x, z)));
+  const edge = plazaPts ? (x, z) => Math.max(0, Math.min(distToPath(road, x, z).d - hw, distToPoly(plazaPts, x, z))) : (x, z) => Math.max(0, distToPath(road, x, z).d - hw);
   const height = (x, z) => groundY(x, z) + relHeight(x, z);
   /** the land's height relative to the driving ground near it */
   const relHeight = (x, z) => {
@@ -134,8 +158,8 @@ export function makeField(scene, { cell = 6 } = {}) {
   };
   const slope = (x, z, h = height(x, z)) => Math.hypot(height(x + 1, z) - h, height(x, z + 1) - h);
   /** is a point on water (river or lake)? */
-  const wet = (x, z, margin = 0) => (Math.abs(z - riverZ(x)) < R.width / 2 + margin && x < (R.x1 ?? Infinity)) || (scene.lake && Math.hypot((x - scene.lake.x) / (scene.lake.rx + margin), (z - scene.lake.z) / (scene.lake.rz + margin)) < 1);
-  return { road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
+  const wet = (x, z, margin = 0) => (R.width > 0 && Math.abs(z - riverZ(x)) < R.width / 2 + margin && x < (R.x1 ?? Infinity)) || (scene.lake && Math.hypot((x - scene.lake.x) / (scene.lake.rx + margin), (z - scene.lake.z) / (scene.lake.rz + margin)) < 1);
+  return { core: T.rocksBox ?? T.core ?? T.extent, closed, insideSide, floor: R.y, lift: scene.road.lift ?? 0, road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
 }
 
 /** Bends of a road: places where the heading turns by more than `min` rad over `span` metres; the sign is the turn (+ = right). */
