@@ -92,7 +92,7 @@ app.MapBase();
 app.MapGarage();
 app.MapTuning();
 app.MapPlay();
-{ var t0 = app.Services.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>()[0]; var lobby = app.Services.GetRequiredService<WorldRelay>(); lobby.SetGeometry(t0.Segments, t0.Obstacles); lobby.SetBounds(t0.HalfX, t0.HalfZ); }   // the lobby is map 0 (the meeting place): its walls and its size count for the checks
+{ var t0 = app.Services.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>()[0]; var lobby = app.Services.GetRequiredService<WorldRelay>(); lobby.SetGeometry(t0.Segments, t0.Obstacles); lobby.SetBounds(t0.HalfX, t0.HalfZ); if (t0.Spawn is { } sp) lobby.SetSpawn(sp.X, sp.Z, 60); }   // the lobby is map 0 (the meeting place): its walls and its size count for the checks
 app.MapGuests();
 app.MapGameAccounts();
 app.MapGameAdmin();

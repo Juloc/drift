@@ -337,3 +337,10 @@ All five milestones of SCOPE are built. Waits for the owner: design and details,
 - Pictures: `docs/screenshots/game-touge-kehre.png`, `game-touge-tal.png`, `game-touge-clip.png` (toast "Zone +210" in a drift at 31 degrees), `game-touge-clip-post.png` (the clipping post from above: a low white guide post with a dark band and a pink reflector).
 - Open for zone scoring (not now): a multiplier for staying on the line, a short summary at the end of a run (wanted before slice 6), the best run kept by the server.
 - **Summary at the end of a run (touge):** a card with time, points, clipping points taken (n / 8) and the best drift for 6 s, then the car goes back to the top (`docs/screenshots/game-touge-summary.png`, made with `__drift.showSummary`). Client only.
+
+## Touge, slice 5 (the touge is the lobby)
+- **Map 0 is the touge** (`tools/make-touge.mjs` writes it with id 0; maps.json: id 0 Touge, lobby; the meeting place on the mountain is gone, the car park stays as the test fixture). "Drive" in the garage opens `/play/` which starts on the plaza at the top; the preview button is gone. People spawn spread over the plaza by id (six a row, three rows), the lobby relay's bounds and walls are the touge's (server `Program.cs`: geometry, bounds and the spawn from the map file).
+- **Ride back to the top** (end of a run, R): the relay refuses a jump, so the page sends a respawn frame (`Wire.Respawn`, 2 bytes) first; the relay accepts it only when a spawn place is set (the lobby: the plaza, radius 60 m), at most every 3 s, and the next pose must lie there (test). An older relay (the website copy) counts the frame as a refused one and no more.
+- **16+ in one world:** the app's lobby relay already allows 64 per world with interest areas (70 m full, the rest in short frames); a relay test with 16 bots on the long map has not been written (not checked on the touge's 2 km).
+- **Not done:** private sessions by link (a guest link opens the same lobby), a second world per link. A hand test with several browsers on the new map.
+- Pictures: `docs/screenshots/game-touge-lobby.png` (the plaza with torii, lanterns and the volcano).

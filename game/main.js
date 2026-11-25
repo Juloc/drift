@@ -186,7 +186,7 @@ function openNet(url, inRace) {
     onWelcome(me) {
       if (!inRace && !spawned) {
         const ls = lobbyJson.lobbySpawn;   // the lobby is map 0, whichever map is drawn at this moment
-        const g = raceMode ? { x: ls.x + (me.id % 8) * 6 - 20, z: ls.z, h: ls.h } : map.grid[me.id % map.grid.length];
+        const g = { x: ls.x + ((me.id % 6) - 2.5) * 9, z: ls.z + (Math.floor(me.id / 6) % 3) * 8 - 8, h: ls.h };   // spread over the plaza by id (six a row, three rows)
         cur = prev = makeCar(g.x, g.z, g.h); score = newScore(); cam.snap(cur); spawned = true;
       }
       droppedBtn.hidden = true;
@@ -420,6 +420,7 @@ function showSummary({ ms, points, clips, of, best }) {
 }
 function reset() {
   summaryEl.hidden = true;
+  if (net && !racing) net.sendRespawn();   // the relay knows this jump (back to the plaza)
   const s = map.lobbySpawn ?? map.grid[0];
   cur = prev = makeCar(s.x, s.z, s.h);
   score = newScore();

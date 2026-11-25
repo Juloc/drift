@@ -113,7 +113,7 @@ async function garagePage(me) {
 
   return {
     title: t('garage.title'), sub: t('garage.sub'),
-    actions: [h('a', { class: 'btn outline', href: '/play/?map=touge' }, icon('bolt'), t('garage.touge')), h('a', { class: 'btn primary', href: '/play/' }, icon('bolt'), t('garage.play'))],
+    actions: [h('a', { class: 'btn primary', href: '/play/' }, icon('bolt'), t('garage.play'))],
     body: h('div', { class: 'page stack' },
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.car') }), h('div', { class: 'cars', role: 'radiogroup', 'aria-label': t('garage.car') }, carButtons)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.colour') }), h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.colour') }, swatches)),
@@ -126,7 +126,6 @@ async function garagePage(me) {
       h('div', { class: 'card stack' }, preview,
         h('div', { class: 'cluster' },
           h('button', { class: 'btn primary', type: 'button', onclick: save }, icon('check'), t('common.save')),
-          h('a', { class: 'btn outline', href: '/play/?map=touge' }, icon('bolt'), t('garage.touge')),
           h('a', { class: 'btn outline', href: '/play/' }, icon('bolt'), t('garage.play'))))),
   };
 }
