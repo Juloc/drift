@@ -19,7 +19,7 @@ internal static partial class GarageEndpoints
         app.MapGet("/api/garage", async (HttpContext ctx, GarageStore garage) =>
         {
             var me = ctx.Person();
-            return Results.Ok(Body(await garage.GetAsync(me.UserId, ctx.RequestAborted), me.UserName));
+            return Results.Ok(Body(me.UserId, await garage.GetAsync(me.UserId, ctx.RequestAborted)));
         });
 
         app.MapPut("/api/garage", async (GarageRequest body, HttpContext ctx, GarageStore garage) =>
@@ -32,14 +32,14 @@ internal static partial class GarageEndpoints
             if (nick.Length == 1) v.Fail("nick", Validator.TooShort);
             if (nick.Length > 1 && !NickPattern().IsMatch(nick)) v.Fail("nick", Validator.NotValid);
             if (v.Error is { } error) return error.ToHttp();
-            return Results.Ok(Body(await garage.SaveAsync(me.UserId, new Profile(car, colour, nick.Length == 0 ? null : nick), ctx.RequestAborted), me.UserName));
+            return Results.Ok(Body(me.UserId, await garage.SaveAsync(me.UserId, new Profile(car, colour, nick.Length == 0 ? null : nick), ctx.RequestAborted)));
         });
     }
 
-    private static object Body(Profile p, string accountName) => new
+    private static object Body(Guid userId, Profile p) => new
     {
         car = p.Car, colour = p.Colour, nick = p.Nick,
-        name = p.Nick ?? accountName,   // what the others see above the car
+        name = GarageStore.DisplayName(userId, p),   // what the others see above the car: the nickname or a neutral name, never the account name
         cars = GarageStore.CarNames,
     };
 }

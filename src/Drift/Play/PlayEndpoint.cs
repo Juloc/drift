@@ -30,7 +30,7 @@ public static class PlayEndpoint
             var me = ctx.Person();
             var token = cookie.Read(ctx.Request);
             var profile = await garage.GetAsync(me.UserId, ctx.RequestAborted);
-            var name = profile.Nick ?? me.UserName;
+            var name = GarageStore.DisplayName(me.UserId, profile);   // never the account name
             await RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), profile.Car, name, profile.Colour,
                 stillValid: async () => token is not null && await accounts.ResolveSessionAsync(token, false, CancellationToken.None) is not null,
                 joined: s =>

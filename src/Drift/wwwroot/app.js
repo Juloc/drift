@@ -58,13 +58,13 @@ async function garagePage(me) {
   });
   const swatches = HUES.map((hue, i) => { const b = swatch(hue); b.addEventListener('click', () => { state.colour = i; sync(); }); return b; });
 
-  const nick = field({ label: t('garage.nick'), name: 'nick', value: g.nick || '', maxlength: 16, autocomplete: 'off', hint: t('garage.nickHint', { name: me.user }) });
+  const nick = field({ label: t('garage.nick'), name: 'nick', value: g.nick || '', maxlength: 16, autocomplete: 'off', hint: t('garage.nickHint', { name: g.name }) });
   const form = h('form', { class: 'form' }, nick);
 
   function sync() {
     carButtons.forEach((b, i) => b.setAttribute('aria-checked', String(i === state.car)));
     swatches.forEach((b, i) => b.setAttribute('aria-checked', String(i === state.colour)));
-    const name = form.querySelector('[name="nick"]').value.trim() || me.user;
+    const name = form.querySelector('[name="nick"]').value.trim() || g.name;
     preview.replaceChildren(h('span', { class: 'dot' }), h('span', { text: t('garage.preview', { name, car: CARS[state.car].name }) }));
     preview.firstChild.style.setProperty('--h', state.colour * 15);
   }

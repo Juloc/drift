@@ -8,7 +8,7 @@ export default {
   'garage.colourN': 'Colour {n}',
   'garage.name': 'Name',
   'garage.nick': 'Nickname',
-  'garage.nickHint': 'Optional, 2 to 16 letters or digits. Without one the others see “{name}”.',
+  'garage.nickHint': 'Optional, 2 to 16 letters or digits. Without one the others see a neutral name like “{name}”, never your account name.',
   'garage.preview': 'The others see {name} in the {car}.',
   'garage.saved': 'Saved',
   'garage.play': 'Drive',

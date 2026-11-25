@@ -17,6 +17,24 @@ public class GarageTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", "drift_sid=nonsense", new { car = 1, colour = 3 }))).StatusCode);
     }
 
+    static void AssertNeutral(string name, int colour)
+    {
+        var parts = name.Split(' ');
+        Assert.Equal(2, parts.Length);
+        Assert.Equal(Drift.Relay.WorldRelay.Colours[colour / 2], parts[0]);
+        Assert.Contains(parts[1], Drift.Relay.WorldRelay.Animals);
+        Assert.DoesNotContain("jul", name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void The_neutral_name_is_the_same_for_one_person_every_time()
+    {
+        var id = Guid.NewGuid();
+        Assert.Equal(GarageStore.NeutralName(id, 6), GarageStore.NeutralName(id, 6));
+        Assert.Equal(GarageStore.NeutralName(id, 6).Split(' ')[1], GarageStore.NeutralName(id, 20).Split(' ')[1]); // the animal follows the person, the colour word the car
+        Assert.Equal("Nick", GarageStore.DisplayName(id, new Profile(0, 6, "Nick")));
+    }
+
     [Fact]
     public async Task A_new_person_gets_defaults_and_a_saved_choice_comes_back()
     {
@@ -26,7 +44,7 @@ public class GarageTests
         var cookie = await app.SignedInAsync(c);
         var first = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/garage", cookie)));
         Assert.Equal(0, first.GetProperty("car").GetInt32());
-        Assert.Equal("jul", first.GetProperty("name").GetString()); // no nickname: the account's name
+        AssertNeutral(first.GetProperty("name").GetString()!, first.GetProperty("colour").GetInt32()); // no nickname: a neutral name, never the account name "jul"
         Assert.Equal(5, first.GetProperty("cars").GetArrayLength());
 
         var put = await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", cookie, new { car = 3, colour = 17, nick = "  Sky Fox " }));
@@ -40,7 +58,7 @@ public class GarageTests
         // an empty nickname goes back to the account's name
         await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", cookie, new { car = 3, colour = 17, nick = "" }));
         var cleared = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/garage", cookie)));
-        Assert.Equal("jul", cleared.GetProperty("name").GetString());
+        AssertNeutral(cleared.GetProperty("name").GetString()!, 17);
     }
 
     [Theory]

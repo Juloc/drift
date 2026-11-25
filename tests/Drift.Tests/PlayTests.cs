@@ -65,14 +65,17 @@ public class PlayTests
     }
 
     [Fact]
-    public async Task Without_a_nickname_the_account_name_shows()
+    public async Task Without_a_nickname_a_neutral_name_shows_never_the_account_name()
     {
         await using var db = await TestDb.CreateAsync();
         await using var app = new TestApp(db);
         var cookie = await app.SignedInAsync(app.Http(), "mia");
         using var ws = await Connect(app, cookie);
         var roster = (await Frame(ws, Wire.Roster))!;
-        Assert.Equal("mia", System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]));
+        var shown = System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]);
+        Assert.NotEqual("mia", shown);
+        Assert.Contains(shown.Split(' ')[0], Drift.Relay.WorldRelay.Colours);
+        Assert.Contains(shown.Split(' ')[1], Drift.Relay.WorldRelay.Animals);
     }
 
     [Fact]

@@ -27,5 +27,17 @@ public sealed class GarageStore(NpgsqlDataSource db)
         return p;
     }
 
+    /// <summary>
+    /// The name the others see: the nickname, or a neutral name from the relay's fixed list (a colour word that follows the car's colour and an animal
+    /// that follows the person's id): the same for one person every time, never the account name, which could be a real name.
+    /// </summary>
+    public static string DisplayName(Guid userId, Profile p) => p.Nick ?? NeutralName(userId, p.Colour);
+
+    public static string NeutralName(Guid userId, int colour)
+    {
+        var h = userId.ToByteArray().Aggregate(17, (a, b) => unchecked(a * 31 + b));
+        return Drift.Relay.WorldRelay.Colours[colour / 2 % Drift.Relay.WorldRelay.Colours.Length] + " " + Drift.Relay.WorldRelay.Animals[(h & 0x7fffffff) % Drift.Relay.WorldRelay.Animals.Length];
+    }
+
     public static int DefaultColour(Guid userId) => userId.ToByteArray().Aggregate(0, (a, b) => a * 31 + b) is var n && n < 0 ? (-n) % 24 : n % 24;
 }
