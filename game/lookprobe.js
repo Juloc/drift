@@ -90,6 +90,7 @@ const D = scene0.driver;
 // the cars: a model file (docs/CAR-MODELS.md, here the RX-7) in the paint of the scene; the code S15 when the file cannot be used
 const carModel = async (paint, kit) => {
   const materials = carMaterials({ tier: carTier, paint: new THREE.Color(paint).getHex(), env });
+  if (look.car?.tail) materials.light_rear.color.set(look.car.tail).multiplyScalar(look.car.tailGlow ?? 1);   // deep red tail lights (very bright red turns orange under the tone mapping)
   const m = D.model ? await loadCarModel(D.model, { tier: carTier, materials }) : null;
   return m ? { ...m, materials } : buildS15({ paint: new THREE.Color(paint).getHex(), kit, tier: carTier, env });
 };
@@ -146,7 +147,8 @@ function simStep(i) {
   if (i % 3 === 0) rearWheels(cur).forEach(([x, z], k) => {
     // the smoke drifts off to the left of the way the car is going (as in the mockup), not into the camera behind it
     const t = Math.atan2(cur.vx, cur.vz), push = look.smoke.drift ?? 0, lx = -Math.cos(t) * push, lz = Math.sin(t) * push;
-    if (sliding) smoke.emit(x, 0.35, z, X(cur.vx * 0.06 + lx), cur.vz * 0.06 + lz, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
+    const out = look.smoke.offset ?? 0;   // the clouds start a little outside the wheel, on the side the tail swings to
+    if (sliding) smoke.emit(x + X(-Math.cos(t)) * out, 0.35, z + Math.sin(t) * out, X(cur.vx * 0.06 + lx), cur.vz * 0.06 + lz, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
     skids.mark(k, x, z, 0, 0, sliding);
   });
   smoke.update(DT);

@@ -14,8 +14,8 @@
     "glowStrength": 1.45,
     "clouds": { "lit": "#ffcaa2", "shade": "#b25a88", "amount": 1.0 }
   },
-  "sun": { "dir": [0.36, 0.155, -1], "colour": "#ffb070", "intensity": 3.4 },
-  "fill": { "sky": "#8a72cc", "ground": "#c48a8a", "intensity": 1.55 },
+  "sun": { "dir": [0.61, 0.205, -1], "colour": "#ffb070", "intensity": 3.4 },
+  "fill": { "sky": "#8a72cc", "ground": "#c48a8a", "intensity": 1.95 },
   "fog": { "colour": "#f0a8a2", "near": 400, "far": 4200 },
   "mist": { "colour": "#ffdcdc", "opacity": 0.6, "y": -9 },
   "grade": { "exposure": 0.95, "bloom": 0.62, "threshold": 1.15, "warmth": 1.1, "saturation": 1.32 },
@@ -30,12 +30,13 @@
   "chevron": { "board": "#3b2337", "arrow": "#ff5a96", "post": "#9b93a0" },
   "post": { "white": "#f4efee", "band": "#2b2630", "reflector": "#ffc23f" },
   "lamp": { "pole": "#4a4452", "light": "#ffe2b0" },
-  "smoke": { "colour": "#ffffff", "shade": "#ffd3df", "glow": 1.35, "opacity": 0.97, "near": 3.5, "drift": 3.6 },
+  "smoke": { "colour": "#ffffff", "shade": "#ffd3df", "glow": 1.35, "opacity": 0.97, "near": 3.2, "drift": 3.6, "offset": 1.1 },
   "skid": { "colour": "#140f18", "opacity": 0.85 },
   "camera": { "dist": 6.0, "height": 1.9, "side": 1.3, "look": 30, "lookY": -2.0, "travel": 0.6, "fov": 50 },
   "tiers": {
-    "high": { "cell": 3.5, "far": 16, "pines": 650, "cherries": 130, "nearPines": 140, "nearCherries": 70, "rocks": 60, "ridge": 160, "mist": 6, "railPost": 3, "smoke": 240, "smokeDetail": 1, "shadows": 2048, "post": true, "dpr": 1.75, "scale": 1, "env": 128 },
+    "high": { "cell": 3.5, "far": 16, "pines": 650, "cherries": 130, "nearPines": 140, "nearCherries": 70, "rocks": 60, "ridge": 160, "mist": 6, "railPost": 3, "smoke": 300, "smokeDetail": 1, "shadows": 2048, "post": true, "dpr": 1.75, "scale": 1, "env": 128 },
     "low": { "cell": 8, "far": 40, "pines": 70, "cherries": 26, "nearPines": 40, "nearCherries": 24, "rocks": 24, "ridge": 64, "mist": 3, "railPost": 6, "smoke": 90, "smokeDetail": 0, "shadows": 0, "post": false, "dpr": 1, "scale": 0.75, "env": 32 }
   },
-  "facets": true
+  "facets": true,
+  "car": { "tail": "#ff0a2a", "tailGlow": 1.7 }
 }

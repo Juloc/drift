@@ -80,3 +80,31 @@ Biggest differences left (picture `probe-sunset-drift.png` of this round):
 3. Clouds: they sit mostly behind the drift-score card at this camera; the open sky right of it shows few.
 4. Midground right: the mockup has rounded green hills with pines between the road and the far mountains.
 5. Car: the mockup's car shows more of its flank and a stronger red glow of the tail lights.
+
+## Round 7 (2026-11-25)
+
+Done: rolling hills with pines on the valley floor from about 50 m beyond the road (their tops reach just under road level, so they
+stay visible over the guardrail, as the midground hills of the mockup); the trees may now stand 60 m from the road on the valley side;
+the picture taken a moment earlier, at the entry of the right-hander, so the bend and its guardrail curve to the right through the
+picture as in the mockup; the sun moved back over the mountains right of the middle, a stronger fill light for the backlit cliff. Tried
+and dropped: smoke writing depth (the faded puffs then hide the others: the smoke vanished).
+
+Biggest differences left (picture `probe-sunset-drift.png` of this round):
+1. Valley: the river and lake are only glimpsed between the hills (the limit above).
+2. Smoke: thinner than the mockup's big billows in the lower left.
+3. Tail lights: the mockup's glow red and strong; ours are orange and small.
+4. Left cliff: darker and bigger than the mockup's sunlit slope.
+5. Clouds: mostly behind the drift-score card.
+
+## Round 8 (2026-11-25)
+
+Done: more and fuller smoke (300 puffs on the high tier) that starts a little outside the rear wheels on the side the tail swings to,
+so the clouds billow beside and behind the car (lower left) and the tail stays visible, as in the mockup; deep red tail lights (very
+bright red turns orange under the ACES tone mapping, so the red is more saturated and less bright).
+
+Biggest differences left (picture `probe-sunset-drift.png` of this round):
+1. Valley: lake and river are only glimpsed (the limit above); the mockup shows a glowing river bend under the sun.
+2. Left cliff: darker and taller than the mockup's sunlit slope with pines on its ledges.
+3. Clouds: the bands lie mostly behind the drift-score card at this camera.
+4. Car: the mockup's car is a body-kitted S15 with a big wing and wide wheels; ours is the RX-7 model (the car the orchestrator chose).
+5. Numbers: the mockup shows a long drift (18.460, ×4,2, 124 km/h, gear 3); ours are the real values 6.8 s into the bot's drive.

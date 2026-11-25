@@ -104,7 +104,8 @@ export function makeField(scene, { cell = 6 } = {}) {
     const quiet = smoothstep(R.width * 0.6, R.width * 0.6 + 30, Math.abs(zz - R.z));
     const n = noise2(x / 60, z / 60) * 0.65 + noise2(x / 21, z / 21) * 0.3 + noise2(x / 7, z / 7) * 0.05;
     // the valley floor gets low rolling hills away from the road (they hide nothing: the road's own edge is higher on screen)
-    const hills = Math.max(0, noise2(x / 130 + 3.1, z / 130 - 1.7)) * 22 * smoothstep(-20, -45, h);
+    const H = T.hills ?? { amp: 22, from: -20, to: -45, near: 0 };
+    const hills = Math.max(0, noise2(x / 130 + 3.1, z / 130 - 1.7)) * H.amp * smoothstep(H.from, H.to, h) * (H.near ? smoothstep(-H.near, -H.near * 2, zz) : 1);
     let v = h + n * (4 + Math.abs(h) * 0.16) * quiet + hills * quiet;
     // a lake: the land sinks under the water inside the ellipse, the shore is a little inside its edge
     const K = scene.lake;

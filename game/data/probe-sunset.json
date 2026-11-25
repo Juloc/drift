@@ -30,7 +30,13 @@
     "flat": 1.0,
     "blend": 6,
     "drop": [0.5, 4.5],
-    "openValley": 160
+    "openValley": 60,
+    "hills": {
+      "amp": 13,
+      "from": -4,
+      "to": -10,
+      "near": 50
+    }
   },
   "river": {
     "z": -290,
@@ -90,7 +96,7 @@
       "corner": 11,
       "kick": 0.3
     },
-    "t": 7.25,
+    "t": 6.8,
     "model": "rx7"
   },
   "hud": {
