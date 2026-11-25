@@ -55,9 +55,12 @@ builder.Services.AddSingleton(new WorldRelay(TimeProvider.System, PlayEndpoint.O
 // the race has a world of its own (at most 8 racers), the same relay class
 builder.Services.AddKeyedSingleton("race", (_, _) => new WorldRelay(TimeProvider.System, new RelayOptions { MaxPerWorld = RaceHub.MaxRacers, MaxWorlds = 1, MaxPerAddress = 16, JoinsPerMinutePerAddress = 120, FramesPerSecondPerAddress = 400 }));
 builder.Services.AddSingleton<RaceStore>();
+builder.Services.AddSingleton<ChallengeStore>();
+builder.Services.AddSingleton(sp => new ChallengeTracker(LoadChallenges(), sp.GetRequiredService<ChallengeStore>(), s => sp.GetRequiredService<TandemTracker>().TotalOf(s)));
+builder.Services.AddSingleton<IRaceChallenges>(sp => sp.GetRequiredService<ChallengeTracker>());
 builder.Services.AddSingleton(sp => new TandemTracker(sp.GetRequiredService<RaceStore>(), 0, id => sp.GetRequiredService<RaceHub>().FeelOf(id)));
 builder.Services.AddSingleton<IReadOnlyDictionary<int, RaceTrack>>(LoadTracks());
-builder.Services.AddSingleton(sp => new RaceHub(TimeProvider.System, sp.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>(), sp.GetRequiredService<RaceStore>(), sp.GetRequiredKeyedService<WorldRelay>("race"), [35, 31, 39, 36, 28]).WithStats(sp.GetRequiredService<StatsStore>()));
+builder.Services.AddSingleton(sp => new RaceHub(TimeProvider.System, sp.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>(), sp.GetRequiredService<RaceStore>(), sp.GetRequiredKeyedService<WorldRelay>("race"), [35, 31, 39, 36, 28]).WithStats(sp.GetRequiredService<StatsStore>()).WithChallenges(sp.GetRequiredService<IRaceChallenges>()));
 
 var app = builder.Build();
 await app.StartBaseAsync();
@@ -96,9 +99,18 @@ app.MapGameAdmin();
 app.MapReports();
 app.MapRace();
 app.MapStats();
+app.MapChallenges();
 { var tr = app.Services.GetRequiredService<StatsTracker>(); tr.Follow(app.Services.GetRequiredService<WorldRelay>()); tr.Follow(app.Services.GetRequiredKeyedService<WorldRelay>("race")); }
 app.Run();
 return 0;
+
+static List<ChallengeDef> LoadChallenges()
+{
+    var dir = Path.Combine(AppContext.BaseDirectory, "game", "data");
+    if (!Directory.Exists(dir))
+        for (var d = new DirectoryInfo(AppContext.BaseDirectory); d is not null && !Directory.Exists(dir); d = d.Parent) dir = Path.Combine(d.FullName, "game", "data");
+    return ChallengeDef.Load(File.ReadAllText(Path.Combine(dir, "challenges.json")));
+}
 
 static Dictionary<int, RaceTrack> LoadTracks()
 {

@@ -9,3 +9,7 @@
 .games .swatch { flex: 0 0 1.6rem; width: 1.6rem; height: 1.6rem; min-width: 0; min-height: 0; border-radius: 50%; border: 2px solid transparent; background: hsl(var(--h), 62%, 52%); padding: 0; cursor: pointer; }
 .games .swatch[aria-checked="true"], .games .carbtn[aria-checked="true"] { border-color: var(--accent, #c33); outline: 2px solid var(--accent, #c33); }
 .games .carbtn { cursor: pointer; }
+.games .challenge { display: grid; grid-template-columns: 1fr auto; gap: .15rem .75rem; align-items: center; padding: .5rem 0; border-top: 1px solid rgba(0,0,0,.1); }
+.games .challenge .muted { grid-column: 1; }
+.games .challenge .btn, .games .challenge > span:last-child { grid-column: 2; grid-row: 1 / span 2; }
+.games .challenge .stars { color: var(--accent, #c33); letter-spacing: .1em; }

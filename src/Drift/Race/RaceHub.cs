@@ -56,6 +56,8 @@ public sealed class RaceHub
     IRaceStats? stats;
     /// <summary>Where finished races are counted (wins, podiums); optional.</summary>
     public RaceHub WithStats(IRaceStats s) { stats = s; return this; }
+    IRaceChallenges? challenges;
+    public RaceHub WithChallenges(IRaceChallenges c) { challenges = c; return this; }
 
     /// <param name="tracks">every map a race can be on, by id; the one with the lowest id is the default</param>
     public RaceHub(TimeProvider time, IReadOnlyDictionary<int, RaceTrack> tracks, IBestTimes store, WorldRelay raceRelay, double[] tops)
@@ -146,6 +148,7 @@ public sealed class RaceHub
                     }
                     else emotesDropped++;
                     break;
+                case "challenge.start": case "challenge.stop": break;   // the challenge tracker's messages (it reads them from the same socket)
                 default:
                     emotesDropped++;   // an unknown control message is counted, never answered
                     break;
@@ -326,7 +329,7 @@ public sealed class RaceHub
                 if (r.CleanLaps && !r.Guest && bestDrift >= 1) drift = await store.RecordAsync(r.Person, track.MapId, RaceStore.Drift, (int)bestDrift, r.Car, r.Feel);
                 if (r.Finished && r.CleanLaps && !r.Guest)   // a guest's time is shown in the result, never stored
                 {
-                    if (r.BestLap is { } bl) lap = await store.RecordAsync(r.Person, track.MapId, RaceStore.Lap, (int)Math.Round(bl), r.Car, r.Feel);
+                    if (r.BestLap is { } bl) { lap = await store.RecordAsync(r.Person, track.MapId, RaceStore.Lap, (int)Math.Round(bl), r.Car, r.Feel); if (challenges is not null) await challenges.LapAsync(r.Person, track.MapId, bl); }
                     if (finishedRun.Laps == track.Laps && r.FinishMs is { } fm) race = await store.RecordAsync(r.Person, track.MapId, RaceStore.Race, (int)Math.Round(fm), r.Car, r.Feel);
                 }
             }

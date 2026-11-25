@@ -9,6 +9,7 @@ const T = de ? {
   help: 'Passwort vergessen? Frag den Betreiber, er setzt es zurück.', legalPre: 'Mit dem Konto stimmst du dem zu:', privacy: 'Datenschutz', imprint: 'Impressum',
   hello: (n) => `Angemeldet als ${n}.`, play: 'Drift spielen', chPw: 'Passwort ändern', cur: 'Aktuelles Passwort', next: 'Neues Passwort', save: 'Speichern', exp: 'Meine Daten herunterladen', out: 'Abmelden',
   dSum: 'Konto löschen', dText: 'Das löscht dein Konto, deine Garage, deine Zeiten und deine Statistik für alle Spiele. Das geht nicht rückgängig. Der Name bleibt 30 Tage gesperrt.', dLabel: 'Zur Bestätigung dein Passwort', dGo: 'Konto endgültig löschen',
+  cTitle: 'Herausforderungen', cIntro: 'Bis zu drei Sterne je Aufgabe, vom Server aus deiner Fahrt bestätigt.', cPlay: 'Spielen', cLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde.',
   gTitle: 'Garage', lNick: 'Spitzname (optional)', hNick: 'Das sehen die anderen über deinem Auto. Ohne Spitzname siehst du als Name deinen Kontonamen.', saved: 'Gespeichert.',
   mustChange: 'Der Betreiber hat dein Passwort zurückgesetzt. Wähle jetzt ein neues.', working: 'Kleine Rechenaufgabe läuft …',
   e: { login: 'Name oder Passwort stimmt nicht.', too_many: 'Zu viele Versuche. Warte kurz.', banned: 'Von hier ist es gerade gesperrt.', pow: 'Die kleine Rechenaufgabe hat nicht geklappt. Versuch es noch einmal.',
@@ -24,6 +25,7 @@ const T = de ? {
   help: 'Forgot the password? Ask the one who runs the game, they reset it.', legalPre: 'With an account you agree to:', privacy: 'Privacy', imprint: 'Imprint',
   hello: (n) => `Signed in as ${n}.`, play: 'Play Drift', chPw: 'Change password', cur: 'Current password', next: 'New password', save: 'Save', exp: 'Download my data', out: 'Sign out',
   dSum: 'Delete account', dText: 'This deletes your account, your garage, your times and your statistics for all games. It cannot be undone. The name stays reserved for 30 days.', dLabel: 'Your password, to confirm', dGo: 'Delete the account for good',
+  cTitle: 'Challenges', cIntro: 'Up to three stars each, confirmed by the server from your driving.', cPlay: 'Play', cLap: 'Set a clean lap in a race or time trial.',
   gTitle: 'Garage', lNick: 'Nickname (optional)', hNick: 'The others see this above your car. Without a nickname they see your account name.', saved: 'Saved.',
   mustChange: 'The operator reset your password. Choose a new one now.', working: 'A small puzzle is running …',
   e: { login: 'Name or password is wrong.', too_many: 'Too many tries. Wait a moment.', banned: 'This address is blocked for now.', pow: 'The small puzzle did not work out. Try again.',
@@ -36,7 +38,7 @@ document.documentElement.lang = de ? 'de' : 'en';
 const $ = (id) => document.getElementById(id);
 const text = { title: T.title, intro: T.intro, 'tab-in': T.tabIn, 'tab-up': T.tabUp, 'l-name-in': T.name, 'l-pw-in': T.pw, 'in-go': T.go, 'in-help': T.help, 'l-name-up': T.name, 'l-pw-up': T.pw, 'l-pw2-up': T.pw2, 'up-go': T.create,
   'h-name': T.hName, 'h-pw': T.hPw, 'legal-pre': T.legalPre, 'a-privacy': T.privacy, 'a-imprint': T.imprint, play: T.play, 'b-pw': T.chPw, 'l-cur': T.cur, 'l-new': T.next, 'pw-go': T.save, 'b-export': T.exp, 'b-out': T.out,
-  'g-title': T.gTitle, 'l-nick': T.lNick, 'h-nick': T.hNick, 'g-save': T.save, 'd-sum': T.dSum, 'd-text': T.dText, 'l-del': T.dLabel, 'del-go': T.dGo };
+  'c-title': T.cTitle, 'c-intro': T.cIntro, 'g-title': T.gTitle, 'l-nick': T.lNick, 'h-nick': T.hNick, 'g-save': T.save, 'd-sum': T.dSum, 'd-text': T.dText, 'l-del': T.dLabel, 'del-go': T.dGo };
 for (const [id, v] of Object.entries(text)) $(id).textContent = v;
 document.title = T.title;
 
@@ -62,7 +64,24 @@ async function refresh() {
   $('hello').textContent = me.mustChange ? T.mustChange : T.hello(me.name);
   $('f-pw').hidden = !me.mustChange;
   $('play').hidden = me.mustChange; $('b-export').hidden = me.mustChange; $('f-garage').hidden = me.mustChange;
-  if (!me.mustChange) loadGarage();
+  $('challenges').hidden = me.mustChange;
+  if (!me.mustChange) { loadGarage(); loadChallenges(); }
+}
+
+async function loadChallenges() {
+  try {
+    const defs = (await (await fetch('/play/data/challenges.json')).json()).challenges;
+    const progress = Object.fromEntries((await (await fetch('/api/games/challenges', { headers: { Accept: 'application/json' } })).json()).progress.map((p) => [p.id, p]));
+    const stars = (n) => '\u2605'.repeat(n) + '\u2606'.repeat(3 - n);
+    $('c-list').replaceChildren(...defs.map((d) => {
+      const row = document.createElement('div'); row.className = 'challenge';
+      const b = document.createElement('b'); b.textContent = d.title[de ? 'de' : 'en'];
+      const st = document.createElement('span'); st.className = 'stars'; st.textContent = stars(progress[d.id]?.stars ?? 0);
+      const tx = document.createElement('span'); tx.className = 'muted'; tx.textContent = d.text[de ? 'de' : 'en'];
+      const act = d.type === 'lap' ? Object.assign(document.createElement('span'), { className: 'muted', textContent: T.cLap }) : Object.assign(document.createElement('a'), { className: 'btn outline', href: '/play/games.html?challenge=' + d.id, textContent: T.cPlay });
+      row.append(b, st, tx, act); return row;
+    }));
+  } catch { /* no list: the card stays empty */ }
 }
 
 let garage = null;

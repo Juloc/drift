@@ -89,3 +89,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf5; fon
 /* ----- the feel chip ----- */
 #feel { position: absolute; right: calc(max(14px, env(safe-area-inset-right)) + 66px); top: 100px; pointer-events: auto; min-height: 44px; padding: 0 12px; border: 2px solid rgba(27,35,48,0.35); border-radius: 14px; background: var(--card); color: var(--ink); font: 800 12px system-ui, sans-serif; opacity: 0.85; }
 #feel[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: #fff; opacity: 1; }
+
+/* ----- a challenge in progress: one line under the drift card ----- */
+#challenge { position: absolute; left: 50%; top: 132px; transform: translateX(-50%); padding: 4px 14px; border-radius: 14px; background: var(--card); font: 700 13px system-ui, sans-serif; pointer-events: none; white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; }
+#challenge[hidden] { display: none; }
+#challenge.done { background: var(--accent); color: #fff; }
+
+/* ----- sound and music chips (left, under the emote button) ----- */
+#sound, #music { position: absolute; left: max(14px, env(safe-area-inset-left)); width: 44px; height: 44px; font-size: 20px; border: 2px solid rgba(27,35,48,0.35); border-radius: 12px; background: var(--card); color: var(--ink); opacity: 0.8; pointer-events: auto; }
+#sound { top: 150px; } #music { top: 198px; }
+#sound[aria-pressed="true"], #music[aria-pressed="true"] { background: var(--accent); color: #fff; opacity: 1; }

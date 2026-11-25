@@ -73,12 +73,14 @@ public static class PlayEndpoint
         var stats = app.Services.GetRequiredService<StatsTracker>();
         var tandem = app.Services.GetRequiredService<TandemTracker>();
         tandem.Follow(relay);
+        var challenges = app.Services.GetRequiredService<ChallengeTracker>();
+        challenges.Follow(relay);
         Task Lobby(HttpContext ctx, Player p) =>
             RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), p.Car, p.Name, p.Colour, glow: p.Glow,
                 stillValid: p.StillValid, checkEvery: SessionCheck,
-                onText: (_, text) => hub.OnLobbyText(p.Id, text),
-                joined: s => { stats.Join(s, p.Id, p.Guest); tandem.Join(s, p.Id, p.Name, p.Guest, p.Car); sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },
-                left: s => { tandem.Leave(s); sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); _ = stats.LeaveAsync(s); });
+                onText: (sess, text) => { hub.OnLobbyText(p.Id, text); challenges.OnText(sess, text); },
+                joined: s => { stats.Join(s, p.Id, p.Guest); tandem.Join(s, p.Id, p.Name, p.Guest, p.Car); challenges.Join(s, p.Id, p.Guest); sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },
+                left: s => { tandem.Leave(s); challenges.Leave(s); sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); _ = stats.LeaveAsync(s); });
         app.Map(Path, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         app.Map(GuestPath, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         app.Map(GamesPath, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));

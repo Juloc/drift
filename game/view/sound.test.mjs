@@ -1,0 +1,76 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { SoundSystem, MAX_OTHERS } from './sound.js';
+
+/** Just enough of WebAudio to count what the game creates and sets. */
+function fakeAudio() {
+  const made = { ctx: 0, osc: 0, gain: 0, src: 0 };
+  const param = (v = 0) => ({ value: v, setTargetAtTime(x) { this.value = x; } });
+  class Ctx {
+    constructor() { made.ctx++; this.currentTime = 0; this.sampleRate = 8000; this.destination = {}; this.state = 'suspended'; }
+    resume() { this.state = 'running'; }
+    createGain() { made.gain++; return { gain: param(1), connect() {} }; }
+    createOscillator() { made.osc++; return { type: '', frequency: param(), connect() {}, start() {} }; }
+    createBiquadFilter() { return { type: '', frequency: param(), Q: param(), connect() {} }; }
+    createBufferSource() { made.src++; return { buffer: null, loop: false, connect() {}, start() {} }; }
+    createBuffer(c, n) { return { getChannelData: () => new Float32Array(n) }; }
+    createStereoPanner() { return { pan: param(), connect() {} }; }
+  }
+  return { Ctx, made };
+}
+const store = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v), m }; };
+const own = { speed: 18, throttle: 1, slide: 0.7, car: 0, top: 35 };
+const cars = Array.from({ length: 10 }, (_, i) => ({ id: i, x: 5 + i * 6, z: 0, speed: 15, throttle: 0.6, slide: i % 2 ? 0.8 : 0, car: i % 5, top: 33 }));
+
+test('nothing exists before the first click: no audio context, and update does nothing and does not fail', () => {
+  const { Ctx, made } = fakeAudio();
+  const s = new SoundSystem({ AudioCtx: Ctx, storage: store() });
+  assert.equal(s.unlocked, false);
+  s.update(own, cars, { x: 0, z: 0 });
+  assert.equal(made.ctx, 0);
+  assert.equal(s.unlock(), true); assert.equal(made.ctx, 1); assert.equal(s.unlock(), true); assert.equal(made.ctx, 1, 'one context only');
+});
+
+test('only the four nearest other cars sound, however many there are', () => {
+  const { Ctx } = fakeAudio();
+  const s = new SoundSystem({ AudioCtx: Ctx, storage: store() }); s.unlock();
+  for (let i = 0; i < 20; i++) s.update(own, cars, { x: 0, z: 0, heading: 0 });
+  assert.equal(s.activeOthers, MAX_OTHERS);
+  assert.deepEqual([...s.others.keys()].sort((a, b) => a - b), [0, 1, 2, 3]);
+  // when one drives off and another comes near, the voices move over; still four
+  const moved = cars.map((c) => (c.id === 0 ? { ...c, x: 500 } : c));
+  s.update(own, moved, { x: 0, z: 0, heading: 0 });
+  assert.equal(s.activeOthers, MAX_OTHERS);
+  assert.ok(!s.others.has(0) && s.others.has(4));
+  s.update(own, [], { x: 0, z: 0 });
+  assert.equal(s.activeOthers, 0);
+});
+
+test('mute silences everything, is kept on the device and restored; music is only a kept switch', () => {
+  const { Ctx } = fakeAudio(); const st = store();
+  const s = new SoundSystem({ AudioCtx: Ctx, storage: st }); s.unlock();
+  s.update(own, cars, { x: 0, z: 0 });
+  assert.ok(s.own.gain.gain.value > 0);
+  s.setMuted(true);
+  assert.equal(s.master.gain.value, 0); assert.equal(st.m.get('drift.mute'), '1');
+  s.update(own, cars, { x: 0, z: 0 });
+  assert.equal(s.own.gain.gain.value, 0); assert.equal(s.activeOthers, 0);
+  assert.equal(new SoundSystem({ AudioCtx: Ctx, storage: st }).muted, true, 'the next page starts muted');
+  s.setMuted(false); assert.ok(s.master.gain.value > 0);
+  s.setMusic(true); assert.equal(st.m.get('drift.music'), '1'); assert.equal(s.music, true);
+});
+
+test('without WebAudio or with a failing context the game goes on silently', () => {
+  assert.equal(new SoundSystem({ AudioCtx: undefined, storage: store() }).unlock(), false);
+  const bad = new SoundSystem({ AudioCtx: class { constructor() { throw new Error('no'); } }, storage: store() });
+  assert.equal(bad.unlock(), false); bad.update(own, cars, { x: 0, z: 0 });
+});
+
+test('the own engine follows the speed: higher speed in a gear, a different car, a different pitch', () => {
+  const { Ctx } = fakeAudio();
+  const s = new SoundSystem({ AudioCtx: Ctx, storage: store() }); s.unlock();
+  const pitch = (speed, car) => { s.update({ ...own, speed, car }, [], { x: 0, z: 0 }); return s.own.a.frequency.value; };
+  assert.ok(pitch(12, 0) > pitch(2, 0));
+  assert.notEqual(pitch(15, 1), pitch(15, 2));
+  assert.ok(s.own.tyreGain.gain.value > 0, 'a slide of 0.7 at 18 m/s squeals');
+});

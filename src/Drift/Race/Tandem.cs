@@ -110,6 +110,9 @@ public sealed class TandemTracker(IBestTimes? best, int map = 0, Func<Guid, int>
     public void Join(Session s, Guid person, string name, bool guest, int carId) { lock (gate) cars[s] = new Car(person, name, guest, carId); }
     public void Leave(Session s) { lock (gate) cars.Remove(s); }
 
+    /// <summary>The tandem bonus points a car has earned so far (banked plus pending), for the tandem challenge.</summary>
+    public double TotalOf(Session s) { lock (gate) return cars.TryGetValue(s, out var c) ? c.Chain.Total : 0; }
+
     /// <summary>What a car's chain is now (for tests and for the stats).</summary>
     public (double Mult, TandemRole Role, double Pending, double Banked)? StateOf(Session s) { lock (gate) return cars.TryGetValue(s, out var c) ? (c.Chain.Mult, c.Chain.Role, c.Chain.Pending, c.Chain.Banked) : null; }
 

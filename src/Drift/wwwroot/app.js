@@ -117,6 +117,7 @@ async function garagePage(me) {
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('tune.title') }), h('p', { class: 'muted', text: t('tune.intro') }), points, tuneBox, h('div', { class: 'cluster' }, tuneReset)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.glow') }), h('p', { class: 'muted', text: t('garage.glowHint') }), glowOff, h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.glow') }, glowSwatches)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.name') }), form),
+      await challengesCard(),
       statsCard(stats),
       boardCard(await api('GET', '/api/times')),
       h('div', { class: 'card stack' }, preview,
@@ -124,6 +125,22 @@ async function garagePage(me) {
           h('button', { class: 'btn primary', type: 'button', onclick: save }, icon('check'), t('common.save')),
           h('a', { class: 'btn outline', href: '/play/', target: '_blank', rel: 'noopener' }, icon('bolt'), t('garage.play'))))),
   };
+}
+
+/* ---------- challenges with stars ---------- */
+async function challengesCard() {
+  let defs = [], progress = {};
+  try {
+    defs = (await (await fetch('/play/data/challenges.json')).json()).challenges;
+    progress = Object.fromEntries((await api('GET', '/api/challenges')).progress.map((p) => [p.id, p]));
+  } catch { /* no list: the card stays empty rather than breaking the garage */ }
+  const lang = document.documentElement.lang === 'de' ? 'de' : 'en';
+  const stars = (n) => '\u2605'.repeat(n) + '\u2606'.repeat(3 - n);
+  const row = (d) => h('div', { class: 'challenge' },
+    h('b', { text: d.title[lang] }), h('span', { class: 'stars', 'aria-label': t('challenges.stars', { n: progress[d.id]?.stars ?? 0 }), text: stars(progress[d.id]?.stars ?? 0) }),
+    h('span', { class: 'muted', text: d.text[lang] }),
+    d.type === 'lap' ? h('span', { class: 'muted', text: t('challenges.lap') }) : h('a', { class: 'btn outline', href: '/play/?challenge=' + d.id, target: '_blank', rel: 'noopener' }, icon('bolt'), t('challenges.play')));
+  return h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('challenges.title') }), h('p', { class: 'muted', text: t('challenges.intro') }), ...defs.map(row));
 }
 
 /* ---------- stats of the person ---------- */

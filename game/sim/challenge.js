@@ -6,10 +6,13 @@
 //   chain-mult    the highest chain multiplier reached (the drift score's x1 to x5)
 //   tandem        the tandem bonus points (the caller passes the running total, e.g. from sim/practice.js)
 //   clean-sheet   the points banked (plus the running chain) before the first wall hit, which ends the run
+//   lap           the best clean lap in ms on the map, from a race or a time trial: less is better, so its stars go down (the server's race logic judges it)
 // Progress per account (the best stars of each challenge) is the next step: a table and an endpoint, with the same ids.
 import { newScore, scoreStep } from './score.js';
 
-export const TYPES = ['drift-points', 'drift-hold', 'drift-fast', 'chain-mult', 'tandem', 'clean-sheet'];
+export const TYPES = ['drift-points', 'drift-hold', 'drift-fast', 'chain-mult', 'tandem', 'clean-sheet', 'lap'];
+/** Types where less is better (lap time in ms: the star thresholds then go down). `lap` is judged by the server's race logic, never by this file's runStep. */
+export const LOWER = new Set(['lap']);
 export const HOLD_SLIP = 0.35, HOLD_SPEED = 8, FAST_SPEED = 18;
 
 /** Is a definition well formed? Returns a list of problems (empty = fine). */
@@ -18,7 +21,8 @@ export function check(def, maps = null) {
   if (!/^[a-z0-9-]+$/.test(def.id ?? '')) bad.push('id');
   if (!TYPES.includes(def.type)) bad.push('type');
   if (!(def.time > 0 && def.time <= 600)) bad.push('time');
-  if (!Array.isArray(def.stars) || def.stars.length !== 3 || !def.stars.every((v, i) => v > 0 && (i === 0 || v > def.stars[i - 1]))) bad.push('stars');
+  const lower = LOWER.has(def.type);
+  if (!Array.isArray(def.stars) || def.stars.length !== 3 || !def.stars.every((v, i) => v > 0 && (i === 0 || (lower ? v < def.stars[i - 1] : v > def.stars[i - 1])))) bad.push('stars');
   for (const k of ['title', 'text']) if (!def[k]?.en || !def[k]?.de) bad.push(k);
   if (maps && !maps.includes(def.map)) bad.push('map');
   return bad;
@@ -56,12 +60,12 @@ export function valueOf(run) {
     case 'chain-mult': return run.maxMult;
     case 'tandem': return run.tandem;
     case 'clean-sheet': return s.banked + s.pending;
-    default: return 0;
+    default: return 0;   // lap: not measured here
   }
 }
 
 /** 0 to 3 stars for a value. */
-export const starsFor = (def, value) => def.stars.filter((t) => value >= t).length;
+export const starsFor = (def, value) => (LOWER.has(def.type) ? (value > 0 ? def.stars.filter((t) => value <= t).length : 0) : def.stars.filter((t) => value >= t).length);
 
 /** The result of a run: { value, stars, done, failed, left } (left = seconds remaining). */
 export function resultOf(run) {

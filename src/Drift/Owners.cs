@@ -15,7 +15,7 @@ namespace Drift;
 /// </summary>
 public sealed class Owners(NpgsqlDataSource db, PersonSockets sockets, RaceHub hub, WorldRelay lobby, [FromKeyedServices("race")] WorldRelay race) : IAccountData, IAccountEvents, IPlayerDirectory, IDisplayNames
 {
-    static readonly string[] Tables = ["drift_profile", "drift_stats", "drift_tuning", "drift_best_time"];
+    static readonly string[] Tables = ["drift_profile", "drift_stats", "drift_tuning", "drift_best_time", "drift_challenge"];
 
     public async Task DeleteAsync(Guid owner, CancellationToken ct)
     {
@@ -30,6 +30,8 @@ public sealed class Owners(NpgsqlDataSource db, PersonSockets sockets, RaceHub h
             r => new { car = r.GetInt16(0), steer = r.GetInt16(1), balance = r.GetInt16(2), power = r.GetInt16(3), handbrake = r.GetInt16(4) }, ct, owner),
         ["stats"] = await db.FirstAsync("select metres, seconds, races, wins, podiums from drift_stats where user_id = $1",
             r => new { metres = r.GetDouble(0), seconds = r.GetDouble(1), races = r.GetInt32(2), wins = r.GetInt32(3), podiums = r.GetInt32(4) }, ct, owner),
+        ["challenges"] = await db.QueryAsync("select challenge_id, stars, value, set_at from drift_challenge where user_id = $1 order by challenge_id",
+            r => new { id = r.GetString(0), stars = r.GetInt16(1), value = r.GetDouble(2), at = r.Time(3) }, ct, owner),
         ["bestTimes"] = await db.QueryAsync("select map_id, kind, ms, car_id, set_at from drift_best_time where user_id = $1 order by map_id, kind",
             r => new { map = r.GetInt16(0), kind = r.GetInt16(1), ms = r.GetInt32(2), car = r.GetInt16(3), at = r.Time(4) }, ct, owner),
     };

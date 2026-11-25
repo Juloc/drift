@@ -7,16 +7,23 @@ const file = JSON.parse(readFileSync(new URL('../data/challenges.json', import.m
 const maps = JSON.parse(readFileSync(new URL('../data/maps.json', import.meta.url), 'utf8')).maps.map((m) => m.id);
 const dt = 1 / 15;
 const byId = (id) => file.challenges.find((c) => c.id === id);
+const ALIAS = { 'tandem-with-the-bot': 'tandem-duo' };
 /** Feeds the same observation for `seconds`. */
 const feed = (run, obs, seconds) => { for (let i = 0; i < Math.round(seconds / dt); i++) run = runStep(run, obs, dt); return run; };
 const D = (slip, speed, extra = {}) => ({ slip, speed, hit: 0, turned: Math.abs(slip), ...extra });
 
 test('the data: six well-formed challenges with unique ids, ascending stars, both languages, an existing map and every type used', () => {
-  assert.equal(file.challenges.length, 6);
-  assert.equal(new Set(file.challenges.map((c) => c.id)).size, 6);
+  assert.equal(file.challenges.length, 8);
+  assert.equal(new Set(file.challenges.map((c) => c.id)).size, 8);
   for (const c of file.challenges) assert.deepEqual(check(c, maps), [], c.id);
   assert.deepEqual([...new Set(file.challenges.map((c) => c.type))].sort(), [...TYPES].sort());
   assert.ok(check({ id: 'X', type: 'nope', time: 0, stars: [3, 2, 1], title: {}, text: {} }, maps).length >= 5, 'a bad definition is told what is wrong');
+});
+
+test('lap challenges: less is better, the stars go down, and a zero time is nothing', () => {
+  const def = byId('lap-sprint');
+  assert.deepEqual([0, 100000, 85000, 84000, 70000, 59000].map((v) => starsFor(def, v)), [0, 0, 1, 1, 2, 3]);
+  assert.ok(check({ ...def, stars: [60000, 70000, 85000] }, maps).includes('stars'), 'ascending stars are wrong for a lap');
 });
 
 test('stars: thresholds count, nothing below the first, three at the top', () => {
@@ -66,7 +73,7 @@ test('chain-mult: a long chain reaches the multipliers of the stars', () => {
 });
 
 test('tandem: the total the caller passes in is what counts, and it never goes down', () => {
-  const def = byId('tandem-with-the-bot');
+  const def = byId('tandem-duo');
   let run = newRun(def);
   for (const t of [0, 50, 150, 450, 300]) run = runStep(run, D(0.5, 20, { tandem: t }), dt);
   assert.equal(valueOf(run), 450);

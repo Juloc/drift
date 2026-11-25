@@ -17,6 +17,8 @@ import { Smoke, Skids } from './view/fx.js';
 import { CameraRig } from './view/camera.js';
 import { Input } from './view/input.js';
 import { Hud } from './view/hud.js';
+import { SoundSystem } from './view/sound.js';
+import { newRun, runStep, resultOf } from './sim/challenge.js';
 import { TandemHud } from './view/tandemhud.js';
 import { PracticeBot, TandemPractice, PRACTICE_START } from './sim/practice.js';
 import { makeClay, makeGlow } from './core/materials.js';
@@ -31,11 +33,13 @@ const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
     online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', tunedMark: 'tuned', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
-    camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', feelArcade: 'Arcade', feelPro: 'Pro (fewer aids)', feelKey: 'Feel of driving (X)', tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
+    camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', soundOn: 'Sound on (M)', soundOff: 'Sound off (M)', musicOff: 'Music: off (placeholder)', musicOn: 'Music: on (placeholder, no music yet)', chLap: 'Set a clean lap in a race or time trial', chDone: 'Challenge finished', chConfirmed: 'confirmed', chFailed: 'ended by a hit', chTitle: 'Challenge',
+    feelArcade: 'Arcade', feelPro: 'Pro (fewer aids)', feelKey: 'Feel of driving (X)', tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
     online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', tunedMark: 'getunt', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
-    camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', feelArcade: 'Arcade', feelPro: 'Pro (weniger Hilfen)', feelKey: 'Fahrgef\u00fchl (X)', tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
+    camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', soundOn: 'Ton an (M)', soundOff: 'Ton aus (M)', musicOff: 'Musik: aus (Platzhalter)', musicOn: 'Musik: an (Platzhalter, noch keine Musik)', chLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde', chDone: 'Herausforderung beendet', chConfirmed: 'bestätigt', chFailed: 'durch einen Treffer beendet', chTitle: 'Herausforderung',
+    feelArcade: 'Arcade', feelPro: 'Pro (weniger Hilfen)', feelKey: 'Fahrgef\u00fchl (X)', tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
 document.documentElement.lang = de ? 'de' : 'en';
@@ -153,7 +157,7 @@ function openNet(url, inRace) {
     },
     onFix(f) { cur = prev = { ...cur, x: f.x, z: f.z, h: f.h, vx: 0, vz: 0, w: 0 }; },
     onBye(reason) { if (n === net && !racing) { droppedBtn.textContent = reason === 5 ? T.full : T.dropped; droppedBtn.hidden = false; } },
-    onState(st) { if (st === 'open' && !inRace) n.sendJson({ t: 'feel', v: feel }); if (st === 'closed' && n === net && !racing) { $('online-n').textContent = 0; $('me').textContent = ''; spawned = false; } },
+    onState(st) { if (st === 'open' && !inRace) { n.sendJson({ t: 'feel', v: feel }); if (chStarted && chRun && !chRun.done) n.sendJson({ t: 'challenge.start', id: chDef.id }); } if (st === 'closed' && n === net && !racing) { $('online-n').textContent = 0; $('me').textContent = ''; spawned = false; } },
     onJson: (j) => (inRace ? raceMessage(j) : lobbyMessage(j)),
   });
   n.connect();
@@ -174,6 +178,7 @@ function lobbyMessage(j) {
   else if (j.t === 'emote') remotes?.emote(j.id, EMOTES[j.e]);
   else if (j.t === 'tandem') { if (!practice) tandemHud.set(j); }
   else if (j.t === 'tandem.bank') tandemHud.bank(j.points);
+  else if (j.t === 'challenge') lobbyChallenge(j);
 }
 
 // ----- emotes: ten fixed symbols (keys 1 to 0, or the little button), shown over the sender's car for three seconds; there is no free text anywhere
@@ -263,10 +268,52 @@ if (online) {
 
 // ----- state
 const loop = new FixedLoop();
+// ----- sound: made here, starts only after a click or a key, mute and the music switch are kept on the device
+const sound = new SoundSystem();
+const soundChip = Object.assign(document.createElement('button'), { id: 'sound', type: 'button' });
+const musicChip = Object.assign(document.createElement('button'), { id: 'music', type: 'button' });
+const showSound = () => { const on = sound.unlocked && !sound.muted; soundChip.textContent = on ? '\u{1F50A}' : '\u{1F507}'; soundChip.title = on ? T.soundOn : T.soundOff; soundChip.setAttribute('aria-pressed', on); musicChip.textContent = '\u266A'; musicChip.title = sound.music ? T.musicOn : T.musicOff; musicChip.setAttribute('aria-pressed', sound.music); };
+const unlockSound = () => { sound.unlock(); showSound(); };
+function toggleSound() { if (!sound.unlocked) { unlockSound(); return; } sound.setMuted(!sound.muted); showSound(); }
+for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, unlockSound, { once: true, capture: true });
+soundChip.addEventListener('click', toggleSound);
+musicChip.addEventListener('click', () => { sound.setMusic(!sound.music); showSound(); });
+showSound(); (document.getElementById('hud') ?? document.body).append(soundChip, musicChip);
+
+// ----- a challenge (?challenge=<id>, from the garage's list): judged here at once with the same functions as the server, which judges it again from the poses and keeps the stars
+let chDef = null, chRun = null, chStarted = false, chServer = null;
+const chEl = Object.assign(document.createElement('div'), { id: 'challenge', hidden: true });
+(document.getElementById('hud') ?? document.body).append(chEl);
+if (params.get('challenge')) {
+  try { chDef = (await fetch('data/challenges.json').then((r) => r.json())).challenges.find((c) => c.id === params.get('challenge')) ?? null; } catch { /* no list: no challenge */ }
+  if (chDef && chDef.type !== 'lap') chRun = newRun(chDef);
+}
+const chStars = (n) => '\u2605'.repeat(n) + '\u2606'.repeat(3 - n);
+function chShow() {
+  if (!chDef) return;
+  const title = (chDef.title[de ? 'de' : 'en']);
+  let text;
+  if (chDef.type === 'lap') text = `${title} \u00b7 ${T.chLap}`;
+  else {
+    const r = resultOf(chRun);
+    const v = Number.isInteger(r.value) ? r.value : r.value.toFixed(1);
+    text = `${title} ${chStars(chServer?.done ? chServer.stars : r.stars)} \u00b7 ${v} \u00b7 ${Math.ceil(r.left)} s`;
+    if (r.done) text += r.failed ? ` \u00b7 ${T.chFailed}` : ` \u00b7 ${T.chDone}`;
+    if (chServer?.done) text += ` \u00b7 ${T.chConfirmed}`;
+  }
+  if (chEl.textContent !== text) { chEl.textContent = text; chEl.hidden = false; chEl.classList.toggle('done', !!chRun?.done); }
+}
+function chStart() {
+  chStarted = true;
+  net?.sendJson({ t: 'challenge.start', id: chDef.id });
+}
+function lobbyChallenge(j) { chServer = j; if (j.done && !j.failed && chRun) note(`${T.chDone} ${chStars(j.stars)} (${T.chConfirmed})`); }
+
 function reset() {
   const s = map.lobbySpawn ?? map.grid[0];
   cur = prev = makeCar(s.x, s.z, s.h);
   score = newScore();
+  if (chDef && chDef.type !== 'lap') { chRun = newRun(chDef); chStarted = false; chServer = null; net?.sendJson({ t: 'challenge.stop' }); }
   spin = 0;
   skids.clear();
   cam.snap(cur);
@@ -295,6 +342,11 @@ function simStep(i) {
   const mu = surfaceAt(map, cur.x, cur.z).mu;
   cur = collide(map, step(cur, inp, car, mu));
   score = scoreStep(score, { slip: bodySlip(cur), speed: speedOf(cur), hit: cur.hit, turned: turnedAngle(cur) }, DT);
+  if (chRun && !chRun.done) {   // the challenge runs from the first movement
+    if (!chStarted && speedOf(cur) > 1) chStart();
+    if (chStarted) chRun = runStep(chRun, { slip: bodySlip(cur), speed: speedOf(cur), hit: cur.hit, turned: turnedAngle(cur), tandem: practice ? practice.scorer.tandem.banked + practice.scorer.tandem.pending : 0 }, DT);
+    if (chRun.done) note(`${T.chDone} ${chStars(resultOf(chRun).stars)}`);
+  }
   if (practice) {   // the practice partner drives on, and you are judged against it with the server's own functions
     practice.bot.step();
     const st = practice.scorer.update(cur, practice.bot.state, DT);
@@ -307,6 +359,7 @@ for (let i = 0, n = Math.round((+params.get('t') || 0) / DT); i < n; i++) loop.a
 
 input.onkey.KeyR = reset;
 input.onkey.KeyB = () => togglePractice();
+input.onkey.KeyM = toggleSound;
 // cameras: chase, bonnet, cockpit (the key C, or Y and RB on a pad); in the cockpit the car's body is hidden
 function cycleCamera() { const m = cam.cycle(cur); note(m === 'bonnet' ? T.camBonnet : m === 'cockpit' ? T.camCockpit : T.camChase); }
 input.onkey.KeyC = cycleCamera;
@@ -416,6 +469,11 @@ function frame(now) {
 
   cam.update(drawn, car.top, dt);
   if (TIERS[view.tier].shadows) view.followSun(drawn.x, drawn.z);
+  if (sound.unlocked) {   // the engine and the tyres of your car, and the four nearest others
+    const others = net ? net.sample(now).map((o) => ({ id: o.id, x: o.x, z: o.z, speed: o.vf, throttle: (o.flags & 2) ? 0.9 : Math.abs(o.vf) > 1 ? 0.6 : 0, slide: (o.flags & 3) ? 0.8 : 0, car: net.roster.get(o.id)?.car ?? 0, top: cars[net.roster.get(o.id)?.car ?? 0]?.top ?? 33 })) : [];
+    sound.update({ speed: speedOf(cur), throttle: lastInp.throttle, slide: paused ? 0 : cur.slide, car: carIndex, top: car.top }, others, { x: drawn.x, z: drawn.z, heading: drawn.h });
+  }
+  chShow();
   hud.update(kmh, score, dt, lastInp, { steer: cur.steer, slip: bodySlip(cur) });
   const t1 = performance.now();
   renderer.render(scene, camera);
