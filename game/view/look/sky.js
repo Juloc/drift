@@ -18,13 +18,17 @@ export function makeSky(look, radius = 1800) {
       uBelow: { value: new THREE.Color(s.below) }, uSun: { value: new THREE.Color(s.sun).multiplyScalar(s.sunGlow ?? 1) }, uGlow: { value: new THREE.Color(s.glow) },
       uSunDir: { value: sunDirection(look) }, uSunCos: { value: Math.cos((s.sunSize * Math.PI) / 180) }, uMidH: { value: s.midHeight }, uStrength: { value: s.glowStrength },
       uCloudLit: { value: new THREE.Color(cl.lit) }, uCloudShade: { value: new THREE.Color(cl.shade) }, uClouds: { value: cl.amount },
+      // a moon (look.sky.moon: dir in simulation axes, size in degrees, colour, glow): a disc with a soft halo, a little darker on the side away from the sun
+      uMoonDir: { value: s.moon ? new THREE.Vector3(X(s.moon.dir[0]), s.moon.dir[1], s.moon.dir[2]).normalize() : new THREE.Vector3(0, -1, 0) },
+      uMoonCos: { value: Math.cos(((s.moon?.size ?? 0) * Math.PI) / 180) }, uMoon: { value: new THREE.Color(s.moon?.colour ?? '#ffffff').multiplyScalar(s.moon?.bright ?? 1) }, uMoonGlow: { value: s.moon?.glow ?? 0 },
     },
     vertexShader: /* glsl */ `
       varying vec3 vDir;
       void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: /* glsl */ `
       uniform vec3 uTop, uMid, uHorizon, uBelow, uSun, uGlow, uSunDir, uCloudLit, uCloudShade;
-      uniform float uSunCos, uMidH, uStrength, uClouds;
+      uniform float uSunCos, uMidH, uStrength, uClouds, uMoonCos, uMoonGlow;
+      uniform vec3 uMoonDir, uMoon;
       varying vec3 vDir;
       float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -47,6 +51,13 @@ export function makeSky(look, radius = 1800) {
         col = mix(col, cc, dens);
         float disc = smoothstep(uSunCos - 0.0004, uSunCos + 0.0001, dot(d, uSunDir));
         col = mix(col, uSun, disc * (1.0 - dens * 0.15));
+        if (uMoonGlow > 0.0) {
+          float m = dot(d, uMoonDir);
+          col += uMoon * pow(max(m, 0.0), 220.0) * uMoonGlow;
+          float disc = smoothstep(uMoonCos - 0.00015, uMoonCos + 0.00005, m);
+          float mare = 0.88 + 0.12 * fbm(vec2(d.x, d.y) * 900.0);
+          col = mix(col, uMoon * mare, disc * (1.0 - dens * 0.7));
+        }
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>

@@ -31,9 +31,12 @@ document.body.classList.toggle('touch', touch);
 document.body.classList.toggle('lite', tierName === 'low');
 $('touch').hidden = !touch;
 
+// ?scene=<name>: data/probe-<name>.json (default sunset, the mountain pass); ?look=<name> overrides the scene's own look
+const probeName = /^[a-z0-9-]+$/.test(params.get('scene') ?? '') ? params.get('scene') : 'sunset';
+const lookName = /^[a-z0-9-]+$/.test(params.get('look') ?? '') ? params.get('look') : (await fetch(`data/probe-${probeName}.json`).then((r) => r.json())).look ?? 'sunset';
 const [scene0, look, cars] = await Promise.all([
-  fetch('data/probe-sunset.json').then((r) => r.json()),
-  fetch('data/looks/sunset.json').then((r) => r.json()),
+  fetch(`data/probe-${probeName}.json`).then((r) => r.json()),
+  fetch(`data/looks/${lookName}.json`).then((r) => r.json()),
   fetch('data/cars.json').then((r) => r.json()).then((j) => j.cars),
 ]);
 const tier = look.tiers[tierName];

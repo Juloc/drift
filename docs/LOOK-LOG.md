@@ -282,3 +282,34 @@ Biggest differences left:
 3. The bridge is not in sight from this camera.
 4. The cherry tree at the top left hangs in front of the drift-score card; the mockup's sits further left.
 5. Car model (RX-7) and HUD values (short drift), as before.
+
+# Touge at dusk (the owner's focus from 2026-11-25 on, FOKUS.md)
+
+The mountain pass sunset stays at round 22. From now on only the touge look. No mockup file yet (`touge.png` follows), so the first
+rounds go by the description: dusk blue-violet with the last orange, a rising moon, a narrow road with hairpins, a red torii and stone
+lanterns, cedars on a steep slope, a calm crater lake deep below, volcano silhouettes, warm street lamps.
+
+## Touge round 1 (2026-11-26)
+
+New in the shared modules (all data-driven, the game takes them over with its touge map):
+- `field.js`: terrain mode `slope`: the land is one hillside (a height profile along `terrain.dir`); a road that winds down it with
+  switchbacks and hairpins takes its drawn height from the hillside under it (`road.grade: 'slope'`, smoothed); water heights are
+  absolute there (`f.waterY`).
+- `world.js`: volcano cones far away (`scene.volcanoes`: x, z, radius, height, layer), cedar shape for the pine (`look.pine.shape`:
+  layers, width, tier height), a wide road torii (`marks` gate with `width`/`height`, a black-capped top beam), street lamps along the
+  road on the uphill side with the arm over the road (`road.lamps`: metres apart).
+- `sky.js`: a moon (`look.sky.moon`: dir, size, colour, bright, glow).
+- `camera.js` (LookChase): `swing`, metres per radian of drift angle: the camera swings out to the side the nose points to, so the
+  angle is seen (the owner: "the camera swings with the drift").
+- `stage.js`: a mist patch may carry its own absolute height.
+Data: `game/data/looks/touge-dusk.json`, the probe scene `game/data/probe-touge.json` (`lookprobe.html?scene=touge`).
+
+Pictures: `docs/screenshots/probe-touge-drift.png` (high tier, drifting 44 degrees into the first hairpin, the lake below),
+`probe-touge-phone.png`, `probe-touge-overview.png`. Numbers: high tier 995k triangles / 50 calls (drift view), phone tier 81k / 21.
+
+Biggest open points:
+1. The moon is not in the picture yet (behind the drift-score card or off the frame).
+2. The volcanoes are flat dark triangles: they need haze, a lit rim and a crater edge.
+3. The smoke is grey and covers the left third; at dusk it should be lit by the lamps, lighter and smaller.
+4. The meeting place at the top is big, dark and empty (no lanterns, no people, no torii seen from it).
+5. Cedars only on the valley side of the picture; the uphill slope should be a dark cedar wall with lanterns along the road.

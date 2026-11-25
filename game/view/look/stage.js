@@ -76,7 +76,7 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
       scene.add(stage.world.group);
       stage.field = stage.world.field;
       // low mist over the valley floor and the lake (places from the scene; the phone tier takes the first few); it lies relative to the road's height nearby
-      const patches = (newScene.mist ?? []).slice(0, tier.mist).map(([x, z, w, d]) => [x, z, w, d, stage.field.groundY(x, z) + newLook.mist.y]);
+      const patches = (newScene.mist ?? []).slice(0, tier.mist).map(([x, z, w, d, y]) => [x, z, w, d, y ?? stage.field.groundY(x, z) + newLook.mist.y]);   // a patch may give its own absolute height
       stage.mist = patches.length ? makeMist(newLook, patches) : new THREE.Group();
       scene.add(stage.mist);
       stage.halos = new Halos(64);
