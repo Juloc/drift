@@ -6,20 +6,12 @@ import { step, makeCar, bodySlip, bodyVelocity, speedOf, turnedAngle, DT } from 
 import { newScore, scoreStep } from './sim/score.js';
 import { lineBot } from './sim/linebot.js';
 import { FixedLoop } from './sim/loop.js';
-import { buildS15, S15 } from './view/s15.js';
-import { loadCarModel } from './view/carmodel.js';
-import { carMaterials } from './view/carmaterials.js';
+import { S15 } from './view/s15.js';
 import { WheelPool } from './view/wheels.js';
-import { Skids } from './view/fx.js';
-import { Halos } from './core/materials.js';
 import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
-import { buildWorld } from './view/look/world.js';
-import { makeSky, makeMist, makeSkyEnvironment, sunDirection } from './view/look/sky.js';
-import { Puffs } from './view/look/puffs.js';
-import { Billows } from './view/look/billows.js';
+import { createStage, carMaker } from './view/look/stage.js';
 import { mergeParked } from './view/look/parked.js';
-import { Post } from './view/look/post.js';
 import { paintCar } from './view/look/paint.js';
 import { ProbeHud } from './view/probehud.js';
 
@@ -45,57 +37,15 @@ const [scene0, look, cars] = await Promise.all([
 ]);
 const tier = look.tiers[tierName];
 
-// ----- renderer, light, sky
-const renderer = new THREE.WebGLRenderer({ canvas: $('view'), antialias: false, powerPreference: 'high-performance' });
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-// the mood: ACES tone mapping on both tiers; the high tier adds bloom and a colour grade (view/look/post.js), the vignette is CSS
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = look.grade.exposure;
-renderer.info.autoReset = false;   // one frame is several renders (scene, bloom passes): count them together
-const post = tier.post ? new Post(renderer, look.grade) : null;
-const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(look.fog.colour, look.fog.near, look.fog.far);
-scene.background = new THREE.Color(look.fog.colour);
-const sunDir = sunDirection(look);
-const hemi = new THREE.HemisphereLight(look.fill.sky, look.fill.ground, look.fill.intensity);
-const sun = new THREE.DirectionalLight(look.sun.colour, look.sun.intensity);
-scene.add(hemi, sun, sun.target);
-if (tier.shadows) {
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.VSMShadowMap;   // soft shadows
-  sun.castShadow = true; sun.shadow.mapSize.set(tier.shadows, tier.shadows);
-  const c = sun.shadow.camera; c.left = -36; c.right = 36; c.top = 36; c.bottom = -36; c.near = 1; c.far = 260;
-  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.06; sun.shadow.radius = 6; sun.shadow.blurSamples = 10;
-}
-const camera = new THREE.PerspectiveCamera(55, 1, 0.5, 2600);
-const sky = makeSky(look, 2200);
-scene.add(sky);
-
-// ----- the world
-const t0 = performance.now();
-const world = buildWorld(scene0, look, tierName);
-scene.add(world.group);
-const f = world.field;
-// low mist over the valley floor and the lake (places from the scene; the phone tier takes the first few)
-const mistAt = scene0.mist.slice(0, tier.mist).map(([x, z, w, d]) => [x, z, w, d, f.groundY(x, z) + look.mist.y]);   // the mist lies relative to the road's height nearby
-const mist = makeMist(look, mistAt);
-scene.add(mist);
-const halos = new Halos(16);
-for (const [x, y, z] of world.lampHeads) halos.add(x, y, z, new THREE.Color(look.lamp.light).multiplyScalar(0.55), 2.6);
-scene.add(halos.points);
-const buildMs = performance.now() - t0;
+// ----- the stage: renderer, light, sky, the world, mist, halos, reflection, tyre marks, smoke (view/look/stage.js, shared with the game)
+const stage = createStage({ canvas: $('view'), look, scene0, tierName });
+const { renderer, post, scene, camera, sun, sunDir, sky, world, field: f, mist, halos, env, skids, smoke, buildMs } = stage;
 
 // ----- cars: the driver (white, kit) and the parked ones (merged)
-const env = makeSkyEnvironment(renderer, look, tier.env);
-world.road.material.envMap = env;   // the road shines in the low sun
-const carTier = tierName === 'high' ? 'high' : 'low';
 const D = scene0.driver;
+const makeLookCar = carMaker(stage);
 // the cars: a model file (docs/CAR-MODELS.md, here the RX-7) in the paint of the scene; the code S15 when the file cannot be used
-const carModel = async (paint, kit) => {
-  const materials = carMaterials({ tier: carTier, paint: new THREE.Color(paint).getHex(), env });
-  if (look.car?.tail) materials.light_rear.color.set(look.car.tail).multiplyScalar(look.car.tailGlow ?? 1);   // deep red tail lights (very bright red turns orange under the tone mapping)
-  const m = D.model ? await loadCarModel(D.model, { tier: carTier, materials }) : null;
-  return m ? { ...m, materials } : buildS15({ paint: new THREE.Color(paint).getHex(), kit, tier: carTier, env });
-};
+const carModel = (paint, kit) => makeLookCar(paint, { model: D.model, kit });
 const [probe, ...parkedCars] = await Promise.all([carModel(D.paint, D.kit), ...scene0.parked.map((p) => carModel(p.paint, false))]);
 const carGroup = new THREE.Group();
 carGroup.add(probe.group);
@@ -115,11 +65,6 @@ for (const p of parkedSrc) p.probe.group.traverse((o) => o.geometry?.dispose?.()
 scene.add(parked);
 const pool = new WheelPool(8);
 scene.add(pool.blobs);
-const skids = new Skids(1500);
-skids.mesh.material.color.set(look.skid.colour); skids.mesh.material.opacity = look.skid.opacity;
-// smoke: painted billows (camera-facing cloud sprites) or faceted puffs, as the look says
-const smoke = look.smoke.style === 'billows' ? new Billows(look, tier.billows ?? tier.smoke) : new Puffs(look, tier.smoke, tier.smokeDetail);
-scene.add(skids.mesh, smoke.mesh);
 
 // ----- the drive: the line bot on the road, with the Dart's numbers (the physics is the game's, unchanged)
 const spec = cars[0];
@@ -173,13 +118,7 @@ const hud = new ProbeHud($('phud'), T, lang, { road: f.road.map(([x, z]) => [X(x
 addEventListener('keydown', (e) => { if (e.code === 'KeyH') hud.cycle(); if (e.code === 'KeyG') $('pdebug').hidden = !$('pdebug').hidden; });
 $('pdebug').hidden = !params.has('debug');
 
-function resize() {
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, tier.dpr));
-  renderer.setSize(Math.max(2, Math.round(innerWidth * tier.scale)), Math.max(2, Math.round(innerHeight * tier.scale)), false);
-  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  halos.resize(renderer.domElement.height, camera.fov);
-  post?.setSize(renderer.domElement.width, renderer.domElement.height);
-}
+const resize = () => stage.resize();
 addEventListener('resize', resize); resize();
 
 // ----- drawing
@@ -212,15 +151,14 @@ function draw(now) {
   // the sun's shadow box follows the driver; the sky dome follows the camera
   const cx = view === 'overview' ? X(scene0.views.overview.look[0]) : X(s.x), cz = view === 'overview' ? scene0.views.overview.look[2] : s.z;   // (?view=cam keeps the driver's)
   const ty = view === 'overview' ? 0 : gy;
-  sun.target.position.set(cx, ty, cz); sun.position.set(cx + sunDir.x * 120, ty + sunDir.y * 120 + 30, cz + sunDir.z * 120);
+  stage.aimSun(cx, ty, cz);
   halos.resize(renderer.domElement.height, camera.fov);
   const kmh = speedOf(cur) * 3.6;
   const H = scene0.hud;
   hud.update({ lap: H.lap, laps: H.laps, ms: simTime * 1000, best: H.best, pos: 1, of: H.of },
     { kmh, forward: Math.sign(vf) || 1, slip: bodySlip(cur), x: X(s.x), z: s.z, h: s.h }, lastInp, score,
     scene0.parked.map((p) => [X(p.x), p.z]), running ? dt : 0.016);
-  renderer.info.reset();
-  if (post) post.render(scene, camera); else renderer.render(scene, camera);
+  stage.render();
   avg += (Math.min(250, dt * 1000) - avg) * 0.05; frames++;
   if (!$('pdebug').hidden && now - shown > 400) {
     shown = now;
