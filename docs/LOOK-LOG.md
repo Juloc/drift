@@ -364,3 +364,15 @@ to keep the high tier under 400k triangles a frame: high cell 4.5 m, 550 + 320 c
    A seam in the sky (the azimuth of the cloud streaks jumped at +-180 degrees) is gone: azimuth now measured from the sun.
 7. Road: neutral grey asphalt, little sheen, clear edge and centre lines.
 Numbers unchanged: high 336k triangles / 49 calls.
+
+## Touge round 4 (2026-11-26): the new chief's review, points 1 to 4
+
+1. Sky: the hard vertical edge in the cloud streaks (the azimuth seam) was fixed in round 3; checked again: gone.
+2. Mountains: five ridge rings staggered behind the lake, each lighter and rosier than the one before (`look.ridges`), drawn unlit
+   (`look.farUnlit`: a mesh of its own with the layer colours, so they do not lie dark in their own shade against the low sun); the
+   volcanoes are lathes with concave, soft flanks and a small crater (no sharp-edged cones); the touge look is smooth (`facets: false`).
+3. Lake: the sky in the water by direction: bright orange on the side towards the sun, darker towards the viewer, and a path of light
+   to the sun (finer lake grid); less of its own glow, so the gradient shows.
+4. Smoke: puffs never rise more than `maxRise` (1.3 m) over where they started and never grow past `maxSize` (4.2 m): no smoke high up
+   behind the HUD cards; soft wisps, light on top, shaded underneath.
+Numbers: high 343k triangles / 50 calls, phone tier 82k / 22. Tests 128 green.

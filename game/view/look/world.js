@@ -60,7 +60,10 @@ export function buildWorld(scene, look, tierName = 'high') {
   const onPlaza = scene.plaza && !scene.road.overPlaza ? (x, z) => insidePoly(scene.plaza.pts, x, z) : () => false;   // (`overPlaza`: the road is drawn on top of the flat area, as a track on a quay or a desert)
 
   land(S, f, scene, look, tier);
-  ridges(S, scene, look, tier);
+  // the far mountains: unlit when the look says so (`farUnlit`), so each layer keeps its own colour (lighter and rosier with distance,
+  // as in the mockup) instead of lying dark in its own shade against the low sun
+  const Far = new Builder({ seed: 8, jitter: 0, wobble: 0, bake: false });
+  ridges(look.farUnlit ? Far : S, scene, look, tier);
   const water = river(f, scene, look);
   if (scene.bridge) bridge(S, f, scene, look, lite);
   // the road has its own mesh: a slightly glossy material that shines in the low sun (the page gives it the sky as reflection)
@@ -95,6 +98,7 @@ export function buildWorld(scene, look, tierName = 'high') {
       diffuseColor.rgb *= 1.0 + tone;`);
   };
   const lights = new THREE.Mesh(G.build(), makeGlow());
+  const far = Far.count ? new THREE.Mesh(Far.build(), new THREE.MeshBasicMaterial({ vertexColors: true })) : null;
   const roadMesh = new THREE.Mesh(Rb.build(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: look.road.roughness ?? 0.5, metalness: 0, envMapIntensity: look.road.sheen ?? 0.8 }));
   roadMesh.receiveShadow = true;
   // the grain of the asphalt: fine speckles and coarse blotches from the world position (no texture file)
@@ -110,7 +114,8 @@ export function buildWorld(scene, look, tierName = 'high') {
   };
   group.add(solid, lights, roadMesh);
   if (water) group.add(water);
-  return { group, field: f, lampHeads, road: roadMesh, triangles: [solid, lights, water, roadMesh].filter(Boolean).reduce((n, m) => n + m.geometry.index.count / 3, 0) };
+  if (far) group.add(far);
+  return { group, field: f, lampHeads, road: roadMesh, triangles: [solid, lights, water, roadMesh, far].filter(Boolean).reduce((n, m) => n + m.geometry.index.count / 3, 0) };
 }
 
 // ---------------------------------------------------------------- the land: a grid over the extent, fine near the road (the core), coarser
@@ -163,11 +168,13 @@ function volcanoes(S, scene, look) {
   for (const [x, z, r, h, k] of scene.volcanoes ?? []) {
     // air between: the farther layer the more of the haze; a lighter crater rim (snow or bare rock, look.volcano.rim) at the top
     const V = look.volcano ?? {}, vh = C(V.hazeColour ?? look.fog.colour), base = C(look.ridges[Math.min(look.ridges.length - 1, k ?? 0)]).lerp(vh, V.haze ?? 0.35), top = base.clone().lerp(C(V.rim ?? '#ffffff'), V.rimMix ?? 0.15);
-    const g = new THREE.CylinderGeometry(r * 0.12, r, h, 28, 3, true);
+    // a lathe with concave flanks (wide skirt, steep upper cone, a small crater): soft, not a sharp-edged cone
+    const prof = []; for (let j = 0; j <= 10; j++) { const t = j / 10; prof.push(new THREE.Vector2(r * (0.1 + 0.9 * Math.pow(1 - t, 1.8)), t * h)); }
+    const g = new THREE.LatheGeometry(prof, 40);
     const p = g.attributes.position, col = new Float32Array(p.count * 3), c = new THREE.Color();
-    for (let i = 0; i < p.count; i++) { const t = (p.getY(i) + h / 2) / h, a = Math.atan2(p.getZ(i), p.getX(i)); p.setY(i, p.getY(i) + noise2(a * 3 + x, t * 4) * h * 0.04 * (1 - t)); c.copy(base).lerp(top, smoothstep(0.75, 0.95, t)).lerp(haze, (1 - t) * 0.45); col.set([c.r, c.g, c.b], i * 3); }
+    for (let i = 0; i < p.count; i++) { const t = p.getY(i) / h, a = Math.atan2(p.getZ(i), p.getX(i)); p.setY(i, p.getY(i) + noise2(a * 3 + x, t * 4) * h * 0.035 * (1 - t)); c.copy(base).lerp(top, smoothstep(0.78, 0.97, t)).lerp(haze, (1 - t) * 0.45); col.set([c.r, c.g, c.b], i * 3); }
     g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
-    S.add(g, null, { m: trs(X(x), h / 2 - h * 0.12, z), keepColors: true, jitter: 0, wobble: 0 });
+    S.add(g, null, { m: trs(X(x), -h * 0.1, z), keepColors: true, jitter: 0, wobble: 0 });
   }
 }
 
@@ -208,9 +215,12 @@ function river(f, scene, look) {
   if (scene.sea) { const [a0, b0, a1, b1] = scene.terrain.extent; geos.push(gridGeo(5, 5, (r, c) => { const x = a0 + (c / 4) * (a1 - a0), z = b0 + (r / 4) * (b1 - b0); k.copy(deep).lerp(light, 0.2 + 0.25 * noise2(x / 120, z / 120)); return [X(x), scene.sea.y, z, k]; })); }
   // the lake: rings of an ellipse, lighter towards the middle
   const K = scene.lake, ky = K ? f.waterY(K.x, K.z, K.y) : 0;
-  if (K) geos.push(gridGeo(8, 49, (r, c) => {
-    const q = 1 - r / 7, a = (c / 48) * Math.PI * 2;
-    k.copy(deep).lerp(light, 0.15 + (1 - q) * 0.55);
+  if (K) geos.push(gridGeo(10, 97, (r, c) => {
+    const q = 1 - r / 9, a = (c / 96) * Math.PI * 2;
+    // the sky in the water: bright and orange on the side towards the sun, darker towards the viewer, and a path of light to the sun
+    const sd = look.sun?.dir ?? [0, 0, -1], sl = Math.hypot(sd[0], sd[2]) || 1, ux = Math.cos(a) * q, uz = Math.sin(a) * q;
+    const along = (ux * sd[0] + uz * sd[2]) / sl, across = Math.abs(ux * sd[2] - uz * sd[0]) / sl;
+    k.copy(deep).lerp(light, Math.min(1, 0.12 + 0.5 * smoothstep(-0.6, 1, along) + 0.45 * (1 - smoothstep(0.02, 0.14, across)) * smoothstep(-0.2, 0.9, along)));
     return [X(K.x + Math.cos(a) * K.rx * q), ky, K.z + Math.sin(a) * K.rz * q, k];
   }));
   if (!geos.length) return null;
