@@ -1,0 +1,138 @@
+/* The look probe's HUD, as in the owner's mockup: dark smoked-glass cards with soft edges, white text, raspberry-pink accents
+   (accent hue 350 as in the app's app.css). The touch buttons come from style.css. */
+:root {
+  --accent-hue: 350;
+  --accent: oklch(0.68 0.2 var(--accent-hue));
+  --glass: oklch(0.32 0.04 330 / 0.34);
+  --glass-edge: oklch(1 0 0 / 0.22);
+  --shadow: 0 12px 32px oklch(0.2 0.06 330 / 0.28);
+  --blur: blur(14px) saturate(1.25);
+  --white: oklch(0.99 0.005 var(--accent-hue));
+  --white-2: oklch(0.99 0.005 var(--accent-hue) / 0.82);
+  --track: oklch(1 0 0 / 0.22);
+  --font: "Roboto Flex", Roboto, "Google Sans", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", "Noto Sans", sans-serif;
+  --gap: 22px;
+}
+html, body { background: #eea7a8; }
+#vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse 75% 70% at 50% 46%, transparent 55%, oklch(0.25 0.07 330 / 0.42) 100%); }
+#phud { position: fixed; inset: 0; pointer-events: none; font: 500 20px/1.15 var(--font); color: var(--white); text-shadow: 0 1px 6px oklch(0.2 0.06 330 / 0.35); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+#phud .card { position: absolute; background: var(--glass); border: 1px solid var(--glass-edge); border-radius: 24px; box-shadow: var(--shadow), inset 0 1px 0 oklch(1 0 0 / 0.12); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); padding: 14px 24px; font-variant-numeric: tabular-nums; }
+#phud .k { font-weight: 500; color: var(--white-2); }
+#phud b { font-weight: 700; }
+
+/* top left: lap, time, best */
+.c-lap { left: max(var(--gap), env(safe-area-inset-left)); top: var(--gap); display: grid; gap: 6px; min-width: 300px; }
+.lap-title { font-size: 31px; font-weight: 700; letter-spacing: -0.01em; }
+.lap-title b { font-weight: 700; }
+.c-lap .row { display: flex; justify-content: space-between; align-items: baseline; gap: 22px; }
+.c-lap .row b { font-size: 23px; font-weight: 600; }
+.c-lap .row.best b { color: var(--white-2); font-weight: 500; }
+.star { color: oklch(0.86 0.16 85); }
+
+/* top centre: drift score */
+.c-score { left: 50%; top: var(--gap); transform: translateX(-50%); min-width: 400px; padding: 14px 26px 16px; }
+.c-score .line { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; }
+.sc-left { display: grid; }
+.sc-left .k { font-size: 22px; color: var(--white); }
+.c-score .score { font-size: 54px; letter-spacing: -0.01em; line-height: 1.02; }
+.c-score .pill { margin-top: 18px; padding: 4px 13px; border-radius: 14px; background: var(--accent); color: #fff; font-weight: 700; font-size: 34px; box-shadow: 0 0 22px oklch(0.68 0.2 var(--accent-hue) / 0.55); text-shadow: none; opacity: 0.55; transition: opacity 0.2s; }
+.c-score.live .pill { opacity: 1; }
+.c-score .prog { display: block; height: 7px; margin-top: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
+.c-score .prog i { display: block; height: 100%; border-radius: 4px; background: var(--accent); transform-origin: left; transform: scaleX(var(--v, 0)); box-shadow: 0 0 10px var(--accent); }
+.p-toast { position: absolute; left: 50%; top: 168px; transform: translateX(-50%); font: 800 30px var(--font); color: #fff; text-shadow: 0 0 18px var(--accent); }
+.p-toast.lost { color: oklch(0.8 0.14 27); }
+
+/* top right: position */
+.c-pos { right: max(var(--gap), env(safe-area-inset-right)); top: var(--gap); text-align: center; min-width: 170px; display: grid; gap: 2px; }
+.c-pos .k { font-size: 22px; color: var(--white); }
+.c-pos .pos { font-size: 46px; line-height: 1.05; }
+
+/* bottom left: minimap, heading up */
+.c-map { left: max(var(--gap), env(safe-area-inset-left)); bottom: var(--gap); width: 262px; height: 230px; padding: 6px; }
+.minimap { width: 100%; height: 100%; display: block; }
+.mm-plaza { fill: oklch(1 0 0 / 0.18); stroke: oklch(1 0 0 / 0.45); stroke-width: 1.5; }
+.mm-road { fill: none; stroke: oklch(1 0 0 / 0.9); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.mm-other { fill: #fff; stroke: var(--accent); stroke-width: 1.5; }
+.mm-me { fill: #fff; stroke: var(--accent); stroke-width: 2.6; stroke-linejoin: round; }
+
+/* bottom centre: drift angle on an open arc, no card */
+.c-angle { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: 440px; text-align: center; }
+.arc { width: 100%; height: 137px; display: block; overflow: visible; }
+.arc-track { fill: none; stroke: oklch(1 0 0 / 0.75); stroke-width: 1.6; }
+.arc-tick { stroke: oklch(1 0 0 / 0.75); stroke-width: 1.6; }
+.arc-end { fill: none; stroke: oklch(1 0 0 / 0.75); stroke-width: 1.6; }
+.arc-fill { fill: none; stroke: var(--accent); stroke-width: 13; filter: drop-shadow(0 0 6px oklch(0.68 0.2 var(--accent-hue) / 0.8)); }
+.arc-needle { stroke: #fff; stroke-width: 3; stroke-linecap: round; }
+.c-angle .angle { position: absolute; left: 0; right: 0; bottom: 4px; display: flex; flex-direction: column; align-items: center; }
+.c-angle .angle b { font-size: 46px; line-height: 1.05; }
+.c-angle .angle .k { font-size: 24px; }
+
+/* bottom right: speed, gear, pedals */
+.c-speed { right: max(var(--gap), env(safe-area-inset-right)); bottom: var(--gap); width: 392px; display: grid; gap: 14px; padding: 18px 26px 22px; }
+.sp-top { display: flex; align-items: center; gap: 18px; }
+.speed { flex: 1; }
+.speed b { font-size: 62px; letter-spacing: -0.02em; line-height: 1; }
+.speed .unit { margin-left: 8px; font-size: 22px; color: var(--white-2); }
+.sep { width: 1px; height: 44px; background: oklch(1 0 0 / 0.35); }
+.gear { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 14px; border: 2px solid oklch(1 0 0 / 0.75); }
+.gear b { font-size: 40px; line-height: 1; }
+.bars { display: grid; gap: 12px; }
+.bar-row { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 12px; }
+.bar-row .k { font-size: 20px; color: var(--white); }
+.track { display: block; height: 16px; border-radius: 8px; background: var(--track); overflow: hidden; }
+.track i { display: block; height: 100%; border-radius: 8px; background: var(--accent); transform-origin: left; transform: scaleX(var(--v, 0)); box-shadow: 0 0 12px var(--accent); }
+
+/* the cards keep their proportions on any window width (the touch layout below has its own sizes) */
+body:not(.touch) #phud > * { zoom: var(--hud-scale, 1); }
+
+#phud[data-level="off"] { display: none; }
+
+/* plain level: no arc, no pedals */
+#phud[data-level="plain"] .c-angle, #phud[data-level="plain"] .bars { display: none; }
+
+/* the phone tier draws no blur behind the cards (it costs every frame) and makes them a little darker instead */
+body.lite #phud .card { backdrop-filter: none; -webkit-backdrop-filter: none; background: oklch(0.3 0.04 330 / 0.5); }
+
+/* touch: everything smaller and away from the buttons (steering bottom left, pedals bottom right) */
+body.touch { --gap: 8px; }
+body.touch #phud { font-size: 11px; }
+body.touch #phud .card { border-radius: 14px; padding: 6px 11px; }
+body.touch .c-lap { min-width: 138px; gap: 1px; }
+body.touch .lap-title { font-size: 15px; }
+body.touch .c-lap .row { gap: 8px; }
+body.touch .c-lap .row b { font-size: 12px; }
+body.touch .c-map { top: 88px; bottom: auto; width: 112px; height: 96px; padding: 3px; }
+body.touch .c-score { min-width: 186px; padding: 6px 12px 8px; }
+body.touch .sc-left .k { font-size: 11px; }
+body.touch .c-score .score { font-size: 26px; }
+body.touch .c-score .pill { margin-top: 8px; font-size: 16px; padding: 2px 7px; border-radius: 8px; }
+body.touch .c-score .prog { margin-top: 4px; height: 4px; }
+body.touch .p-toast { top: 82px; font-size: 18px; }
+body.touch .c-pos { min-width: 0; }
+body.touch .c-pos .k { font-size: 11px; }
+body.touch .c-pos .pos { font-size: 22px; }
+body.touch .c-speed { top: 70px; bottom: auto; width: 150px; gap: 5px; padding: 6px 10px 8px; }
+body.touch .speed b { font-size: 26px; }
+body.touch .speed .unit { font-size: 10px; margin-left: 3px; }
+body.touch .sp-top { gap: 8px; }
+body.touch .sep { height: 22px; }
+body.touch .gear { width: 30px; height: 30px; border-radius: 8px; border-width: 1.5px; }
+body.touch .gear b { font-size: 18px; }
+body.touch .bars { gap: 3px; }
+body.touch .bar-row { grid-template-columns: 62px 1fr; gap: 5px; }
+body.touch .bar-row .k { font-size: 10px; }
+body.touch .track { height: 6px; }
+body.touch .c-angle { width: 190px; bottom: 4px; }
+body.touch .arc { height: 59px; }
+body.touch .c-angle .angle { bottom: 0; }
+body.touch .c-angle .angle b { font-size: 20px; }
+body.touch .c-angle .angle .k { font-size: 11px; }
+@media (prefers-reduced-motion: reduce) { .c-score .pill { transition: none; } }
+
+#pdebug { position: fixed; left: 8px; top: 8px; margin: 0; padding: 6px 8px; font: 12px/1.35 ui-monospace, Menlo, monospace; background: rgba(0,0,0,0.65); color: #dff; border-radius: 6px; pointer-events: none; white-space: pre-wrap; z-index: 9; }
+#pdebug[hidden] { display: none; }
+
+/* the touch buttons (from style.css) in the same smoked glass as the cards */
+#touch .btn { background: oklch(0.3 0.04 330 / 0.42); color: var(--white); border: 1px solid oklch(1 0 0 / 0.35); box-shadow: var(--shadow); text-shadow: 0 1px 4px oklch(0.2 0.06 330 / 0.4); }
+#touch .btn.gas { border-color: oklch(0.68 0.2 var(--accent-hue) / 0.8); box-shadow: var(--shadow), 0 0 16px oklch(0.68 0.2 var(--accent-hue) / 0.35); }
+#touch .btn.on { background: var(--accent); border-color: #fff; }
