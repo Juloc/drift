@@ -94,6 +94,7 @@ export function makeMist(look, patches) {
 export function makeSkyEnvironment(renderer, look, size = 128) {
   const scene = new THREE.Scene();
   scene.add(makeSky(look, 50));
+  if (look.sky.bands) scene.add(makeClouds(look, look.sky.bands, 48));   // the clouds in the paint too
   const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(look.land.mid).lerp(new THREE.Color(look.fog.colour), 0.5) }));
   ground.position.y = -2;
   scene.add(ground);
