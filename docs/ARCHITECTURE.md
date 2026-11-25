@@ -169,6 +169,8 @@ RESULT (15 s)       the table: position, name, race time, best lap, drift points
 - **Best times per map:** per person and map, one best lap and one best race time (by laps); the lobby's board shows the 5 best of the chosen map; a time is written only if the race was finished and it passed the plausibility check (3.7). Guests' times are shown in the result but **not stored** (see 5).
 - Quick reactions in the lobby (a few emoji-like words, 1 per 2 s per player) are a JSON message; there is no free chat.
 
+**As built (milestone 3):** the race socket is a second WebSocket (`/api/play/race/ws`) next to the lobby's; the control messages are JSON text frames on both (`race.start`, `race.join`, `race.decline`, `race.invite`, `race.go`, then `grid`, `count`, `go`, `prog`, `lap`, `finish`, `result`, `back`, and `leave` from the client); the grid stands after the start line and a lap ends when gate 0 is crossed again; gates are 8 segments in the map file; the 10 s of the invitation and the other times are constants in `RaceHub.cs`. Drift points: server and browser share `tests/vectors/drift-score.json`.
+
 ## 5. Guests
 
 - **The link** is made by an administrator (the owner) in the app: *Make a guest link* with **hours valid** (default 4, at most 12) and **uses** (default 5, at most 20); the page shows the URL **once**. The URL is `/g#<token>`: 256 random bits in the **fragment** (so no server log sees it, as for the base's invitation link, AUTH-11); the server stores only SHA-256; at most 5 links valid at once.
