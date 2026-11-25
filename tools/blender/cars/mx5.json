@@ -1,0 +1,32 @@
+{
+  "name": "mx5",
+  "about": "Mazda MX-5 NA (Miata), open roadster. Sizes of the real car; the model is a download (docs/ASSETS.md).",
+  "length": 3.97,
+  "width": 1.675,
+  "height": 1.235,
+  "wheelbase": 2.265,
+  "source": {
+    "file": "C:/AI/work/mazda_miata_mx-5_na/src/mazda_miata_mx-5_na/scene.gltf (from mazda_miata_mx-5_na.zip; modelled in centimetres)",
+    "title": "Mazda Miata MX-5 NA",
+    "author": "Lexyc16 (https://sketchfab.com/Lexyc16)",
+    "url": "https://sketchfab.com/3d-models/mazda-miata-mx-5-na-d51fcd44b74f4daf8012c41e0400c041",
+    "licence": "CC-BY-4.0",
+    "front": "-y",
+    "up": "+z",
+    "scale_by": "length",
+    "wheels": "model",
+    "slots": {
+      "^material\\.002$": "paint",
+      "^material\\.(004|008|010)$": "glass",
+      "^material\\.(009|012)$": "light_front",
+      "^material\\.014$": "rubber",
+      "^material\\.01[35]$": "chrome",
+      "^material\\.(001|005|017)$": "plastic"
+    },
+    "slot_boxes": [
+      {"material": "^material\\.012$", "slot": "light_rear", "lo": [-999, -93, -999], "hi": [999, 999, 999], "about": "the same lamp material at the rear"}
+    ],
+    "drop": [],
+    "targets": { "phone": 14000, "high": 40000 }
+  }
+}

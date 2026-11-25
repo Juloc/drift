@@ -189,6 +189,26 @@
         "en": "\"Mazda RX-7 FC\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, the lettering front and rear and a ground plane removed, reduced",
         "de": "„Mazda RX-7 FC“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, die Schriftzüge vorn und hinten und eine Bodenplatte entfernt, verkleinert"
       }
+    },
+    {
+      "id": "mx5",
+      "kind": "model",
+      "name": "Mazda Miata MX-5 NA",
+      "file": [
+        "game/assets/cars/mx5.glb",
+        "game/assets/cars/mx5-hi.glb"
+      ],
+      "author": "Lexyc16",
+      "authorUrl": "https://sketchfab.com/Lexyc16",
+      "source": "https://sketchfab.com/3d-models/mazda-miata-mx-5-na-d51fcd44b74f4daf8012c41e0400c041",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "scaled to the real car, materials replaced, reduced",
+      "use": {
+        "en": "\"Mazda Miata MX-5 NA\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, reduced",
+        "de": "„Mazda Miata MX-5 NA“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, verkleinert"
+      }
     }
   ]
 }
