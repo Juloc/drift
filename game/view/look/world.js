@@ -102,7 +102,7 @@ export function buildWorld(scene, look, tierName = 'high') {
       float rn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(rh(i), rh(i + vec2(1, 0)), f.x), mix(rh(i + vec2(0, 1)), rh(i + vec2(1, 1)), f.x), f.y); }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
       float grain = rh(floor(vRoadPos.xz * 22.0)) * 0.55 + rn(vRoadPos.xz * 3.0) * 0.3 + rn(vRoadPos.xz * 0.35) * 0.45;
-      diffuseColor.rgb *= 0.78 + grain * 0.32;`);
+      diffuseColor.rgb *= ${(1 - (look.road.grain ?? 0.32) * 0.7).toFixed(3)} + grain * ${(look.road.grain ?? 0.32).toFixed(3)};`);   // look.road.grain: how strong
   };
   group.add(solid, lights, water, roadMesh);
   return { group, field: f, lampHeads, road: roadMesh, triangles: [solid, lights, water, roadMesh].reduce((n, m) => n + m.geometry.index.count / 3, 0) };

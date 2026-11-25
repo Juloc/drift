@@ -256,3 +256,11 @@ Biggest differences left:
 3. The bridge is not seen from here (behind the valley rim); the mockup shows it mid-right over the river.
 4. The tail lights are red bars; the mockup shows two separate lamps (a question of the car model).
 5. HUD values from a short drift, as before.
+
+## Round 21 (2026-11-26): the owner's verdict with a real GPU (0.2.4)
+
+"Why so much grain, ugly": the film grain is off (`grade.grain` 0), the surface noise on large areas is much weaker (`surface`:
+facet 0.07, blotch 0.10, grain 0.02), the road's grain weaker (`road.grain` 0.12; the shader takes its strength from the look now).
+"Why is the car model so ugly, it was better in the rx7 folder": the painted car style (toon steps, contour, dust) is off; it is an
+option of the look now (`car.painted`, default off) and the car keeps the game's normal PBR materials with the sky's reflection and
+clear coat. Whether the model file keeps its original textures and rim materials is asked of the car session (the normaliser).
