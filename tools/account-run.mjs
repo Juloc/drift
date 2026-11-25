@@ -50,6 +50,10 @@ const report = {};
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
   await sleep(600);
   await b.shot('docs/screenshots/m2-garage-wide.png');
+  // the whole garage on one tall page: tuning, underglow, stats, board
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 3300, deviceScaleFactor: 1, mobile: false });
+  await sleep(900);
+  await b.shot('docs/screenshots/garage-full.png');
   report.garageProblems = b.logs; b.close();
 }
 await sleep(500);
