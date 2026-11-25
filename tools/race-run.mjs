@@ -1,12 +1,12 @@
 // Three signed-in browsers (headless, software graphics, own free ports) race one lap in the app: one starts the race, the
 // others join, an autopilot in each page follows the centre line. Prints what was seen and writes pictures.
-// Usage: node tools/race-run.mjs <base url> <cookies.json> [laps=1]
+// Usage: node tools/race-run.mjs <base url> <cookies.json> [laps=1] [map id=0] [short]
 import { spawn } from 'node:child_process';
 import { writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 
-const [base, cookieFile, lapsArg] = process.argv.slice(2);
-const laps = +(lapsArg ?? 1);
+const [base, cookieFile, lapsArg, mapArg, shortArg] = process.argv.slice(2);
+const laps = +(lapsArg ?? 1), mapId = +(mapArg ?? 0), short = shortArg === 'short';   // `short`: stop 15 s after GO (a map to look at, not a whole race)
 const cookies = JSON.parse(readFileSync(cookieFile, 'utf8'));
 const names = Object.keys(cookies).slice(0, 3);
 const chrome = `${homedir()}/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`;
@@ -54,7 +54,7 @@ for (const n of names) bs.push(await open(n));
 const report = { names };
 for (const b of bs) { await b.ev(AUTOPILOT); }
 // the first starts a race of `laps` laps, the others join
-await bs[0].ev(`__net.sendJson({ t: 'race.start', laps: ${laps} })`);
+await bs[0].ev(`__net.sendJson({ t: 'race.start', map: ${mapId}, laps: ${laps} })`);
 await sleep(1500);
 report.inviteSeen = [];
 for (const b of bs.slice(1)) report.inviteSeen.push(await b.ev("!document.getElementById('invite').hidden"));
@@ -65,16 +65,21 @@ for (let i = 0; i < 60 && !(await bs[0].ev("!document.getElementById('count').hi
 await sleep(1500);
 await bs[0].shot('docs/screenshots/m3-count.png');
 let phase = '';
+let goAt = null;
 for (let i = 0; i < 400 && !(await bs[0].ev("!document.getElementById('result').hidden")); i++) {
+  if (short && goAt === null && (await bs[0].ev("document.getElementById('rh-time').textContent !== '0:00.00' && !document.getElementById('racehud').hidden"))) goAt = i;
+  if (short && goAt !== null && i - goAt > 45) { await bs[0].shot(`docs/screenshots/m5-race-map${mapId}.png`); break; }
   await sleep(1000);
   if (i === 20) await bs[0].shot('docs/screenshots/m3-race.png');
   phase = await bs[0].ev("document.getElementById('rh-pos').textContent + ' ' + document.getElementById('rh-lap').textContent + ' ' + document.getElementById('rh-time').textContent");
   if (i % 10 === 0) console.error('...', phase);
+  if (short) console.error('   car', await bs[0].ev("(() => { const s = __drift.state, c = __drift.map.centre; let b = 1e9; for (const p of c) b = Math.min(b, Math.hypot(p[0]-s.x, p[1]-s.z)); return JSON.stringify({ x: Math.round(s.x), z: Math.round(s.z), fromCentre: Math.round(b), kmh: Math.round(Math.hypot(s.vx, s.vz)*3.6) }); })()"));
 }
 await sleep(800);
+report.mapName = await bs[0].ev("__drift.map.name");
 report.result = [];
 for (const b of bs) report.result.push(await b.ev("JSON.stringify([...document.querySelectorAll('#res-table tr')].map(tr => [...tr.children].map(td => td.textContent)))"));
-await bs[0].shot('docs/screenshots/m3-result.png');
+if (!short) await bs[0].shot('docs/screenshots/m3-result.png');
 report.problems = bs.map((b) => b.logs);
 for (const b of bs) b.close();
 console.log(JSON.stringify(report, null, 1));

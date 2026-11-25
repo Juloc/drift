@@ -1,6 +1,6 @@
 # State: where drift stands (hand-over page)
 
-Updated 2026-11-26 by the building session. Every session updates this page at the end of its work.
+Updated 2026-11-26 (evening) by the building session. Every session updates this page at the end of its work.
 
 ## Done
 
@@ -19,6 +19,14 @@ Updated 2026-11-26 by the building session. Every session updates this page at t
 - **Looked at in a browser** (headless, software graphics, the published app on a throwaway PostgreSQL, three throwaway accounts): the garage at 390x844 (phone) and 1280x860 (wide), saving a choice, and three signed-in people in the lobby seeing each other with their garage names and cars. Pictures `docs/screenshots/m2-garage-phone.png`, `m2-garage-wide.png`, `m2-lobby.png`. German texts only (the browser language was German); English is in the files and checked for the same keys, **not looked at**. Light mode only; **dark mode not looked at**.
 - **Not checked:** `docker compose up -d --build` (the machine has no .NET SDK image and there is no network pull; the Dockerfile copies `server/Relay`, `game` and `vendor/three` and `dotnet publish` was run locally to see the layout), sign-in through the hub, a real phone, Safari, the garage with a screen reader, the install as a PWA, a restart of the app with people in the lobby, more than three people at once in the signed-in lobby (the relay itself was tested with 16).
 - **Decided by the orchestrator:** accent 350 stays; 16 connections per address; **without a nickname the others see a neutral name (colour word that follows the car colour + an animal that follows the person's id), never the account name** (the same for one person every time, so a board can show it too).
+
+## Milestone 5: five maps and guests (built 2026-11-26)
+
+- **Five maps** (`game/data/maps.json`; made by `tools/make-map.mjs` and `tools/make-maps.mjs`): Car park (also the lobby, 389 m), Harbour at night (758 m, wet, containers, lamps, dark), Mountain pass (1336 m, narrow road between rails and a rock wall, hairpins of about 12 m radius, 2 laps), Desert (1157 m, sand, an asphalt patch at the start, rocks, 2 laps), Winter track (805 m, snow, three ice patches, pines). Physics is flat; ground type along a road comes from the map file. A race can be on any map (the starter chooses), the best times are per map, the relay of the race follows the map's size. Pictures `docs/screenshots/map-*.png`. The harbour has no hairpin (the description in ARCHITECTURE section 7 promised one); the numbers are a first draft, nobody has driven the maps yet.
+- **Guests:** an administrator makes a link in Settings (hours 1 to 12, uses 1 to 20, at most 5 valid links; shown once; only a hash is kept); a friend opens `/g/#secret`, chooses a name and drives (lobby and races, first car, random colour, no garage); the guest's times are shown but never stored; ending one link or all links sends the guests out at once. It is an own door (`/api/guest`, SEC-07) with its own cookie; a guest reaches nothing else.
+- **Tests:** 93 .NET and 32 Node tests green (guests: who may make links, limits, wrong/expired/ended/used-up links refused alike, names checked, hashes only in the database, door ignores a person's cookie and the other way round, sockets, end-all closes the socket, times not stored; maps: loop, grid, ground, a steady driver gets round every map without a hit, a lap counts on every map). Found and fixed on the way: a race on another map could throw in the page when the lobby welcome came late.
+- **Seen in a browser** (headless, software graphics): a guest link made in the settings, opened, name chosen, the guest and a person see each other, end-all sends the guest out; a race on the mountain map with three cars (invitation, map switch, countdown, driving). Not seen: a finished race on a new map, a real phone, English texts, dark mode, `docker compose`.
+- **The owner's wish (2026-11-26):** accounts must be easy: **one name and password for all games**, kept simple. Not built; today an account is the base's (password plus authenticator) or the hub's. To be talked through with the owner together with design and details.
 
 ## More steering angle (2026-11-26, the owner: "the drift game needs more steering angle")
 
@@ -120,4 +128,4 @@ These are the **starting numbers, not tuned by a person**: the cars differ in th
 
 ## Next
 
-Milestone 5 (five maps, guests) waits for the orchestrator's go. Not started: other maps, guest links, a race of more than one map.
+All five milestones of SCOPE are built. Waits for the owner: design and details, and simple accounts (one name and password for all games).

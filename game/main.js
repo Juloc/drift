@@ -70,6 +70,8 @@ const cam = new FollowCam(camera, coarse ? { dist: 9.5, height: 4.6, look: 4.5 }
 const input = new Input($('touch'));
 const hud = new Hud(T);
 const remotes = online ? new Remotes({ scene, pool, smoke, skids, camera, tagsEl: $('tags'), lite }) : null;
+// the state, declared before anything can call back (a socket may welcome us while the module still waits for a file)
+let cur, prev, score, spin = 0, simSteps = 0, paused = false;
 let net = null, spawned = false, locked = false;
 const raceMode = online && document.documentElement.dataset.race === '1';   // the signed-in app: races (the public demo has none)
 const lobbyUrl = params.get('ws') || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?car=${carIndex}`;
@@ -99,7 +101,8 @@ function openNet(url, inRace) {
     url,
     onWelcome(me) {
       if (!inRace && !spawned) {
-        const g = raceMode ? { x: map.lobbySpawn.x + (me.id % 8) * 6 - 20, z: map.lobbySpawn.z, h: map.lobbySpawn.h } : map.grid[me.id % map.grid.length];
+        const ls = mapJson.lobbySpawn;   // the lobby is the car park, whichever map is drawn at this moment
+        const g = raceMode ? { x: ls.x + (me.id % 8) * 6 - 20, z: ls.z, h: ls.h } : map.grid[me.id % map.grid.length];
         cur = prev = makeCar(g.x, g.z, g.h); score = newScore(); cam.snap(cur); spawned = true;
       }
       droppedBtn.hidden = true;
@@ -200,7 +203,6 @@ if (online) {
 }
 
 // ----- state
-let cur, prev, score, spin = 0, simSteps = 0, paused = false;
 const loop = new FixedLoop();
 function reset() {
   const s = map.lobbySpawn ?? map.grid[0];
