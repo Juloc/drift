@@ -111,6 +111,22 @@ mirrors, tyre radius 0.327 m. In the game (`?glb=rx7`, car park, headless): the 
 it drifts, smoke and skid marks from the game's wheel layout; whole scene 48 862 triangles / 20 draw calls (phone tier),
 83 812 / 33 (high). Known: on the phone tier the rims, thinned to 800 triangles each, look like plain light discs.
 
+### Own materials (2026-11-26): the AE86 as the one car done right
+
+The owner found the RX-7 with the game's plain slot materials ugly next to the original: downloads now keep their own
+materials and textures, only the paint takes the garage colour (`docs/CAR-MODELS.md`, "The model's own materials").
+`"materials": "own"` in the car file; `"slots"` then names only the paint and the glowing lamps (`lamp_front`, `lamp_rear`),
+everything else stays the model's own. Flat materials are combined into one palette material (8 x 8 texels a material, colour
+and metal/roughness), so the AE86's 13 materials are 9 draw calls on both tiers. The downloads' own normals were smooth across
+coarse flat panels (a glossy black hood looked like crumpled foil): new normals, smooth with hard edges above 30 degrees
+(`"smooth_angle"`, `"keep_normals": true` keeps the file's). Reference: `look.py --engine CYCLES` renders the original download
+on the PC (`--views '{"front": [0.62, -0.79, 0.28]}'`).
+
+AE86: phone 13 890 triangles / 9 draw calls / 570 KB, high 25 552 / 9 / 1 013 KB (wheels 1 500 and 4 414 triangles each).
+The model has **no interior** (opaque black glass) and its pop-up lamps are **fixed up** and part of the body (no state
+possible without remodelling). In the game: `?model=ae86` (the car is not in `cars.json` yet). Pictures
+`docs/screenshots/cars/ae86-{front,rear,side,phone,drift-phone,drift-wide}.png`.
+
 ### Batch 1 (2026-11-26): six more downloads
 
 The same steps per car, about 15 to 30 minutes of looking and writing the car file; the runs take 2 to 4 s per tier.

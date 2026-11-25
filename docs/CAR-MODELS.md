@@ -58,6 +58,17 @@ A material's **name** is its slot (`paint.001` counts as `paint`; case does not 
 
 A material with any other name becomes `plastic` and is reported in the console. Fewer slots than listed are fine. Every slot is **one merged mesh** (the whole body in one mesh per slot, not one mesh per panel).
 
+### The model's own materials (`own_`, `lamp_front_`, `lamp_rear_`)
+
+Since 2026-11-26 a downloaded car keeps its own look (the owner's decision): besides the slot names above, a material may be
+- `own_<name>`: the game keeps the file's material as it is (PBR: colour, metal, roughness, its textures), adds its room for
+  the reflections;
+- `lamp_front_<name>`, `lamp_rear_<name>`: the file's material, glowing in its own colour or texture (headlamps, amber
+  indicators, textured tail lamps).
+Only `paint` is the game's (the garage colour). `tools/blender/car_normalize.py` with `"materials": "own"` writes such files:
+all flat materials of a kind become one material with a small palette texture (colour; metal and roughness), so a car with
+twenty original materials is still about ten draw calls. Textures at most 1024 (phone) / 2048 (high), webp; UVs are kept.
+
 ## Other rules
 
 - Normals: smooth where the surface is curved, hard where there is an edge (split vertices), exported with normals. Tangents, cameras, lights, animations, morph targets, skins: **none**.

@@ -89,7 +89,8 @@ document.body.classList.toggle('touch', coarse);
 document.body.classList.toggle('lite', lite);
 const stage = createStage({ canvas: $('view'), look: first.look, scene0: first.scene, tierName });
 const { renderer, scene, camera } = stage;
-let fleet = await new Fleet(stage, { model: 'rx7' }).load();   // the RX-7 for everybody (the code S15 where the file cannot be used)
+const carModel = /^[a-z0-9-]{1,24}$/.test(params.get('model') ?? '') ? params.get('model') : cars[carIndex]?.model ?? 'rx7';   // ?model=ae86 shows another file (game/assets/cars/)
+let fleet = await new Fleet(stage, { model: carModel }).load();   // the RX-7 for everybody unless the car or the address names a model (the code S15 where the file cannot be used)
 const ownHue = (car.colour % 360) / 360;
 let ownColour = new THREE.Color().setHSL(ownHue, 0.62, 0.42);
 let mine = fleet.spawn(ownColour);
@@ -140,7 +141,7 @@ async function ensureMap(id) {
     look = a.look;
     if (newLook || true) {   // the cars are made for the look they are seen in (the sun's strength is in the painted style)
       fleet.dispose();
-      fleet = await new Fleet(stage, { model: 'rx7' }).load();
+      fleet = await new Fleet(stage, { model: carModel }).load();
       if (remotes) { remotes.fleet = fleet; remotes.clear(); }
       mine = fleet.spawn(ownColour);
       if (practice) togglePractice(false);

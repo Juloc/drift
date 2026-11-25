@@ -124,10 +124,10 @@
       "licence": "CC BY 4.0",
       "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
       "attribution": true,
-      "changes": "scaled to the real car, materials replaced, number plates and the door lettering removed, reduced",
+      "changes": "scaled to the real car, its own materials kept (the flat ones combined in one palette texture), the paint takes the garage colour, number plates and door lettering removed",
       "use": {
-        "en": "\"Toyota Corolla AE86 Trueno\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, number plates and the door lettering removed, reduced",
-        "de": "„Toyota Corolla AE86 Trueno“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, Kennzeichen und der Türschriftzug entfernt, verkleinert"
+        "en": "\"Toyota Corolla AE86 Trueno\" by Lexyc16, CC BY 4.0; changed: scaled, flat materials combined, paint recoloured by the game, number plates and lettering removed",
+        "de": "„Toyota Corolla AE86 Trueno“ von Lexyc16, CC BY 4.0; verändert: skaliert, einfarbige Materialien zusammengefasst, Lack vom Spiel umgefärbt, Kennzeichen und Schriftzüge entfernt"
       }
     },
     {
