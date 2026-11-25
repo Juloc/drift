@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "challenges": [
+    { "id": "first-slide", "type": "drift-points", "map": 0, "time": 60, "stars": [800, 1800, 3000],
+      "title": { "en": "First slide", "de": "Erster Slide" },
+      "text": { "en": "Earn points with one drift chain in 60 seconds.", "de": "Hol in 60 Sekunden Punkte mit einer einzigen Drift-Kette." } },
+    { "id": "hold-it", "type": "drift-hold", "map": 0, "time": 60, "stars": [4, 8, 14],
+      "title": { "en": "Hold it", "de": "Halt ihn" },
+      "text": { "en": "Keep one slide going as long as you can (over 20 degrees, over 8 m/s). Seconds count.", "de": "Halte einen Slide so lange du kannst (über 20 Grad, über 8 m/s). Es zählen Sekunden." } },
+    { "id": "fast-and-sideways", "type": "drift-fast", "map": 0, "time": 60, "stars": [3, 8, 15],
+      "title": { "en": "Fast and sideways", "de": "Schnell und quer" },
+      "text": { "en": "Drift above 18 m/s (65 km/h) for as many seconds as you can.", "de": "Drifte über 18 m/s (65 km/h), so viele Sekunden du schaffst." } },
+    { "id": "chain-reaction", "type": "chain-mult", "map": 0, "time": 90, "stars": [3, 4, 5],
+      "title": { "en": "Chain reaction", "de": "Kettenreaktion" },
+      "text": { "en": "Link slides to reach the multiplier shown by the stars (x3, x4, x5).", "de": "Verbinde Slides bis zum Multiplikator der Sterne (x3, x4, x5)." } },
+    { "id": "tandem-with-the-bot", "type": "tandem", "map": 0, "time": 60, "stars": [100, 400, 900],
+      "title": { "en": "Tandem with the bot", "de": "Tandem mit dem Bot" },
+      "text": { "en": "Drift beside the practice bot and earn tandem bonus points.", "de": "Drifte neben dem Übungs-Bot und hol Tandem-Bonuspunkte." } },
+    { "id": "clean-sheet", "type": "clean-sheet", "map": 0, "time": 60, "stars": [1500, 3500, 6000],
+      "title": { "en": "Clean sheet", "de": "Saubere Weste" },
+      "text": { "en": "Bank points without touching a wall: the first hit ends the run.", "de": "Bring Punkte ins Trockene, ohne eine Wand zu berühren: der erste Treffer beendet den Lauf." } }
+  ]
+}
