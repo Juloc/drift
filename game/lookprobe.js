@@ -60,8 +60,9 @@ if (probe.url) {
 }
 const parkedSrc = scene0.parked.map((p, i) => ({ probe: parkedCars[i], matrix: new THREE.Matrix4().compose(new THREE.Vector3(X(p.x), 0, p.z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, HEAD(p.h), 0)), new THREE.Vector3(1, 1, 1)), paint: new THREE.Color(p.paint) }));
 const parked = mergeParked(parkedSrc);
-const carPaint = paintCar(carGroup, sun, look.car);   // the painted look (steps, soft contour, dust)
-paintCar(parked, sun, look.car);
+// the painted car style (toon steps, contour, dust) only when the look asks for it; the owner wants the model's own PBR materials
+const carPaint = look.car?.painted ? paintCar(carGroup, sun, look.car) : null;
+if (look.car?.painted) paintCar(parked, sun, look.car);
 for (const p of parkedSrc) p.probe.group.traverse((o) => o.geometry?.dispose?.());
 scene.add(parked);
 const pool = new WheelPool(8);
@@ -123,7 +124,7 @@ function draw(now) {
   const gy = f.groundY(s.x, s.z), sh = Math.sin(s.h), ch = Math.cos(s.h);
   const grade = (f.groundY(s.x + sh * 1.3, s.z + ch * 1.3) - f.groundY(s.x - sh * 1.3, s.z - ch * 1.3)) / 2.6;
   carGroup.position.set(X(s.x), gy, s.z);
-  carPaint.uBase.value = gy;
+  if (carPaint) carPaint.uBase.value = gy;
   smoke.car.value.set(X(s.x), gy, s.z);
   carGroup.rotation.set(Math.max(-0.05, Math.min(0.05, -cur.ax * 0.004)) - Math.atan(grade), HEAD(s.h), Math.max(-0.08, Math.min(0.08, -cur.w * vf * 0.0035)), 'YXZ');
   probe.setWheels(cur.steer, spin);
