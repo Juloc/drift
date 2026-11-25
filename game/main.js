@@ -439,6 +439,14 @@ function simStep(i) {
     const st = practice.scorer.update(cur, practice.bot.state, DT);
     if (st.event) tandemHud.bank(st.event.points);
   }
+  // smoke from the rear wheels, 40 times a second, as in the probe: it drifts off to the left of the way the car goes (not into the camera behind it) and starts a little outside the wheel
+  if (simSteps % 3 === 0 && !paused) {
+    const slid = (Math.abs(bodySlip(cur)) > 0.2 || inp.handbrake > 0) && speedOf(cur) > 3, S = look.smoke, t = Math.atan2(cur.vx, cur.vz), push = S.drift ?? 0, out = S.offset ?? 0;
+    if (slid) for (const sx of [-1, 1]) {
+      const ry = HEAD(cur.h), c = Math.cos(ry), sn = Math.sin(ry), lx = sx * CAR_DIMS.wheelX, lz = -CAR_DIMS.wheelZ, wx = X(cur.x) + lx * c + lz * sn, wz = cur.z - lx * sn + lz * c;
+      stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + stage.field.groundY(cur.x, cur.z), wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
+    }
+  }
   simSteps++;
 }
 // optional: simulate N seconds before the first frame (for pictures taken after a fixed time)
@@ -559,7 +567,6 @@ function frame(now) {
   for (let i = 0; i < 2; i++) {
     const sx = i ? 1 : -1;
     const wp = new THREE.Vector3(sx * CAR_DIMS.wheelX, 0, -CAR_DIMS.wheelZ).applyMatrix4(carGroup.matrix);
-    if (sliding && cur.slide + (input.has('hand') ? 0.4 : 0) > 0.25) smoke.emit(wp.x, 0.35 + gy, wp.z, X(cur.vx) * 0.06, cur.vz * 0.06, Math.min(1, cur.slide + 0.2));
     skids.mark(i, wp.x, wp.z, 0, 0, sliding, gy);
   }
   // damage: the paint darkens with it, smoke comes from the nose over half, and a small readout
