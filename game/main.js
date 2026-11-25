@@ -25,10 +25,10 @@ const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
-    online: 'driving here', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
+    online: 'driving here', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
-    online: 'fahren hier', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
+    online: 'fahren hier', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
 document.documentElement.lang = de ? 'de' : 'en';
@@ -72,6 +72,7 @@ const hud = new Hud(T);
 const remotes = online ? new Remotes({ scene, pool, smoke, skids, camera, tagsEl: $('tags'), lite }) : null;
 // the state, declared before anything can call back (a socket may welcome us while the module still waits for a file)
 let cur, prev, score, spin = 0, simSteps = 0, paused = false;
+let lastInp = { steer: 0, throttle: 0, brake: 0, handbrake: 0 };   // what the car was told in the last step (for the HUD)
 let net = null, spawned = false, locked = false;
 const raceMode = online && document.documentElement.dataset.race === '1';   // the signed-in app: races (the public demo has none)
 const lobbyUrl = params.get('ws') || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?car=${carIndex}`;
@@ -220,6 +221,7 @@ if (demo) { const o = mapId === 0 ? { x: 66, z: 48, h: Math.PI / 2 } : map.grid[
 function simStep(i) {
   prev = cur;
   const inp = locked ? { steer: 0, throttle: 0, brake: 0, handbrake: 1 } : demo ? orbitBot(i * DT, cur, { start: 1.5 }) : input.read();
+  lastInp = inp;
   const mu = surfaceAt(map, cur.x, cur.z).mu;
   cur = collide(map, step(cur, inp, car, mu));
   score = scoreStep(score, { slip: bodySlip(cur), speed: speedOf(cur), hit: cur.hit, turned: turnedAngle(cur) }, DT);
@@ -232,6 +234,7 @@ input.onkey.KeyR = reset;
 input.onkey.KeyP = () => (paused = !paused);
 input.onkey.KeyF = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
 input.onkey.KeyQ = () => { const o = ['low', 'medium', 'high']; view.governor.set(o[(o.indexOf(view.tier) + 1) % 3], false); };
+input.onkey.KeyH = () => hud.cycle();
 input.onkey.KeyG = () => ($('debug').hidden = !$('debug').hidden);
 document.addEventListener('visibilitychange', () => { if (document.hidden) input.clear(); });
 const showTouch = () => {
@@ -302,7 +305,7 @@ function frame(now) {
 
   cam.update(drawn, car.top, dt);
   if (TIERS[view.tier].shadows) view.followSun(drawn.x, drawn.z);
-  hud.update(kmh, score, dt);
+  hud.update(kmh, score, dt, lastInp, { steer: cur.steer, slip: bodySlip(cur) });
   const t1 = performance.now();
   renderer.render(scene, camera);
   const t2 = performance.now();
