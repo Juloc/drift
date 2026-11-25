@@ -13,6 +13,8 @@ Keyboard, touch and a controller (Gamepad API, the standard layout that browsers
 | Feel of driving: Arcade or Pro | X | **LB** (and the chip on the screen) | the chip |
 | Practice bot (tandem) | B | **Back** | |
 | Pause | P | **Start** | |
+| Sound on/off, music switch | M, the chips | | the chips |
+| Damage on/off | V | | |
 | Emotes | 1 to 0 | **d-pad** (up, right, down, left = the first four) | the emote button |
 | Fullscreen, quality, HUD, debug | F, Q, H, G | | |
 

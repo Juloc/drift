@@ -4,6 +4,7 @@
 import * as THREE from '../vendor/three/three.module.js';
 import { step, makeCar, bodySlip, bodyVelocity, speedOf, turnedAngle, DT } from './sim/physics.js';
 import { prepareMap, surfaceAt, collide } from './sim/map.js';
+import { collideBody, collideCars, damageStep, damaged } from './sim/collision.js';
 import { newScore, scoreStep } from './sim/score.js';
 import { applyTuning, NAMES as TUNE_NAMES, valid as tuneValid } from './sim/tuning.js';
 import { applyFeel, feelOf, PRO } from './sim/feel.js';
@@ -33,12 +34,12 @@ const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
     online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', tunedMark: 'tuned', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
-    camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', soundOn: 'Sound on (M)', soundOff: 'Sound off (M)', musicOff: 'Music: off (placeholder)', musicOn: 'Music: on (placeholder, no music yet)', chLap: 'Set a clean lap in a race or time trial', chDone: 'Challenge finished', chConfirmed: 'confirmed', chFailed: 'ended by a hit', chTitle: 'Challenge',
+    camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', damageLabel: 'Damage', damageOn: 'Damage on (V)', damageOff: 'Damage off (V)', soundOn: 'Sound on (M)', soundOff: 'Sound off (M)', musicOff: 'Music: off (placeholder)', musicOn: 'Music: on (placeholder, no music yet)', chLap: 'Set a clean lap in a race or time trial', chDone: 'Challenge finished', chConfirmed: 'confirmed', chFailed: 'ended by a hit', chTitle: 'Challenge',
     feelArcade: 'Arcade', feelPro: 'Pro (fewer aids)', feelKey: 'Feel of driving (X)', tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
     online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', tunedMark: 'getunt', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
-    camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', soundOn: 'Ton an (M)', soundOff: 'Ton aus (M)', musicOff: 'Musik: aus (Platzhalter)', musicOn: 'Musik: an (Platzhalter, noch keine Musik)', chLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde', chDone: 'Herausforderung beendet', chConfirmed: 'bestätigt', chFailed: 'durch einen Treffer beendet', chTitle: 'Herausforderung',
+    camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', damageLabel: 'Schaden', damageOn: 'Schaden an (V)', damageOff: 'Schaden aus (V)', soundOn: 'Ton an (M)', soundOff: 'Ton aus (M)', musicOff: 'Musik: aus (Platzhalter)', musicOn: 'Musik: an (Platzhalter, noch keine Musik)', chLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde', chDone: 'Herausforderung beendet', chConfirmed: 'bestätigt', chFailed: 'durch einen Treffer beendet', chTitle: 'Herausforderung',
     feelArcade: 'Arcade', feelPro: 'Pro (weniger Hilfen)', feelKey: 'Fahrgef\u00fchl (X)', tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
@@ -268,6 +269,25 @@ if (online) {
 
 // ----- state
 const loop = new FixedLoop();
+// ----- contact and damage: your car is a rectangle that bounces off walls, poles and the other cars (sim/collision.js); hard hits damage it (a dent in the look, smoke, and a little less
+// power). The other cars are what the network says about them (the latest poses, carried forward by the interpolation delay); each game moves only its own car, so both agree.
+// Damage can be switched off (key V, ?damage=0): the creative mode will do that by itself.
+let dmg = 0, sinceHit = 99, damageOn = params.get('damage') === '0' ? false : (() => { try { return localStorage.getItem('drift.damage') !== '0'; } catch { return true; } })();
+let carNow = car, remoteBodies = [];
+const damageEl = Object.assign(document.createElement('div'), { id: 'damage', hidden: true });
+(document.getElementById('hud') ?? document.body).append(damageEl);
+function toggleDamage() {
+  damageOn = !damageOn;
+  try { localStorage.setItem('drift.damage', damageOn ? '1' : '0'); } catch { /* not kept */ }
+  if (!damageOn) { dmg = 0; carNow = car; }
+  note(damageOn ? T.damageOn : T.damageOff);
+}
+/** What a remote car is for the contact test: a body with a velocity from its pose (nose direction plus slip angle), carried forward by the interpolation delay. */
+function bodyOf(o) {
+  const dir = o.h + o.beta, sp = o.vf / Math.max(0.3, Math.cos(o.beta)), vx = Math.sin(dir) * sp, vz = Math.cos(dir) * sp, d = 0.14;
+  return { x: o.x + vx * d, z: o.z + vz * d, h: o.h, vx, vz, w: 0 };
+}
+
 // ----- sound: made here, starts only after a click or a key, mute and the music switch are kept on the device
 const sound = new SoundSystem();
 const soundChip = Object.assign(document.createElement('button'), { id: 'sound', type: 'button' });
@@ -313,6 +333,7 @@ function reset() {
   const s = map.lobbySpawn ?? map.grid[0];
   cur = prev = makeCar(s.x, s.z, s.h);
   score = newScore();
+  dmg = 0; sinceHit = 99; carNow = car;   // R repairs the car
   if (chDef && chDef.type !== 'lap') { chRun = newRun(chDef); chStarted = false; chServer = null; net?.sendJson({ t: 'challenge.stop' }); }
   spin = 0;
   skids.clear();
@@ -340,7 +361,18 @@ function simStep(i) {
   const inp = locked ? { steer: 0, throttle: 0, brake: 0, handbrake: 1 } : demo ? orbitBot(i * DT, cur, { start: 1.5 }) : input.read();
   lastInp = inp;
   const mu = surfaceAt(map, cur.x, cur.z).mu;
-  cur = collide(map, step(cur, inp, car, mu));
+  cur = collideBody(map, step(cur, inp, carNow, mu));   // the walls and poles
+  for (const o of remoteBodies) {   // the other cars
+    const r = collideCars(cur, o, { applyB: false });
+    if (r.hit > 0) cur = { ...r.a, hit: Math.max(cur.hit, r.hit) };
+  }
+  if (cur.hit > 0) { sound.bump(cur.hit); }
+  if (damageOn) {
+    const before = dmg;
+    dmg = damageStep(dmg, cur.hit, sinceHit, DT);
+    sinceHit = cur.hit > 0 ? 0 : sinceHit + DT;
+    if (dmg !== before) carNow = damaged(car, dmg);
+  }
   score = scoreStep(score, { slip: bodySlip(cur), speed: speedOf(cur), hit: cur.hit, turned: turnedAngle(cur) }, DT);
   if (chRun && !chRun.done) {   // the challenge runs from the first movement
     if (!chStarted && speedOf(cur) > 1) chStart();
@@ -360,6 +392,7 @@ for (let i = 0, n = Math.round((+params.get('t') || 0) / DT); i < n; i++) loop.a
 input.onkey.KeyR = reset;
 input.onkey.KeyB = () => togglePractice();
 input.onkey.KeyM = toggleSound;
+input.onkey.KeyV = toggleDamage;
 // cameras: chase, bonnet, cockpit (the key C, or Y and RB on a pad); in the cockpit the car's body is hidden
 function cycleCamera() { const m = cam.cycle(cur); note(m === 'bonnet' ? T.camBonnet : m === 'cockpit' ? T.camCockpit : T.camChase); }
 input.onkey.KeyC = cycleCamera;
@@ -372,7 +405,7 @@ const feelChip = Object.assign(document.createElement('button'), { id: 'feel', t
 const showFeel = () => { feelChip.textContent = feel === PRO ? T.feelPro : T.feelArcade; feelChip.title = T.feelKey; feelChip.setAttribute('aria-pressed', feel === PRO); };
 function toggleFeel() {
   if (racing) return;
-  feel = feel === PRO ? 0 : PRO; car = applyFeel(car0, feel);
+  feel = feel === PRO ? 0 : PRO; car = applyFeel(car0, feel); carNow = damaged(car, dmg);
   try { localStorage.setItem('drift.feel', feel === PRO ? 'pro' : 'arcade'); } catch { /* no storage: the choice lasts for this page */ }
   net?.sendJson({ t: 'feel', v: feel });
   showFeel();
@@ -442,7 +475,9 @@ function frame(now) {
   if (net) {
     const moving = speedOf(cur) > 0.3 || input.read().throttle > 0;
     net.sendPose({ x: cur.x, z: cur.z, h: cur.h, vf, steer: cur.steer }, bodySlip(cur), (input.has('hand') ? 1 : 0) | (cur.slide > 0.3 ? 2 : 0) | (cur.hit > 0 ? 4 : 0), moving, now);
-    remotes.update(net.sample(now), net.roster, dt);
+    const list = net.sample(now);
+    remotes.update(list, net.roster, dt);
+    remoteBodies = list.filter((o) => !o.far).map(bodyOf);
   }
   if (practice) {   // the practice bot, drawn like a car of the lobby (body and wheels), and the chip from the local judgement
     const b = practice.bot.state, { vf: bvf } = bodyVelocity(b);
@@ -464,6 +499,11 @@ function frame(now) {
     if (sliding && cur.slide + (input.has('hand') ? 0.4 : 0) > 0.25) smoke.emit(wp.x, 0.2, wp.z, X(cur.vx) * 0.2, cur.vz * 0.2, Math.min(1, cur.slide + 0.2));
     skids.mark(i, wp.x, wp.z, 0, 0, sliding);
   }
+  // damage: the body darkens with it, smoke comes from the nose over half, and a small readout
+  bodyMesh.material.color.setScalar(1 - 0.5 * dmg);
+  if (dmg > 0.5 && !paused && info.frames % 3 === 0) { const np = new THREE.Vector3(0, 0.7, 1.9).applyMatrix4(carGroup.matrix); smoke.emit(np.x, 0.5, np.z, 0, 0, 0.35 * dmg); }
+  const dmgText = dmg > 0.02 ? `${T.damageLabel} ${Math.round(dmg * 100)} %` : '';
+  if (damageEl.textContent !== dmgText) { damageEl.textContent = dmgText; damageEl.hidden = dmgText === ''; }
   smoke.update(paused ? 0 : dt);
   smoke.resize(renderer.domElement.height * 1, camera.fov);
 

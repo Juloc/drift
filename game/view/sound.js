@@ -79,6 +79,18 @@ export class SoundSystem {
     this.master?.gain.setTargetAtTime(this.muted ? 0 : 0.8, this.ctx.currentTime, 0.05);
   }
   setMusic(on) { this.music = !!on; try { this.storage?.setItem('drift.music', this.music ? '1' : '0'); } catch { /* not kept */ } }
+  /** A hit: a short burst of low noise, louder with the hit (at most one every 120 ms). */
+  bump(approach, now = performance.now()) {
+    if (!this.ctx || this.muted || approach < 2 || now - (this.lastBump ?? -1e9) < 120) return;
+    this.lastBump = now;
+    const t = this.ctx.currentTime, level = Math.min(1, approach / 25);
+    const src = this.ctx.createBufferSource(); src.buffer = this.noise;
+    const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 300 + 900 * level;
+    const g = this.ctx.createGain(); g.gain.value = 0.9 * level;
+    g.gain.setTargetAtTime?.(0, t + 0.02, 0.07 + 0.08 * level);   // dies away in a fraction of a second
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(); src.stop?.(t + 0.6);
+  }
   get activeOthers() { return this.pool.filter((v) => v.active).length; }
 
   /**

@@ -99,3 +99,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf5; fon
 #sound, #music { position: absolute; left: max(14px, env(safe-area-inset-left)); width: 44px; height: 44px; font-size: 20px; border: 2px solid rgba(27,35,48,0.35); border-radius: 12px; background: var(--card); color: var(--ink); opacity: 0.8; pointer-events: auto; }
 #sound { top: 150px; } #music { top: 198px; }
 #sound[aria-pressed="true"], #music[aria-pressed="true"] { background: var(--accent); color: #fff; opacity: 1; }
+
+/* ----- damage readout: one small line under the speed ----- */
+#damage { position: absolute; left: max(14px, env(safe-area-inset-left)); top: 100px; margin-left: 56px; padding: 3px 10px; border-radius: 10px; background: var(--card); font: 700 12px system-ui, sans-serif; pointer-events: none; }
+#damage[hidden] { display: none; }

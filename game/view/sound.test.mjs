@@ -74,3 +74,15 @@ test('the own engine follows the speed: higher speed in a gear, a different car,
   assert.notEqual(pitch(15, 1), pitch(15, 2));
   assert.ok(s.own.tyreGain.gain.value > 0, 'a slide of 0.7 at 18 m/s squeals');
 });
+
+test('a hit makes a short burst, louder with the hit, at most one in 120 ms, nothing for a tap, muted or before the click', () => {
+  const { Ctx, made } = fakeAudio();
+  const s = new SoundSystem({ AudioCtx: Ctx, storage: store() });
+  s.bump(20, 0); assert.equal(made.src, 0, 'nothing before the click');
+  s.unlock(); const base = made.src;
+  s.bump(1, 1000); assert.equal(made.src, base, 'a tap under 2 m/s is silent');
+  s.bump(15, 2000); assert.equal(made.src, base + 1);
+  s.bump(25, 2050); assert.equal(made.src, base + 1, 'one at a time');
+  s.bump(25, 2300); assert.equal(made.src, base + 2);
+  s.setMuted(true); s.bump(25, 5000); assert.equal(made.src, base + 2, 'muted');
+});
