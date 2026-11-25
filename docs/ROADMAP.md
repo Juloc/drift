@@ -1,76 +1,98 @@
-# Roadmap to Drift 1.0 (draft, nothing built)
+# Roadmap to Drift 1.0
 
-Status: **draft for the owner**, written 2026-11-25 on the orchestrator's brief. It changes what [SCOPE.md](SCOPE.md) calls out of scope (strangers, gamepads, tuning, damage), so **SCOPE.md is updated only after the owner says yes to this page**.
+Status: **owner's decisions of 2026-11-26 are built in** (no closed beta: straight to a public start). Nothing of this is built yet; the first release is planned slice by slice in [PLAN-0.2.md](PLAN-0.2.md). [SCOPE.md](SCOPE.md) points here.
 
-## Decisions of the owner this draft rests on
+## Decisions this rests on
 
-1. **Public for everyone**: open game accounts on the owner's website, the family comes in through the hub ([ACCOUNTS-GAMES.md](ACCOUNTS-GAMES.md)).
-2. **Look**: realistic, recognisable cars (3D models from the outside pipeline, rules in [CAR-MODELS.md](CAR-MODELS.md)) in a stylised, clear world with good light. Details are decided on mockups, later.
-3. **PC first** (keyboard and controller, best graphics); the phone runs along (lower tier, same game).
-4. A small preview on the website (the website's own work).
+1. **Public for everyone from the first release.** Open game accounts, the family through the hub.
+2. **One "Juloc Games" account for all games**, provided by Drift as a separable module ([ACCOUNTS-GAMES.md](ACCOUNTS-GAMES.md)).
+3. **Look:** realistic, recognisable cars (models from the outside pipeline, rules in [CAR-MODELS.md](CAR-MODELS.md)) in a stylised, clear world with good light; details on mockups, later.
+4. **PC first** (keyboard and controller, best graphics); the phone runs along (lower tier, same game).
+5. **Hosting:** the owner's small server through the usual deployment tool, public behind the reverse proxy (the address is the owner's). A small preview on his website is the website's own work.
+6. **First real car: Silvia S15.** Until the pipeline delivers it, the code models are the cars.
 
-## Where we are (end of Features 1 and the model path)
+## Where we are
 
-Driving, open lobby, races, five maps, five code-built cars, guests, garage, tuning sliders, boards, stats, shared world on the website; the model-file path with a test model. The cars are not final art, there is no collision between cars, no damage, no sound, no controller, no night, and registration is closed.
+Driving, open lobby, races, five maps, five code-built cars, guests, garage, tuning sliders, boards, stats, the shared world on the website, the model-file path with a test model. Missing for the public: accounts for strangers and everything that protects them, collision, damage, sound, controller, real cars, night, load numbers, backups.
 
 ## Phases
 
-Each phase ends with a release candidate the owner can play. A phase starts only on his yes; the order can change, the content of a phase moves between phases only with him.
+Each phase ends with a version the owner can play. A phase starts on his yes; content moves between phases only with him. Release, repository and deployment are the orchestrator's and need his yes.
 
-### 0.2 Closed beta (family and friends)
+### 0.2 Public start
 
-- **Content:** the app runs on the owner's server (behind his reverse proxy); 1 to 2 **real car models** through the pipeline (the first one doubles as the test of the whole pipeline); **2 maps polished** (shape, surface, props, light); **car-to-car collision and damage in our own 2D code** (circles or boxes, impulse on contact, a damage value that costs grip or looks bent; the server judges it as it judges everything else); **controller** (Gamepad API: analog steering and triggers, deadzones, a hint screen); **sound** made in code: engine (pitch/gain from revs), tyre squeal from slip, wind, a bump (no sound files, nothing to license).
-- **Done means:** six people drive at once for an evening without a restart; the cars do not stick or fly after contact (rules for what the relay accepts after a collision are written and tested); the controller is playable without the keyboard; sound can be muted and starts only after a click; frame time and bytes per second are written down for desktop and for a mid phone.
-- **The owner checks:** how a car feels after the first real model; collision strength and damage look; whether sound is pleasant after an hour.
-- **Risks:** collision under network delay (two clients disagree who hit whom): decide who is authoritative for contacts, accept a little rubber-banding rather than desync; the first model may need several rounds with the pipeline (budget in CAR-MODELS.md); the server is small, so the number of players per world is a number to measure.
+**Content (in this order, details in PLAN-0.2.md):**
+- The **Juloc Games account** module and its sign-in; the lobby accepts it next to hub people and guests.
+- **Protection for open registration:** limits per address and day, proof of work of our own, name filter, report and block/ban by the administrator, **emotes only** (no free text), **delete account and export data**, **privacy and imprint pages with placeholders** for the owner's texts (the site cannot go live without them).
+- **Collision and damage** in our own 2D code (shared by client and server rules).
+- **Controller** (Gamepad API), **sound** made in code (engine, tyres, bump).
+- **Cars:** the five code models; the **S15 as the first real car** as soon as the pipeline delivers it (a file in `game/assets/cars/`, fallback stays).
+- **Operations:** load test at 100 and more players, backups with a restore that was tried, monitoring (alive check, error counts, relay numbers), deployment on the owner's server, a security review of everything new.
 
-### 0.3 All cars and visible tuning
+**Done means:** a stranger registers, plays and deletes the account without help; a scripted attack on registration (1 000 attempts from one address) is stopped and logged; the load test passes with numbers written down (players, bytes per second, tick time, memory); a restore from backup ran on a clean machine; cars in contact neither stick nor fly (rules for what the relay accepts after a contact are written and tested); the controller is playable without the keyboard; sound starts only after a click and can be muted; the security review has no open finding; the owner has put his privacy and imprint texts in; frame time and bytes per second are written down for desktop and a mid phone.
 
-- **Content:** all 14 cars of the list (real-car numbers for power, weight and grip, translated into the existing physics fields, never new physics rules); **tuning you can see**: body kits, wings, rims, ride height as swaps in the model (separate meshes or small files per part, slot `carbon` for the kit, `chrome` for rims) and the existing slider tuning; garage with a 3D view of the car and its parts.
-- **Done means:** every car passes the model check script and the phone budget (15 000 triangles, 12 draw calls, 600 KB); a car with all parts is still inside the budget; each car is recognisably different to drive (lap times and drift scores of the same driver differ in the expected direction); old garage choices (car ids) keep working.
-- **The owner checks:** every car by eye (silhouette, stance), the feel of three typical ones, names and licence proof for the model names (no logos until he confirms the licences cover them).
-- **Risks:** 14 pipeline results will not all be clean: plan for hand fixing; parts that combine badly (a wing through a roof); download size of a garage with many parts (load only what is chosen); licence questions for names and shapes are the owner's to settle.
+**The owner checks:** the privacy and imprint texts (his), the sign-up page as a stranger, the ban process on a dummy case, how contact and damage feel, sound after an hour, the cost of running it (bandwidth per player-hour, load at 100).
 
-### 0.4 Maps and look
+**Risks:** abuse is the real work of going public (names, cheating, harassment by ramming or blocking): filter, reports, collision rules that cannot trap a player, a fast admin tool; collision under network delay (who hit whom): one authority for contacts, accept a little rubber-banding rather than desync; law (privacy, minors) is the owner's decision with advice; the server is small and the relay is one process, so a second world is the first scaling step; the proof of work stops lazy scripts, not a determined attacker, and says so.
 
-- **Content:** all maps to the new look: **light** (sun, shadows, reflections already vendored), **night** with headlamps and street light, **smoke, sparks and tyre marks** better and cheaper, fog and sky; a quality setting (auto from frame time, the existing tier idea, plus a manual one); the website preview can use a still or a short loop from here.
-- **Done means:** one map in day and in night at the high tier at 60 fps on a mid desktop GPU and at 30 fps or better on a mid phone, numbers written down (frame time, draw calls, triangles); no new asset without source and licence in ASSETS.md.
-- **The owner checks:** mockups first, then each map in each light; legibility of the track at night (a pretty map you cannot read is a bug).
-- **Risks:** this is where the phone falls behind; the answer is a tier with fewer effects, not a second game; the look is a matter of taste, so decisions are taken on pictures before code.
+### 0.3 All cars, visible tuning, ghost
 
-### 0.5 Ready for the public
+**Content:** all 14 cars of the list (real-car numbers translated into the existing physics fields, never new physics rules; no logos until the owner confirms the licences); **visible tuning** (body kits, wings, rims, ride height as swaps in the model, plus the slider tuning); garage with a 3D view; **ghost drive against your own best time** (the pose list of the best lap, about 15 kB, replayed as a see-through car; no network cost while driving).
 
-- **Registration with protection:** open registration for game accounts (name and password, ACCOUNTS-GAMES.md) with **limits per address and per day**, a **proof of work of our own** instead of somebody else's captcha (the browser solves a small puzzle that costs the server nothing, difficulty rises when many registrations come from one place), a **name filter** (plain word list the owner can edit, lookalike letters folded), **report and ban by the admin** (a report button on a player, an admin list, ban by account and by address range for a time), **no free text chat anywhere** (names are the only text; reactions are fixed emotes), texts for **privacy and imprint written by the owner** (we give drafts of what data is stored: name, password hash, times, no mail), **delete my account and export my data** in the app, a **load test** at 100+ players (tools/loadgen exists), **backups** with a restore that was actually tried, **monitoring** (alive check, error counts, relay numbers on a page the admin sees).
-- **Done means:** a stranger can register, play and delete the account without help; a scripted attack on registration (1 000 attempts from one address) is stopped and logged; the load test passes with the numbers written down; a restore from a backup was run on a clean machine; a security review of everything new (like the earlier one) has no open finding.
-- **The owner checks:** the privacy and imprint texts (his, not ours); the ban process on a dummy case; the cost of running it (bandwidth per player-hour, server load at 100).
-- **Risks:** abuse is the real work of going public: names, cheating, harassment through driving (blocking, ramming); we limit with filter, reports, a mute/block per person, collision rules that do not let one player trap another, and a fast admin tool. Law (privacy, minors) is the owner's decision with advice, not ours. Server size: the relay is one process, so a second world is the first scaling step, not a cluster.
+**Done means:** every car passes the model check script and the phone budget (15 000 triangles, 12 draw calls, 600 KB); a car with all parts is inside the budget; each car is recognisably different to drive; old car ids keep working; the ghost matches the stored lap within a frame.
+
+**The owner checks:** every car by eye (silhouette, stance), three typical ones by feel, model names and licence proof.
+
+**Risks:** 14 pipeline results are not all clean (plan for hand fixing); parts that combine badly (a wing through a roof); garage download size (load only what is chosen); licence questions are the owner's.
+
+### 0.4 Maps, look and photo mode
+
+**Content:** all maps to the new look: light (sun, shadows, reflections), **night** with headlamps and street light, **smoke, sparks and tyre marks** better and cheaper, fog and sky; quality setting (auto from frame time plus manual); **photo mode** (free camera, pause, hide HUD, a still of the screen) and a **replay of the last 30 s** reusing the ghost's pose recording; a still or loop for the website preview.
+
+**Done means:** one map in day and night at 60 fps on a mid desktop GPU and 30 fps or better on a mid phone, numbers written down; no asset without source and licence in ASSETS.md.
+
+**The owner checks:** mockups first, then every map in every light; legibility of the track at night (a pretty map you cannot read is a bug).
+
+**Risks:** the phone falls behind here: the answer is a tier with fewer effects, not a second game; taste decisions are taken on pictures before code.
+
+### 0.5 Weekly board and polish
+
+**Content:** **weekly leaderboard** (a week key on the existing boards; needs tight cheat limits on lap times), **scoring by line** as a bonus on maps with a centre loop (the server's score check and the shared test vectors change with it), bug list from the live weeks, balance of cars and maps from real numbers, accessibility (colour-blind safe HUD, remappable keys), loading and error screens.
+
+**Done means:** the bug list for the loop of play is empty; numbers of 0.2 still hold on the real server; boards survive a reset of the week without losing all-time times.
+
+**The owner checks:** the weekly board for fairness; a day of playing as a newcomer.
+
+**Risks:** scoring by line needs a reference per map and can feel arbitrary; start with the maps where it is clear.
 
 ### 1.0 Launch
 
-- **Content:** only what the earlier phases found: bug list at zero for the loop of play, the website preview live, a short "how to play" screen, release notes. **No new features in this phase.**
-- **Done means:** one week of beta with outsiders without a data-losing bug or a ban case we could not handle; the numbers of 0.5 hold on the real server; the owner says go. Release, repository and deployment are the orchestrator's and need his yes.
-- **The owner checks:** the whole thing as a newcomer on phone and PC.
-- **Risks:** launch day traffic (see load test), first abuse wave (the admin tool must already be used by then), a bad first impression on the phone (test on at least two real phones, not only the software renderer we used so far).
+**Content:** only what the live phases found; a short "how to play" screen; release notes; the website preview live. **No new features.**
 
-## Ideas for 1.0 (proposal, the owner decides)
+**Done means:** two weeks of public play without a data-losing bug or an abuse case we could not handle; the owner says go.
 
-| Idea | Proposal | Why |
-|---|---|---|
-| **Ghost against your own best time** | **Yes**, 0.3 or 0.4 | Needs only the pose list of the best lap (the server already holds best times; add a replay of poses, about 15 kB a lap); makes time trial a game of its own; no network cost while driving. |
-| **Photo mode / replay** | **Yes**, a small one in 0.4 (free camera, pause, hide HUD, a still of the screen); replay of the last 30 s afterwards | Fits PC first and the website preview; replay reuses the pose recording of the ghost. |
-| **Scoring by angle, speed and line** | **Yes, but carefully** in 0.4: add "line" (distance to an ideal line per map) as a bonus on maps that have a centre loop | Angle and speed are already in the score; a line needs a reference per map, so only where the loop exists; the server's score check must change with it (shared test vectors). |
-| **Weekly leaderboard** | **Yes** in 0.5 | Cheap (a week key on the existing boards), gives a reason to come back, resets limit the damage of one cheater. Needs the cheat limits on lap times to be tight first. |
-| **Emotes instead of chat** | **Yes**, 0.2 | A fixed set of 8 to 12 icons or short lines in both languages over the car; no free text, so no moderation load; one more byte in the pose frame or a tiny control frame. |
+**The owner checks:** the whole thing as a newcomer on phone and PC.
 
-Not proposed for 1.0: map editor, teams and championships, voice, tilt steering, spectating from outside the lobby, free text chat (SCOPE.md keeps them out).
+**Risks:** traffic on launch day (the load test), the first abuse wave (the admin tool must already be in use), a weak first impression on the phone (test on two real phones, not only the software renderer used so far).
 
-## What must be decided before 0.2 starts
+## Ideas for 1.0 and where they landed
 
-1. The owner's yes to this order (or his changes), then SCOPE.md and the first lines of STATE.md follow.
-2. Who is the provider of game accounts (Drift or the website), because registration is built on that answer.
-3. Hosting for the beta (the orchestrator's) and the size of the server.
-4. Which car comes first through the pipeline, and when the pipeline machine is reachable.
+| Idea | Decision |
+|---|---|
+| Ghost against your own best time | **Yes**, 0.3 |
+| Photo mode / replay | **Yes**, 0.4 |
+| Scoring by angle, speed and line | **Yes**, line only on maps with a centre loop, 0.5 |
+| Weekly leaderboard | **Yes**, 0.5 |
+| Emotes instead of chat | **Yes**, 0.2 (fixed set, no free text) |
+
+Not for 1.0: map editor, teams and championships, voice, tilt steering, spectating from outside the lobby, free text chat.
+
+## Open before 0.2 starts
+
+1. The owner's yes to PLAN-0.2.md.
+2. The domain of the sign-in page and the public address (the owner's).
+3. The pipeline machine reachable for the S15 (the code models carry the release if it is late).
 
 ## Not covered
 
-No effort estimates (the pipeline and the owner's reviews decide the pace, not code), no costs, no legal text. Numbers for frame time on real phones are still unmeasured.
+No effort estimates (the pipeline and the owner's reviews set the pace), no costs, no legal text. Frame time on real phones is still unmeasured.
