@@ -331,3 +331,14 @@ Still open: the game has no touge map yet (the drift chat builds it), so no game
 own shade (dark flat triangles); a bright highlight on the car's roof; real shadows of trees and rails need the shadow box to reach
 farther; foliage from outside sources waits for the owner's yes to download (a list went to the orchestrator); automatic quality
 tiers are next.
+
+## Quality tiers by device (2026-11-26)
+
+`game/view/look/autotier.js`: `readDevice(renderer)` (graphics chip from WebGL, memory, cores, phone), `guessTier(device)` (a first
+guess: no chip/software low; strong phones medium, others low; desktop graphics cards high, integrated graphics medium or low),
+`TierPicker` (measures the frame rate after the first 1.5 s for 3 s: under 40 fps one step down, over 58 fps one step up unless it
+went down before; two steps at most, then it stays), `startTier(setting, device)` (a setting high/medium/low wins over auto).
+`stage.setTier(name)` switches shadows, the after-pass and the world's density and builds the world again (the caller builds the cars
+again when `stage.carTier` changed). Looks may have a `medium` tier (the touge has one; others fall back to low). Probe:
+`?tier=auto` (headless software rendering picks low, as it should). Tests: `autotier.test.mjs`. The setting in the game (Auto, High,
+Medium, Low) is the drift chat's part.

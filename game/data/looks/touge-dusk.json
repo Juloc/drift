@@ -69,6 +69,28 @@
       "carpet": 5000,
       "billows": 220
     },
+    "medium": {
+      "cell": 5.5,
+      "far": 24,
+      "pines": 700,
+      "cherries": 0,
+      "nearPines": 260,
+      "nearCherries": 0,
+      "rocks": 40,
+      "ridge": 160,
+      "mist": 5,
+      "railPost": 4,
+      "smoke": 160,
+      "smokeDetail": 1,
+      "shadows": 1024,
+      "post": true,
+      "dpr": 1.25,
+      "scale": 1,
+      "env": 64,
+      "details": { "tufts": 700, "stones": 250, "bushes": 90, "petals": 35, "poles": 0 },
+      "carpet": 2400,
+      "billows": 120
+    },
     "low": {
       "cell": 8,
       "far": 40,

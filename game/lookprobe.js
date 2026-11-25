@@ -15,6 +15,7 @@ import { createStage, carMaker } from './view/look/stage.js';
 import { mergeParked } from './view/look/parked.js';
 import { paintCar } from './view/look/paint.js';
 import { ProbeHud } from './view/probehud.js';
+import { guessTier, readDevice, TierPicker } from './view/look/autotier.js';
 
 const params = new URLSearchParams(location.search);
 const lang = (params.get('lang') ?? (navigator.language?.startsWith('de') ? 'de' : 'en')) === 'de' ? 'de' : 'en';
@@ -26,7 +27,11 @@ document.documentElement.lang = lang;
 for (const e of document.querySelectorAll('[data-t]')) e.textContent = T[e.dataset.t];
 const $ = (id) => document.getElementById(id);
 const touch = matchMedia('(pointer: coarse)').matches || params.has('touch');
-const tierName = params.get('tier') === 'low' || (params.get('tier') !== 'high' && touch) ? 'low' : 'high';
+// ?tier=high|medium|low fixes the quality; ?tier=auto guesses from the device and measures the first seconds (view/look/autotier.js);
+// without it: low on touch, else high (as before)
+const tierParam = params.get('tier');
+const autoTier = tierParam === 'auto';
+const tierName = autoTier ? (params.get('autotier') ?? 'medium') : ['high', 'medium', 'low'].includes(tierParam) ? tierParam : touch ? 'low' : 'high';
 document.body.classList.toggle('touch', touch);
 document.body.classList.toggle('lite', tierName === 'low');
 $('touch').hidden = !touch;
@@ -39,10 +44,13 @@ const [scene0, look, cars] = await Promise.all([
   fetch(`data/looks/${lookName}.json`).then((r) => r.json()),
   fetch('data/cars.json').then((r) => r.json()).then((j) => j.cars),
 ]);
-const tier = look.tiers[tierName];
+const tier = look.tiers[tierName] ?? look.tiers[tierName === 'medium' ? 'low' : 'high'];
 
 // ----- the stage: renderer, light, sky, the world, mist, halos, reflection, tyre marks, smoke (view/look/stage.js, shared with the game)
 const stage = createStage({ canvas: $('view'), look, scene0, tierName });
+// auto: the first guess comes from the device; the probe then measures and, when it decides, loads itself again at the new tier
+if (autoTier && !params.has('autotier')) { const g = guessTier(readDevice(stage.renderer)); if (g !== tierName) { params.set('autotier', g); location.replace('?' + params); } }
+const picker = autoTier ? new TierPicker(tierName) : null;
 const { renderer, post, scene, camera, sun, sunDir, sky, world, field: f, mist, halos, env, skids, smoke, buildMs } = stage;   // (the probe loads one scene only, so these stay)
 
 // ----- cars: the driver (white, kit) and the parked ones (merged)
@@ -155,10 +163,11 @@ function draw(now) {
   camera.updateMatrixWorld(); smoke.aim?.(camera);   // the smoke keeps the car in sight
   stage.render();
   avg += (Math.min(250, dt * 1000) - avg) * 0.05; frames++;
+  if (picker && running) { const next = picker.sample(dt * 1000); if (next) { params.set('autotier', next); location.replace('?' + params); } }
   if (!$('pdebug').hidden && now - shown > 400) {
     shown = now;
     const r = renderer.info.render;
-    $('pdebug').textContent = `frame ${avg.toFixed(1)} ms, ${r.triangles} triangles, ${r.calls} draw calls, tier ${tierName} (${renderer.domElement.width}x${renderer.domElement.height})\nworld ${Math.round(world.triangles)} triangles, built in ${buildMs.toFixed(0)} ms; t ${simTime.toFixed(2)} s, ${kmh.toFixed(0)} km/h, slip ${(bodySlip(cur) * 57.3).toFixed(0)} deg`;
+    $('pdebug').textContent = `frame ${avg.toFixed(1)} ms, ${r.triangles} triangles, ${r.calls} draw calls, tier ${tierName}${autoTier ? ' (auto)' : ''} (${renderer.domElement.width}x${renderer.domElement.height})\nworld ${Math.round(world.triangles)} triangles, built in ${buildMs.toFixed(0)} ms; t ${simTime.toFixed(2)} s, ${kmh.toFixed(0)} km/h, slip ${(bodySlip(cur) * 57.3).toFixed(0)} deg`;
   }
   requestAnimationFrame(draw);
 }
