@@ -1,12 +1,24 @@
 # State: where drift stands (hand-over page)
 
-Updated 2026-11-25 (late) by the building session. Every session updates this page at the end of its work.
+Updated 2026-11-25 (night) by the building session. Every session updates this page at the end of its work.
 
 ## Done
 
 - **Scope agreed:** [SCOPE.md](SCOPE.md). **Architecture draft written:** [ARCHITECTURE.md](ARCHITECTURE.md) (waits for the orchestrator's reading and its 13 open points).
 - **Milestone 1 (driving feels good, alone) runs**, no server, no base: `game/` is one static page. One car (Dart) on one map (the car park, also the future lobby map), drift model with fixed step 1/120 s, follow camera, keys (arrows or WASD, Space = handbrake, Shift = brake, R restart, F fullscreen, Q quality, P pause, G debug line) and touch buttons in landscape (steer left and right on the left, handbrake, brake and a big gas button on the right, multi-touch), drift score with chain multiplier, tyre smoke and skid marks, a "turn your phone" hint in portrait. English and German texts.
 - Nothing is committed to GitHub; the repository is local; **no push**. The commits carry a placeholder author (`drift builder`, `builder@example.invalid`) because this machine has no git identity set for the repository; the owner or orchestrator should set one (and may rewrite the commits' author).
+
+## Milestone 2: the app on the base (built 2026-11-25 on the orchestrator's go)
+
+- **Made with** `scripts/new-app.sh` of base 0.3.4 (accent 350, provisional), merged into this repository: `base/` (a copy, `check-app.sh` says unchanged and up to date), `src/Drift/`, `Drift.slnx`, `Dockerfile`, `docker-compose.yml`, `.github/workflows/build.yml` (inert until the repository goes to GitHub). The example list of the template is gone.
+- **Accounts and sign-in:** the base's own accounts (password, authenticator, recovery codes, devices, people and invitations for the administrator) and sign-in through the hub (the base's OpenID Connect flow; **not tried here**, there is no hub on this machine). Roles: `admin` and `member` ("Driver").
+- **Garage** (`/#/`): choose one of the five cars (cards with five stat bars and a line of character), one of 24 colours, an optional nickname (2 to 16 letters, digits, space, dot, dash, underscore; checked on the server and by the table), a preview line and Save; a Drive button opens the game in a **new tab** (the hub's iframe is not possible yet, orchestrator's decision). Table `drift_profile` (migration `001_profile.sql`), `GET/PUT /api/garage`, every statement names the owner.
+- **The lobby of the signed-in people:** `/api/play/ws` (behind the base's guard and the origin check) runs the same relay as the public demo (`server/Relay/`, now with `Join(..., name, hue)`, `Drop`, `Serve` and a session check). The name is the nickname or the account name, the car and colour come from the garage; one connection per person (a second one replaces the first); the session is checked every 30 s, so signing out, blocking or deleting closes the socket (test: logout, closed within 0.3 s with the short test interval). The relay's frames are unchanged, so the website's copy stays compatible; the website's relay needs none of the new code.
+- **The game page inside the app:** `/play/` (own `index.html` and `boot.js` in `wwwroot/play/`; the game's files `game/**` and `vendor/three/*` are served unchanged under `/play` and `/vendor/three`, and travel next to the app in the published output; `game/` itself was **not changed** for this). A "back to the garage" button. No inline script or style, no import map (a test checks the page against the content policy).
+- **Tests:** `scripts/test.sh` (throwaway PostgreSQL in Docker) runs `tests/Drift.Tests`: **48 tests, all green** (19 relay, garage over HTTP and in the store and the table, the socket needs a session and the page's own origin, name and car and colour from the garage, replacement of a second connection, closing when the session ends, the game page and its files with the security headers, the service worker keeps only the shell, German and English texts match). `node --test game/`: 27 green.
+- **Looked at in a browser** (headless, software graphics, the published app on a throwaway PostgreSQL, three throwaway accounts): the garage at 390x844 (phone) and 1280x860 (wide), saving a choice, and three signed-in people in the lobby seeing each other with their garage names and cars. Pictures `docs/screenshots/m2-garage-phone.png`, `m2-garage-wide.png`, `m2-lobby.png`. German texts only (the browser language was German); English is in the files and checked for the same keys, **not looked at**. Light mode only; **dark mode not looked at**.
+- **Not checked:** `docker compose up -d --build` (the machine has no .NET SDK image and there is no network pull; the Dockerfile copies `server/Relay`, `game` and `vendor/three` and `dotnet publish` was run locally to see the layout), sign-in through the hub, a real phone, Safari, the garage with a screen reader, the install as a PWA, a restart of the app with people in the lobby, more than three people at once in the signed-in lobby (the relay itself was tested with 16).
+- **Decisions for the orchestrator:** the accent 350 is provisional; the `member` role is called "Driver"; `viewer` was dropped (nothing for a viewer to do); the account name shows to the others when there is no nickname (it could be a real name: the garage hint says so, and a nickname hides it); the relay of the signed-in lobby allows 16 connections per address (family behind one router).
 
 ## The public shared world (demo), built 2026-11-25 on the orchestrator's go
 
@@ -79,4 +91,4 @@ These are the **starting numbers, not tuned by a person**: the cars differ in th
 
 ## Next
 
-Waits for the orchestrator's go: milestone 2 (the app around it: the base, accounts, garage). Not started: server, base, other maps and cars, lobby, races.
+Milestone 3 (races and the open lobby with rules) and 5 (five maps, guests) wait for the orchestrator's go. Not started: races, best times, other maps, guest links.
