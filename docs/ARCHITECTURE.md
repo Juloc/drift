@@ -296,3 +296,46 @@ Not in milestone 1: server, accounts, other cars and maps, lobby, races, audio, 
 11. **Where the game runs inside the hub.** The scope says the app opens inside the hub's window, but the base forbids framing (SEC-01). *Question:* is the hub's window a real window of the browser (a tab) or an iframe, and who may ask for full screen and landscape lock (iOS gives no lock; the game would show a "turn the phone" hint)? Milestone 2 depends on the answer.
 12. **Copying the website's code.** *Proposal:* copy `Builder`, `bake`, `rng`, the clay material and the quality governor into `game/core/` (own code; the website stays read only), note the origin in `docs/ASSETS.md`, and tell the website's chat that the base for shared code should be the app family's base if a third project needs it (outside this scope).
 13. **three.js license and files.** The same four files as the website (MIT), checked by hash against its table; entry in `docs/ASSETS.md` before the commit of `vendor/`.
+
+---
+
+## 10. The public shared world (demo), decided 2026-11-25
+
+A public demo for the owner's website: the car park, the cars, and **everyone who is on the page at the same time drives in one shared world, without an account**. It is the network part of milestone 3 in a public variant, built before the accounts of milestone 2. It is a **relay**, not a game server: it knows no rules, only what is possible.
+
+**Who the visitor is.** A random short id (0 to 15, the smallest free one in the world) and a **name picked by the server from a fixed list** (colour word + animal word, 64 made-up names, no free text anywhere, not from the client either). A colour (hue) is picked by the server too. The client only says which of the five cars it drives (`?car=0..4` in the socket address, anything else becomes 0). Nothing is stored, no cookie, no account; closing the tab ends the visitor.
+
+**Frames** (one WebSocket, binary only; the relay ignores text):
+
+| direction | frame | bytes |
+|---|---|---|
+| client to relay | `POSE`: `1, seq u8, x i16 (1/20 m), z i16, h u16 (2*pi/65536), vf i16 (1/50 m/s), beta i8 (pi/128), steer i8 (0.75 rad = 127), flags u8` (bit 0 handbrake, 1 drifting, 2 hit) | 13 |
+| relay to client | `WELCOME 0x80`: my id, world id, hue index | 4 |
+| | `ROSTER 0x81`: count, then per visitor `id, car, hue, name length, name` (sent to the whole world when someone comes or goes) | about 14 per visitor |
+| | `SNAPSHOT 0x82`: count, server time u16 (ms, wraps), then per other visitor `id` and 11 pose bytes (the POSE without type and seq) | 4 + 12 per other |
+| | `FIX 0x83`: x, z, h of the last accepted pose (the car is put back) | 8 |
+| | `BYE 0x84`: reason (1 too large or too many junk frames, 2 too many violations, 3 idle, 4 silent, 5 full) | 2 |
+
+**Rates.** A client sends **at most 15 poses a second** (every 66 ms while it moves, twice a second while it stands still, nothing while the tab is hidden). The relay sends a snapshot to every visitor **15 times a second**. Per visitor with N cars in the world: up `13 B x 15` = 195 B/s (+ 6 B of WebSocket header per message = 285 B/s on the wire), down `(4 + 12 x (N - 1)) x 15` = 2.8 KB/s at N = 16 (+ 2 B per message), 0.8 KB/s at N = 4. Measured numbers are in STATE.md.
+
+**Interpolation.** Others are drawn **140 ms behind** the relay's clock (two snapshot intervals): Hermite between the two snapshots around that time (velocity from heading, forward speed and slip), up to 250 ms of extrapolation if a snapshot is late, then standing still. The clock is the smallest `serverTime - localTime` seen in the last 10 s (the least delayed packet), unwrapped from the 16-bit counter. Your own car is never delayed.
+
+**What the relay checks** (every pose; a pose that fails is **dropped and answered with FIX**; 8 failures in 10 s end the connection):
+
+1. exactly 13 bytes, type 1; anything over 64 bytes ends the connection;
+2. at most 15 poses a second per connection (a token bucket with a burst of 8: more are dropped silently; a flood ends the connection);
+3. inside the map plus 3 m;
+4. forward speed at most `1.15 x top(car) + 2`;
+5. no jump: the distance since the last accepted pose must fit a **movement budget** that grows with the relay's clock at `1.25 x top + 3` m/s (capped at 0.5 s of it, so a lag burst of an honest player passes);
+6. no spinning faster than 12 rad/s.
+
+It does **not** check walls (the demo has none worth cheating through) and cannot stop a driver who is 10 % faster than the rules say; see 3 for why that is enough for a demo where nothing is won.
+
+**Limits.** At most **16 cars per world**; when a world is full a **second world opens** (up to 8 worlds, 128 visitors; then the socket is refused with 5). Per address: at most **4 connections**, **12 new connections a minute**, **80 frames a second** in all. A visitor with no frame for **30 s** is dropped, and one that has not moved for **2 minutes** is dropped (the page then shows "you were dropped, tap to rejoin"). Nothing is stored; a restart empties the world and the pages reconnect after a back-off of 1, 2, 4, 8 seconds.
+
+**One small class, no outside packages.** `server/Relay/WorldRelay.cs` is the whole relay: it knows no sockets, only a tiny `IPeer` (`Send(bytes)`, `Close(reason)`), a clock (`TimeProvider`) and the address text it is given. The caller passes the frames in (`Join`, `OnMessage`, `Leave`) and calls `Tick()` 15 times a second. `server/Relay/RelayEndpoint.cs` is the 80-line bridge to an ASP.NET WebSocket (a bounded outgoing queue that drops the oldest frame, the receive loop, an `Origin` check, the 15 Hz timer); the website's own small server can take both files as they are and map one path. The caller decides what "address" means: behind a proxy it must pass the forwarded client address, not the proxy's.
+
+**Browser side.** `game/net/world.js` is the client module (socket with back-off, encode and decode, the buffers and the interpolation, the clock); `game/demo.html` is the page (the same `main.js` with `data-mode="online"`). Names are drawn as HTML labels set with `textContent`; a counter shows how many are driving here.
+
+**Not in the demo:** accounts, races, guests, cars pushing each other, walls in the relay, sound.
+
