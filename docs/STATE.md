@@ -2,6 +2,16 @@
 
 Updated 2026-11-26 (evening) by the building session. Every session updates this page at the end of its work.
 
+
+## Car models (branch claude/car-s15-pipeline-3b95ba, 2026-11-25)
+
+- First real car model in the game: **Mazda RX-7 FD** (download, CC BY 4.0, `docs/ASSETS.md`, credit line in
+  `game/data/credits.json`), `game/assets/cars/rx7.glb` / `rx7-hi.glb`, try `?glb=rx7` on the game page or in the showroom.
+  Numbers and pictures in `docs/CAR-PIPELINE.md`. Not in `cars.json` yet (no car id), the credits are not shown in the game yet.
+- Pipeline: `tools/gpu/car_normalize.sh` for downloads (main way), `tools/gpu/car_variants.sh` for TRELLIS (emergency only).
+- Not checked: a real phone, frame time on a phone, the website's copy, the skid marks and smoke at the RX-7's own wheel
+  positions (the game still uses its fixed wheel layout for them).
+
 ## Done
 
 - **Scope agreed:** [SCOPE.md](SCOPE.md). **Architecture draft written:** [ARCHITECTURE.md](ARCHITECTURE.md) (waits for the orchestrator's reading and its 13 open points).
