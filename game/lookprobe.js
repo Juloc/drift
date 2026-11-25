@@ -116,9 +116,9 @@ function simStep(i) {
   score = scoreStep(score, { slip: bodySlip(cur), speed: speedOf(cur), hit: 0, turned: turnedAngle(cur) }, DT);
   simTime += DT;
   spin += (bodyVelocity(cur).vf * DT) / S15.wheelY;
-  // smoke and skid marks from the rear wheels, 24 times a second
+  // smoke and skid marks from the rear wheels, 30 times a second
   const sliding = (Math.abs(bodySlip(cur)) > 0.2 || inp.handbrake > 0) && speedOf(cur) > 3;
-  if (i % 5 === 0) rearWheels(cur).forEach(([x, z], k) => {
+  if (i % 4 === 0) rearWheels(cur).forEach(([x, z], k) => {
     if (sliding) smoke.emit(x, 0.35, z, X(cur.vx) * 0.06, cur.vz * 0.06, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
     skids.mark(k, x, z, 0, 0, sliding);
   });

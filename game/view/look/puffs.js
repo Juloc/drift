@@ -17,7 +17,7 @@ export class Puffs {
     mat.onBeforeCompile = (sh) => {
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aAlpha;\nvarying float vAlpha;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvAlpha = aAlpha;');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAlpha;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a *= vAlpha;')
-        .replace('#include <opaque_fragment>', '#include <opaque_fragment>\ngl_FragColor.a *= smoothstep(0.05, 0.75, abs(dot(normalize(vNormal), normalize(vViewPosition)))) * smoothstep(1.5, 5.0, length(vViewPosition));');
+        .replace('#include <opaque_fragment>', '#include <opaque_fragment>\ngl_FragColor.a *= smoothstep(0.05, 0.75, abs(dot(normalize(vNormal), normalize(vViewPosition)))) * smoothstep(3.0, 8.5, length(vViewPosition));');
     };
     this.mesh = new THREE.InstancedMesh(geo, mat, capacity);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -47,7 +47,7 @@ export class Puffs {
     for (let i = 0; i < this.cap; i++) {
       const k = this.age[i] / this.life[i];
       if (k >= 1) { this.mesh.setMatrixAt(i, _m.makeScale(0, 0, 0)); this.alpha.array[i] = 0; continue; }
-      const size = (0.6 + k * 2.6) * this.grow[i];
+      const size = (0.65 + k * 2.8) * this.grow[i];
       _p.fromArray(this.pos, i * 3); _q.setFromEuler(_e.set(this.rot[i * 3], this.rot[i * 3 + 1], this.rot[i * 3 + 2])); _s.set(size, size * 0.75, size);
       this.mesh.setMatrixAt(i, _m.compose(_p, _q, _s));
       this.alpha.array[i] = this.opacity * (1 - k) * Math.min(1, k * 6);
