@@ -95,7 +95,7 @@
       "kind": "model",
       "name": "Mazda RX-7 FD",
       "file": [
-        "assets/cars/rx7.glb",
+        "game/assets/cars/rx7.glb",
         "assets/cars/rx7-hi.glb"
       ],
       "author": "Lexyc16",

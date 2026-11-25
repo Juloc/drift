@@ -37,5 +37,5 @@ test('three.js is credited and the licence of what is vendored matches', () => {
 test('every outside model, picture or sound file under game/assets has its entry with the file named', () => {
   const walk = (d) => readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? walk(p) : [p]; });
   const files = walk(join(root, 'game/assets')).map((p) => relative(root, p)).filter((f) => !/\/s15-test(-hi)?\.glb$/.test(f));   // the S15 test models are made by our own tools/export-s15.mjs
-  for (const f of files) assert.ok(credits.entries.some((e) => e.file === f), `${f} is not in game/data/credits.json`);
+  for (const f of files) assert.ok(credits.entries.some((e) => [].concat(e.file ?? []).includes(f)), `${f} is not in game/data/credits.json`);
 });
