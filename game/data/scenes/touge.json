@@ -1,5 +1,6 @@
 {
  "look": "touge-dusk",
+ "rails": "both",
  "note": "The touge: a hillside with a crater lake far below; made by tools/make-touge.mjs together with the physics map.",
  "mode": "slope",
  "road": {

@@ -66,7 +66,7 @@ for (const p of centre) if (near(p[0], p[1]) < HW + 0.9) throw new Error(`the ro
 writeFileSync(new URL('../game/data/maps/06-touge.json', import.meta.url), JSON.stringify(map) + '\n');
 // ---- the theme: the look's probe scene (hillside, lake, volcanoes, moon) with this map's plaza, marks and road
 const theme = {
-  look: 'touge-dusk', note: 'The touge: a hillside with a crater lake far below; made by tools/make-touge.mjs together with the physics map.', mode: 'slope',
+  look: 'touge-dusk', rails: 'both', note: 'The touge: a hillside with a crater lake far below; made by tools/make-touge.mjs together with the physics map.', mode: 'slope',
   road: { bendMin: probe.road.bendMin, bendSpan: probe.road.bendSpan, grade: 'slope', cut: probe.road.cut, lamps: probe.road.lamps },
   terrain: { ...probe.terrain, extent: [-300, -1100, 600, 320], core: [-60, round(Math.min(...zs) - 80), round(Math.max(...xs) + 60), 60] },
   plaza: { ...probe.plaza, pts: plaza }, marks: probe.marks, lake: probe.lake, volcanoes: probe.volcanoes, ridges: probe.ridges, mist: probe.mist, trees: [],
