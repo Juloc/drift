@@ -4,6 +4,7 @@
  "note": "The touge: a hillside with a crater lake far below; made by tools/make-touge.mjs together with the physics map.",
  "mode": "slope",
  "road": {
+  "centreLine": false,
   "bendMin": 0.35,
   "bendSpan": 30,
   "grade": "slope",
