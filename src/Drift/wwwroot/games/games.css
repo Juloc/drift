@@ -1,0 +1,11 @@
+.games { max-width: 28rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.games .tabs { display: flex; gap: .5rem; margin: 1rem 0; }
+.games .tabs .btn[aria-selected="true"] { background: var(--accent, #c33); color: #fff; }
+.games .row { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+.games .small { font-size: .85rem; }
+.games .danger { margin-top: 1.5rem; }
+.games .btn.wide { width: 100%; text-align: center; }
+.games.legal { max-width: 40rem; }
+.games .swatch { width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 2px solid transparent; background: hsl(var(--h), 62%, 52%); padding: 0; cursor: pointer; }
+.games .swatch[aria-checked="true"], .games .carbtn[aria-checked="true"] { border-color: var(--accent, #c33); outline: 2px solid var(--accent, #c33); }
+.games .carbtn { cursor: pointer; }

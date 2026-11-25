@@ -63,6 +63,15 @@ export class Remotes {
     for (const [id, rc] of this.cars) if (!seen.has(id)) { this.scene.remove(rc.group); rc.label.remove(); this.cars.delete(id); for (let i = 0; i < 2; i++) this.skids.mark(2 + id * 2 + i, 0, 0, 0, 0, false); }
     this.labels();
   }
+  /** A fixed symbol over a car for three seconds (never text from a player). */
+  emote(id, symbol) {
+    const rc = this.cars.get(id);
+    if (!rc || typeof symbol !== 'string') return;
+    rc.label.querySelector('.emo')?.remove();
+    const span = Object.assign(document.createElement('span'), { className: 'emo', textContent: symbol });
+    rc.label.append(span);
+    setTimeout(() => span.remove(), 3000);
+  }
   /** Take every car away (the lobby is left for a race, or the race for the lobby). */
   clear() {
     for (const rc of this.cars.values()) { this.scene.remove(rc.group); rc.label.remove(); }

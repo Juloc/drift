@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Juloc Games</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <script src="/base/boot.js"></script>
+  <link rel="stylesheet" href="/base/base.css">
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="games.css">
+  <script type="module" src="games.js"></script>
+</head>
+<body>
+  <main class="games">
+    <h1 id="title">Juloc Games</h1>
+    <p id="intro" class="muted"></p>
+
+    <section id="out" hidden>
+      <div class="tabs" role="tablist">
+        <button id="tab-in" class="btn outline" type="button" role="tab"></button>
+        <button id="tab-up" class="btn outline" type="button" role="tab"></button>
+      </div>
+      <form id="f-in" class="form" hidden>
+        <label class="field"><span id="l-name-in" class="label"></span><input id="in-name" class="input" name="name" maxlength="16" autocomplete="username" required></label>
+        <label class="field"><span id="l-pw-in" class="label"></span><input id="in-pw" class="input" name="password" type="password" maxlength="256" autocomplete="current-password" required></label>
+        <p id="in-error" class="field-error" role="alert" hidden></p>
+        <button id="in-go" class="btn primary wide" type="submit"></button>
+        <p id="in-help" class="muted small"></p>
+      </form>
+      <form id="f-up" class="form" hidden>
+        <p id="closed" class="field-error" role="alert" hidden></p>
+        <label class="field"><span id="l-name-up" class="label"></span><input id="up-name" class="input" name="name" maxlength="16" autocomplete="username" required><small id="h-name" class="muted"></small></label>
+        <label class="field"><span id="l-pw-up" class="label"></span><input id="up-pw" class="input" name="password" type="password" maxlength="256" autocomplete="new-password" required><small id="h-pw" class="muted"></small></label>
+        <label class="field"><span id="l-pw2-up" class="label"></span><input id="up-pw2" class="input" name="password2" type="password" maxlength="256" autocomplete="new-password" required></label>
+        <p id="up-error" class="field-error" role="alert" hidden></p>
+        <p id="up-work" class="muted small" hidden></p>
+        <button id="up-go" class="btn primary wide" type="submit"></button>
+        <p class="muted small"><span id="legal-pre"></span> <a href="/legal/privacy.html" id="a-privacy"></a> · <a href="/legal/imprint.html" id="a-imprint"></a></p>
+      </form>
+    </section>
+
+    <section id="inn" hidden>
+      <p id="hello" class="lead"></p>
+      <p><a id="play" class="btn primary wide" href="/play/games.html"></a></p>
+      <form id="f-garage" class="form">
+        <h2 id="g-title" class="card-title"></h2>
+        <div id="g-cars" class="row" role="radiogroup"></div>
+        <div id="g-colours" class="row" role="radiogroup"></div>
+        <label class="field"><span id="l-nick" class="label"></span><input id="g-nick" class="input" maxlength="16" autocomplete="off"><small id="h-nick" class="muted"></small></label>
+        <p id="g-error" class="field-error" role="alert" hidden></p>
+        <button id="g-save" class="btn primary" type="submit"></button> <span id="g-saved" class="muted" hidden></span>
+      </form>
+      <form id="f-pw" class="form" hidden>
+        <label class="field"><span id="l-cur" class="label"></span><input id="pw-cur" class="input" type="password" maxlength="256" autocomplete="current-password" required></label>
+        <label class="field"><span id="l-new" class="label"></span><input id="pw-new" class="input" type="password" maxlength="256" autocomplete="new-password" required></label>
+        <p id="pw-error" class="field-error" role="alert" hidden></p>
+        <button id="pw-go" class="btn primary" type="submit"></button>
+      </form>
+      <div class="row">
+        <button id="b-pw" class="btn outline" type="button"></button>
+        <a id="b-export" class="btn outline" href="/api/games/export" download="my-games-data.json"></a>
+        <button id="b-out" class="btn outline" type="button"></button>
+      </div>
+      <details class="danger">
+        <summary id="d-sum"></summary>
+        <p id="d-text" class="muted"></p>
+        <form id="f-del" class="form">
+          <label class="field"><span id="l-del" class="label"></span><input id="del-pw" class="input" type="password" maxlength="256" autocomplete="current-password" required></label>
+          <p id="del-error" class="field-error" role="alert" hidden></p>
+          <button id="del-go" class="btn danger" type="submit"></button>
+        </form>
+      </details>
+    </section>
+  </main>
+</body>
+</html>
