@@ -186,18 +186,18 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   const tips = (spec.exhaust ?? [[0.4, 0.3, box.min.z + 0.08]]).map((p) => new THREE.Vector3(...p));
   const flameMat = new THREE.MeshBasicMaterial({ name: 'fx_flame', map: flameTexture(), color: new THREE.Color(1, 1, 1).multiplyScalar(2.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
   const flashMat = new THREE.SpriteMaterial({ name: 'fx_flash', map: glowTexture(), color: new THREE.Color(1, 0.6, 0.25).multiplyScalar(1.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
-  const groundFlashMat = new THREE.MeshBasicMaterial({ name: 'fx_flash_ground', map: glowTexture(), color: new THREE.Color(1, 0.55, 0.2).multiplyScalar(0.9), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const groundFlashMat = new THREE.MeshBasicMaterial({ name: 'fx_flash_ground', map: glowTexture(), color: new THREE.Color(1, 0.55, 0.2).multiplyScalar(0.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const flames = tips.map((tip) => {
     const g = new THREE.Group(); g.position.copy(tip);
     const plane = new THREE.PlaneGeometry(0.16, 0.3).translate(0, 0.15, 0).rotateX(-Math.PI / 2);   // 30 cm, pointing along -z (backwards)
     g.add(new THREE.Mesh(plane, flameMat), new THREE.Mesh(plane.clone().rotateZ(Math.PI / 2), flameMat));
     const flash = new THREE.Sprite(flashMat); flash.scale.setScalar(0.3); g.add(flash);
-    const ground = new THREE.Mesh(flat(new THREE.PlaneGeometry(1.4, 1.4)), groundFlashMat); ground.position.set(-tip.x * 0.5, 0.02 - tip.y, -0.25); g.add(ground);   // warm on the road under the rear
-    g.visible = false; g.userData.flash = flash;
+    // warm on the road under the rear: NOT in the flame's group (that one is turned about the pipe at every pop)
+    const ground = new THREE.Mesh(flat(new THREE.PlaneGeometry(0.55, 0.55)), groundFlashMat); ground.position.set(tip.x, 0.02, tip.z - 0.1); ground.visible = false;
+    g.visible = false; g.userData.flash = flash; g.userData.ground = ground;
     return g;
   });
-  // the flash's light stays in the scene at 0 when idle (a light that comes and goes would recompile every material)
-  const lights = lite ? [] : tips.map((tip) => { const l = new THREE.PointLight(0xff8a3a, 0, 6, 2); l.position.copy(tip).add(new THREE.Vector3(0, 0, -0.3)); return l; });
+  const lights = [];   // no real light: a point light this close over the glossy road drew a long streak towards the camera (the warm quad on the road is enough)
   // halos: a soft glow in front of each lamp (camera-facing, depth-tested so the body hides them), on every tier
   const haloMat = (c, k) => new THREE.SpriteMaterial({ name: 'fx_halo', map: glowTexture(), color: new THREE.Color(c).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
   const rearHaloMat = haloMat(0xff2a18, 0.9), frontHaloMat = haloMat(0xfff0d8, 0.7);
@@ -216,7 +216,7 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   for (const s of [-1, 1]) { const strip = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.02, glowLen), stripMat); strip.position.set(s * sideX, 0.16, (m.front + m.rear) / 2); glow.add(strip); }
   const pad = new THREE.Mesh(flat(new THREE.PlaneGeometry(box.max.x - box.min.x + 1.0, box.max.z - box.min.z + 0.2)), groundMat); pad.position.set(0, 0.018, mid); pad.renderOrder = 3; glow.add(pad);
   glow.visible = false;
-  const fxg = new THREE.Group(); fxg.name = 'fx_live'; fxg.add(...flames, ...lights, ...halos, glow);
+  const fxg = new THREE.Group(); fxg.name = 'fx_live'; fxg.add(...flames, ...flames.map((f) => f.userData.ground), ...lights, ...halos, glow);
   car.group.add(tag(fxg));
 
   const poolMesh = car.group.getObjectByName('fx_pool');
@@ -255,12 +255,12 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
       const on = life > 0, k = on ? Math.min(1, life / 0.05) : 0;
       flameMat.color.setRGB(1, 0.9 + 0.1 * strength, 0.7 + 0.6 * (1 - strength)).multiplyScalar(1.4 + 1.2 * strength);   // a weak pop is small and bluish
       for (const f of flames) {
-        f.visible = on;
+        f.visible = on; f.userData.ground.visible = on;
         if (!on) continue;
         const len = (0.7 + 0.6 * strength) * (0.7 + 0.3 * k);   // 20 to 40 cm
         f.scale.set(0.8 + 0.4 * strength, 1, len);
         f.userData.flash.scale.setScalar((0.2 + 0.25 * strength) * k);
-        groundFlashMat.opacity = k * strength;
+        groundFlashMat.opacity = 0.6 * k * strength;
       }
       for (const l of lights) l.intensity = on ? 6 * strength * k : 0;
     },
