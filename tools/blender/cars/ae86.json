@@ -19,8 +19,7 @@
       "^material\\.001$": "paint",
       "^material\\.(007|012)$": "lamp_front",
       "^material\\.005$": "lamp_front",
-      "^material\\.(006|014)$": "lamp_rear",
-      "^material\\.011$": "glass"
+      "^material\\.(006|014)$": "lamp_rear"
     },
     "drop": [
       "^tofu_shop",
@@ -63,6 +62,16 @@
         "metal": 1.0,
         "rough": 0.26,
         "about": "the rims: gun metal with a shine instead of near black"
+      },
+      "^material\\.011$": {
+        "color": [
+          0.006,
+          0.008,
+          0.011
+        ],
+        "metal": 0.0,
+        "rough": 0.05,
+        "about": "the glass: dark tinted and smooth instead of a matt metal plate"
       }
     }
   }
