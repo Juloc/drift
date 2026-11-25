@@ -376,3 +376,23 @@ Numbers unchanged: high 336k triangles / 49 calls.
 4. Smoke: puffs never rise more than `maxRise` (1.3 m) over where they started and never grow past `maxSize` (4.2 m): no smoke high up
    behind the HUD cards; soft wisps, light on top, shaded underneath.
 Numbers: high 343k triangles / 50 calls, phone tier 82k / 22. Tests 128 green.
+
+## Touge round 5 (2026-11-26): first pictures from the game (master 260ae7f, `?map=touge`)
+
+Done: the painted car style can no longer touch a car unless the look asks for it (`paintCar` returns at once without
+`look.car.painted`; a model's own `own_*`, `lamp_*`, `fx_*` materials are always left alone): no dust, no contour, the gloss untouched.
+The phone tier draws at full resolution with the browser's edge smoothing (no after-pass there) and fewer triangles instead of a small
+buffer; the probe's credit line sits small at the right edge on touch. Density thinned again for the game's numbers.
+
+What the game picture shows (`docs/screenshots/game-touge-look-wide.png`, `game-touge-look-phone.png`; side by side with the mockup in
+the notes folder: `touge-spiel-vs-mockup-1.png`):
+- Sky: violet with soft cloud bands and an orange band low over the mountains; no seam. The mockup's sky is warmer and pinker.
+- Mountains: several layers behind each other, but dark violet and close in tone; the volcano is a faint shape on the left.
+- Lake: not in this frame (it lies behind the guardrail on the left at this point of the road).
+- Smoke: none in this frame (the bot is at 8 degrees, not drifting).
+- Car: the game's own car colour (blue); tail lights orange-red without glow; no burnt-out spots on the roof.
+- Road: dark grey-violet with a yellow centre dash and a white edge line; no brown polygons in this frame.
+- Cedars: dark green cones on the slope to the right, no warm grazing light visible on them.
+- Phone: sharp edges now, no pixel stairs.
+Numbers in the game: high 424k triangles / 50 calls (world 283k; the rest are the cars and the shadow pass: still over 400k),
+phone 126k / 21.

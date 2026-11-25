@@ -30,7 +30,8 @@ export function disposeTree(root) {
  * @returns the stage: { renderer, post, scene, camera, tier, tierName, sun, sunDir, hemi, sky, world, field, mist, halos, env, skids, smoke, buildMs, carTier, load(look, scene), resize(), render(), aimSun(x, y, z) }
  */
 export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpan = 36 }) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+  // a tier without the after-pass (the phone) draws straight to the screen: let the browser smooth the edges there (MSAA); the after-pass has its own
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !(look.tiers[tierName] ?? look.tiers.low)?.post, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   // the mood: ACES tone mapping on both tiers; the high tier adds bloom and a colour grade (post.js), the vignette is CSS
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
