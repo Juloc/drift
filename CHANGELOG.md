@@ -2,6 +2,11 @@
 
 Versions follow SemVer. The version stands in `Directory.Build.props`.
 
+## 0.2.2
+
+- Reverse works: the brake brakes while the car rolls forward and becomes reverse at a stop; the camera stays behind the car.
+- Finer control on the PC: keyboard throttle, brake and steering as smooth ramps (tap to hold half throttle or a steering angle), "direct" as a setting; the mouse as a throttle lever (optional).
+
 ## 0.2.1
 
 - The first real car: the Mazda RX-7 FD ("Mazda RX-7 FD" by Lexyc16, CC BY 4.0, scaled, materials replaced, emblems removed), with the pipeline that normalises downloaded models; the credits page lists it.
