@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import * as THREE from '../../vendor/three/three.module.js';
 import { prepareCar } from './carglb.js';
 import { SLOTS } from './carglb.js';
-import { dressCar, carFx, measure } from './carfx.js';
+import { dressCar, carFx, measure, splitPalette } from './carfx.js';
 
 function fakeCar() {
   const mats = Object.fromEntries(SLOTS.map((s) => [s, new THREE.MeshStandardMaterial({ name: 'game_' + s })]));
@@ -50,4 +50,17 @@ test('brake lights brighten on this car only; the flames answer the game\'s car.
     fx.dispose(); fx2.dispose();
     assert.equal(listeners['car.pop'].length, 0);
   } finally { delete globalThis.window; }
+});
+
+test('splitPalette takes the faces of one palette field into their own mesh and leaves the rest', () => {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1], 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute([0.375, 0.625, 0.375, 0.625, 0.375, 0.625, 0.125, 0.875, 0.125, 0.875, 0.125, 0.875], 2));
+  g.setIndex([0, 1, 2, 3, 4, 5]);
+  const root = new THREE.Group(), mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ name: 'own_palette' })); root.add(mesh);
+  const glass = splitPalette(root, [0.375, 0.625], new THREE.MeshStandardMaterial({ name: 'fx_glass' }));
+  assert.ok(glass && glass.material.name === 'fx_glass');
+  assert.deepEqual([...glass.geometry.index.array], [0, 1, 2]);
+  assert.deepEqual([...mesh.geometry.index.array], [3, 4, 5]);
+  assert.equal(splitPalette(root, [0.9, 0.1], new THREE.MeshStandardMaterial()), null);
 });

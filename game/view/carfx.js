@@ -97,7 +97,34 @@ const tag = (o) => { o.userData.fx = true; o.traverse((c) => { c.userData.fx = t
  * The parts every copy of a car shares (put on the template once, before the copies are made): underbody, contact shadow,
  * headlight pool. `spec` = cars.json's `fx` ({ exhaust: [[x, y, z]], pool: 0..1 }).
  */
+/**
+ * Takes the faces of one palette field (a UV point, glTF axes) out of a palette mesh into their own mesh with `material`:
+ * the AE86's windows share the palette material with the black trim, and glass must reflect much less than trim.
+ * @returns the new mesh, or null when no face lies on that field
+ */
+export function splitPalette(group, uvAt, material, tol = 0.06) {
+  let made = null;
+  group.traverse((o) => {
+    if (made || !o.isMesh || !/palette/i.test(o.material?.name ?? '') || !o.geometry.attributes.uv) return;
+    const g = o.geometry, uv = g.attributes.uv, idx = g.index ? g.index.array : [...Array(g.attributes.position.count).keys()];
+    const on = (i) => Math.abs(uv.getX(i) - uvAt[0]) < tol && Math.abs(uv.getY(i) - uvAt[1]) < tol;
+    const keep = [], take = [];
+    for (let t = 0; t < idx.length; t += 3) (on(idx[t]) && on(idx[t + 1]) && on(idx[t + 2]) ? take : keep).push(idx[t], idx[t + 1], idx[t + 2]);
+    if (!take.length) return;
+    const g2 = g.clone(); g2.setIndex(take); g.setIndex(keep);
+    made = new THREE.Mesh(g2, material); made.name = o.name + '_glass';
+    made.position.copy(o.position); made.quaternion.copy(o.quaternion); made.scale.copy(o.scale);
+    o.parent.add(made);
+  });
+  return made;
+}
+
 export function dressCar(group, spec = {}, { lite = false } = {}) {
+  // windows: their own dark tinted glass, a weak reflection of the sky (the palette's glass reflected it fully: a pale plate)
+  if (spec.glassUv) {
+    let env = null; group.traverse((o) => { if (o.isMesh && !env) env = o.material?.envMap ?? null; });
+    splitPalette(group, spec.glassUv, new THREE.MeshStandardMaterial({ name: 'fx_glass', color: 0x05070b, metalness: 0, roughness: 0.06, envMap: env, envMapIntensity: 0.32 }));
+  }
   const m = measure(group), { box } = m;
   const len = box.max.z - box.min.z, half = Math.max(0.3, m.halfTrack - 0.14);
   // underbody: a dark floor pan between the wheels, two axles, a drive shaft to the rear axle (rear-wheel drive), a differential, the exhaust pipe
