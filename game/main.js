@@ -10,6 +10,7 @@ import { applyTuning, NAMES as TUNE_NAMES, valid as tuneValid } from './sim/tuni
 import { applyFeel, feelOf, PRO } from './sim/feel.js';
 import { FixedLoop } from './sim/loop.js';
 import { orbitBot } from './sim/bot.js';
+import { lineBot } from './sim/linebot.js';
 import { createStage, loadLook } from './view/look/stage.js';
 import { sceneFromMap } from './view/look/mapscene.js';
 import { Fleet } from './view/look/fleet.js';
@@ -20,7 +21,7 @@ import { ProbeHud } from './view/probehud.js';
 import { SoundSystem } from './view/sound.js';
 import { newRun, runStep, resultOf } from './sim/challenge.js';
 import { TandemHud } from './view/tandemhud.js';
-import { PracticeBot, TandemPractice, PRACTICE_START } from './sim/practice.js';
+import { PracticeBot, TandemPractice, MEETING_PRACTICE_START } from './sim/practice.js';
 import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
 import { WorldClient } from './net/world.js';
@@ -103,8 +104,8 @@ const input = new Input($('touch'));
 // the HUD (view/probehud.js): free driving in the lobby, laps and position in a race; the minimap shows the road of the map
 const HT = { en: { lap: 'Lap', time: 'Time', best: 'Best', score: 'Drift score', position: 'Position', angle: 'Drift angle', gear: 'Gear', gas: 'Throttle', brake: 'Brake', hand: 'Handbrake', lost: 'Lost!', online: 'Online', bestDrift: 'Best drift' },
   de: { lap: 'Runde', time: 'Zeit', best: 'Beste', score: 'Drift-Score', position: 'Position', angle: 'Driftwinkel', gear: 'Gang', gas: 'Gas', brake: 'Bremse', hand: 'Handbremse', lost: 'Verloren!', online: 'Online', bestDrift: 'Bester Drift' } }[de ? 'de' : 'en'];
-const shapesOf = (m) => ({ road: m.centre.map(([x, z]) => [X(x), z]), plaza: [], closed: true });
-const hud = new ProbeHud($('phud'), HT, de ? 'de' : 'en', shapesOf(first.json));
+const shapesOf = (a) => ({ road: a.json.centre.map(([x, z]) => [X(x), z]), plaza: a.theme.mode === 'road' && a.scene.plaza ? a.scene.plaza.pts.map(([x, z]) => [X(x), z]) : [], closed: true });
+const hud = new ProbeHud($('phud'), HT, de ? 'de' : 'en', shapesOf(first));
 const tandemHud = new TandemHud(T);
 // underglow (?glow=0..23 here, or from the garage): one glowing patch under a lit car, one draw call for all
 const glowHue = params.has('glow') && +params.get('glow') >= 0 && +params.get('glow') < 24 ? Math.floor(+params.get('glow')) : null;
@@ -146,7 +147,7 @@ async function ensureMap(id) {
     }
     carGroup.add(mine.group);
     cam.setLook(look.camera); cam.setGround(groundAt);
-    hud.setMap(shapesOf(a.json));
+    hud.setMap(shapesOf(a));
     stage.skids.clear();
   })();
   await mapLoading; mapLoading = null;
@@ -386,8 +387,11 @@ function reset() {
 }
 reset();
 if (params.has('map')) { await ensureMap(+params.get('map') || 0); reset(); }   // ?map=N: start on that map (for looking at it)
-const demo = params.get('demo') === 'orbit';
-if (demo) { const o = mapId === 0 ? { x: 66, z: 48, h: Math.PI / 2 } : map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); }
+const demo = params.get('demo') === 'orbit', demoLine = params.get('demo') === 'line';   // ?demo=orbit|line: a bot drives (a circle, or the map's loop) for pictures
+let lineDriver = null;
+const freecam = params.has('freecam') ? params.get('freecam').split(',').map(Number) : null;
+if (demoLine) { const o = map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); lineDriver = lineBot(stage.field.road, { closed: true, speed: 22, corner: 15 }); }
+if (demo) { const o = mapId === 0 ? { x: -30, z: 8, h: Math.PI / 2 } : map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); }
 
 // ----- the practice partner (?bot=1 or the key B): a bot drives a drift circle next to you; the tandem bonus is judged here, nothing is sent
 let practice = null;
@@ -396,7 +400,7 @@ function togglePractice(on = !practice) {
   if (botCar) { scene.remove(botCar.group); botCar = null; }
   if (!on) { practice = null; tandemHud.set(null); return; }
   if (!practice) {
-    const start = params.get('bot') === 'near' ? { x: cur.x + 6, z: cur.z, h: cur.h } : mapId === 0 ? PRACTICE_START : map.grid[0];   // ?bot=near: right beside you (for pictures and tests)   // a clear run and an open circle; the bot waits there for you to find it
+    const start = params.get('bot') === 'near' ? { x: cur.x + 6, z: cur.z, h: cur.h } : mapId === 0 ? MEETING_PRACTICE_START : map.grid[0];   // ?bot=near: right beside you (for pictures and tests)   // a clear run and an open circle; the bot waits there for you to find it
     practice = { bot: new PracticeBot(map, car, start, 1), scorer: new TandemPractice(), spin: 0 };
   }
   botCar = fleet.spawn(new THREE.Color().setHSL(((car.colour + 180) % 360) / 360, 0.62, 0.42));
@@ -405,7 +409,7 @@ function togglePractice(on = !practice) {
 
 function simStep(i) {
   prev = cur;
-  const inp = locked ? { steer: 0, throttle: 0, brake: 0, handbrake: 1 } : demo ? orbitBot(i * DT, cur, { start: 1.5 }) : input.read();
+  const inp = locked ? { steer: 0, throttle: 0, brake: 0, handbrake: 1 } : demo ? orbitBot(i * DT, cur, { start: 1.5 }) : lineDriver ? lineDriver(i * DT, cur) : input.read();
   lastInp = inp;
   const mu = surfaceAt(map, cur.x, cur.z).mu;
   cur = collideBody(map, step(cur, inp, carNow, mu));   // the walls and poles
@@ -564,6 +568,7 @@ function frame(now) {
   smoke.sync();
 
   cam.update(drawn, car.top, dt);
+  if (freecam) { camera.position.set(X(freecam[0]), freecam[1], freecam[2]); camera.lookAt(X(freecam[3]), freecam[4], freecam[5]); camera.fov = freecam[6] ?? 50; camera.updateProjectionMatrix(); }   // ?freecam=x,y,z,lookX,lookY,lookZ[,fov] (simulation axes): a camera anywhere, for pictures
   stage.aimSun(X(drawn.x), gy, drawn.z);
   stage.halos.resize(renderer.domElement.height, camera.fov);
   if (sound.unlocked) {   // the engine and the tyres of your car, and the four nearest others

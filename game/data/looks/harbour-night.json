@@ -57,8 +57,9 @@
   "cool": "#1c2a48",
   "rock": "#4a5878",
   "rockDark": "#2a3452",
-  "gravel": "#323d5a",
-  "sand": "#3a4666"
+  "gravel": "#2a3350",
+  "sand": "#3a4666",
+  "groundVar": 0.3
  },
  "road": {
   "asphalt": "#232a3c",
@@ -233,5 +234,8 @@
   "metal": "#4a5470",
   "tint": "#243060",
   "tintBy": 0.35
+ },
+ "zone": {
+  "wet": "#161c30"
  }
 }

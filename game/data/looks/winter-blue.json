@@ -24,13 +24,13 @@
    0.14,
    -1
   ],
-  "colour": "#b4c8ff",
-  "intensity": 2.3
+  "colour": "#c4d2ff",
+  "intensity": 2.0
  },
  "fill": {
-  "sky": "#8ea4e4",
-  "ground": "#cad6ee",
-  "intensity": 2.1
+  "sky": "#7c92d2",
+  "ground": "#a8b6d8",
+  "intensity": 1.6
  },
  "fog": {
   "colour": "#b6c2e6",
@@ -43,7 +43,7 @@
   "y": -1.5
  },
  "grade": {
-  "exposure": 1.0,
+  "exposure": 0.92,
   "bloom": 0.5,
   "threshold": 1.15,
   "warmth": 0.96,
@@ -57,12 +57,13 @@
   "cool": "#cdd8ee",
   "rock": "#8e9ab2",
   "rockDark": "#5e6882",
-  "gravel": "#b6c0d6",
-  "sand": "#c6cee4"
+  "gravel": "#e2e8f6",
+  "sand": "#c6cee4",
+  "groundVar": 0.35
  },
  "road": {
-  "asphalt": "#97a5c2",
-  "asphaltLight": "#a6b4d0",
+  "asphalt": "#7380a4",
+  "asphaltLight": "#818eb0",
   "edge": "#ffffff",
   "centre": "#6a8ed8",
   "plaza": "#dde4f2",
@@ -71,7 +72,7 @@
   "roughness": 0.32,
   "sheen": 0.7,
   "edgeWidth": 0.34,
-  "track": "#8694b2",
+  "track": "#626f94",
   "shoulder": false
  },
  "water": {
@@ -226,5 +227,8 @@
  "lantern": {
   "stone": "#b7a8a6",
   "gate": "#c8423f"
+ },
+ "zone": {
+  "ice": "#3c5c98"
  }
 }

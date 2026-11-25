@@ -9,6 +9,8 @@ import { DT } from './physics.js';
 
 /** Where the bot starts on the car park (a clear run of 40 m and an open circle, found by trying: it drifts a steady circle at about 10 m/s without touching a wall). */
 export const PRACTICE_START = { x: 30, z: -35, h: Math.PI / 2 };
+/** The same on the meeting place's plaza (map 0, the lobby): heading west from its east half, a circle to the right that stays on the plaza (tried, no wall is touched in 40 s). */
+export const MEETING_PRACTICE_START = { x: 30, z: -10, h: -Math.PI / 2 };
 
 /** The wire's pose of a car state. */
 export const poseOf = (s) => ({ x: s.x, z: s.z, h: s.h, vf: bodyVelocity(s).vf, beta: bodySlip(s) });

@@ -1,46 +1,240 @@
 {
  "look": "sunset",
- "note": "Treffpunkt: placeholder until the open-world lobby map exists (the car park, drawn as a quay-like flat area on a mountain).",
- "mode": "area",
+ "note": "The meeting place: a plaza cut into the slope inside a mountain road loop; made by tools/make-meeting.mjs together with the physics map.",
+ "mode": "road",
+ "rails": "both",
+ "railGap": 14,
+ "grade": {
+  "amp": 8,
+  "waves": 3,
+  "phase": 0.8,
+  "flatAt": [
+   0.04,
+   0.14
+  ]
+ },
  "terrain": {
   "profile": [
+   [
+    -2000,
+    300
+   ],
+   [
+    -700,
+    150
+   ],
+   [
+    -320,
+    82
+   ],
+   [
+    -140,
+    40
+   ],
+   [
+    -70,
+    19
+   ],
+   [
+    -28,
+    7
+   ],
+   [
+    -9,
+    1.4
+   ],
    [
     0,
     0
    ],
    [
-    4,
-    -0.4
+    9,
+    -1.5
    ],
    [
-    14,
-    -6
+    28,
+    -9
    ],
    [
-    40,
-    -24
+    70,
+    -30
    ],
    [
-    120,
-    -60
+    160,
+    -80
    ],
    [
-    400,
-    -110
+    420,
+    -150
    ],
    [
     2000,
-    -200
+    -220
    ]
   ],
   "drop": [
    0.5,
-   5
+   4.5
   ],
-  "openValley": 30,
+  "openValley": 40,
+  "hills": {
+   "amp": 16,
+   "from": -35,
+   "to": -55,
+   "near": 0
+  },
   "floor": -70
  },
- "rail": true,
+ "plaza": {
+  "pts": [
+   [
+    -55,
+    36.5
+   ],
+   [
+    55,
+    36.5
+   ],
+   [
+    55,
+    -14
+   ],
+   [
+    48,
+    -23
+   ],
+   [
+    40,
+    -26
+   ],
+   [
+    -40,
+    -26
+   ],
+   [
+    -48,
+    -23
+   ],
+   [
+    -55,
+    -14
+   ]
+  ],
+  "bays": {
+   "x0": -48,
+   "x1": 20,
+   "z0": -20,
+   "z1": -12,
+   "pitch": 5.5
+  },
+  "wall": 0.7,
+  "kerb": false,
+  "rail": false,
+  "lamps": [
+   [
+    -44,
+    30
+   ],
+   [
+    -12,
+    30
+   ],
+   [
+    20,
+    30
+   ],
+   [
+    44,
+    30
+   ]
+  ],
+  "benches": [
+   [
+    28,
+    -20,
+    3.1416
+   ],
+   [
+    36,
+    -20,
+    3.1416
+   ]
+  ],
+  "trees": [
+   [
+    -50,
+    -30,
+    "cherry"
+   ],
+   [
+    -34,
+    -31,
+    "cherry"
+   ],
+   [
+    34,
+    -31,
+    "cherry"
+   ],
+   [
+    50,
+    -29,
+    "cherry"
+   ],
+   [
+    -60,
+    -14,
+    "pine"
+   ],
+   [
+    60,
+    -16,
+    "pine"
+   ],
+   [
+    -62,
+    10,
+    "cherry"
+   ],
+   [
+    64,
+    8,
+    "cherry"
+   ]
+  ]
+ },
+ "marks": [
+  {
+   "type": "lantern",
+   "x": -30,
+   "z": 28,
+   "ry": 0
+  },
+  {
+   "type": "lantern",
+   "x": 30,
+   "z": 28,
+   "ry": 0
+  },
+  {
+   "type": "lantern",
+   "x": -30,
+   "z": -17,
+   "ry": 0
+  },
+  {
+   "type": "lantern",
+   "x": 30,
+   "z": -17,
+   "ry": 0
+  },
+  {
+   "type": "gate",
+   "x": 0,
+   "z": -19,
+   "ry": 0
+  }
+ ],
  "rings": [
   [
    1000,
@@ -68,5 +262,5 @@
    360
   ]
  ],
- "margin": 700
+ "mistCount": 8
 }

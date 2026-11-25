@@ -56,6 +56,7 @@ export function buildWorld(scene, look, tierName = 'high') {
     const r = right(f.info.dir[i]), hr = f.base(p[0] + r[0] * 16, p[1] + r[1] * 16), hl = f.base(p[0] - r[0] * 16, p[1] - r[1] * 16);
     return { valley: hr < hl ? 1 : -1, drop: Math.min(hr, hl), rise: Math.max(hr, hl) };
   });
+  const nearPlaza = scene.plaza && !scene.road.overPlaza && scene.road.railGap ? (x, z) => distToPoly(scene.plaza.pts, x, z) < scene.road.railGap : () => false;   // the rails stay open beside the meeting place
   const onPlaza = scene.plaza && !scene.road.overPlaza ? (x, z) => insidePoly(scene.plaza.pts, x, z) : () => false;   // (`overPlaza`: the road is drawn on top of the flat area, as a track on a quay or a desert)
 
   land(S, f, scene, look, tier);
@@ -65,8 +66,9 @@ export function buildWorld(scene, look, tierName = 'high') {
   // the road has its own mesh: a slightly glossy material that shines in the low sun (the page gives it the sky as reflection)
   const Rb = new Builder({ seed: 7, jitter: 0, wobble: 0, bake: false });
   road(Rb, f, look, onPlaza, mulberry32(23), lite, scene);
+  zones(Rb, f, scene, look);
   if (scene.plaza) plaza(S, G, f, scene, look, lite, lampHeads);
-  roadside(S, G, f, look, tier, sideInfo, onPlaza, scene);
+  roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza);
   trees(S, f, scene, look, tier, rnd, lite);
   rocks(S, f, look, tier, rnd, sideInfo, lite);
   details(S, G, f, scene, look, tier, mulberry32(29), lite, sideInfo, onPlaza);
@@ -126,7 +128,9 @@ function land(S, f, scene, look, tier) {
     k.lerp(n > 0 ? warm : cool, Math.abs(n) * 0.55);
     r.copy(rock).lerp(rockDark, 0.5 + 0.5 * noise2(x / 13, z / 13));
     k.lerp(r, smoothstep(0.75, 1.3, slope) * (0.55 + 0.45 * Math.max(0, noise2(x / 9 + 5, z / 9))));   // rock shows in patches on steep ground
-    k.lerp(gravel, 1 - smoothstep(1.5, 4.5, e));
+    // the ground of the driving area (and the strip beside the road): `groundVar` > 0 lets it vary in patches (a sand field, a snow field, a quay) instead of one flat colour
+    if (L.groundVar) { const gv = gravel.clone().lerp(noise2(x / 23 + 4, z / 23) > 0 ? warm : cool, Math.abs(noise2(x / 17, z / 17 + 8)) * L.groundVar); k.lerp(gv, 1 - smoothstep(1.5, 4.5, e)); }
+    else k.lerp(gravel, 1 - smoothstep(1.5, 4.5, e));
     k.lerp(sand, smoothstep(ry + 4, ry + 0.8, h));
     // a little irregularity in the grid away from the road, so the facets do not look like a chessboard
     const cw = Math.min(xs[i1] - xs[i0], zs[j1] - zs[j0]) / 2, jit = e > f.shelf + cw * 2 ? cw * 0.28 : 0;
@@ -291,9 +295,25 @@ function road(S, f, look, onPlaza, rnd, lite, scene) {
   }
 }
 
+// ---------------------------------------------------------------- patches of another ground on the driving area (ice, wet, an asphalt patch): flat shapes on the glossy road mesh
+function zones(S, f, scene, look) {
+  const Z = look.zone ?? {}, def = { ice: '#4a6ea8', wet: '#262e48', asphalt: '#3c3440', sand: '#d6a866', snow: '#e8eef8' };
+  for (const z of scene.zones ?? []) {
+    const colour = C(Z[z.kind] ?? def[z.kind] ?? '#555555'), k = new THREE.Color(), y = 0.028 + (f.lift ?? 0) + (z.kind === 'ice' ? 0.004 : 0);
+    if (z.r !== undefined) {
+      const n = 28, g = gridGeo(2, n + 1, (r, c) => { const a = (c / n) * Math.PI * 2, rr = z.r * (r ? 1 : 0.0); k.copy(colour).lerp(C('#ffffff'), r ? 0 : 0.18); return [X(z.x + Math.cos(a) * rr), y + f.groundY(z.x, z.z), z.z + Math.sin(a) * rr, k]; });
+      S.add(orient(g, UP), null, { keepColors: true, jitter: 0, wobble: 0 });
+    } else {
+      const g = gridGeo(2, 2, (r, c) => [X(c ? z.x1 : z.x0), y + f.groundY((z.x0 + z.x1) / 2, (z.z0 + z.z1) / 2), r ? z.z1 : z.z0, colour]);
+      S.add(orient(g, UP), null, { keepColors: true, jitter: 0, wobble: 0 });
+    }
+  }
+}
+
 // ---------------------------------------------------------------- the meeting place: surface, bays, kerb, a rail on the valley side, lamps, benches, its own trees
 function plaza(S, G, f, scene, look, lite, lampHeads) {
   const P = scene.plaza, R = look.road, pts = P.pts;
+  if (P.surface !== false) {
   const tris = THREE.ShapeUtils.triangulateShape(pts.map(([x, z]) => new THREE.Vector2(x, z)), []);
   const pos = [], col = [], base = C(R.plaza), k = new THREE.Color();
   for (const t of tris) for (const v of t) { const [x, z] = pts[v]; pos.push(X(x), 0.012, z); k.copy(base).lerp(C(R.asphaltLight), 0.3 + 0.3 * noise2(x / 20, z / 20)); col.push(k.r, k.g, k.b); }
@@ -301,6 +321,7 @@ function plaza(S, G, f, scene, look, lite, lampHeads) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.setIndex([...Array(pos.length / 3).keys()]);
   S.add(orient(g, UP), null, { keepColors: true, jitter: 0, wobble: 0 });
+  }
   const B = P.bays, white = C(R.bay);
   if (B) for (let x = B.x0; x <= B.x1 + 0.01; x += B.pitch) S.box(0.14, 0.02, B.z1 - B.z0, X(x), 0.03, (B.z0 + B.z1) / 2, white, { r: 0, jitter: 0 });
   // kerb round the edge (not where the road leaves) and a guardrail where the land beyond falls away
@@ -312,7 +333,8 @@ function plaza(S, G, f, scene, look, lite, lampHeads) {
     const nx = dz / len, nz = -dx / len, out = insidePoly(pts, mx + nx * 2, mz + nz * 2) ? -1 : 1;   // the normal pointing away from the plaza
     const t = ((start[0] - p[0]) * dx + (start[1] - p[1]) * dz) / (len * len);
     const roadHere = t > 0 && t < 1 && Math.abs((start[0] - p[0]) * dz - (start[1] - p[1]) * dx) / len < 3;
-    if (!roadHere) S.box(0.3, 0.16, len, X(mx), 0.08, mz, C(R.kerb), { r: 0, ry });
+    if (!roadHere && P.wall && !(Math.abs(nz) > 0.9 && mz > 30)) S.box(0.5, P.wall, len, X(mx), P.wall / 2, mz, C(look.bridge?.stone ?? R.kerb), { r: 0.04, ry });   // a low stone wall where the plaza meets the slope (not on the side of the road)
+    else if (!roadHere && P.kerb !== false) S.box(0.3, 0.16, len, X(mx), 0.08, mz, C(R.kerb), { r: 0, ry });
     const fall = f.base(mx + nx * out * 14, mz + nz * out * 14) < -2;
     if (P.rail && fall && !roadHere) railRun(S, G, look, [[p[0] + nx * out * 0.7, p[1] + nz * out * 0.7], [q[0] + nx * out * 0.7, q[1] + nz * out * 0.7]], 4, lite);
   }
@@ -352,7 +374,7 @@ function railRun(S, G, look, line, every, lite, yAt = () => 0) {
 }
 
 // ---------------------------------------------------------------- along the road: guardrails on the valley side, reflector posts on the other, chevrons in the bends
-function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene) {
+function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza = () => false) {
   const hw = f.hw, right = (d) => [d[1], -d[0]];
   // guardrail runs: consecutive points where the land on the valley side falls by more than 2.5 m (one rail per side)
   for (const side of [-1, 1]) {
@@ -360,7 +382,7 @@ function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene) {
     const flush = () => { if (run.length > 2) railRun(S, G, look, run, tier.railPost, tier.cell > 5, f.groundY); run = []; };
     f.road.forEach((p, i) => {
       const si = sideInfo[i];
-      if (((si.valley === side && si.drop < -2.5) || scene.road.rails === 'both') && !onPlaza(p[0], p[1])) { const r = right(f.info.dir[i]); run.push([p[0] + r[0] * side * (hw + 1.5), p[1] + r[1] * side * (hw + 1.5)]); }
+      if (((si.valley === side && si.drop < -2.5) || scene.road.rails === 'both') && !onPlaza(p[0], p[1]) && !nearPlaza(p[0], p[1])) { const r = right(f.info.dir[i]); run.push([p[0] + r[0] * side * (hw + 1.5), p[1] + r[1] * side * (hw + 1.5)]); }
       else flush();
     });
     flush();

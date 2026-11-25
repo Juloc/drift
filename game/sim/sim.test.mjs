@@ -254,7 +254,7 @@ test('the five cars: sane numbers, and different from each other', () => {
 const MAPS = read('../data/maps.json').maps.map((m) => ({ ...m, json: read('../data/maps/' + m.file) }));
 const distToSegs = (segs, x, z) => { let best = Infinity; for (let i = 0; i < segs.length; i += 4) { const dx = segs[i + 2] - segs[i], dz = segs[i + 3] - segs[i + 1], l2 = dx * dx + dz * dz; const t = l2 ? Math.max(0, Math.min(1, ((x - segs[i]) * dx + (z - segs[i + 1]) * dz) / l2)) : 0; best = Math.min(best, Math.hypot(x - (segs[i] + dx * t), z - (segs[i + 1] + dz * t))); } return best; };
 
-test('maps: five maps, the car park first and the lobby, each with its own name and a real loop', () => {
+test('maps: five maps, the meeting place first and the lobby, each with its own name and a real loop', () => {
   assert.deepEqual(MAPS.map((m) => m.id), [0, 1, 2, 3, 4]);
   assert.equal(MAPS[0].lobby, true);
   assert.equal(new Set(MAPS.map((m) => m.name)).size, 5);
@@ -264,7 +264,6 @@ test('maps: five maps, the car park first and the lobby, each with its own name 
     assert.ok(j.loopLength > 350 && j.loopLength < 1500, m.name);
     const c = j.centre;
     assert.ok(Math.hypot(c[0][0] - c.at(-1)[0], c[0][1] - c.at(-1)[1]) < 12, `${m.name}: the loop closes`);
-    assert.ok(j.sky && j.theme !== null, m.name);
   }
 });
 

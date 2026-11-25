@@ -11,7 +11,8 @@ export function closedGrade(length, { amp = 6, waves = 3, phase = 0, flatAt = nu
   for (let i = 0; i <= n; i++) {
     const a = (i / n) * Math.PI * 2;
     let y = amp * (Math.sin(a * waves + phase) * 0.8 + Math.sin(a * waves * 2 + phase * 1.7) * 0.2);
-    if (flatAt && Math.abs(i / n - flatAt[0]) < flatAt[1]) y = 0;   // level where the start grid or the meeting place stands
+    const f = i / n;
+    if (flatAt && Math.min(Math.abs(f - flatAt[0]), Math.abs(f - 1 - flatAt[0]), Math.abs(f + 1 - flatAt[0])) < flatAt[1]) y = 0;   // level where the start grid or the meeting place stands
     out.push([(i / n) * length, Math.round(y * 100) / 100]);
   }
   return out;
@@ -25,14 +26,14 @@ export function sceneFromMap(map, th) {
   const T = th.terrain ?? {};
   const grade = th.grade ? closedGrade(map.loopLength, th.grade) : [[0, 0], [map.loopLength, 0]];
   const scene = {
-    road: { closed: true, ctrl: map.centre, halfWidth: map.halfWidth, bendMin: th.bendMin ?? 0.35, bendSpan: th.bendSpan ?? 40, grade, rails: th.rails, overPlaza: area, lift: area ? 0.02 : 0 },
+    road: { closed: true, ctrl: map.centre, halfWidth: map.halfWidth, bendMin: th.bendMin ?? 0.35, bendSpan: th.bendSpan ?? 40, grade, rails: th.rails, railGap: th.railGap, overPlaza: area, lift: area ? 0.02 : 0 },
     terrain: { mode: th.mode ?? 'road', extent: [b.x0 - M, b.z0 - M, b.x1 + M, b.z1 + M], core: [b.x0 - 50, b.z0 - 50, b.x1 + 50, b.z1 + 50], flat: 1.0, blend: 6, floor: th.floor ?? -50, ...T },
     ridges: { centre: [cx, cz], rings: th.rings },
     props: (map.props ?? []).filter((p) => DRAWN.has(p.type)),
-    marks: th.marks ?? [], trees: th.trees ?? [], mist: [],
+    zones: map.zones ?? [], marks: th.marks ?? [], trees: th.trees ?? [], mist: [],
     startLine: map.gates?.[0] ? { a: map.gates[0].a, b: map.gates[0].b, d: map.gates[0].d } : null,
   };
-  if (area) scene.plaza = { pts: map.bounds.map((p) => [...p]), rail: th.rail ?? false, lamps: [], benches: [], trees: [] };
+  if (area) scene.plaza = { pts: map.bounds.map((p) => [...p]), rail: th.rail ?? false, surface: false, lamps: [], benches: [], trees: [] };   // (the ground of the area is the land itself, coloured by the look's `land.gravel`)
   else if (th.plaza) scene.plaza = th.plaza;
   if (th.sea) scene.sea = th.sea;
   if (th.lake) scene.lake = th.lake;

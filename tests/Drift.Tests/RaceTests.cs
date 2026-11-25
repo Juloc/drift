@@ -25,6 +25,7 @@ sealed class FakeBest : IBestTimes
 
 public class RaceTrackTests
 {
+    /// <summary>The test track: the car park of the first milestones (data/maps/01-car-park.json, no longer in the game's list): a 389 m loop that the tests below are written around.</summary>
     internal static readonly string MapJson = File.ReadAllText(Path.Combine(Repo.Root, "game", "data", "maps", "01-car-park.json"));
     static RaceTrack Track() => RaceTrack.FromJson(MapJson);
 

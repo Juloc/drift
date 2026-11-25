@@ -46,3 +46,6 @@ body.touch #chips > #feel { width: auto; }
 #credits-link { color: var(--white); }
 #debug { top: 8px; left: auto; right: 8px; }
 #hud > [hidden], #chips > [hidden] { display: none !important; }
+/* phone: the full-screen and back buttons stand under the menu button on the left, away from the minimap, the arc and the pads */
+body.touch #fs { left: max(var(--gap), env(safe-area-inset-left)); right: auto; top: 238px; bottom: auto; transform: none; width: 40px; height: 40px; font-size: 18px; }
+body.touch #back { left: max(var(--gap), env(safe-area-inset-left)); top: 284px !important; bottom: auto; width: 40px; height: 40px; font-size: 18px; }
