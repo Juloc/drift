@@ -1,0 +1,42 @@
+{
+  "name": "Sunset (soft, painted)",
+  "note": "Colours, light, mood and density of a look; the shapes come from the scene. Another look (night harbour, desert, winter, car park) is another file like this one. Colours are before tone mapping (ACES), which softens and warms them.",
+  "sky": {
+    "top": "#8466bd",
+    "mid": "#f57f9c",
+    "horizon": "#ffb06c",
+    "below": "#f2a99c",
+    "midHeight": 0.2,
+    "sun": "#ffe6bf",
+    "sunGlow": 2.3,
+    "glow": "#ff9558",
+    "sunSize": 3.1,
+    "glowStrength": 1.45,
+    "clouds": { "lit": "#ffcaa2", "shade": "#b25a88", "amount": 1.0 }
+  },
+  "sun": { "dir": [0.61, 0.205, -1], "colour": "#ffb070", "intensity": 3.4 },
+  "fill": { "sky": "#8a72cc", "ground": "#c48a8a", "intensity": 1.95 },
+  "fog": { "colour": "#f0a8a2", "near": 400, "far": 4200 },
+  "mist": { "colour": "#ffdcdc", "opacity": 0.6, "y": -9 },
+  "grade": { "exposure": 0.95, "bloom": 0.62, "threshold": 1.15, "warmth": 1.1, "saturation": 1.32 },
+  "land": { "valley": "#6c8c48", "mid": "#8f9a3c", "high": "#a99a5c", "warm": "#a8a046", "cool": "#73903f", "rock": "#9a7484", "rockDark": "#6c5072", "gravel": "#9a7c80", "sand": "#d9ad9d" },
+  "road": { "asphalt": "#4a3f52", "asphaltLight": "#564a5e", "edge": "#fbf3f0", "centre": "#f2b84e", "plaza": "#665d71", "bay": "#efe9e4", "kerb": "#cfc3c4", "roughness": 0.75, "sheen": 0.18, "edgeWidth": 0.34 },
+  "water": { "deep": "#9a7cb8", "light": "#ffbf86", "glint": "#ffc58c", "glow": 1.5 },
+  "bridge": { "stone": "#e2b29c", "shade": "#c08e88" },
+  "ridges": ["#3f3a5c", "#62527e", "#9068a0", "#c48aad", "#eab0bb"],
+  "pine": { "trunk": "#4a3238", "dark": "#1f4436", "mid": "#2a5a40", "top": "#4a7a46" },
+  "cherry": { "trunk": "#5e4444", "blossom": ["#f496b8", "#f8aec8", "#e67b9f", "#ffd0dc"] },
+  "rail": { "beam": "#c9c4cf", "beamLight": "#efeaf0", "post": "#5d5866", "reflector": "#ffad42" },
+  "chevron": { "board": "#3b2337", "arrow": "#ff5a96", "post": "#9b93a0" },
+  "post": { "white": "#f4efee", "band": "#2b2630", "reflector": "#ffc23f" },
+  "lamp": { "pole": "#4a4452", "light": "#ffe2b0" },
+  "smoke": { "colour": "#ffffff", "shade": "#ffd3df", "glow": 1.35, "opacity": 0.97, "near": 3.2, "drift": 3.6, "offset": 1.1 },
+  "skid": { "colour": "#140f18", "opacity": 0.85 },
+  "camera": { "dist": 6.0, "height": 1.9, "side": 1.3, "look": 30, "lookY": -2.0, "travel": 0.6, "fov": 50 },
+  "tiers": {
+    "high": { "cell": 3.5, "far": 16, "pines": 650, "cherries": 130, "nearPines": 140, "nearCherries": 70, "rocks": 60, "ridge": 160, "mist": 6, "railPost": 3, "smoke": 300, "smokeDetail": 1, "shadows": 2048, "post": true, "dpr": 1.75, "scale": 1, "env": 128 },
+    "low": { "cell": 8, "far": 40, "pines": 70, "cherries": 26, "nearPines": 40, "nearCherries": 24, "rocks": 24, "ridge": 64, "mist": 3, "railPost": 6, "smoke": 90, "smokeDetail": 0, "shadows": 0, "post": false, "dpr": 1, "scale": 0.75, "env": 32 }
+  },
+  "facets": true,
+  "car": { "tail": "#ff0a2a", "tailGlow": 1.7 }
+}
