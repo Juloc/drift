@@ -118,6 +118,7 @@ async function garagePage(me) {
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('tune.title') }), h('p', { class: 'muted', text: t('tune.intro') }), points, tuneBox, h('div', { class: 'cluster' }, tuneReset)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.glow') }), h('p', { class: 'muted', text: t('garage.glowHint') }), glowOff, h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.glow') }, glowSwatches)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.name') }), form),
+      controlsCard(),
       await challengesCard(),
       statsCard(stats),
       boardCard(await api('GET', '/api/times')),
@@ -126,6 +127,23 @@ async function garagePage(me) {
           h('button', { class: 'btn primary', type: 'button', onclick: save }, icon('check'), t('common.save')),
           h('a', { class: 'btn outline', href: '/play/', target: '_blank', rel: 'noopener' }, icon('bolt'), t('garage.play'))))),
   };
+}
+
+/* ---------- controls at the PC: kept on this device, read by the game page ---------- */
+function controlsCard() {
+  const get = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
+  const put = (k, v) => { try { localStorage.setItem(k, v); } catch { /* not kept */ } };
+  const group = (label, key, def, options) => {
+    const box = h('div', { class: 'cluster', role: 'radiogroup', 'aria-label': label });
+    const draw = () => box.replaceChildren(...options.map(([value, text]) => h('button', { class: 'btn outline', type: 'button', role: 'radio', 'aria-checked': String(get(key, def) === value), onclick: () => { put(key, value); toast(t('controls.saved'), { kind: 'ok' }); draw(); } }, text)));
+    draw();
+    return h('div', { class: 'stack s' }, h('strong', { text: label }), box);
+  };
+  return h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('controls.title') }), h('p', { class: 'muted', text: t('controls.intro') }),
+    group(t('controls.keys'), 'drift.keys', 'soft', [['soft', t('controls.soft')], ['direct', t('controls.direct')]]),
+    h('p', { class: 'muted', text: t('controls.keysHint') }),
+    group(t('controls.mouse'), 'drift.mouse', '0', [['0', t('controls.off')], ['1', t('controls.on')]]),
+    h('p', { class: 'muted', text: t('controls.mouseHint') }));
 }
 
 /* ---------- challenges with stars ---------- */
