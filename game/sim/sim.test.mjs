@@ -215,6 +215,19 @@ test('the car park map file: closed loop, spawn and grid on free ground inside t
   assert.equal(surfaceAt(MAP, raw.lobbySpawn.x, raw.lobbySpawn.z).kind, 'asphalt');
 });
 
+test('the five cars differ in the way their names promise', () => {
+  const by = Object.fromEntries(CARS.map((c) => [c.name, c]));
+  const t80 = (car) => { let s = makeCar(), i = 0; for (; speedOf(s) * 3.6 < 80 && i < 20 / DT; i++) s = step(s, { ...NONE, throttle: 1 }, car); return i * DT; };
+  assert.ok(t80(by.Bruno) < t80(by.Dart) && t80(by.Dart) < t80(by.Pip), 'Bruno is the quickest off the line');
+  const topAfter = (car) => speedOf(run(makeCar(), 25, () => ({ ...NONE, throttle: 1 }), car));
+  assert.ok(topAfter(by.Ox) < topAfter(by.Pip) && topAfter(by.Pip) < topAfter(by.Bruno), 'Ox is the slowest, Bruno the fastest');
+  const yaw = (car) => run({ ...makeCar(), vz: 15 }, 0.2, () => ({ ...NONE, throttle: 0.4, steer: 1 }), car).w;
+  assert.ok(yaw(by.Pip) > yaw(by.Dart) && yaw(by.Dart) > yaw(by.Bruno) && yaw(by.Bruno) > yaw(by.Ox), 'Pip turns in fastest, the heavy ones slowest');
+  // steady cornering with a moderate steering angle: how much sideways acceleration a car holds (v * yaw rate)
+  const side = (car) => { let s = { ...makeCar(), vz: 14 }, acc = 0, n = 0; for (let i = 0; i < 5 / DT; i++) { s = step(s, { steer: 0.35, throttle: speedOf(s) < 14 ? 0.6 : 0.1, brake: 0, handbrake: 0 }, car); if (i * DT > 3) { acc += speedOf(s) * Math.abs(s.w); n++; } } return acc / n; };
+  assert.ok(side(by.Marlin) > side(by.Dart) && side(by.Dart) > side(by.Bruno) && side(by.Bruno) > side(by.Ox), 'Marlin corners hardest, Ox least');
+});
+
 test('the five cars: sane numbers, and different from each other', () => {
   assert.equal(CARS.length, 5);
   for (const c of CARS) {

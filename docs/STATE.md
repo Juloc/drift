@@ -1,6 +1,6 @@
 # State: where drift stands (hand-over page)
 
-Updated 2026-11-25 (evening) by the building session. Every session updates this page at the end of its work.
+Updated 2026-11-25 (late) by the building session. Every session updates this page at the end of its work.
 
 ## Done
 
@@ -30,6 +30,13 @@ Design: [ARCHITECTURE.md](ARCHITECTURE.md) section 10. Everyone on `game/demo.ht
 Per hour on a phone with 16 in the world: about 10 MB down, 1 MB up. With three real headless browsers driving together (software graphics): each saw the other two (roster 3, two cars drawn, labels shown for those in view), 15 to 24 frames a second came in, about 0.45 to 0.6 KB/s down and 0.1 KB/s up (a few visitors, and a headless page that sends poses only when its frames come, so lower than the 15 Hz of a real phone). Picture: `docs/screenshots/demo-crowd.png`.
 
 **Not checked (demo):** a real phone, real networks (loss, jitter, a mobile connection that stalls), more than 16 real visitors and a real second world (covered by a unit test and by the load generator with 16 only), HTTPS and `wss://` behind the website's proxy and its content policy (`connect-src` must allow the socket; older Safari needs the host written out), Safari and Firefox, the interpolation by eye with real lag (only unit-tested), the relay under attack (the limits are unit-tested, not stress-tested), a restart of the relay while pages are open (the back-off is written, not tried), reduced motion, screen readers for the name labels (they are hidden from them on purpose).
+
+## Cars and phone polish (after the website release of the shared world)
+
+- **All five cars have their own model** (`game/view/carmodel.js`, built by code like the Dart): Dart coupe, **Pip** short tall hatchback with big round lights, **Bruno** long wide muscle car (bonnet scoop, twin stripes, fat rear arches, twin exhausts), **Marlin** wide hot hatch with a big wing, splitter and skirts, **Ox** tall pick-up (open bed, roll bar, bull bar). The wheel layout is the same on all (one instanced mesh for every car), each has its own shadow-blob size. Remote cars in the shared world are drawn with the model of the car id they announced in the join address, so **the relay frames are unchanged and the website's copy stays compatible** (only `game/` changed; `server/Relay/` is untouched).
+- **Feel:** the numbers are the same except **Pip's agility 1.30 to 1.40** (more nervous turn-in). A new test (`the five cars differ in the way their names promise`) pins the character: Bruno quickest off the line, Ox slowest, Pip turns in fastest and the heavy ones slowest, Marlin holds the most sideways acceleration at a moderate steering angle and Ox the least. Finding while testing: at **full** steering lock every car is limited by the front tyres' falling curve, not by its grip number, so grip shows at moderate steering; this makes Marlin a car that rewards smooth steering.
+- **Phone:** touch steering now builds up over about 0.3 s and comes back quickly (a tap is a small correction, a long press full lock; keys unchanged); a **first-time tip** above the buttons until the first gas; a **full-screen button** between the pads (also tries a landscape lock where the browser allows it). Camera unchanged. **None of this was tried on a real phone**: the ramp rate (3.4 per second), the button sizes and the tip text are guesses; only the headless two-finger run shows that the steering reaches full lock after about a second of holding (the headless page runs at a few frames a second).
+- Tests: 27 node tests (new: the five cars). The .NET tests are unchanged (19).
 
 ## How to run and check
 

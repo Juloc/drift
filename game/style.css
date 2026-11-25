@@ -48,3 +48,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf5; fon
 .tag[hidden] { display: none; }
 #dropped { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 6; border: 0; border-radius: 18px; padding: 18px 26px; font: 800 18px system-ui, sans-serif; background: #fff; color: var(--ink); box-shadow: 0 6px 30px rgba(0,0,0,0.3); min-height: 44px; }
 #dropped[hidden] { display: none; }
+
+#tip { position: fixed; left: 50%; top: 84px; transform: translateX(-50%); margin: 0; max-width: 60vw; text-align: center; font-size: 14px; padding: 8px 14px; border-radius: 14px; background: var(--card); pointer-events: none; z-index: 3; }
+#tip[hidden] { display: none; }
+#fs { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 3; width: 48px; height: 48px; border: 2px solid rgba(27,35,48,0.35); border-radius: 14px; background: rgba(255,255,255,0.5); font-size: 22px; color: var(--ink); opacity: 0.7; touch-action: none; }
+#fs[hidden] { display: none; }

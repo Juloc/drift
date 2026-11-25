@@ -31,8 +31,22 @@ export class Input {
     }
   }
   has(ctl) { return this.held.has('key:' + ctl) || this.held.has('touch:' + ctl); }
+  /**
+   * Thumbs press a button, they do not turn a wheel: on touch the steering builds up over about 0.3 s, so a short tap
+   * is a small correction and a long press is full lock; it comes back quickly when the finger lifts. Keys are immediate.
+   */
+  touchSteer(now) {
+    const dt = Math.min(0.1, Math.max(0, (now - (this._t ?? now)) / 1000));
+    this._t = now;
+    const target = (this.held.has('touch:right') ? 1 : 0) - (this.held.has('touch:left') ? 1 : 0);
+    const rate = target === 0 || Math.sign(target) !== Math.sign(this._axis ?? 0) && (this._axis ?? 0) !== 0 ? 9 : 3.4;
+    this._axis = (this._axis ?? 0) + Math.max(-rate * dt, Math.min(rate * dt, target - (this._axis ?? 0)));
+    return this._axis;
+  }
   read() {
-    return { steer: (this.has('right') ? 1 : 0) - (this.has('left') ? 1 : 0), throttle: this.has('gas') ? 1 : 0, brake: this.has('brake') ? 1 : 0, handbrake: this.has('hand') ? 1 : 0 };
+    const key = (this.held.has('key:right') ? 1 : 0) - (this.held.has('key:left') ? 1 : 0);
+    const touch = this.touchSteer(performance.now());
+    return { steer: Math.abs(key) > 0 ? key : touch, throttle: this.has('gas') ? 1 : 0, brake: this.has('brake') ? 1 : 0, handbrake: this.has('hand') ? 1 : 0 };
   }
   clear() { this.held.clear(); }
 }

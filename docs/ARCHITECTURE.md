@@ -243,7 +243,7 @@ Cars (names are made up; none is a real model):
 | id | name | `power` | `top` | `grip` | `slide` | `agility` | feel |
 |---|---|---|---|---|---|---|---|
 | 0 | **Dart** (rear-drive coupe, the starter) | 8.5 | 35 | 1.15 | 0.72 | 1.05 | balanced, enters a drift willingly and holds it |
-| 1 | **Pip** (light hatchback) | 7.0 | 31 | 1.10 | 0.62 | 1.30 | nervous, turns in at once, flicks the tail, spins if careless |
+| 1 | **Pip** (light hatchback) | 7.0 | 31 | 1.10 | 0.62 | 1.40 | nervous, turns in at once, flicks the tail, spins if careless |
 | 2 | **Bruno** (heavy muscle car) | 10.0 | 39 | 1.00 | 0.82 | 0.75 | lazy, huge power, long drawn-out slides, slow to turn |
 | 3 | **Marlin** (grippy hot hatch) | 8.0 | 36 | 1.35 | 0.55 | 1.00 | fast and planted, then lets go suddenly: hard to drift, great to race |
 | 4 | **Ox** (heavy pick-up) | 6.0 | 28 | 0.95 | 0.90 | 0.70 | slow, wallowing, forgives everything, loves sand and snow |

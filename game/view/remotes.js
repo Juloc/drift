@@ -1,16 +1,17 @@
 // The other visitors' cars: one body per car (geometry shared per colour), wheels and shadow blobs through the
 // shared pool, smoke and skid marks while they drift, and an HTML name label above each (text only, nearest 8).
 import * as THREE from '../../vendor/three/three.module.js';
-import { buildCar, WHEEL } from './carmodel.js';
+import { buildCar, WHEEL, BLOB } from './carmodel.js';
 import { makeClay, makeGlow } from '../core/materials.js';
 import { X, HEAD } from './space.js';
 
 const bodyCache = new Map();
-function partsFor(hue, lite) {
-  if (!bodyCache.has(hue)) bodyCache.set(hue, buildCar({ paint: new THREE.Color().setHSL((hue * 15) / 360, 0.62, 0.52).getHex(), lite }));
-  return bodyCache.get(hue);
+function partsFor(hue, lite, model) {
+  const key = `${hue}:${model}`;
+  if (!bodyCache.has(key)) bodyCache.set(key, buildCar({ paint: new THREE.Color().setHSL((hue * 15) / 360, 0.62, 0.52).getHex(), lite, model }));
+  return bodyCache.get(key);
 }
-export const paintFor = (hue, lite) => partsFor(hue, lite);
+export const paintFor = (hue, lite, model = 0) => partsFor(hue, lite, model);
 
 export class Remotes {
   constructor({ scene, pool, smoke, skids, camera, tagsEl, lite }) {
@@ -29,16 +30,16 @@ export class Remotes {
       if (!info) continue;
       seen.add(o.id);
       let rc = this.cars.get(o.id);
-      if (!rc || rc.hue !== info.hue) {
+      if (!rc || rc.hue !== info.hue || rc.model !== info.car) {
         if (rc) this.scene.remove(rc.group);
-        const parts = partsFor(info.hue, this.lite);
+        const parts = partsFor(info.hue, this.lite, info.car);
         const group = new THREE.Group();
         group.add(new THREE.Mesh(parts.body, this.clay), new THREE.Mesh(parts.lights, this.glow));
         this.scene.add(group);
         const label = rc?.label ?? Object.assign(document.createElement('div'), { className: 'tag' });
         if (!rc) this.tagsEl.append(label);
         label.textContent = info.name;
-        rc = { group, label, hue: info.hue, spin: 0 };
+        rc = { group, label, hue: info.hue, model: info.car, spin: 0 };
         this.cars.set(o.id, rc);
       }
       const g = rc.group;
@@ -48,7 +49,7 @@ export class Remotes {
       g.updateMatrix();
       rc.spin += (o.vf * dt) / WHEEL.r;
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.pool.wheel(g.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -o.steer : 0, rc.spin);
-      this.pool.blob(X(o.x), o.z, 1.25, 2.1, HEAD(o.h));
+      this.pool.blob(X(o.x), o.z, BLOB[rc.model]?.[0] ?? 1.25, BLOB[rc.model]?.[1] ?? 2.1, HEAD(o.h));
       const drifting = (o.flags & 2) !== 0 || (o.flags & 1) !== 0;
       for (let i = 0; i < 2; i++) {
         const wp = this.v.set((i ? 1 : -1) * WHEEL.x, 0, -WHEEL.z).applyMatrix4(g.matrix);

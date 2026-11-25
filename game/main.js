@@ -9,7 +9,7 @@ import { FixedLoop } from './sim/loop.js';
 import { orbitBot } from './sim/bot.js';
 import { createView, TIERS } from './view/scene.js';
 import { buildMap } from './view/mapview.js';
-import { buildCar, WHEEL } from './view/carmodel.js';
+import { buildCar, WHEEL, BLOB } from './view/carmodel.js';
 import { WheelPool } from './view/wheels.js';
 import { Smoke, Skids } from './view/fx.js';
 import { FollowCam } from './view/camera.js';
@@ -24,10 +24,10 @@ import { Remotes, paintFor } from './view/remotes.js';
 const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
 const T = {
-  en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape',
+  en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
     online: 'driving here', you: 'You are', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
-  de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat',
+  de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
     online: 'fahren hier', you: 'Du bist', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
 }[de ? 'de' : 'en'];
@@ -54,7 +54,7 @@ const view = createView($('view'), { tier: TIERS[forced] ? forced : coarse ? 'me
 const { renderer, scene, camera } = view;
 const lite = coarse;
 scene.add(buildMap(map, { lite }));
-const parts = buildCar({ paint: new THREE.Color().setHSL(car.colour / 360, 0.62, 0.52).getHex(), lite });
+const parts = buildCar({ paint: new THREE.Color().setHSL(car.colour / 360, 0.62, 0.52).getHex(), lite, model: carIndex });
 const carGroup = new THREE.Group();
 const bodyMesh = new THREE.Mesh(parts.body, makeClay());
 bodyMesh.castShadow = true;
@@ -81,7 +81,7 @@ if (online) {
       const me = net.me && roster.get(net.me.id);
       if (me) {
         $('me').textContent = `${T.you} ${me.name}`;
-        if (bodyMesh.userData.hue !== me.hue) { bodyMesh.userData.hue = me.hue; bodyMesh.geometry = paintFor(me.hue, lite).body; }
+        if (bodyMesh.userData.hue !== me.hue) { bodyMesh.userData.hue = me.hue; bodyMesh.geometry = paintFor(me.hue, lite, carIndex).body; }
       }
     },
     onFix(f) { cur = prev = { ...cur, x: f.x, z: f.z, h: f.h, vx: 0, vz: 0, w: 0 }; },
@@ -125,7 +125,17 @@ input.onkey.KeyF = () => (document.fullscreenElement ? document.exitFullscreen()
 input.onkey.KeyQ = () => { const o = ['low', 'medium', 'high']; view.governor.set(o[(o.indexOf(view.tier) + 1) % 3], false); };
 input.onkey.KeyG = () => ($('debug').hidden = !$('debug').hidden);
 document.addEventListener('visibilitychange', () => { if (document.hidden) input.clear(); });
-const showTouch = () => ($('touch').hidden = false);
+const showTouch = () => {
+  $('touch').hidden = false;
+  if (document.fullscreenEnabled) $('fs').hidden = false;
+};
+$('fs').addEventListener('click', async () => {
+  if (document.fullscreenElement) return document.exitFullscreen();
+  try { await document.documentElement.requestFullscreen(); await screen.orientation?.lock?.('landscape'); } catch {}
+});
+// a first-time tip over the buttons until the first gas
+const tip = $('tip');
+if (coarse) { tip.hidden = false; const iv = setInterval(() => { if (input.has('gas') || cur.vx || cur.vz) { tip.hidden = true; clearInterval(iv); } }, 200); }
 if (coarse) showTouch();
 addEventListener('touchstart', showTouch, { once: true, passive: true });
 const checkRotate = () => ($('rotate').hidden = !(coarse && innerHeight > innerWidth));
@@ -162,7 +172,7 @@ function frame(now) {
   spin += (vf * dt) / WHEEL.r;
   pool.begin();
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) pool.wheel(carGroup.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -cur.steer : 0, spin);
-  pool.blob(X(drawn.x), drawn.z, 1.25, 2.1, HEAD(drawn.h));
+  pool.blob(X(drawn.x), drawn.z, BLOB[carIndex][0], BLOB[carIndex][1], HEAD(drawn.h));
   if (net) {
     const moving = speedOf(cur) > 0.3 || input.read().throttle > 0;
     net.sendPose({ x: cur.x, z: cur.z, h: cur.h, vf, steer: cur.steer }, bodySlip(cur), (input.has('hand') ? 1 : 0) | (cur.slide > 0.3 ? 2 : 0) | (cur.hit > 0 ? 4 : 0), moving, now);
