@@ -64,8 +64,10 @@ if (opt.touch) {
   await key('keyUp', 'Space', ' '); await sleep(secs * 450);
 }
 const frames = (await evalJs('window.__drift.info.frames')) - f0, ms = Date.now() - t0;
-const stats = JSON.parse(await evalJs(`(()=>{const r=__drift.renderer.info.render;const s=__drift.state;const sc=__drift.score;return JSON.stringify({triangles:r.triangles,calls:r.calls,tier:__drift.view.tier,buffer:[__drift.renderer.domElement.width,__drift.renderer.domElement.height],speedKmh:Math.round(Math.hypot(s.vx,s.vz)*3.6),pos:[Math.round(s.x),Math.round(s.z)],score:Math.round(sc.pending+sc.banked),dbg:document.getElementById('debug').textContent})})()`));
-const parts = JSON.parse(await evalJs(`(()=>{const o=[];__drift.view.scene.traverse(m=>{if(m.geometry&&m.geometry.index){const n=m.geometry.index.count/3*(m.isInstancedMesh?m.count:1);o.push([m.type,Math.round(n)])}else if(m.isPoints){o.push(['Points',0])}});return JSON.stringify(o)})()`));
+const statsRaw = await evalJs(`(()=>{const r=__drift.renderer.info.render;const s=__drift.state;const sc=__drift.score;return JSON.stringify({triangles:r.triangles,calls:r.calls,tier:__drift.stage.tierName,buffer:[__drift.renderer.domElement.width,__drift.renderer.domElement.height],speedKmh:Math.round(Math.hypot(s.vx,s.vz)*3.6),pos:[Math.round(s.x),Math.round(s.z)],score:Math.round(sc.pending+sc.banked),dbg:document.getElementById('debug').textContent})})()`);
+if (typeof statsRaw !== 'string') { console.error('the page did not answer (it did not load, or it threw): ' + (logs.join('\n').slice(0, 2000) || 'no console output')); ws.close(); stop(); process.exit(1); }
+const stats = JSON.parse(statsRaw);
+const parts = JSON.parse(await evalJs(`(()=>{const o=[];__drift.stage.scene.traverse(m=>{if(m.geometry&&m.geometry.index){const n=m.geometry.index.count/3*(m.isInstancedMesh?m.count:1);o.push([m.type,Math.round(n)])}else if(m.isPoints){o.push(['Points',0])}});return JSON.stringify(o)})()`));
 const shot = await send('Page.captureScreenshot', { format: 'png' });
 mkdirSync('docs/screenshots', { recursive: true });
 const file = `docs/screenshots/${name}.png`;

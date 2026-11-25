@@ -49,3 +49,5 @@ body.touch #chips > #feel { width: auto; }
 /* phone: the full-screen and back buttons stand under the menu button on the left, away from the minimap, the arc and the pads */
 body.touch #fs { left: max(var(--gap), env(safe-area-inset-left)); right: auto; top: 238px; bottom: auto; transform: none; width: 40px; height: 40px; font-size: 18px; }
 body.touch #back { left: max(var(--gap), env(safe-area-inset-left)); top: 284px !important; bottom: auto; width: 40px; height: 40px; font-size: 18px; }
+#chips > #volume { width: 44px; height: 120px; writing-mode: vertical-lr; direction: rtl; padding: 0 !important; accent-color: var(--accent); pointer-events: auto; }
+body.touch #chips > #volume { width: 90px; height: 40px; writing-mode: horizontal-tb; direction: ltr; }

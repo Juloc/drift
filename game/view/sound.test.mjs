@@ -18,7 +18,7 @@ function fakeAudio() {
   }
   return { Ctx, made };
 }
-const store = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v), m }; };
+const store = (muted = '0') => { const m = new Map([['drift.mute', muted]]); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v), m }; };
 const own = { speed: 18, throttle: 1, slide: 0.7, car: 0, top: 35 };
 const cars = Array.from({ length: 10 }, (_, i) => ({ id: i, x: 5 + i * 6, z: 0, speed: 15, throttle: 0.6, slide: i % 2 ? 0.8 : 0, car: i % 5, top: 33 }));
 
@@ -85,4 +85,14 @@ test('a hit makes a short burst, louder with the hit, at most one in 120 ms, not
   s.bump(25, 2050); assert.equal(made.src, base + 1, 'one at a time');
   s.bump(25, 2300); assert.equal(made.src, base + 2);
   s.setMuted(true); s.bump(25, 5000); assert.equal(made.src, base + 2, 'muted');
+});
+
+test('a new device starts muted, the volume is kept and capped behind a limiter', () => {
+  const { Ctx } = fakeAudio();
+  const st = store(null); st.m.delete('drift.mute');
+  const s = new SoundSystem({ AudioCtx: Ctx, storage: st });
+  assert.equal(s.muted, true, 'sound is off until the player switches it on');
+  s.unlock(); s.setMuted(false); s.setVolume(5);
+  assert.equal(s.volume, 1); assert.ok(s.master.gain.value <= 0.5 + 1e-9, 'the master gain is at most half');
+  assert.equal(st.m.get('drift.volume'), '1');
 });

@@ -38,10 +38,10 @@ class Voice {
     const f = Math.min(900, Math.max(20, firing(r.rpm, eng)));
     this.a.frequency.setTargetAtTime(f, t, 0.04); this.b.frequency.setTargetAtTime(f / 2, t, 0.04);
     this.filter.frequency.setTargetAtTime(eng.tone + 2200 * throttle + 1200 * ((r.rpm - eng.idle) / (eng.max - eng.idle)), t, 0.06);
-    this.gain.gain.setTargetAtTime(engineGain(throttle, r.rpm, eng) * level * 0.5, t, 0.05);
+    this.gain.gain.setTargetAtTime(engineGain(throttle, r.rpm, eng) * level * 0.3, t, 0.05);
     const q = squeal(slide, speed);
-    this.tyreGain.gain.setTargetAtTime(q.gain * level * 0.6, t, 0.05); this.tyreFilter.frequency.setTargetAtTime(q.freq, t, 0.05);
-    this.whistleGain.gain.setTargetAtTime(turboWhistle(throttle, this.prevThrottle, r.rpm, eng) * level * 0.08, t, 0.03);
+    this.tyreGain.gain.setTargetAtTime(q.gain * level * 0.3, t, 0.05); this.tyreFilter.frequency.setTargetAtTime(q.freq, t, 0.05);
+    this.whistleGain.gain.setTargetAtTime(turboWhistle(throttle, this.prevThrottle, r.rpm, eng) * level * 0.03, t, 0.03);
     this.prevThrottle = throttle;
     if (this.pan) this.pan.pan.setTargetAtTime(pan, t, 0.1);
     this.active = true;
@@ -54,7 +54,8 @@ export class SoundSystem {
   constructor({ AudioCtx = globalThis.AudioContext ?? globalThis.webkitAudioContext, storage = globalThis.localStorage ?? null } = {}) {
     this.AudioCtx = AudioCtx; this.storage = storage; this.ctx = null; this.own = null; this.others = new Map(); this.pool = [];
     const get = (k, d) => { try { return storage?.getItem(k) ?? d; } catch { return d; } };
-    this.muted = get('drift.mute', '0') === '1';
+    this.muted = get('drift.mute', '1') === '1';   // off until the player switches it on (the generated sound was far too loud)
+    this.volume = Math.max(0, Math.min(1, +get('drift.volume', '0.3')));
     this.music = get('drift.music', '0') === '1';   // a placeholder: the switch is kept, there is no music behind it yet
   }
   get unlocked() { return this.ctx !== null; }
@@ -64,7 +65,12 @@ export class SoundSystem {
     try {
       this.ctx = new this.AudioCtx();
       this.ctx.resume?.();
-      this.master = this.ctx.createGain(); this.master.gain.value = this.muted ? 0 : 0.8; this.master.connect(this.ctx.destination);
+      this.master = this.ctx.createGain(); this.master.gain.value = 0;
+      // a hard limit at the output (no peaks, whatever the voices add up to), then a soft fade in
+      this.limiter = this.ctx.createDynamicsCompressor?.();
+      if (this.limiter) { Object.assign(this.limiter.threshold, { value: -22 }); Object.assign(this.limiter.knee, { value: 0 }); Object.assign(this.limiter.ratio, { value: 20 }); Object.assign(this.limiter.attack, { value: 0.003 }); Object.assign(this.limiter.release, { value: 0.15 }); this.master.connect(this.limiter); this.limiter.connect(this.ctx.destination); }
+      else this.master.connect(this.ctx.destination);
+      this.master.gain.setTargetAtTime?.(this.muted ? 0 : this.volume * 0.5, this.ctx.currentTime, 0.4);
       const n = this.ctx.sampleRate * 2, noise = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = noise.getChannelData(0);
       let seed = 1; for (let i = 0; i < n; i++) { seed = (seed * 1664525 + 1013904223) >>> 0; d[i] = seed / 2147483648 - 1; }   // white noise, the same every time
       this.noise = noise;
@@ -76,7 +82,13 @@ export class SoundSystem {
   setMuted(m) {
     this.muted = !!m;
     try { this.storage?.setItem('drift.mute', this.muted ? '1' : '0'); } catch { /* not kept */ }
-    this.master?.gain.setTargetAtTime(this.muted ? 0 : 0.8, this.ctx.currentTime, 0.05);
+    this.master?.gain.setTargetAtTime(this.muted ? 0 : this.volume * 0.5, this.ctx.currentTime, 0.35);   // fades in and out, no click
+  }
+  /** The volume 0..1 (kept on the device); the master gain is at most half of it, behind the limiter. */
+  setVolume(v) {
+    this.volume = Math.max(0, Math.min(1, +v || 0));
+    try { this.storage?.setItem('drift.volume', String(this.volume)); } catch { /* not kept */ }
+    this.master?.gain.setTargetAtTime(this.muted ? 0 : this.volume * 0.5, this.ctx.currentTime, 0.1);
   }
   setMusic(on) { this.music = !!on; try { this.storage?.setItem('drift.music', this.music ? '1' : '0'); } catch { /* not kept */ } }
   /** A hit: a short burst of low noise, louder with the hit (at most one every 120 ms). */
@@ -86,7 +98,7 @@ export class SoundSystem {
     const t = this.ctx.currentTime, level = Math.min(1, approach / 25);
     const src = this.ctx.createBufferSource(); src.buffer = this.noise;
     const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 300 + 900 * level;
-    const g = this.ctx.createGain(); g.gain.value = 0.9 * level;
+    const g = this.ctx.createGain(); g.gain.value = 0.5 * level;
     g.gain.setTargetAtTime?.(0, t + 0.02, 0.07 + 0.08 * level);   // dies away in a fraction of a second
     src.connect(f); f.connect(g); g.connect(this.master);
     src.start(); src.stop?.(t + 0.6);

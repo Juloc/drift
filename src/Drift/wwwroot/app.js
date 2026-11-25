@@ -119,9 +119,8 @@ async function garagePage(me) {
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.glow') }), h('p', { class: 'muted', text: t('garage.glowHint') }), glowOff, h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.glow') }, glowSwatches)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.name') }), form),
       controlsCard(),
-      await challengesCard(),
+      // challenges and the race boards are paused (docs/FOCUS.md): the code stays (challengesCard, boardCard), the garage does not show them
       statsCard(stats),
-      boardCard(await api('GET', '/api/times')),
       h('div', { class: 'card stack' }, preview,
         h('div', { class: 'cluster' },
           h('button', { class: 'btn primary', type: 'button', onclick: save }, icon('check'), t('common.save')),
