@@ -4,7 +4,7 @@
 import * as THREE from '../vendor/three/three.module.js';
 import { step, makeCar, bodySlip, bodyVelocity, speedOf, turnedAngle, DT } from './sim/physics.js';
 import { prepareMap, surfaceAt, collide } from './sim/map.js';
-import { collideBody, collideCars, damageStep, damaged } from './sim/collision.js';
+import { collideBody, collideCars, damageStep, damaged, REF_MASS } from './sim/collision.js';
 import { newScore, scoreStep } from './sim/score.js';
 import { applyTuning, NAMES as TUNE_NAMES, valid as tuneValid } from './sim/tuning.js';
 import { applyFeel, feelOf, PRO } from './sim/feel.js';
@@ -274,6 +274,8 @@ const loop = new FixedLoop();
 // Damage can be switched off (key V, ?damage=0): the creative mode will do that by itself.
 let dmg = 0, sinceHit = 99, damageOn = params.get('damage') === '0' ? false : (() => { try { return localStorage.getItem('drift.damage') !== '0'; } catch { return true; } })();
 let carNow = car, remoteBodies = [];
+const massOf = (id) => (cars[id]?.mass ?? REF_MASS) / REF_MASS;   // relative to a 1200 kg car; the weights are in data/cars.json
+const myMass = massOf(carIndex);
 // the creative mode: a switch of this session (K, the chip, ?mode=creative): everything is free, there is no damage, and nothing counts for the boards, the stars or the stats
 // (the server is told, and it keeps nothing from a creative session). It is shown all the time, so nobody mistakes a free run for a score.
 let creative = params.get('mode') === 'creative';
@@ -379,7 +381,7 @@ function simStep(i) {
   const mu = surfaceAt(map, cur.x, cur.z).mu;
   cur = collideBody(map, step(cur, inp, carNow, mu));   // the walls and poles
   for (const o of remoteBodies) {   // the other cars
-    const r = collideCars(cur, o, { applyB: false });
+    const r = collideCars(cur, o, { applyB: false, ma: myMass, mb: o.m });
     if (r.hit > 0) cur = { ...r.a, hit: Math.max(cur.hit, r.hit) };
   }
   if (cur.hit > 0) { sound.bump(cur.hit); }
@@ -495,7 +497,7 @@ function frame(now) {
     net.sendPose({ x: cur.x, z: cur.z, h: cur.h, vf, steer: cur.steer }, bodySlip(cur), (input.has('hand') ? 1 : 0) | (cur.slide > 0.3 ? 2 : 0) | (cur.hit > 0 ? 4 : 0), moving, now);
     const list = net.sample(now);
     remotes.update(list, net.roster, dt);
-    remoteBodies = list.filter((o) => !o.far).map(bodyOf);
+    remoteBodies = list.filter((o) => !o.far).map((o) => ({ ...bodyOf(o), m: massOf(net.roster.get(o.id)?.car ?? 0) }));
   }
   if (practice) {   // the practice bot, drawn like a car of the lobby (body and wheels), and the chip from the local judgement
     const b = practice.bot.state, { vf: bvf } = bodyVelocity(b);

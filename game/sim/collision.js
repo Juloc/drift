@@ -4,10 +4,12 @@
 //
 // A car is a rectangle LENGTH x WIDTH around its position (x, z), turned by the heading h (0 faces +z and grows towards the car's right): forward f = (sin h, cos h), right
 // q = (cos h, -sin h). A point at a forward and b right of the centre moves, for a yaw rate w, with w * (a q - b f); an impulse J at that point changes w by (a q.J - b f.J) / I.
-// The mass is 1 (forces are accelerations everywhere in sim/), the inertia that of a plate: (L^2 + W^2) / 12.
+// The mass is 1 for a wall contact (it drops out against a fixed wall) and relative for two cars (data/cars.json `mass` / REF_MASS); the inertia is that of a plate: m * (L^2 + W^2) / 12.
 
 export const BODY = { length: 4.4, width: 1.9, restitution: 0.25, wallFriction: 0.35, carFriction: 0.2, maxJump: 40 };
-const INERTIA = (BODY.length ** 2 + BODY.width ** 2) / 12;
+const INERTIA = (BODY.length ** 2 + BODY.width ** 2) / 12;   // per unit of mass: a body of mass m has m * INERTIA
+/** The reference mass (kg) the game's relative masses are measured against: a car of 1200 kg has mass 1. */
+export const REF_MASS = 1200;
 
 const axes = (h) => ({ fx: Math.sin(h), fz: Math.cos(h), qx: Math.cos(h), qz: -Math.sin(h) });
 
@@ -32,27 +34,27 @@ function lever(s, p, dx, dz) {
 }
 
 /** The impulse j (> 0 pushes the bodies apart along n) and friction for a contact between `a` and `b` (b = null: a fixed wall); returns the impulses and the approach speed. */
-function contactImpulse(a, b, p, n, mu, e) {
+function contactImpulse(a, b, p, n, mu, e, ma = 1, mb = 1) {
   const va = velocityAt(a, p), vb = b ? velocityAt(b, p) : [0, 0];
   const rvx = va[0] - vb[0], rvz = va[1] - vb[1];
   const vn = rvx * n[0] + rvz * n[1];
   if (vn >= 0) return null;   // already moving apart
   const la = lever(a, p, n[0], n[1]), lb = b ? lever(b, p, n[0], n[1]) : 0;
-  const j = (-(1 + e) * vn) / (1 + (b ? 1 : 0) + (la * la) / INERTIA + (lb * lb) / INERTIA);
+  const j = (-(1 + e) * vn) / (1 / ma + (b ? 1 / mb : 0) + (la * la) / (ma * INERTIA) + (lb * lb) / (mb * INERTIA));
   // friction along the surface: opposes the sliding, at most mu times the normal impulse
   const tx = -n[1], tz = n[0], vt = rvx * tx + rvz * tz;
   const lat = lever(a, p, tx, tz), lbt = b ? lever(b, p, tx, tz) : 0;
-  const jtFull = -vt / (1 + (b ? 1 : 0) + (lat * lat) / INERTIA + (lbt * lbt) / INERTIA);
+  const jtFull = -vt / (1 / ma + (b ? 1 / mb : 0) + (lat * lat) / (ma * INERTIA) + (lbt * lbt) / (mb * INERTIA));
   const jt = Math.max(-mu * j, Math.min(mu * j, jtFull));
   return { j, jt, tx, tz, approach: -vn };
 }
 
-function apply(s, n, p, j, jt, tx, tz, sign) {
-  const Jx = sign * (j * n[0] + jt * tx), Jz = sign * (j * n[1] + jt * tz);
+function apply(s, n, p, j, jt, tx, tz, sign, m = 1) {
+  const Jx = sign * (j * n[0] + jt * tx), Jz = sign * (j * n[1] + jt * tz);   // the impulse; the velocity changes by J / m
   // a safety stop only: no contact gives a car a jump of more than maxJump m/s (a car at rest hit by the fastest car gets about 24 m/s, which the relay believes: its limit is 1.15 x top speed + 2)
-  const dv = Math.hypot(Jx, Jz), k = dv > BODY.maxJump ? BODY.maxJump / dv : 1;
-  s.vx += Jx * k; s.vz += Jz * k;
-  s.w += (lever(s, p, Jx, Jz) / INERTIA) * k;
+  const dv = Math.hypot(Jx, Jz) / m, k = dv > BODY.maxJump ? BODY.maxJump / dv : 1;
+  s.vx += (Jx / m) * k; s.vz += (Jz / m) * k;
+  s.w += (lever(s, p, Jx, Jz) / (m * INERTIA)) * k;
 }
 
 // ---------- a car and the walls
@@ -160,20 +162,20 @@ export function overlapCars(a, b, body = BODY) {
 }
 
 /**
- * Resolve the contact of two cars (equal mass). `applyA` / `applyB` say which of the two gets the result: the game of one player moves only its own car (the other one's state
+ * Resolve the contact of two cars; `ma` and `mb` are their masses relative to REF_MASS (default 1: equal masses; a heavy car is thrown about less and throws the light one more). `applyA` / `applyB` say which of the two gets the result: the game of one player moves only its own car (the other one's state
  * is what the network says about it), and the other player's game does the same from its side, so that both agree about what happened. Returns { a, b, hit } with new states
  * (b is unchanged when it does not apply) and `hit` = the approach speed (0 = no contact).
  */
-export function collideCars(a, b, { applyA = true, applyB = true, body = BODY } = {}) {
+export function collideCars(a, b, { applyA = true, applyB = true, body = BODY, ma = 1, mb = 1 } = {}) {
   const c = overlapCars(a, b, body);
   if (!c) return { a, b, hit: 0 };
   const sa = { ...a }, sb = { ...b };
   // the impulse is worked out from both bodies' velocities at the contact in any case (so both games get the same number) and applied to those that apply, with the lever arms of
   // the positions as they were before anybody moved out
-  const im = contactImpulse({ ...a }, { ...b }, c.contact, c.n, body.carFriction, body.restitution);
+  const im = contactImpulse({ ...a }, { ...b }, c.contact, c.n, body.carFriction, body.restitution, ma, mb);
   if (im) {
-    if (applyA) apply(sa, c.n, c.contact, im.j, im.jt, im.tx, im.tz, 1);
-    if (applyB) apply(sb, c.n, c.contact, im.j, im.jt, im.tx, im.tz, -1);
+    if (applyA) apply(sa, c.n, c.contact, im.j, im.jt, im.tx, im.tz, 1, ma);
+    if (applyB) apply(sb, c.n, c.contact, im.j, im.jt, im.tx, im.tz, -1, mb);
   }
   // positions: each one that applies moves out by its share (everything when it is the only one, half when both move)
   const both = applyA && applyB;

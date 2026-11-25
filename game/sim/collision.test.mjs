@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BODY, corners, collideBody, collideCars, overlapCars, damageOf, damageStep, damaged, DAMAGE } from './collision.js';
+import { REF_MASS, BODY, corners, collideBody, collideCars, overlapCars, damageOf, damageStep, damaged, DAMAGE } from './collision.js';
 import { makeCar } from './physics.js';
+import { readFileSync } from 'node:fs';
+const cars = JSON.parse(readFileSync(new URL('../data/cars.json', import.meta.url), 'utf8')).cars;
 
 const I = (BODY.length ** 2 + BODY.width ** 2) / 12;
 const energy = (s) => 0.5 * (s.vx * s.vx + s.vz * s.vz) + 0.5 * I * s.w * s.w;
@@ -115,4 +117,29 @@ test('damage: small bumps cost nothing, hard hits a lot, it is capped, heals slo
   assert.equal(damaged(car0, 0), car0);
   const d = damaged(car0, 1);
   assert.ok(Math.abs(d.power - 6) < 1e-9 && Math.abs(d.top - 31.5) < 1e-9 && d.grip === car0.grip);
+});
+
+test('the weights are in cars.json, in kilograms, and a heavy car is thrown about less than a light one', () => {
+  assert.ok(cars.every((c) => c.mass >= 700 && c.mass <= 2500), 'every car has a weight');
+  assert.ok(cars.find((c) => c.name === 'Ox').mass > cars.find((c) => c.name === 'Pip').mass);
+  const ram = (ma, mb) => {
+    const a = car(-1.9, 0, Math.PI / 2, 20, 0), b = car(1.9, 0, -Math.PI / 2, 0, 0);
+    return collideCars(a, b, { ma, mb });
+  };
+  const heavyHitsLight = ram(1900 / REF_MASS, 900 / REF_MASS), lightHitsHeavy = ram(900 / REF_MASS, 1900 / REF_MASS);
+  assert.ok(heavyHitsLight.b.vx > lightHitsHeavy.b.vx, 'the light car is thrown further than the heavy one');
+  assert.ok(lightHitsHeavy.a.vx < heavyHitsLight.a.vx, 'the light rammer is stopped (even thrown back) more than the heavy one');
+  // momentum with masses: ma va + mb vb is kept
+  const ma = 1900 / REF_MASS, mb = 900 / REF_MASS, r = heavyHitsLight;
+  assert.ok(Math.abs(ma * 20 - (ma * r.a.vx + mb * r.b.vx)) < 1e-6, 'weighted momentum is kept');
+  // equal masses give what the unit masses gave
+  assert.equal(ram(1, 1).a.vx, collideCars(car(-1.9, 0, Math.PI / 2, 20, 0), car(1.9, 0, -Math.PI / 2, 0, 0)).a.vx);
+});
+
+test('what the relay believes: whichever car is hit by whichever at its own top speed, the struck car ends within 1.15 x its own top speed + 2', () => {
+  for (const rammer of cars) for (const target of cars) {
+    const r = collideCars(car(-1.9, 0, Math.PI / 2, rammer.top, 0), car(1.9, 0, -Math.PI / 2, 0, 0), { ma: rammer.mass / REF_MASS, mb: target.mass / REF_MASS });
+    const v = Math.hypot(r.b.vx, r.b.vz);
+    assert.ok(v <= 1.15 * target.top + 2, `${rammer.name} into ${target.name}: ${v.toFixed(1)} m/s against ${(1.15 * target.top + 2).toFixed(1)}`);
+  }
 });

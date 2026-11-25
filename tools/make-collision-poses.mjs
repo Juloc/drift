@@ -4,7 +4,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { prepareMap, surfaceAt } from '../game/sim/map.js';
 import { step, makeCar, bodyVelocity, bodySlip, DT } from '../game/sim/physics.js';
-import { collideBody, collideCars } from '../game/sim/collision.js';
+import { collideBody, collideCars, REF_MASS } from '../game/sim/collision.js';
 
 const map = prepareMap(JSON.parse(readFileSync(new URL('../game/data/maps/01-car-park.json', import.meta.url), 'utf8')));
 const cars = JSON.parse(readFileSync(new URL('../game/data/cars.json', import.meta.url), 'utf8')).cars;
@@ -19,7 +19,7 @@ function run(starts, carIds, inputs, seconds) {
   for (let i = 0; i < seconds / DT; i++) {
     st = st.map((s, k) => step(s, inputs(i * DT, s, k), cars[carIds[k]], surfaceAt(map, s.x, s.z).mu));
     st = st.map((s) => collideBody(map, s));
-    if (st.length === 2) { const r = collideCars(st[0], st[1]); st = [{ ...r.a, hit: Math.max(st[0].hit, r.hit) }, { ...r.b, hit: Math.max(st[1].hit, r.hit) }]; }
+    if (st.length === 2) { const r = collideCars(st[0], st[1], { ma: cars[carIds[0]].mass / REF_MASS, mb: cars[carIds[1]].mass / REF_MASS }); st = [{ ...r.a, hit: Math.max(st[0].hit, r.hit) }, { ...r.b, hit: Math.max(st[1].hit, r.hit) }]; }
     if (i % every === every - 1) st.forEach((s, k) => out[k].push(pose(s)));
   }
   return out;
