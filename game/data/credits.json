@@ -96,7 +96,7 @@
       "name": "Mazda RX-7 FD",
       "file": [
         "game/assets/cars/rx7.glb",
-        "assets/cars/rx7-hi.glb"
+        "game/assets/cars/rx7-hi.glb"
       ],
       "author": "Lexyc16",
       "authorUrl": "https://sketchfab.com/Lexyc16",
