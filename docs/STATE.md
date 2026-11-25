@@ -107,6 +107,28 @@ Per hour on a phone with 16 in the world: about 10 MB down, 1 MB up. With three 
 - Play in headless Chromium and write numbers and a picture: `node tools/play.mjs <w> <h> <name> [--touch] [--tier=..] [--secs=8] [--dpr=2]` (software graphics; it picks its own free DevTools port and kills its browser). Single pictures: `chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist --window-size=W,H --virtual-time-budget=15000 --screenshot=out.png "http://127.0.0.1:8150/game/index.html?tier=high&demo=orbit&t=6"`.
 - The map JSON is written by `node tools/make-map.mjs`.
 
+## Open world, step 3a: the network for 32+ (built 2026-11-26)
+
+Plan: [PLAN-0.2.md](PLAN-0.2.md) step 3. **Interest areas in the relay** (`server/Relay/WorldRelay.cs`, option `InterestRadius`, 0 = off = the old behaviour byte for byte, so the website's copy and the races are unchanged):
+- A visitor gets the full pose (12 bytes) of every car **within the radius** (70 m in the app's lobby) every tick, and of the cars further away only a **short entry** (id, x, z, heading: 7 bytes) in a new frame `0x86 SnapshotFar`, **every 4th tick** (staggered per visitor). A car that was near stays near until 10 m further out (hysteresis). Roster, names, join/leave stay global.
+- The app's lobby now takes **64 per world** (was 16); the old fixed 64-entry stack buffer is gone (a world of 100 works).
+- Client (`game/net/world.js`, `game/view/remotes.js`): decodes `0x86`, works the far car's speed out from its last two entries (smooth, no stop and go), draws far cars **simplified** (light geometry, no lamps, wheels, smoke, skid marks or name tag); a near entry ends the far state. Pages that do not know the frame ignore it (the website's demo does not use it).
+- **Relay and the website's demo: one class, the option off for the website** (decided, see PLAN-0.2.md).
+
+Numbers (synthetic drivers on circles over a 400 by 300 m world, legal driving, 0 rejected poses; "per driver" = bytes the relay sends to one visitor per second):
+
+| drivers | no areas | with areas (70 m) |
+|---|---|---|
+| 8 | 1.4 KB/s | 0.4 KB/s (in process, radius 60) |
+| 32 | 5.9 KB/s | 1.8 to 2.2 KB/s |
+| 64 | 12.5 KB/s | 4.0 to 4.7 KB/s, of which about 2.3 near and 1.4 far (real sockets) |
+
+- Whole server out at 64: about 800 KB/s (6.4 Mbit/s) without, about 300 KB/s (2.4 Mbit/s) with. Per visitor in: about 280 B/s.
+- Tick (all snapshots of a world of 64): average 0.4 to 0.9 ms, p95 under 0.8 ms (in process); relay process 14 to 17 % of one core with 64 real sockets. Single slow ticks of 10 to 230 ms were seen on this busy machine (JIT, garbage collection, other jobs); not yet explained or fixed: to look at again in the load test of step 9.
+- Everybody is seen by everybody at least once within a second (checked with real sockets); every car inside the radius arrives in full (test).
+- Tools: `tools/loadgen.mjs` (visitors, seconds, port, half-size of the map; counts near and far bytes apart) against `dotnet run --project server -- --open-world --stats --interest 70|0`; in process: `RelayInterestTests` (writes the table to the temp folder).
+- **Not done / not checked:** the far-car drawing was not looked at with many real browsers (tests only); phone frame time with 32 cars not measured; the radius, the far rate (every 4th tick) and the 64 per world are first guesses; the meeting point's own map (bigger bounds, walls) comes with step 3b after the owner approved the look.
+
 ## Public start 0.2, slices 1 to 4 (built 2026-11-26): the Juloc Games account
 
 Plan: [PLAN-0.2.md](PLAN-0.2.md), design: [ACCOUNTS-GAMES.md](ACCOUNTS-GAMES.md). Built:

@@ -38,12 +38,21 @@ public sealed class RelayOptions
     public double IdleSeconds { get; init; } = 120;
     public double SilentSeconds { get; init; } = 30;
     public int MaxFrame { get; init; } = 64;
+    /// <summary>
+    /// Interest areas, metres. 0 = off (the public demo and the races): everybody gets every car every tick, as always. Above 0, a visitor gets the full pose of the cars
+    /// within this distance every tick, and only a short entry (position and heading) of the cars further away, every <see cref="FarEvery"/>th tick. A car that was near stays near
+    /// until it is <see cref="InterestHysteresis"/> metres further out, so nothing flickers at the border.
+    /// </summary>
+    public double InterestRadius { get; init; } = 0;
+    public double InterestHysteresis { get; init; } = 10;
+    public int FarEvery { get; init; } = 4;
 }
 
 public static class Wire
 {
-    public const byte Pose = 1, Welcome = 0x80, Roster = 0x81, Snapshot = 0x82, Fix = 0x83, Bye = 0x84, Glow = 0x85;
-    public const int PoseLength = 13, EntryLength = 12;
+    /// <summary>SnapshotFar: the cars outside the interest radius, 7 bytes each (id, x, z, heading), a few times a second. Pages that do not know the frame ignore it.</summary>
+    public const byte Pose = 1, Welcome = 0x80, Roster = 0x81, Snapshot = 0x82, Fix = 0x83, Bye = 0x84, Glow = 0x85, SnapshotFar = 0x86;
+    public const int PoseLength = 13, EntryLength = 12, FarEntryLength = 7;
     public const byte ByeLarge = 1, ByeViolations = 2, ByeIdle = 3, ByeSilent = 4, ByeFull = 5, ByeReplaced = 6, ByeSession = 7;
 
     public static short I16(ReadOnlySpan<byte> b, int i) => (short)(b[i] | (b[i + 1] << 8));
@@ -73,11 +82,16 @@ public sealed class Session
     internal int Violations; internal long ViolationsSince;
     internal bool Gone;
     internal bool Faulty; // its socket threw while sending: removed on the next tick
+    internal bool[]? Near; // by the other's id: is that car inside this visitor's interest area right now (with the border's hysteresis)
 }
 
 public sealed class RelayStats
 {
     public long BytesIn, BytesOut, FramesIn, FramesOut, Accepted, Rejected, Ticks, TickTicks, TickErrors;
+    /// <summary>Entries sent in full (near) and in short (far), and the far frames, since the start.</summary>
+    public long NearEntries, FarEntries, FarFrames;
+    /// <summary>The slowest tick in ticks of the stopwatch (for a p100 next to the average).</summary>
+    public long MaxTickTicks;
     public int Visitors, Worlds;
 }
 
@@ -287,6 +301,8 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     }
 
     int sweep;
+    long tickNo;
+    byte[] nearBuf = new byte[4 + Wire.EntryLength * 64], farBuf = new byte[4 + Wire.FarEntryLength * 64];
 
     /// <summary>Call 15 times a second: sends the snapshots and drops idle or silent visitors.</summary>
     public void Tick()
@@ -309,25 +325,57 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
                     else if (Seconds(now - s.LastMove) > o.IdleSeconds) Kick(s, Wire.ByeIdle);
                 }
             ushort stamp = (ushort)(long)(Seconds(now) * 1000);
-            Span<byte> buf = stackalloc byte[4 + Wire.EntryLength * 64];
+            tickNo++;
             foreach (var members in worlds)
             {
+                var cap = Math.Min(255, members.Count);
+                if (nearBuf.Length < 4 + Wire.EntryLength * cap) nearBuf = new byte[4 + Wire.EntryLength * Math.Max(cap, 64)];
+                if (farBuf.Length < 4 + Wire.FarEntryLength * cap) farBuf = new byte[4 + Wire.FarEntryLength * Math.Max(cap, 64)];
+                var interest = o.InterestRadius > 0;
+                double r2 = o.InterestRadius * o.InterestRadius, rh = o.InterestRadius + o.InterestHysteresis, rh2 = rh * rh;
                 foreach (var me in members)
                 {
-                    int n = 0;
+                    int n = 0, nf = 0;
+                    var farTurn = interest && (tickNo + me.Id) % Math.Max(1, o.FarEvery) == 0;
+                    if (interest) me.Near ??= new bool[256];
                     foreach (var other in members)
                     {
                         if (other == me || !other.HasPose) continue;
-                        int p = 4 + n * Wire.EntryLength;
-                        buf[p] = other.Id;
-                        other.Last.AsSpan(2, 11).CopyTo(buf.Slice(p + 1));
-                        n++;
+                        var near = true;
+                        if (interest)
+                        {
+                            double dx = other.X - me.X, dz = other.Z - me.Z, d2 = dx * dx + dz * dz;
+                            near = d2 <= (me.Near![other.Id] ? rh2 : r2);
+                            me.Near[other.Id] = near;
+                        }
+                        if (near)
+                        {
+                            int p = 4 + n * Wire.EntryLength;
+                            nearBuf[p] = other.Id;
+                            other.Last.AsSpan(2, 11).CopyTo(nearBuf.AsSpan(p + 1));
+                            n++;
+                        }
+                        else if (farTurn)
+                        {
+                            int p = 4 + nf * Wire.FarEntryLength;
+                            farBuf[p] = other.Id;
+                            other.Last.AsSpan(2, 6).CopyTo(farBuf.AsSpan(p + 1));   // x, z, heading as the pose frame has them
+                            nf++;
+                        }
                     }
-                    buf[0] = Wire.Snapshot; buf[1] = (byte)n; Wire.Put16(buf, 2, stamp);
-                    if (n > 0) Send(me, buf[..(4 + n * Wire.EntryLength)]);
+                    nearBuf[0] = Wire.Snapshot; nearBuf[1] = (byte)n; Wire.Put16(nearBuf, 2, stamp);
+                    if (n > 0) Send(me, nearBuf.AsSpan(0, 4 + n * Wire.EntryLength));
+                    if (nf > 0)
+                    {
+                        farBuf[0] = Wire.SnapshotFar; farBuf[1] = (byte)nf; Wire.Put16(farBuf, 2, stamp);
+                        Send(me, farBuf.AsSpan(0, 4 + nf * Wire.FarEntryLength));
+                        Stats.FarFrames++;
+                    }
+                    Stats.NearEntries += n; Stats.FarEntries += nf;
                 }
             }
-            Stats.Ticks++; Stats.TickTicks += Stopwatch.GetTimestamp() - t0;
+            var took = Stopwatch.GetTimestamp() - t0;
+            Stats.Ticks++; Stats.TickTicks += took; if (took > Stats.MaxTickTicks) Stats.MaxTickTicks = took;
             Stats.Visitors = worlds.Sum(w => w.Count); Stats.Worlds = worlds.Count;
         }
     }

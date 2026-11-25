@@ -30,16 +30,18 @@ export class Remotes {
       if (!info) continue;
       seen.add(o.id);
       let rc = this.cars.get(o.id);
-      if (!rc || rc.hue !== info.hue || rc.model !== info.car) {
+      const far = o.far === true;
+      if (!rc || rc.hue !== info.hue || rc.model !== info.car || rc.far !== far) {
         if (rc) this.scene.remove(rc.group);
-        const parts = partsFor(info.hue, this.lite, info.car);
+        const parts = partsFor(info.hue, this.lite || far, info.car);   // a far car: the light geometry, no lamps, no wheels, no smoke (docs/PLAN-0.2.md step 3a)
         const group = new THREE.Group();
-        group.add(new THREE.Mesh(parts.body, this.clay), new THREE.Mesh(parts.lights, this.glow));
+        group.add(new THREE.Mesh(parts.body, this.clay));
+        if (!far) group.add(new THREE.Mesh(parts.lights, this.glow));
         this.scene.add(group);
         const label = rc?.label ?? Object.assign(document.createElement('div'), { className: 'tag' });
         if (!rc) this.tagsEl.append(label);
         label.textContent = info.name;
-        rc = { group, label, hue: info.hue, model: info.car, spin: 0 };
+        rc = { group, label, hue: info.hue, model: info.car, spin: rc?.spin ?? 0, far };
         this.cars.set(o.id, rc);
       }
       const g = rc.group;
@@ -47,6 +49,7 @@ export class Remotes {
       g.position.set(X(o.x), 0, o.z);
       g.rotation.set(0, HEAD(o.h), roll, 'YXZ');
       g.updateMatrix();
+      if (far) { this.pool.blob(X(o.x), o.z, BLOB[rc.model]?.[0] ?? 1.25, BLOB[rc.model]?.[1] ?? 2.1, HEAD(o.h)); rc.pos = [X(o.x), o.z]; continue; }
       rc.spin += (o.vf * dt) / WHEEL.r;
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.pool.wheel(g.matrix, sx * WHEEL.x, sz * WHEEL.z, sz > 0 ? -o.steer : 0, rc.spin);
       const gl = this.glowOf?.(o.id);
@@ -87,7 +90,7 @@ export class Remotes {
     }
     list.sort((a, b) => a.dist - b.dist);
     list.forEach((l, i) => {
-      const show = l.ok && i < 8;
+      const show = l.ok && !l.rc.far && i < 8;
       l.rc.label.hidden = !show;
       if (show) l.rc.label.style.transform = `translate(-50%, -100%) translate(${l.x.toFixed(0)}px, ${l.y.toFixed(0)}px)`;
     });

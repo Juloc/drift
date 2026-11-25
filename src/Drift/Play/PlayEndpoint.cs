@@ -31,7 +31,12 @@ public static class PlayEndpoint
     /// <summary>How often an open socket asks whether its session still lives (tests make it short).</summary>
     public static TimeSpan SessionCheck { get; set; } = TimeSpan.FromSeconds(30);
 
-    public static RelayOptions Options { get; } = new() { MaxPerAddress = 16, JoinsPerMinutePerAddress = 60, FramesPerSecondPerAddress = 400 };
+    public static RelayOptions Options { get; } = new()
+    {
+        MaxPerAddress = 16, JoinsPerMinutePerAddress = 60, FramesPerSecondPerAddress = 400,
+        MaxPerWorld = 64,                       // 32 and more drivers in one world (docs/VISION.md)
+        InterestRadius = 70, InterestHysteresis = 10, FarEvery = 4,   // cars within 70 m in full every tick, the others in short a few times a second
+    };
 
     /// <summary>The player behind a request to a person's endpoint (base session) or a guest endpoint (guest door).</summary>
     public static async Task<Player> WhoAsync(HttpContext ctx)

@@ -58,3 +58,44 @@ test('an unknown frame type is ignored (older pages meet newer relays this way)'
   c.handle(new Uint8Array([0x99, 1, 2, 3]).buffer);
   assert.equal(c.roster.size, 0);
 });
+
+// ----- interest areas: the short frame of the cars outside the radius (0x86)
+import { SNAPSHOT_FAR } from './world.js';
+const farFrame = (stamp, cars) => {
+  const b = new ArrayBuffer(4 + 7 * cars.length), v = new DataView(b);
+  v.setUint8(0, SNAPSHOT_FAR); v.setUint8(1, cars.length); v.setUint16(2, stamp, true);
+  cars.forEach((c, i) => { const o = 4 + i * 7; v.setUint8(o, c.id); v.setInt16(o + 1, Math.round(c.x * 20), true); v.setInt16(o + 3, Math.round(c.z * 20), true); v.setUint16(o + 5, Math.round((c.h / (2 * Math.PI)) * 65536) & 0xffff, true); });
+  return b;
+};
+
+test('a far frame gives position and heading, and the speed is worked out from the last two entries', () => {
+  const c = new WorldClient({ url: 'ws://x' });
+  c.handle(farFrame(1000, [{ id: 5, x: 100, z: 50, h: 1 }]));
+  c.handle(farFrame(1267, [{ id: 5, x: 110, z: 50, h: 1 }]));
+  const buf = c.buffers.get(5);
+  assert.equal(buf.length, 2);
+  assert.ok(buf[1].far && Math.abs(buf[1].x - 110) < 0.06);
+  assert.ok(Math.abs(buf[1].vx - 37.5) < 1 && Math.abs(buf[1].vf - 37.5) < 1, `vx ${buf[1].vx}`);
+});
+
+test('a far car moves smoothly between two short entries (no stop and go) and is marked far', () => {
+  const c = new WorldClient({ url: 'ws://x' });
+  c.handle(farFrame(1000, [{ id: 5, x: 100, z: 0, h: 1.57 }]));
+  c.handle(farFrame(1267, [{ id: 5, x: 110, z: 0, h: 1.57 }]));
+  c.handle(farFrame(1534, [{ id: 5, x: 120, z: 0, h: 1.57 }]));
+  const a = interpolate(c.buffers.get(5), c.buffers.get(5)[1].t + 100).x, b = interpolate(c.buffers.get(5), c.buffers.get(5)[1].t + 200).x;
+  assert.ok(a > 110 && b > a && b < 120, `${a} ${b}`);
+  assert.ok(Math.abs(b - a - 100 / 267 * 10) < 0.8, 'about constant speed between the entries');
+  const now = performance.now(); c.offset = c.buffers.get(5)[2].t - now + 140;   // render time = the last entry
+  assert.equal(c.sample(now).find((x) => x.id === 5).far, true);
+});
+
+test('a car that comes near again is drawn in full: a near entry ends the far state', () => {
+  const c = new WorldClient({ url: 'ws://x' });
+  c.handle(farFrame(1000, [{ id: 5, x: 100, z: 0, h: 0 }]));
+  const near = new ArrayBuffer(4 + 12), v = new DataView(near);
+  v.setUint8(0, 0x82); v.setUint8(1, 1); v.setUint16(2, 1067, true); v.setUint8(4, 5); v.setInt16(5, 2000, true); v.setInt16(7, 0, true);
+  c.handle(near);
+  const now = performance.now(); c.offset = 1067 - now + 140;
+  assert.equal(c.sample(now).find((x) => x.id === 5).far, false);
+});

@@ -2,7 +2,7 @@
 // the other cars. Frame layouts: docs/ARCHITECTURE.md section 10. No DOM in here, so it can be tested in node.
 import { angDiff } from '../core/rng.js';
 
-export const POSE = 1, WELCOME = 0x80, ROSTER = 0x81, SNAPSHOT = 0x82, FIX = 0x83, BYE = 0x84, GLOW = 0x85;
+export const POSE = 1, WELCOME = 0x80, ROSTER = 0x81, SNAPSHOT = 0x82, FIX = 0x83, BYE = 0x84, GLOW = 0x85, SNAPSHOT_FAR = 0x86;
 export const DELAY_MS = 140, EXTRAPOLATE_MS = 250, MOVING_MS = 66, STILL_MS = 500;
 const TAU = Math.PI * 2;
 
@@ -30,6 +30,7 @@ export function decodeEntry(v, o) {
 
 /** Velocity vector (x, z) of a decoded pose: the nose direction plus the slip angle, at the speed along it. */
 function velocity(p) {
+  if (p.vx !== undefined) return [p.vx, p.vz];   // a far car: the velocity was worked out from its last two short entries
   const hv = p.h + p.beta, sp = p.vf / Math.max(0.3, Math.cos(p.beta));
   return [Math.sin(hv) * sp, Math.cos(hv) * sp];
 }
@@ -64,7 +65,7 @@ export class WorldClient {
     Object.assign(this, { onWelcome() {}, onRoster() {}, onFix() {}, onBye() {}, onState() {}, onJson() {} }, o);
     this.ws = null; this.seq = 0; this.lastSend = 0; this.retry = 1000; this.stop = false;
     this.glow = new Map();   // id -> hue index of the underglow (a frame of its own: 0x85)
-    this.me = null; this.roster = new Map(); this.buffers = new Map(); this.lastSeen = new Map();
+    this.me = null; this.roster = new Map(); this.buffers = new Map(); this.lastSeen = new Map(); this.lastNear = new Map();
     this.base = 0; this.lastRaw = null; this.samples = []; this.offset = null;
     this.bytesIn = 0; this.bytesOut = 0; this.framesIn = 0; this.framesOut = 0;
   }
@@ -103,28 +104,32 @@ export class WorldClient {
         }
         this.roster = next;
         for (const id of [...this.glow.keys()]) if (!next.has(id)) this.glow.delete(id);
-        for (const id of [...this.buffers.keys()]) if (!next.has(id)) { this.buffers.delete(id); this.lastSeen.delete(id); }
+        for (const id of [...this.buffers.keys()]) if (!next.has(id)) { this.buffers.delete(id); this.lastSeen.delete(id); this.lastNear.delete(id); }
         if (this.me) this.me = { ...this.me, ...next.get(this.me.id) };
         this.onRoster(next);
         break;
       }
       case SNAPSHOT: {
-        const n = v.getUint8(1), raw = v.getUint16(2, true), now = performance.now();
-        if (this.lastRaw !== null && raw < this.lastRaw - 30000) this.base += 65536;
-        this.lastRaw = raw;
-        const stamp = this.base + raw;
-        // the smallest (server time - local time) of the last 10 s is the least delayed packet
-        this.samples.push([now, stamp - now]);
-        while (this.samples.length > 1 && now - this.samples[0][0] > 10000) this.samples.shift();
-        this.offset = Math.min(...this.samples.map((s) => s[1]));
+        const n = v.getUint8(1), now = performance.now(), stamp = this.stampOf(v.getUint16(2, true), now);
         for (let i = 0; i < n; i++) {
           const o = 4 + i * 12, id = v.getUint8(o), p = decodeEntry(v, o + 1);
           p.t = stamp;
-          let buf = this.buffers.get(id);
-          if (!buf) this.buffers.set(id, (buf = []));
-          if (!buf.length || buf[buf.length - 1].t < stamp) buf.push(p);
-          if (buf.length > 8) buf.shift();
-          this.lastSeen.set(id, now);
+          this.push(id, p, now);
+        }
+        break;
+      }
+      case SNAPSHOT_FAR: {
+        // the cars outside the interest radius: id, x, z, heading, a few times a second; the speed is worked out from the last two entries
+        const n = v.getUint8(1), now = performance.now(), stamp = this.stampOf(v.getUint16(2, true), now);
+        for (let i = 0; i < n; i++) {
+          const o = 4 + i * 7, id = v.getUint8(o);
+          const p = { x: v.getInt16(o + 1, true) / 20, z: v.getInt16(o + 3, true) / 20, h: (v.getUint16(o + 5, true) * TAU) / 65536, vf: 0, beta: 0, steer: 0, flags: 0, far: true, t: stamp };
+          const buf = this.buffers.get(id), last = buf?.[buf.length - 1];
+          if (last && stamp > last.t) {
+            const dt = (stamp - last.t) / 1000;
+            if (dt < 2) { p.vx = (p.x - last.x) / dt; p.vz = (p.z - last.z) / dt; p.vf = Math.hypot(p.vx, p.vz); }
+          }
+          this.push(id, p, now);
         }
         break;
       }
@@ -149,6 +154,25 @@ export class WorldClient {
     this.bytesOut += 13 + 6; this.framesOut++;
   }
 
+  /** Server time of a frame's 16-bit stamp, and the clock offset (the smallest of the last 10 s is the least delayed packet). */
+  stampOf(raw, now) {
+    if (this.lastRaw !== null && raw < this.lastRaw - 30000) this.base += 65536;
+    this.lastRaw = raw;
+    const stamp = this.base + raw;
+    this.samples.push([now, stamp - now]);
+    while (this.samples.length > 1 && now - this.samples[0][0] > 10000) this.samples.shift();
+    this.offset = Math.min(...this.samples.map((s) => s[1]));
+    return stamp;
+  }
+  push(id, p, now) {
+    let buf = this.buffers.get(id);
+    if (!buf) this.buffers.set(id, (buf = []));
+    if (!buf.length || buf[buf.length - 1].t < p.t) buf.push(p);
+    if (buf.length > 8) buf.shift();
+    this.lastSeen.set(id, now);
+    if (!p.far) this.lastNear.set(id, now);
+  }
+
   /** The other cars as they should be drawn now: [{ id, x, z, h, vf, beta, steer, flags }]. */
   sample(now = performance.now()) {
     if (this.offset === null) return [];
@@ -156,7 +180,7 @@ export class WorldClient {
     for (const [id, buf] of this.buffers) {
       if (now - (this.lastSeen.get(id) ?? 0) > 1500) continue; // not heard of for 1.5 s: hidden tab, leave it out
       const p = interpolate(buf, t);
-      if (p) out.push({ id, ...p });
+      if (p) out.push({ id, ...p, far: buf[buf.length - 1].far === true && now - (this.lastNear.get(id) ?? -Infinity) > 600 });
     }
     return out;
   }
