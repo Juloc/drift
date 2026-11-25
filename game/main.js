@@ -598,7 +598,7 @@ function frame(now) {
   stage.smoke.car.value.set(X(drawn.x), gy, drawn.z);
   spin += (vf * dt) / WHEEL_R;
   glowPool.begin();
-  if (mineFx) { mineFx.setGlow(glowHue); mineFx.update(paused ? 0 : dt, { brake: lastInp.brake, groundAt: (wx, wz) => stage.field.groundY(X(wx), wz) });   // X: the view's x is the physics' x mirrored (space.js) }   // a model car: strips along the sills, not a patch
+  if (mineFx) { mineFx.setGlow(glowHue); mineFx.update(paused ? 0 : dt, { brake: lastInp.brake, groundAt: (wx, wz) => stage.field.groundY(X(wx), wz) }); }   // a model car: strips along the sills, not a patch (X: the view's x is the physics' x mirrored)
   else if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy);
   pool.begin();
   mine.setWheels(cur.steer, spin);
