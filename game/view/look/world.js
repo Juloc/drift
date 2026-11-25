@@ -162,7 +162,7 @@ function volcanoes(S, scene, look) {
   const haze = C(look.fog.colour);
   for (const [x, z, r, h, k] of scene.volcanoes ?? []) {
     // air between: the farther layer the more of the haze; a lighter crater rim (snow or bare rock, look.volcano.rim) at the top
-    const V = look.volcano ?? {}, base = C(look.ridges[Math.min(look.ridges.length - 1, k ?? 0)]).lerp(haze, V.haze ?? 0.35), top = base.clone().lerp(C(V.rim ?? '#ffffff'), V.rimMix ?? 0.15);
+    const V = look.volcano ?? {}, vh = C(V.hazeColour ?? look.fog.colour), base = C(look.ridges[Math.min(look.ridges.length - 1, k ?? 0)]).lerp(vh, V.haze ?? 0.35), top = base.clone().lerp(C(V.rim ?? '#ffffff'), V.rimMix ?? 0.15);
     const g = new THREE.CylinderGeometry(r * 0.12, r, h, 28, 3, true);
     const p = g.attributes.position, col = new Float32Array(p.count * 3), c = new THREE.Color();
     for (let i = 0; i < p.count; i++) { const t = (p.getY(i) + h / 2) / h, a = Math.atan2(p.getZ(i), p.getX(i)); p.setY(i, p.getY(i) + noise2(a * 3 + x, t * 4) * h * 0.04 * (1 - t)); c.copy(base).lerp(top, smoothstep(0.75, 0.95, t)).lerp(haze, (1 - t) * 0.45); col.set([c.r, c.g, c.b], i * 3); }

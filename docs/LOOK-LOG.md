@@ -349,3 +349,18 @@ On master the land is no longer a shadow receiver (the drift chat: the VSM pass 
 to keep the high tier under 400k triangles a frame: high cell 4.5 m, 550 + 320 cedars, 3500 far trees, cedar 5 tiers; medium cell 6 m,
 320 + 200 cedars, 2000 far trees. Measured (probe, drift view, including shadow and bloom passes): high 336k triangles / 49 calls
 (world 250k; before 995k), medium 190k / 49 (world 108k), low world 59k. The picture is unchanged by eye.
+
+## Touge round 3 (2026-11-26): the orchestrator's review of round 2
+
+1. Smoke: a soft wisp texture drawn from value noise (`look.smoke.texture: 'wisp'`: one blurred blob with frayed alpha, light on top,
+   shaded below), fewer and bigger sprites (90 on high), so the trails run into each other without round edges.
+2. The bright spots on the roof and the rear window were the clear coat's highlight (not bloom): `look.car.gloss` (env, roughness, coat,
+   clearcoat) tames the paint for dusk; carMaker applies it to the paint material of every car.
+3. Light: a second warm key light from the bright side of the sky (`look.key2`), stronger fill, greener cedars and land: the
+   foreground keeps its own colours instead of dark violet silhouettes.
+4. Volcanoes lower, hazed towards a warm haze colour (`look.volcano.hazeColour`), a lit crater rim; a lighter, warmer fog.
+5. The lake mirrors the orange sky (water `light` orange, stronger glow).
+6. The dark smudge behind the drift-score card was the blurred peak of a volcano behind the frosted card: the peaks are lower now.
+   A seam in the sky (the azimuth of the cloud streaks jumped at +-180 degrees) is gone: azimuth now measured from the sun.
+7. Road: neutral grey asphalt, little sheen, clear edge and centre lines.
+Numbers unchanged: high 336k triangles / 49 calls.
