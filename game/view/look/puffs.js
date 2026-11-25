@@ -37,7 +37,7 @@ export class Puffs {
     this.pos.set([x, y, z], i * 3);
     this.vel.set([vx + (this.rnd() - 0.5) * 1.6, 0.3 + strength * 0.5, vz + (this.rnd() - 0.5) * 1.6], i * 3);
     this.rot.set([this.rnd() * 6, this.rnd() * 6, this.rnd() * 6], i * 3);
-    this.age[i] = 0; this.life[i] = 1.1 + strength * 1.0; this.grow[i] = 0.8 + this.rnd() * 0.5;
+    this.age[i] = 0; this.life[i] = 1.4 + strength * 1.2; this.grow[i] = 0.8 + this.rnd() * 0.5;
   }
   update(dt) {
     for (let i = 0; i < this.cap; i++) {
@@ -53,7 +53,7 @@ export class Puffs {
     for (let i = 0; i < this.cap; i++) {
       const k = this.age[i] / this.life[i];
       if (k >= 1) { this.mesh.setMatrixAt(i, _m.makeScale(0, 0, 0)); this.alpha.array[i] = 0; continue; }
-      const size = (0.55 + k * 2.2) * this.grow[i];
+      const size = (0.6 + k * 3.2) * this.grow[i];
       _p.fromArray(this.pos, i * 3); _q.setFromEuler(_e.set(this.rot[i * 3], this.rot[i * 3 + 1], this.rot[i * 3 + 2])); _s.set(size, size * 0.75, size);
       this.mesh.setMatrixAt(i, _m.compose(_p, _q, _s));
       this.alpha.array[i] = this.opacity * Math.sqrt(1 - k) * Math.min(1, k * 6);   // full for most of its life, then gone

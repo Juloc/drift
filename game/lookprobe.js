@@ -17,6 +17,7 @@ import { X, HEAD } from './view/space.js';
 import { buildWorld } from './view/look/world.js';
 import { makeSky, makeMist, makeSkyEnvironment, sunDirection } from './view/look/sky.js';
 import { Puffs } from './view/look/puffs.js';
+import { Billows } from './view/look/billows.js';
 import { mergeParked } from './view/look/parked.js';
 import { Post } from './view/look/post.js';
 import { paintCar } from './view/look/paint.js';
@@ -116,7 +117,8 @@ const pool = new WheelPool(8);
 scene.add(pool.blobs);
 const skids = new Skids(1500);
 skids.mesh.material.color.set(look.skid.colour); skids.mesh.material.opacity = look.skid.opacity;
-const smoke = new Puffs(look, tier.smoke, tier.smokeDetail);
+// smoke: painted billows (camera-facing cloud sprites) or faceted puffs, as the look says
+const smoke = look.smoke.style === 'billows' ? new Billows(look, tier.billows ?? tier.smoke) : new Puffs(look, tier.smoke, tier.smokeDetail);
 scene.add(skids.mesh, smoke.mesh);
 
 // ----- the drive: the line bot on the road, with the Dart's numbers (the physics is the game's, unchanged)

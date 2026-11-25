@@ -173,3 +173,18 @@ Biggest differences left (picture `probe-sunset-drift.png` of this round):
 3. Valley floor: the far trees are sparse dots on green; the mockup's valley is a soft forest of pines with pink cherries in it.
 4. Sky: the clouds are faint; the mockup has bright peach bands round the sun.
 5. Left cliff: the mockup's slope is lit warm with green ledges; ours is a dark violet rock face.
+
+## Rounds 13 and 14 (2026-11-25)
+
+Done: mist banks lying along the river (placed by the river's line, relative to the valley floor, denser); a denser carpet of far pines
+in clumps on the valley floor and the far slope; a warmer rock colour on the left; the smoke as **painted billows**
+(`view/look/billows.js`): camera-facing quads with a cloud texture drawn by code (a cluster of round puffs, light on top, rosy-grey
+underneath, soft edges), brighter than white in the low sun, clearing round the car's body so the tail and its lights stay visible;
+two triangles a puff, so it is also the cheaper smoke for the phone. The faceted puffs stay as an option (`smoke.style`).
+
+Biggest differences left (picture `probe-sunset-drift.png` of this round):
+1. Car model: the RX-7 against the mockup's kitted S15 (a question of the car file, not of the look).
+2. HUD values: a short drift (31, ×1,0, 56 km/h) against the mockup's long one (18.460, ×4,2, 124 km/h).
+3. Sky: the mockup's cloud bands are brighter and more distinct.
+4. Left slope: the mockup shows more green ledges and pines on the rock; ours is mostly rock and grass with one big cherry.
+5. Bridge: half hidden in the mist from this camera; the mockup shows its arches clearly above the river.
