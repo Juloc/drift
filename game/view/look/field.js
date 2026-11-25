@@ -161,6 +161,8 @@ export function makeField(scene, { cell = 6 } = {}) {
     v += n * (T.noise ?? 5);
     const K = scene.lake;
     if (K) { const q = Math.hypot((x - K.x) / K.rx, (z - K.z) / K.rz); if (q < 1.6) v = Math.min(v, K.y - 3 + (q - 0.92) * (T.shore ?? 40) * Math.max(1, q)); }
+    // a small island in the lake (lake.island: x, z, r, h)
+    const I = K?.island; if (I) { const d = Math.hypot(x - I.x, z - I.z) / I.r; if (d < 1) v = Math.max(v, K.y - 2 + I.h * (1 - d * d)); }
     return v - groundY(x, z);
   };
   /** the height of water: absolute on a hillside ('slope' mode), else relative to the road nearby */
@@ -181,8 +183,9 @@ export function makeField(scene, { cell = 6 } = {}) {
   };
   const slope = (x, z, h = height(x, z)) => Math.hypot(height(x + 1, z) - h, height(x, z + 1) - h);
   /** is a point on water (river or lake)? */
-  const wet = (x, z, margin = 0) => (R.width > 0 && Math.abs(z - riverZ(x)) < R.width / 2 + margin && x < (R.x1 ?? Infinity)) || (scene.lake && Math.hypot((x - scene.lake.x) / (scene.lake.rx + margin), (z - scene.lake.z) / (scene.lake.rz + margin)) < 1);
-  return { core: T.rocksBox ?? T.core ?? T.extent, slope: !!slopeDir, waterY, closed, insideSide, floor: R.y, lift: scene.road.lift ?? 0, road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
+  const onIsland = (x, z) => { const I = scene.lake?.island; return !!I && Math.hypot(x - I.x, z - I.z) < I.r * 0.8; };
+  const wet = (x, z, margin = 0) => !onIsland(x, z) && ( (R.width > 0 && Math.abs(z - riverZ(x)) < R.width / 2 + margin && x < (R.x1 ?? Infinity)) || (scene.lake && Math.hypot((x - scene.lake.x) / (scene.lake.rx + margin), (z - scene.lake.z) / (scene.lake.rz + margin)) < 1));
+  return { core: T.rocksBox ?? T.core ?? T.extent, onIsland, slope: !!slopeDir, waterY, closed, insideSide, floor: R.y, lift: scene.road.lift ?? 0, road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
 }
 
 /** Bends of a road: places where the heading turns by more than `min` rad over `span` metres; the sign is the turn (+ = right). */

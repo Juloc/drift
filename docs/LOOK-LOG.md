@@ -396,3 +396,18 @@ the notes folder: `touge-spiel-vs-mockup-1.png`):
 - Phone: sharp edges now, no pixel stairs.
 Numbers in the game: high 424k triangles / 50 calls (world 283k; the rest are the cars and the shadow pass: still over 400k),
 phone 126k / 21.
+
+## Touge round 6 (2026-11-26): against touge.png (the owner's mockup) and ABNAHME-TOUGE.md
+
+The measure is now `~/projects/drift-mockups/touge.png`: a cool dusk, the warmth from the lights. Done in the shared modules:
+- Lake (C): `look.water.mirror`: a water shader that evaluates the sky's gradient along the reflected view ray (far water shows the
+  horizon band, near water the deep sky), ripples stretched along the view for vertical streaks, Fresnel with the dark water colour.
+  An island in the lake (`lake.island`: x, z, r, h) with trees.
+- Far (B): cooler, bluer ridge layers; haze bands between them (far mist patches); a thin dark plume from the highest volcano
+  (`look.volcano.plume`).
+- Middle ground (D): the carpet of cedars may come within 30 m of the road (`tier.carpetNear`), and the valley floor no longer blocks it
+  (`terrain.floor`); denser carpet on every tier.
+- Sky (A): deep blue-violet top, violet, a narrow orange band; the moon higher and to the right of the view.
+- Road (F): no yellow centre line (the dashes take the asphalt colour), darker grey-violet; fewer columns on the high tier
+  (`look.road.columns: 'mid'`); the road is no shadow receiver (`look.road.receiveShadow: false`).
+Game numbers (`?map=touge&demo=line&t=23`): high 360k triangles / 49 calls (was 546k), phone 133k / 22 (was 147k).

@@ -2,16 +2,16 @@
   "name": "Touge at dusk",
   "note": "The mountain pass road at dusk (the owner's focus): blue-violet sky with the last orange low in the west, a rising moon, warm street lamps and stone lanterns, dark cedars, a calm crater lake far below, volcano silhouettes.",
   "sky": {
-    "top": "#1e2350",
-    "mid": "#5a4c8c",
-    "horizon": "#f08a5a",
-    "below": "#3a3760",
-    "midHeight": 0.14,
+    "top": "#24285e",
+    "mid": "#6a54a0",
+    "horizon": "#ff9466",
+    "below": "#4a4478",
+    "midHeight": 0.09,
     "sun": "#ffb070",
     "sunGlow": 0.6,
     "glow": "#ff7040",
     "sunSize": 0.01,
-    "glowStrength": 0.9,
+    "glowStrength": 0.7,
     "clouds": { "lit": "#ffb490", "shade": "#9a7aa8", "amount": 0.7, "layer": 0.75, "bright": 1.0 },
     "bands": [
       { "az": -8, "el": 3.5, "w": 40, "h": 2.2 },
@@ -19,23 +19,23 @@
       { "az": -30, "el": 8, "w": 34, "h": 2.0 },
       { "az": 40, "el": 4, "w": 28, "h": 1.6 }
     ],
-    "moon": { "dir": [-0.22, 0.1, -1], "size": 2.6, "colour": "#fff4dc", "bright": 1.6, "glow": 0.5 }
+    "moon": { "dir": [-0.55, 0.32, -1], "size": 2.4, "colour": "#fff0d0", "bright": 1.8, "glow": 0.6 }
   },
   "sun": { "dir": [0.6, 0.06, -1], "colour": "#ffa878", "intensity": 2.4 },
   "fill": { "sky": "#8c8cd0", "ground": "#6a5a58", "intensity": 2.4 },
-  "fog": { "colour": "#8a6c9a", "near": 350, "far": 3600 },
-  "mist": { "colour": "#8a86c0", "opacity": 0.55, "y": -60 },
-  "grade": { "exposure": 1.25, "bloom": 0.8, "threshold": 2.4, "warmth": 0.3, "saturation": 1.12, "contrast": 0.95, "grain": 0, "lift": "#0a0818" },
-  "land": { "valley": "#46684a", "mid": "#55704a", "high": "#6a6658", "warm": "#66784a", "cool": "#44664e", "rock": "#6e6a72", "rockDark": "#4a4652", "gravel": "#6e6870", "sand": "#6a6070" },
-  "road": { "asphalt": "#56545e", "asphaltLight": "#62606a", "edge": "#f4f2f6", "centre": "#f2cc66", "plaza": "#403a48", "bay": "#cfcad6", "kerb": "#8a8494", "roughness": 0.8, "sheen": 0.12, "edgeWidth": 0.34, "track": "#34323c", "grain": 0.12 },
-  "water": { "deep": "#3e3e78", "light": "#ffb48a", "glint": "#ffc890", "glow": 0.7 },
+  "fog": { "colour": "#5c5a90", "near": 260, "far": 3000 },
+  "mist": { "colour": "#9a98c8", "opacity": 0.6, "y": -60 },
+  "grade": { "exposure": 1.1, "bloom": 0.8, "threshold": 2.4, "warmth": 0.2, "saturation": 1.08, "contrast": 0.95, "grain": 0, "lift": "#0a0818" },
+  "land": { "valley": "#2e4a44", "mid": "#3a5448", "high": "#6a6658", "warm": "#46583e", "cool": "#2c4a46", "rock": "#6e6a72", "rockDark": "#4a4652", "gravel": "#6e6870", "sand": "#6a6070" },
+  "road": { "asphalt": "#3c3a4a", "asphaltLight": "#464454", "edge": "#f4f2f6", "centre": "#3c3a4a", "plaza": "#403a48", "bay": "#cfcad6", "kerb": "#8a8494", "roughness": 0.8, "sheen": 0.12, "edgeWidth": 0.34, "track": "#34323c", "grain": 0.12, "receiveShadow": false, "columns": "mid" },
+  "water": { "deep": "#1c1e44", "light": "#6a6aa8", "glint": "#ffc890", "glow": 0.6, "mirror": true, "band": 1.6, "streak": 1.0 },
   "bridge": { "stone": "#9a5a6c", "shade": "#7a4458" },
-  "ridges": ["#3a3860", "#544c78", "#76648e", "#9a7c9e", "#c299aa"],
+  "ridges": ["#2e3660", "#3e4a78", "#55628e", "#6e7ba4", "#8a94b8"],
   "pine": {
     "trunk": "#3a2a28",
-    "dark": "#22402e",
-    "mid": "#2f5638",
-    "top": "#47704a",
+    "dark": "#16302c",
+    "mid": "#204440",
+    "top": "#336052",
     "shape": { "layers": 5, "width": 0.2, "tier": 0.24 }
   },
   "cherry": { "trunk": "#5e4444", "blossom": ["#ff6fa0", "#ff86b0", "#e0507e", "#ffa3c2"] },
@@ -50,9 +50,9 @@
     "high": {
       "cell": 6,
       "far": 20,
-      "pines": 300,
+      "pines": 260,
       "cherries": 0,
-      "nearPines": 200,
+      "nearPines": 160,
       "nearCherries": 0,
       "rocks": 40,
       "ridge": 140,
@@ -66,11 +66,12 @@
       "scale": 1,
       "env": 128,
       "details": { "tufts": 1400, "stones": 500, "bushes": 180, "petals": 70, "poles": 0 },
-      "carpet": 1200,
-      "billows": 90
+      "carpet": 3000,
+      "billows": 90,
+      "carpetNear": 30
     },
     "medium": {
-      "cell": 7,
+      "cell": 8,
       "far": 28,
       "pines": 240,
       "cherries": 0,
@@ -88,8 +89,9 @@
       "scale": 1,
       "env": 64,
       "details": { "tufts": 700, "stones": 250, "bushes": 90, "petals": 35, "poles": 0 },
-      "carpet": 1400,
-      "billows": 70
+      "carpet": 1800,
+      "billows": 70,
+      "carpetNear": 30
     },
     "low": {
       "cell": 12,
@@ -110,8 +112,9 @@
       "scale": 1,
       "env": 32,
       "details": { "tufts": 150, "stones": 60, "bushes": 30, "petals": 20, "poles": 0 },
-      "carpet": 250,
-      "billows": 45
+      "carpet": 700,
+      "billows": 45,
+      "carpetNear": 30
     }
   },
   "facets": false,
@@ -124,7 +127,7 @@
   "pole": { "wood": "#5b4140", "wire": "#2c2430" },
   "lantern": { "stone": "#8a8690", "gate": "#d0402e" },
   "surface": { "facet": 0.07, "blotch": 0.1, "grain": 0.02 },
-  "volcano": { "haze": 0.3, "rim": "#ffd2b8", "rimMix": 0.55, "hazeColour": "#c08a98" },
+  "volcano": { "haze": 0.35, "rim": "#c4c8e0", "rimMix": 0.35, "hazeColour": "#7a84b0", "plume": "#3a3444" },
   "key2": { "dir": [-0.7, 0.35, 0.6], "colour": "#ffb88a", "intensity": 1.4 },
   "farUnlit": true
 }
