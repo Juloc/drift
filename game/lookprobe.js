@@ -39,7 +39,7 @@ const tier = look.tiers[tierName];
 
 // ----- the stage: renderer, light, sky, the world, mist, halos, reflection, tyre marks, smoke (view/look/stage.js, shared with the game)
 const stage = createStage({ canvas: $('view'), look, scene0, tierName });
-const { renderer, post, scene, camera, sun, sunDir, sky, world, field: f, mist, halos, env, skids, smoke, buildMs } = stage;
+const { renderer, post, scene, camera, sun, sunDir, sky, world, field: f, mist, halos, env, skids, smoke, buildMs } = stage;   // (the probe loads one scene only, so these stay)
 
 // ----- cars: the driver (white, kit) and the parked ones (merged)
 const D = scene0.driver;

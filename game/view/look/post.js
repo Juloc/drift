@@ -43,6 +43,12 @@ export class Post {
     { tScene: { value: null }, tB1: { value: null }, tB2: { value: null }, uBloom: { value: grade.bloom }, uWarm: { value: grade.warmth }, uSat: { value: grade.saturation } }, true);
   }
 
+  /** The colour grade of another look (bloom, threshold, warmth, saturation), at once. */
+  setGrade(grade) {
+    this.bright.uniforms.uThreshold.value = grade.threshold;
+    const f = this.final.uniforms; f.uBloom.value = grade.bloom; f.uWarm.value = grade.warmth; f.uSat.value = grade.saturation;
+  }
+
   setSize(w, h) {
     this.scene.setSize(w, h);
     this.a.forEach((t, i) => t.setSize(Math.max(1, w >> (i + 1)), Math.max(1, h >> (i + 1))));
