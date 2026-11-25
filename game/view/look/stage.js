@@ -6,7 +6,7 @@ import * as THREE from '../../../vendor/three/three.module.js';
 import { Halos } from '../../core/materials.js';
 import { Skids } from '../fx.js';
 import { buildWorld } from './world.js';
-import { makeSky, makeMist, makeSkyEnvironment, sunDirection } from './sky.js';
+import { makeSky, makeMist, makeSkyEnvironment, sunDirection, makeClouds } from './sky.js';
 import { Puffs } from './puffs.js';
 import { Billows } from './billows.js';
 import { Post } from './post.js';
@@ -51,11 +51,11 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
 
   const stage = {
     renderer, post, scene, camera, tierName, sun, hemi, carTier: tierName === 'high' ? 'high' : 'low',
-    tier: tier0, look, scene0, sunDir: null, sky: null, world: null, field: null, mist: null, halos: null, env: null, skids: null, smoke: null, buildMs: 0,
+    tier: tier0, look, scene0, sunDir: null, sky: null, clouds: null, world: null, field: null, mist: null, halos: null, env: null, skids: null, smoke: null, buildMs: 0,
     /** Builds (or rebuilds) everything that belongs to a look and a scene. */
     load(newLook, newScene) {
       const t0 = performance.now();
-      for (const o of [stage.sky, stage.world?.group, stage.mist, stage.halos?.points, stage.skids?.mesh, stage.smoke?.mesh]) if (o) { scene.remove(o); disposeTree(o); }
+      for (const o of [stage.sky, stage.clouds, stage.world?.group, stage.mist, stage.halos?.points, stage.skids?.mesh, stage.smoke?.mesh]) if (o) { scene.remove(o); disposeTree(o); }
       stage.env?.dispose?.();
       const tier = newLook.tiers[tierName];
       Object.assign(stage, { look: newLook, scene0: newScene, tier });
@@ -68,6 +68,9 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
       sun.color.set(newLook.sun.colour); sun.intensity = newLook.sun.intensity;
       stage.sky = makeSky(newLook, 2200);
       scene.add(stage.sky);
+      // the cloud bands of their own (in front of the dome, so the bloom does not wash them out)
+      stage.clouds = newLook.sky.bands ? makeClouds(newLook, newLook.sky.bands, 2100) : null;
+      if (stage.clouds) scene.add(stage.clouds);
       // the world of the scene, with the sky's reflection on the road
       stage.world = buildWorld(newScene, newLook, tierName);
       scene.add(stage.world.group);
