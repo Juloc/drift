@@ -4,10 +4,11 @@
 // size and an overview picture to docs/screenshots/playcheck/, and exits with 1 when anything fails. The machine's graphics when there is a render node (tools/chrome.mjs), else software; one browser at a time (a few minutes).
 // It runs the track check and the drive check first (tools/trackcheck.mjs, tools/drivecheck.mjs; --no-road skips them) and stops when one is red.
 // Then it drives the page for real and measures every picture (tools/ridecheck.mjs; --no-ride skips it).
-// Usage: node tools/playcheck.mjs [--tier=low] [--only=phone-landscape,pc] [--out=docs/screenshots/playcheck] [--no-road] [--no-ride]
+// And the interface check (tools/uicheck.mjs; --no-ui skips it).
+// Usage: node tools/playcheck.mjs [--tier=low] [--only=phone-landscape,pc] [--out=docs/screenshots/playcheck] [--no-road] [--no-ride] [--no-ui]
 import { spawn, spawnSync } from 'node:child_process';
 import { GL_FLAGS } from './chrome.mjs';
-import { writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { KEYS } from '../game/view/touchmap.js';
 
@@ -26,7 +27,7 @@ mkdirSync(out, { recursive: true });
 
 // first the road itself and a test drive on it (Node, seconds): a road outside its limits or a car that cannot get down it would only show here as a strange picture
 if (!opt['no-road']) {
-  for (const [what, args] of [['track check', ['tools/trackcheck.mjs', 'game/data/maps/06-touge.json', 'game/data/maps/07-practice.json', '--no-png']], ['drive check', ['tools/drivecheck.mjs']]]) {
+  for (const [what, args] of [['track check', ['tools/trackcheck.mjs', '--out=/tmp/claude-1000/drift-playcheck-tc', ...readdirSync('game/data/maps').filter((f) => f.endsWith('.json')).map((f) => 'game/data/maps/' + f), '--no-png']], ['drive check', ['tools/drivecheck.mjs']]]) {
     const r = spawnSync(process.execPath, args, { encoding: 'utf8' });
     if (r.status !== 0) { console.log(`play check FAILED before the browser: the ${what} is red\n` + r.stdout.split('\n').filter((l) => /BROKEN|FAILED|LIMITS/.test(l)).slice(0, 12).join('\n')); process.exit(1); }
     console.log(`${what}: green`);
@@ -34,6 +35,13 @@ if (!opt['no-road']) {
 }
 // then a real drive in the browser, measured picture by picture (tools/ridecheck.mjs, on the page served from the repository): the car or the camera jumping between two
 // pictures, the camera on an elastic band, the view snapping round ("rubber-banding"). The track bot down the road, and the orbit bot against the walls. --no-ride skips it.
+// the interface check (tools/uicheck.mjs: eleven screens, three states each: every part of the HUD inside the screen and the safe edges, nothing overlapping, buttons big
+// enough, no page errors): the look chat's grid. --no-ui skips it.
+if (!opt['no-ui']) {
+  const r = spawnSync(process.execPath, ['tools/uicheck.mjs', `--out=/tmp/claude-1000/drift-playcheck-ui-${process.pid}`], { encoding: 'utf8' });
+  if (r.status !== 0) { console.log('play check FAILED: the interface check is red\n' + r.stdout.split('\n').filter((l) => /^PROBLEM|FAILED/.test(l)).slice(0, 12).join('\n')); process.exit(1); }
+  console.log('interface check: green');
+}
 if (!opt['no-ride']) {
   for (const [what, extra] of [['ride down the road', ['--seconds=30']], ['ride against the walls', ['--seconds=20', '--demo=orbit']]]) {
     const r = spawnSync(process.execPath, ['tools/ridecheck.mjs', '--static', '--phys=1', ...extra], { encoding: 'utf8' });

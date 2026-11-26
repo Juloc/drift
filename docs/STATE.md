@@ -612,3 +612,12 @@ A static page with sample data, no server logic, no inline script; every text th
   the menu open; checks every part inside the screen and its safe area, no overlap, nothing cut off by its place, touch buttons at least
   44 px, no page errors; an overview sheet. First run: passed, 33 pictures (docs/screenshots/uicheck-overview.png).
 - Not checked: a real phone (the safe area is emulated by Chromium), the race bar and the invitation in a real race.
+
+## Look branch f45a692 and car branch 98a5c07 merged; maps, cones, boards, checks (2026-11-26, Sonnet)
+- Merged through the gate: look f45a692 (HUD grid `view/frame.js` + `frame.css`, stone lantern a1c810b) = d62e8b3; car 98a5c07 (engine recording, four music tracks with their own slider, credits page with music) = ae47950. Conflicts were only text (STATE, ASSETS, credits.json, main.js strings): both sides kept. The gate caught one real fault after the first try: `ae86-engine.json` had no credits entry.
+- **Lab:** the track list has open cards "Winterpass" and "Herbst-Driftkurs" (to `/play/?map=winter|autumn`, driven alone).
+- **Cone penalty on the practice ground:** `game/sim/cones.js` (a cone is knocked down once when the car comes within 1.4 m, falls the way the car goes, costs 50 points; `cones.test.mjs`), drawn as 64 orange cones (`conesBuild` in `main.js`, an InstancedMesh), the count and the loss beside the score ("Kegel 3 (-150)" / "Cones 3 (-150)"), all up again on R. The points are shown, not yet taken off the drift score or sent anywhere. Checked in the browser that the 64 cones and the counter appear; not that a drive knocks them over (the test does it in numbers).
+- **Boards:** test `Every_map_has_its_own_board...`: all seven maps of `maps.json` have their own board, the maps of the track system have the flat and the hills board apart, the new winter pass is a track-system road and so not the old winter track's board (old rows of map 4 stay under board 0/ver 1).
+- **Play check now runs:** track check for every map file (the four without track data are skipped by the tool), drive check, the look's interface check (`tools/uicheck.mjs`, 11 screens: green after one fix: the music slider was 40 px high on touch, now 44), the two rides, then the pages at 5 sizes. Everything is green except the one known problem of slice 3.
+- Tests: node 232, .NET 250 pass.
+- Not done: the cones' points do not reach the score; slice 3's drawn road with its side tilt (the Look chat's); the flat model is still the default.

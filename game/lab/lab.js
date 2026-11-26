@@ -118,6 +118,8 @@ function modesView() {
 const TRACKS = [
   { key: 'touge', region: 'regionMountain', km: 2.0, open: true, img: 'img/mode-attack.jpg', fav: true },
   { key: 'practice', region: 'regionPractice', km: 0.69, open: true, href: '../?map=practice', icon: 'track', hue: 150 },   // the practice ground: drift circles, a figure eight, slalom and a short course; driven alone, no account needed
+  { key: 'winterPass', region: 'regionSnow', km: 1.09, open: true, href: '../?map=winter', icon: 'snow', hue: 235 },   // the winter pass (map 4): a snowy circuit with two hairpins and ice patches; driven alone
+  { key: 'autumnCourse', region: 'regionMountain', km: 1.0, open: true, href: '../?map=autumn', icon: 'track', hue: 25 },   // the autumn drift course (map 6): a drift circuit with run-off and tyre barriers
   { key: 'snowPass', region: 'regionSnow', km: 2.4, icon: 'snow', hue: 250 },
   { key: 'harbour', region: 'regionCoast', km: 1.6, icon: 'wave', hue: 215 },
   { key: 'coast', region: 'regionCoast', km: 3.1, icon: 'wave', hue: 190 },

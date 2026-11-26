@@ -47,7 +47,7 @@ body.touch #phud .frame #chips.open { max-width: 100%; flex-wrap: nowrap; overfl
 body.touch #phud .frame #chips.open > * { flex: none; }
 /* a phone: an open menu is the only thing in the middle (the messages wait until it is closed) */
 body.touch .slot-msg:has(> #chips.open) > :not(#chips) { display: none !important; }
-body.touch #chips > #volume { height: 44px; }
+body.touch #chips > #volume, body.touch #chips > #musicVolume { height: 44px; min-height: 44px; }
 
 /* the steering pads (they have left #touch) in the same smoked glass as the cards (probe.css), shown only when the touch controls are on */
 body:not(.touch-on) #phud .frame .pad { display: none; }

@@ -119,3 +119,4 @@ body.touch #reset { display: block; }
 .icon { display: block; margin: auto; }
 #chips button .icon, #chips-toggle .icon, #reset .icon, #emotes button .icon, #emote-open .icon { width: 1.3em; height: 1.3em; }
 .emo .icon { width: 1.6em; height: 1.6em; }
+#cones { padding: 4px 12px; border-radius: 12px; background: rgba(12, 10, 24, 0.72); color: #ffb070; font-size: 14px; font-weight: 700; pointer-events: none; }
