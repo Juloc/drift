@@ -41,6 +41,15 @@ public sealed class RaceTrack
         Legs = [.. gates.Select((g, i) => double.Hypot(gates[(i + 1) % gates.Count].Cx - g.Cx, gates[(i + 1) % gates.Count].Cz - g.Cz))];
     }
 
+    /// <summary>The version of the road: 1 = a map from before the track system, 2 = a road of the track system (the map file's `track.version`). Pages say which they drive on, boards are kept apart by it.</summary>
+    public int RoadVersion { get; init; } = 1;
+
+    /// <summary>
+    /// The board a best belongs to, as one number the store takes apart again: the feel (0 arcade, 1 pro) plus ten times what it was driven on
+    /// (0 = the old road, 1 = a road of the track system with the flat physics, 2 = with the physics that feels hills).
+    /// </summary>
+    public int Board(int feel, bool hills) => (feel == 1 ? 1 : 0) + 10 * (RoadVersion >= 2 ? (hills ? 2 : 1) : 0);
+
     public static RaceTrack FromJson(string json)
     {
         using var doc = JsonDocument.Parse(json);
@@ -58,6 +67,7 @@ public sealed class RaceTrack
             HalfX = b.Max(p => Math.Abs(p.X)) + 3, HalfZ = b.Max(p => Math.Abs(p.Z)) + 3,
             Segments = Segs(r),
             Open = r.TryGetProperty("closed", out var cl) && cl.ValueKind == JsonValueKind.False,
+            RoadVersion = r.TryGetProperty("track", out var tk) && tk.ValueKind == JsonValueKind.Object && tk.TryGetProperty("version", out var tv) && tv.TryGetInt32(out var ver) ? ver : 1,
             Spawn = r.TryGetProperty("lobbySpawn", out var sp) && sp.ValueKind == JsonValueKind.Object ? (N(sp.GetProperty("x")), N(sp.GetProperty("z"))) : null,
             Obstacles = r.TryGetProperty("obstacles", out var ob) ? [.. ob.EnumerateArray().Select(o => (N(o.GetProperty("x")), N(o.GetProperty("z")), N(o.GetProperty("r"))))] : [],
         };

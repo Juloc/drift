@@ -475,6 +475,22 @@ public class RaceHubTests
     }
 
     [Fact]
+    public void A_page_on_another_road_is_told_to_reload_and_the_physics_a_person_drives_picks_the_board()
+    {
+        var json = File.ReadAllText(Path.Combine(Repo.Root, "game", "data", "maps", "06-touge.json"));
+        var rig = new Rig(json, ["anna", "ben"]);
+        rig.Say("anna", """{"t":"hello","road":2}""");
+        Assert.Null(rig.People["anna"].LobbyPeer.Last("reload"));
+        rig.Say("ben", """{"t":"hello","road":1}""");                                    // a page that was open before the road changed
+        Assert.Equal(2, rig.People["ben"].LobbyPeer.Last("reload")!.Value.GetProperty("road").GetInt32());
+        Assert.Equal(10, rig.Hub.BoardOf(rig.People["anna"].Id));                         // the new road, the flat physics, arcade
+        rig.Say("anna", """{"t":"phys","v":1}"""); rig.Say("anna", """{"t":"feel","v":1}""");
+        Assert.Equal(21, rig.Hub.BoardOf(rig.People["anna"].Id));                         // hills and pro
+        rig.Say("anna", """{"t":"phys","v":0}""");
+        Assert.Equal(11, rig.Hub.BoardOf(rig.People["anna"].Id));
+    }
+
+    [Fact]
     public void A_training_run_is_the_same_run_but_nothing_of_it_is_written()
     {
         var json = File.ReadAllText(Path.Combine(Repo.Root, "game", "data", "maps", "06-touge.json"));
@@ -780,6 +796,35 @@ public class BoardTests
     }
 
     [Fact]
+    public async Task Bests_on_the_old_road_the_new_road_and_the_new_road_with_hills_are_three_boards_and_old_rows_stay()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        await app.SignedInAsync(app.Http());                                  // runs the migrations (018: the column ver)
+        var store = new RaceStore(db.Data);
+        var a = Guid.NewGuid(); var b = Guid.NewGuid();
+        await Person(db, a, "a"); await Person(db, b, "b");
+        var touge = RaceTrack.FromJson(File.ReadAllText(Path.Combine(Repo.Root, "game", "data", "maps", "06-touge.json")));
+        var park = RaceTrack.FromJson(RaceTrackTests.MapJson);
+        Assert.Equal(2, touge.RoadVersion); Assert.Equal(1, park.RoadVersion);
+        Assert.Equal(10, touge.Board(0, false)); Assert.Equal(21, touge.Board(1, true)); Assert.Equal(1, park.Board(1, true));   // a map without a road of the track system has one board per feel
+        // a row from before (what migration 018 finds): the old road, a time nobody can beat on the new one
+        Assert.True(await store.RecordAsync(a, 0, RaceStore.Lap, 60_000, 1, 0));
+        // the new road: flat physics and hills are boards of their own, each starts empty
+        Assert.True(await store.RecordAsync(a, 0, RaceStore.Lap, 110_000, 1, touge.Board(0, false)));
+        Assert.True(await store.RecordAsync(b, 0, RaceStore.Lap, 105_000, 1, touge.Board(0, false)));
+        Assert.True(await store.RecordAsync(a, 0, RaceStore.Lap, 118_000, 1, touge.Board(0, true)));
+        Assert.False(await store.RecordAsync(a, 0, RaceStore.Lap, 119_000, 1, touge.Board(0, true)));      // slower than her own on this board
+        var flat = await store.TopAsync(0, RaceStore.Lap, 10, a, touge.Board(0, false), CancellationToken.None);
+        var hills = await store.TopAsync(0, RaceStore.Lap, 10, a, touge.Board(0, true), CancellationToken.None);
+        var old = await store.TopAsync(0, RaceStore.Lap, 10, a, 0, CancellationToken.None);
+        Assert.Equal(new[] { 105_000, 110_000 }, flat.Select(r => r.Ms)); Assert.Equal(new[] { 118_000 }, hills.Select(r => r.Ms)); Assert.Equal(new[] { 60_000 }, old.Select(r => r.Ms));
+        Assert.Equal(2, (await store.StandingAsync(0, RaceStore.Lap, a, touge.Board(0, false)))!.Place);
+        Assert.Equal(1, (await store.StandingAsync(0, RaceStore.Lap, a, touge.Board(0, true)))!.Place);
+        Assert.Null(await store.StandingAsync(0, RaceStore.Lap, b, touge.Board(1, true)));
+    }
+
+    [Fact]
     public async Task The_attack_board_keeps_the_points_of_the_best_whole_run_and_orders_it_downwards()
     {
         await using var db = await TestDb.CreateAsync();
@@ -829,6 +874,7 @@ public class BoardTests
     [Fact]
     public async Task The_board_api_gives_ten_a_place_of_your_own_and_works_read_only_for_guests()
     {
+        // (on map 1: a map without a road of the track system has one board per feel; the touge's boards are kept apart further, see the test above)
         await using var db = await TestDb.CreateAsync();
         await using var app = new TestApp(db);
         var c = app.Http();
@@ -836,15 +882,15 @@ public class BoardTests
         var store = new RaceStore(db.Data);
         Guid me;
         await using (var q = db.Data.CreateCommand("select id from users limit 1")) me = (Guid)(await q.ExecuteScalarAsync())!;
-        for (var i = 0; i < 12; i++) { var id = Guid.NewGuid(); await Person(db, id, "p" + i); await store.RecordAsync(id, 0, RaceStore.Lap, 50000 + i * 100, 0); }
-        await store.RecordAsync(me, 0, RaceStore.Lap, 99000, 0);                                  // slower than all twelve
-        var r = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=0", admin)));
+        for (var i = 0; i < 12; i++) { var id = Guid.NewGuid(); await Person(db, id, "p" + i); await store.RecordAsync(id, 1, RaceStore.Lap, 50000 + i * 100, 0); }
+        await store.RecordAsync(me, 1, RaceStore.Lap, 99000, 0);                                  // slower than all twelve
+        var r = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=1", admin)));
         Assert.Equal(10, r.GetProperty("lap").GetProperty("top").GetArrayLength());
         Assert.Equal(13, r.GetProperty("lap").GetProperty("mine").GetProperty("place").GetInt32());   // not among the ten, but told its place
         Assert.Equal(MapFileTests.MapCount, r.GetProperty("maps").GetArrayLength());   // one board per map of maps.json
         Assert.Equal(0, r.GetProperty("drift").GetProperty("top").GetArrayLength());
         var guest = await TestApp.GuestCookieAsync(await app.JoinAsync(c, await app.GuestLinkAsync(c, admin), "Ann"));
-        var g = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/guest/times?map=0", guest)));
+        var g = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/guest/times?map=1", guest)));
         Assert.Equal(10, g.GetProperty("lap").GetProperty("top").GetArrayLength());
         Assert.False(g.GetProperty("lap").TryGetProperty("mine", out var m) && m.ValueKind != System.Text.Json.JsonValueKind.Null);   // a guest has no place
     }
@@ -1029,16 +1075,16 @@ public class FeelBoardTests
         var c = app.Http(); var cookie = await app.SignedInAsync(c);
         var store = app.Services.GetService(typeof(RaceStore)) as RaceStore;
         var me = Guid.Parse((await db.Data.CreateCommand("select id::text from users limit 1").ExecuteScalarAsync())!.ToString()!);
-        Assert.True(await store!.RecordAsync(me, 0, RaceStore.Lap, 61000, 0, feel: 0));
-        Assert.True(await store.RecordAsync(me, 0, RaceStore.Lap, 65000, 0, feel: 1));    // slower, but another list: written
-        Assert.False(await store.RecordAsync(me, 0, RaceStore.Lap, 66000, 0, feel: 1));   // slower than the pro best: not written
-        Assert.True(await store.RecordAsync(me, 0, RaceStore.Lap, 64000, 0, feel: 1));   // faster than the pro best: written
-        var arcade = (await store.TopAsync(0, RaceStore.Lap, 10, me, 0)).Single(); var pro = (await store.TopAsync(0, RaceStore.Lap, 10, me, 1)).Single();
+        Assert.True(await store!.RecordAsync(me, 1, RaceStore.Lap, 61000, 0, feel: 0));
+        Assert.True(await store.RecordAsync(me, 1, RaceStore.Lap, 65000, 0, feel: 1));    // slower, but another list: written
+        Assert.False(await store.RecordAsync(me, 1, RaceStore.Lap, 66000, 0, feel: 1));   // slower than the pro best: not written
+        Assert.True(await store.RecordAsync(me, 1, RaceStore.Lap, 64000, 0, feel: 1));   // faster than the pro best: written
+        var arcade = (await store.TopAsync(1, RaceStore.Lap, 10, me, 0)).Single(); var pro = (await store.TopAsync(1, RaceStore.Lap, 10, me, 1)).Single();
         Assert.Equal(61000, arcade.Ms); Assert.Equal(64000, pro.Ms);
-        Assert.Equal(1, (await store.StandingAsync(0, RaceStore.Lap, me, 1))!.Place);
+        Assert.Equal(1, (await store.StandingAsync(1, RaceStore.Lap, me, 1))!.Place);
         // the page's lists: ?feel=1 shows the pro list, the default the arcade list
-        var a = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=0", cookie)));
-        var p = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=0&feel=1", cookie)));
+        var a = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=1", cookie)));
+        var p = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=1&feel=1", cookie)));
         Assert.Equal(0, a.GetProperty("feel").GetInt32()); Assert.Equal(1, p.GetProperty("feel").GetInt32());
         Assert.Equal(61000, a.GetProperty("lap").GetProperty("top")[0].GetProperty("value").GetInt32());
         Assert.Equal(64000, p.GetProperty("lap").GetProperty("top")[0].GetProperty("value").GetInt32());

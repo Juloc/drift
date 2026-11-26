@@ -2,8 +2,9 @@
 // and checks what the owner found by hand on a phone: (a) the buffer of the picture, the camera and the screen have the same shape (nothing is stretched), (b) every place a car is put
 // stands on the drawn ground (under 5 cm), (c) every key has a button by touch, (d) no part of the HUD overlaps another or is cut off. Prints a text report, writes a picture per
 // size and an overview picture to docs/screenshots/playcheck/, and exits with 1 when anything fails. The machine's graphics when there is a render node (tools/chrome.mjs), else software; one browser at a time (a few minutes).
-// Usage: node tools/playcheck.mjs [--tier=low] [--only=phone-landscape,pc] [--out=docs/screenshots/playcheck]
-import { spawn } from 'node:child_process';
+// It runs the track check and the drive check first (tools/trackcheck.mjs, tools/drivecheck.mjs; --no-road skips them) and stops when one is red.
+// Usage: node tools/playcheck.mjs [--tier=low] [--only=phone-landscape,pc] [--out=docs/screenshots/playcheck] [--no-road]
+import { spawn, spawnSync } from 'node:child_process';
 import { GL_FLAGS } from './chrome.mjs';
 import { writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -21,6 +22,15 @@ const SIZES = [
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const chrome = `${homedir()}/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`;
 mkdirSync(out, { recursive: true });
+
+// first the road itself and a test drive on it (Node, seconds): a road outside its limits or a car that cannot get down it would only show here as a strange picture
+if (!opt['no-road']) {
+  for (const [what, args] of [['track check', ['tools/trackcheck.mjs', 'game/data/maps/06-touge.json', 'game/data/maps/07-practice.json', '--no-png']], ['drive check', ['tools/drivecheck.mjs']]]) {
+    const r = spawnSync(process.execPath, args, { encoding: 'utf8' });
+    if (r.status !== 0) { console.log(`play check FAILED before the browser: the ${what} is red\n` + r.stdout.split('\n').filter((l) => /BROKEN|FAILED|LIMITS/.test(l)).slice(0, 12).join('\n')); process.exit(1); }
+    console.log(`${what}: green`);
+  }
+}
 
 // a static server for the repository (the game page and the vendor files)
 const webPort = 21000 + Math.floor(Math.random() * 3000);

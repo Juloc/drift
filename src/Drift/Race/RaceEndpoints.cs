@@ -50,7 +50,7 @@ public static class RaceEndpoints
         async Task<IResult> Board(int? map, int? feel, HttpContext ctx, RaceStore store, IReadOnlyDictionary<int, RaceTrack> tracks, CancellationToken ct)
         {
             var track = tracks.TryGetValue(map ?? 0, out var t) ? t : tracks[tracks.Keys.Min()];
-            var fl = feel == 1 ? 1 : 0;   // the lists are kept apart by the feel of driving: 0 arcade, 1 pro
+            var fl = track.Board(feel == 1 ? 1 : 0, ctx.Request.Query["phys"] == "1");   // the lists are kept apart by the feel of driving (0 arcade, 1 pro) and by what was driven on (RaceTrack.Board)
             Guid? me = ctx.Items.ContainsKey(Drift.Guests.GuestEndpoints.Key) || ctx.Items.ContainsKey(Drift.Play.OpenPlay.Key) ? null : ctx.Owner();   // a guest has no place on the board
             async Task<object> One(int kind) => new
             {
@@ -59,7 +59,7 @@ public static class RaceEndpoints
             };
             return Results.Ok(new
             {
-                map = track.Name, mapId = track.MapId, feel = fl, laps = track.Laps, maps = tracks.Values.OrderBy(x => x.MapId).Select(x => new { id = x.MapId, name = x.Name }),
+                map = track.Name, mapId = track.MapId, feel = fl % 10, board = fl, laps = track.Laps, maps = tracks.Values.OrderBy(x => x.MapId).Select(x => new { id = x.MapId, name = x.Name }),
                 lap = await One(RaceStore.Lap), race = await One(RaceStore.Race), drift = await One(RaceStore.Drift), tandem = await One(RaceStore.Tandem), tandemRun = await One(RaceStore.TandemRun), attack = await One(RaceStore.Attack),
             });
         }

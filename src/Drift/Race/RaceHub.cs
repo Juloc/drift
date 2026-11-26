@@ -86,7 +86,7 @@ public sealed class RaceHub
     {
         lock (gate)
         {
-            if (lobby.TryGetValue(person, out var cur) && cur.Session == s) { lobby.Remove(person); emoteAt.Remove(person); feels.Remove(person); creatives.Remove(person); }
+            if (lobby.TryGetValue(person, out var cur) && cur.Session == s) { lobby.Remove(person); emoteAt.Remove(person); feels.Remove(person); creatives.Remove(person); hills.Remove(person); }
         }
     }
 
@@ -102,6 +102,9 @@ public sealed class RaceHub
     public bool CreativeOf(Guid person) { lock (gate) return creatives.Contains(person); }
     /// <summary>The feel a person last said they play with (0 arcade when they said nothing).</summary>
     public int FeelOf(Guid person) { lock (gate) return feels.GetValueOrDefault(person); }
+    readonly HashSet<Guid> hills = [];
+    /// <summary>The board a person's bests on the lobby map belong to now (RaceTrack.Board: the feel, and whether they drive the physics that feels hills).</summary>
+    public int BoardOf(Guid person) { lock (gate) return tracks[tracks.Keys.Min()].Board(feels.GetValueOrDefault(person), hills.Contains(person)); }
     public int emotesDropped;
 
     public void OnLobbyText(Guid person, string text)
@@ -125,7 +128,7 @@ public sealed class RaceHub
                     var solo = r.TryGetProperty("solo", out var so) && so.ValueKind == JsonValueKind.True;
                     // training (a time trial with the ghost of your best run): the same run, but nothing of it is written, as in the creative mode
                     var train = solo && r.TryGetProperty("train", out var tn) && tn.ValueKind == JsonValueKind.True;
-                    parts.Add(new Part(me) { Feel = feels.GetValueOrDefault(person), Creative = creatives.Contains(person) || train });
+                    parts.Add(new Part(me) { Feel = track.Board(feels.GetValueOrDefault(person), hills.Contains(person)), Creative = creatives.Contains(person) || train });
                     starter = person; phase = Phase.Invite; phaseStart = Now;
                     if (solo)
                     {
@@ -137,7 +140,7 @@ public sealed class RaceHub
                         Send(m.Session, m.Person == person ? new { t = "race.wait", by = me.Name, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) } : new { t = "race.invite", by = me.Name, tuned = me.Tuned, map = track.MapId, mapName = track.Name, laps, ms = (int)(InviteSeconds * 1000) });
                     break;
                 case "race.join":
-                    if (phase == Phase.Invite && parts.Count < MaxRacers && parts.All(p => p.Member.Person != person)) { parts.Add(new Part(me) { Feel = feels.GetValueOrDefault(person), Creative = creatives.Contains(person) }); Send(me.Session, new { t = "race.joined" }); }
+                    if (phase == Phase.Invite && parts.Count < MaxRacers && parts.All(p => p.Member.Person != person)) { parts.Add(new Part(me) { Feel = track.Board(feels.GetValueOrDefault(person), hills.Contains(person)), Creative = creatives.Contains(person) }); Send(me.Session, new { t = "race.joined" }); }
                     answered.Add(person);
                     break;
                 case "race.decline":
@@ -145,6 +148,12 @@ public sealed class RaceHub
                     break;
                 case "feel":   // the feel of driving the person plays with now (0 arcade, 1 pro); kept for the race they join
                     if (r.TryGetProperty("v", out var fv) && fv.TryGetInt32(out var f) && f is 0 or 1) feels[person] = f; else emotesDropped++;
+                    break;
+                case "phys":   // { v: 0 | 1 }: the physics the page drives (1 = the one that feels hills); the boards are kept apart by it
+                    if (r.TryGetProperty("v", out var pv) && pv.TryGetInt32(out var ph) && ph is 0 or 1) { if (ph == 1) hills.Add(person); else hills.Remove(person); } else emotesDropped++;
+                    break;
+                case "hello":   // { road: N }: the version of the road the page drives on. A page with another road than the server's is told to load itself again
+                    if (r.TryGetProperty("road", out var rv) && rv.TryGetInt32(out var road)) { if (road != tracks[tracks.Keys.Min()].RoadVersion) Send(me.Session, new { t = "reload", road = tracks[tracks.Keys.Min()].RoadVersion }); } else emotesDropped++;
                     break;
                 case "mode":   // { v: "creative" | "normal" }: the creative mode is a switch of the session; its races never count for boards or stats
                     if (r.TryGetProperty("v", out var mv) && mv.ValueKind == JsonValueKind.String && mv.GetString() is "creative" or "normal") { if (mv.GetString() == "creative") creatives.Add(person); else creatives.Remove(person); } else emotesDropped++;

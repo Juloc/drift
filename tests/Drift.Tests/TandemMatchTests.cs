@@ -62,7 +62,7 @@ public class TandemMatchTests
         var res = a.P.Last("tandem.result")!.Value;
         Assert.True(res.GetProperty("total").GetInt32() > 50);
         Assert.Equal("b", res.GetProperty("partner").GetString());
-        Assert.Equal(res.GetProperty("total").GetInt32(), res.GetProperty("mine")[0].GetInt32() + res.GetProperty("mine")[1].GetInt32() + res.GetProperty("theirs")[0].GetInt32() + res.GetProperty("theirs")[1].GetInt32());
+        Assert.InRange(res.GetProperty("total").GetInt32() - (res.GetProperty("mine")[0].GetInt32() + res.GetProperty("mine")[1].GetInt32() + res.GetProperty("theirs")[0].GetInt32() + res.GetProperty("theirs")[1].GetInt32()), -2, 2);   // (four rounded parts against the rounded sum)
         Assert.Null(r.Matches.PhaseOf(a.S));
         Thread.Sleep(200);
         lock (r.Best.Written) Assert.Equal(2, r.Best.Written.Count(w => w.Kind == TandemRun.Board));   // both signed in: both boards

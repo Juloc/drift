@@ -10,7 +10,7 @@ namespace Drift.Race;
 /// Lobby messages from the page: tandem.invite {with: id}, tandem.accept, tandem.decline, tandem.cancel. To the pages: tandem.invite {from, by, ms}, tandem.sent {to},
 /// tandem.no {why}, tandem.run {phase, round, role, left, total, mine}, tandem.result {total, mine, theirs, partner}, tandem.end {why}.
 /// </summary>
-public sealed class TandemMatches(IBestTimes? best, int map = 0, double roundSeconds = 30, double countdown = 3, double pause = 4, Func<double>? clock = null, int inviteMs = 15000)
+public sealed class TandemMatches(IBestTimes? best, int map = 0, double roundSeconds = 30, double countdown = 3, double pause = 4, Func<double>? clock = null, int inviteMs = 15000, Func<Guid, int>? boardOf = null)
 {
     sealed class Member(Guid person, string name, bool guest, int car) { public Guid Person = person; public string Name = name; public bool Guest = guest; public int Car = car; public TandemCar Pose; public double At = -1; public Match? Match; }
     sealed class Match(Session a, Session b) { public Session A = a, B = b; public TandemRun Run = null!; public double Sent = -9; public string SentPhase = ""; }
@@ -117,7 +117,7 @@ public sealed class TandemMatches(IBestTimes? best, int map = 0, double roundSec
         }
         if (done is not null && best is not null)
             foreach (var d in done)
-                _ = Task.Run(async () => { try { await d.Match.Run.RecordAsync(best, (d.PA, d.GA, d.CA), (d.PB, d.GB, d.CB), map); } catch (Exception) { /* a board that cannot be written costs nothing here */ } });
+                _ = Task.Run(async () => { try { await d.Match.Run.RecordAsync(best, (d.PA, d.GA, d.CA), (d.PB, d.GB, d.CB), map, boardOf?.Invoke(d.PA) ?? 0); /* the pair's board is the inviter's: feel and physics */ } catch (Exception) { /* a board that cannot be written costs nothing here */ } });
     }
 
     static string PhaseName(TandemRun.Phase p) => p switch { TandemRun.Phase.Countdown => "countdown", TandemRun.Phase.Round1 => "round1", TandemRun.Phase.Swap => "swap", TandemRun.Phase.Round2 => "round2", TandemRun.Phase.Done => "done", _ => "waiting" };

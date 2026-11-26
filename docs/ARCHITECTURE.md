@@ -28,6 +28,10 @@ Anything in `game/sim/` must run unchanged in node (that is how it is tested) an
 
 ## 1. The driving model
 
+**Two models live side by side since 2026-11-26** (design: `drift-mockups/DESIGN-PHYSIK-STRECKE.md`): the flat model described first (1.1: what every player drives until the owner flips the switch, and what the maps without a road of the track system always drive), and the model on the road's surface (1.3: hills, a new tyre; `?phys=1` or the menu's "Gefälle: an"). Both are `step(state, input, car, mu, dt, surf)` in `game/sim/physics.js`: with a surface the second one runs. The road itself is 1.2.
+
+### 1.1 The flat model
+
 A **2D top-down model** in metres and seconds; the third dimension is only drawing. Mass is 1, so forces are accelerations. One car = a point with a heading, between two axles (a "bicycle model": one front and one rear tyre), which is the smallest model that has slip angles, understeer and oversteer, and is the standard base of arcade drift games.
 
 **State** (`CarState`, 8 numbers): position `x, z`; heading `h` (0 = +z, growing towards the car's right); velocity in the world `vx, vz`; yaw rate `w`; steering angle `steer` (the smoothed wheel angle); plus `slide` (0..1, how far the rear is sliding, for sound, smoke and score, derived, not an integrator).
@@ -65,6 +69,33 @@ A **2D top-down model** in metres and seconds; the third dimension is only drawi
 **Drift score** (`sim/score.js`, pure): a car is *drifting* when `|beta| > 0.26 rad` (15 degrees) and `|v| > 8 m/s` and no wall is touched. Points per second while drifting = `0.35 * |v| * (|beta| in degrees)^0.8`, times a **chain multiplier** that grows by 1 for every 2 s of unbroken drift (to x5) and is kept for 1.5 s after the drift ends (so linking two drifts counts as a chain). The points of a chain are *pending* while the chain lives and are *banked* when it ends cleanly; a wall hit or a spin (`|beta| > 1.9 rad`) loses the pending points. A short drift (about 3 s at 60 degrees angle and 25 m/s) is worth a few hundred points; the numbers are tuned in milestone 1 and then frozen, because the server recomputes them (3.6).
 
 **Bots:** `sim/bot.js` is a small driver (steer towards a look-ahead point, brake before corners) used for tests and for the screenshots; it is not a game feature.
+
+### 1.2 The road: one source of height (`game/sim/track.js`)
+
+- A map of the track system carries `track` in its file: the road baked every 2 m (centre line, height, side tilt, half widths) from **control data** (`ctrl`, what an editor touches). `buildTrack` makes it inside the limits, `checkTrack` proves it, the generators (`tools/make-touge.mjs`, `tools/make-practice.mjs`) stop when it finds anything. `prepareMap` loads it as `map.surface`.
+- `surfaceAt(track, x, z)` -> `{ y, gx, gz, s, lat, kind }` is the ONLY place a height comes from: the physics, the car's four wheel points (`sim/carpose.js`), the camera, smoke and marks, the look's field (`field.groundY`, `field.track`), the tools. Between the samples everything is one uniform cubic B-spline, so height and slope have no steps and no kinks; nothing is remembered between calls. `frameAt(track, s, lat)` gives the road frame (point, along, across, normal): rails (the physics walls are the same line, 6 m from the centre), gates, start slots and clipping points are placed in it.
+- **The limits** (`LIMITS`; the sheet of `tools/trackcheck.mjs` lists the worst value of each): half width 3.5 to 7 m; centre radius at least 15 m, inner edge 9 m, rail line 6 m; a bend builds up over at least 12 m; grade at most 10 % (8 % in a bend), anywhere on the surface 12 %, along and across together 13 %; crests of at least 80 m radius and 0.30 g at the reference speed, dips 50 m and 0.50 g; side tilt up to 8 % into the bend, 2 % out of it, changing by at most 1 % in 5 m, four wheel points within 3 cm of a plane; two branches at least 18 m apart on the plan; the first 25 m out of the plaza level at the plaza's height; inside +-1500 m (the wire format).
+- The touge today: 1999 m, 105 m down, eight hairpins of 21 m radius, 5.3 % everywhere, tilt up to 6.7 %.
+
+### 1.3 The model on the surface ("2.5D", `stepSurface`)
+
+The car's place stays `x, z, h` on the plan; its height is always the surface's (it cannot float, sink or jump; a crest makes it light, it never lifts off). New in the state: `y`, `nLoad` (wheel load in g), `tl`, `tq` (weight moved to the rear and to the right, filtered), `sr` (slip of the rear wheels), `fyF`, `fyR` (the axles' side forces), `ay`.
+
+1. **The hill:** the slope pulls with `-G * gradient / (1 + gradient^2)` on the plan; the wheel load is `G / sqrt(1 + g^2) + v^2 * kv` (`kv`: the vertical curve along the way, from the slopes 1.5 m ahead and behind), kept between 0.25 and 1.8 g; nose-down the front carries more (`hcg / wheelbase` per unit of grade); under 0.5 m/s with no pedal (or the handbrake without gas) the tyres hold the car on the hill (the brake at a standstill stays the reverse gear).
+2. **The weight moves with time:** `tl` follows the car's own acceleration along over 0.12 s, `tq` across over 0.10 s; an axle carries its share of the load (at least 15 %), and side grip falls with the weight moved across (`kLoad`).
+3. **One tyre force for both directions (the rear):** slip along is the wheel's own slip `sr / srPeak`, slip across is `tan(alpha) / tan(alphaPeak)`; together they give the size on the same tyre curve as before (rises to the peak, falls to `slide`), and the force points where the tyre slips (along it pulls 1.35 times as hard as across). More gas turns the force forwards and takes side force away: **the pedal sets the angle**, from about 20 degrees up to about 40.
+4. **The rear wheels' slip** follows the engine and the brake against what the tyre gives (`kSpin`), and slows again beyond the peak (`relax`). **The handbrake locks the rear wheels** (`sr` to -1): the force points against the slide. A braked or locked wheel's slip shrinks with the speed below 2 m/s: it stops the car and never pushes it back.
+5. **The front tyre** is measured and works across the STEERED wheel (turned far, its side force also drags); braking takes side grip away (a circle). While the car grips the wheel is not turned far past the tyre's best angle (keys and thumbs give all or nothing); in a slide the whole wheel is free. The counter-steer aid is the flat model's.
+6. **A side force builds up over 0.4 m** of travel (and with time at a crawl): no pivoting on the spot. A force that would push along the slip (after a knock) is dropped: **a tyre only takes energy out** (a million random steps: under 0.001 J/kg in a step).
+7. **The turn:** as before with more swing (`K2.inertia` 1.1, `yawDamp` 1.2), so a slide carries over when the wheel goes the other way.
+
+Arcade and Pro change numbers only (`feel.js`): Pro has a third of the counter-steer aid, 60 % of the yaw damping and wheels that spin up 1.2 times as fast. The cars' five numbers are the same for both models.
+
+**The server** needs none of it: no new byte on the wire (the height follows from `x, z` and the map file), the relay's speed check holds downhill (no car passes 1.1 times its top speed on the steepest surface a road may have; a test on each side), the walls are the map's. Pages say which road they drive (`{t:"hello", road}`: a page on another road is told to `reload`) and which physics (`{t:"phys", v}`); **bests are kept apart** by it (`drift_best_time.ver`: 1 the old road, 2 a track-system road with the flat model, 3 with the hills; `RaceTrack.Board`).
+
+### 1.4 What proves it
+
+`tools/trackcheck.mjs` (the road against every limit, with the sheet), `tools/drivecheck.mjs` (a clean and a drifting driver, `sim/trackbot.js`, down the whole road with every car on the surface model: walls, the angle in each hairpin, wheel load, wheel points, the body's and the camera's movement), `tools/playcheck.mjs` (the real page; it runs the other two first). Node tests: `track.test.mjs`, `slope.test.mjs`, `drift.test.mjs`, `trackbot.test.mjs`. `tools/measure.mjs` (`PHYS=1` for the surface model) prints the table of how each car drives.
 
 ## 2. Look and budget on a phone
 

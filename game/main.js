@@ -228,7 +228,7 @@ function openNet(url, inRace) {
     },
     onFix(f) { cur = prev = { ...cur, x: f.x, z: f.z, h: f.h, vx: 0, vz: 0, w: 0 }; },
     onBye(reason) { if (n === net && !racing) { droppedBtn.textContent = reason === 5 ? T.full : T.dropped; droppedBtn.hidden = false; } },
-    onState(st) { if (st === 'open' && !inRace && pendingMode) { const m = pendingMode; pendingMode = null; setTimeout(() => startMode(m), 800); } if (st === 'open' && !inRace) { n.sendJson({ t: 'feel', v: feel }); if (creative) n.sendJson({ t: 'mode', v: 'creative' }); if (chStarted && chRun && !chRun.done) n.sendJson({ t: 'challenge.start', id: chDef.id }); } if (st === 'closed' && n === net && !racing) { $('online-n').textContent = onlineCount = 0; meName = ''; spawned = false; } },
+    onState(st) { if (st === 'open' && !inRace && pendingMode) { const m = pendingMode; pendingMode = null; setTimeout(() => startMode(m), 800); } if (st === 'open' && !inRace) { n.sendJson({ t: 'hello', road: lobbyJson.track?.version ?? 1 }); n.sendJson({ t: 'phys', v: phys25 ? 1 : 0 }); n.sendJson({ t: 'feel', v: feel }); if (creative) n.sendJson({ t: 'mode', v: 'creative' }); if (chStarted && chRun && !chRun.done) n.sendJson({ t: 'challenge.start', id: chDef.id }); } if (st === 'closed' && n === net && !racing) { $('online-n').textContent = onlineCount = 0; meName = ''; spawned = false; } },
     onJson: (j) => (inRace ? raceMessage(j) : lobbyMessage(j)),
   });
   n.connect();
@@ -282,7 +282,10 @@ function lobbyMessage(j) {
   else if (j.t === 'race.joined') { show('invite', false); note(T.joined); }
   else if (j.t === 'race.busy') note(j.wait ? T.pause.replace('{s}', j.wait) : T.busy);
   else if (j.t === 'race.go') { show('invite', false); startRace(); }
-  else if (j.t === 'emote') remotes?.emote(j.id, EMOTES[j.e]);
+  else if (j.t === 'reload') {   // the server drives another road than this page (a new version went out while the page was open): load the page again, once
+    let again = false; try { again = Date.now() - Number(sessionStorage.getItem('drift.reloaded') || 0) < 60000; if (!again) sessionStorage.setItem('drift.reloaded', String(Date.now())); } catch { /* no storage: reload anyway */ }
+    if (!again) location.reload();
+  } else if (j.t === 'emote') remotes?.emote(j.id, EMOTES[j.e]);
   else if (j.t === 'tandem') { if (!practice) tandemHud.set(j); }
   else if (j.t === 'tandem.bank') tandemHud.bank(j.points);
   else if (j.t === 'tandem.invite') {
@@ -458,7 +461,7 @@ async function showModeResult(j, kind = runMode) {
   }
   show('count', false); show('racehud', false); show('result', true);
   if (!train) try {   // the board of this mode: the five best, and your line
-    const b = await fetch(params.get('open') === '1' ? '/api/open/times?map=0' : document.documentElement.dataset.guest === '1' ? '/api/guest/times?map=0' : '/api/times?map=0').then((r) => r.json());
+    const b = await fetch((params.get('open') === '1' ? '/api/open/times?map=0' : document.documentElement.dataset.guest === '1' ? '/api/guest/times?map=0' : '/api/times?map=0') + `&feel=${feel === PRO ? 1 : 0}&phys=${phys25 ? 1 : 0}`).then((r) => r.json());   // the board of what this run was driven with (the feel, the physics)
     const one = time ? b.lap : b.attack, list = Object.assign(document.createElement('ol'), { className: 'board' });
     for (const [i, r] of (one?.top ?? []).slice(0, 5).entries()) { const li = document.createElement('li'); if (r.mine) li.className = 'mine'; li.textContent = `${i + 1}. ${r.name} \u00b7 ${time ? fmt(r.value) : nf(r.value)}`; list.append(li); }
     if (one?.mine && !(one.top ?? []).slice(0, 5).some((r) => r.mine)) { const li = Object.assign(document.createElement('li'), { className: 'mine', textContent: `${one.mine.place}. ${T.you.replace(/ ?$/, '')} \u00b7 ${time ? fmt(one.mine.value) : nf(one.mine.value)}` }); list.append(li); }
