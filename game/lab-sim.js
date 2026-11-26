@@ -76,6 +76,20 @@ const academy = buildPlace(json, groundAt); stage.scene.add(academy.group);
 const placeLook = buildPlaceLook(json, look, stage.env, groundAt, tierName); stage.scene.add(placeLook.group); placeLook.setWet(params.get("wet") !== "0");   // (the shine starts as the grip does: ?wet=0 starts dry)
 if (stage.world.road) stage.world.road.visible = false;   // the place draws its own asphalt
 for (const m of academy.wet) m.visible = false; academy.group.children.forEach((o) => { if (o.isInstancedMesh) o.visible = false; });
+// ?off=sea,props,palms,containers,lamps,shadow,smoke,world: switches parts of the picture off one at a time to find what costs the frame rate (kept for later); `__sim.setOff(key, bool)` does it live
+function setOff(k, off) {
+  if (k === 'shadow') { stage.renderer.shadowMap.enabled = !off && !!stage.tier.shadows; stage.sun.castShadow = !off && !!stage.tier.shadows; stage.scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; }); }
+  else if (k === 'world') stage.world.group.visible = !off;
+  else if (k === 'smoke') stage.smoke.mesh.visible = !off;
+  else placeLook.group.traverse((o) => { if (o.name === 'place:' + k) o.visible = !off; });
+}
+for (const k of (params.get('off') ?? '').split(',').filter(Boolean)) setOff(k, true);
+/** The cost of one picture in ms (the render and a wait for the graphics to finish), the smallest of `n` tries: the least disturbed by other work on the machine. */
+function frameCost(n = 12) {
+  const gl = stage.renderer.getContext(), px = new Uint8Array(4); let best = 1e9;
+  for (let i = 0; i < n; i++) { const t0 = performance.now(); stage.render(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); best = Math.min(best, performance.now() - t0); }
+  return best;
+}
 for (const [x, y, z, size] of placeLook.lampHeads) stage.halos.add(x, y, z, new THREE.Color(look.lamp.light).multiplyScalar((look.lamp.halo ?? 0.55) * (stage.tier.post ? look.lamp.haloPost ?? 0.4 : 1)), size);
 const coneField = new ConeField(json.cones, groundAt); stage.scene.add(coneField.mesh);
 let cs = newCones(json.cones), wetOn = params.get('wet') !== '0';
@@ -291,4 +305,4 @@ function carRect() {
   for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) { v.set(x, y, z).project(camera); x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
   return { x0: ((x0 + 1) / 2) * innerWidth, x1: ((x1 + 1) / 2) * innerWidth, y0: ((1 - y1) / 2) * innerHeight, y1: ((1 - y0) / 2) * innerHeight };
 }
-window.__sim = { get exNo() { return exNo; }, setExercise, toggleWet, get wetOn() { return wetOn; }, get muW() { return ENV.muW; }, minMu, get cones() { return cs; }, coneField, cycleCam, setCam, get camNo() { return camNo; }, camera, startProbe() { probe = []; }, stopProbe() { const p = probe; probe = null; return p; }, carRect, get drawn() { return drawn; }, camPose() { const v = new THREE.Vector3(); v.setFromMatrixPosition(mine.group.matrixWorld); camera.updateMatrixWorld(); return v.applyMatrix4(camera.matrixWorldInverse).toArray(); }, get state() { return s; }, get frames() { return frames; }, get mode() { return mode; }, held, reset, setMode, toggleCar, toggleManual, stage, camera };
+window.__sim = { setOff, frameCost, get exNo() { return exNo; }, setExercise, toggleWet, get wetOn() { return wetOn; }, get muW() { return ENV.muW; }, minMu, get cones() { return cs; }, coneField, cycleCam, setCam, get camNo() { return camNo; }, camera, startProbe() { probe = []; }, stopProbe() { const p = probe; probe = null; return p; }, carRect, get drawn() { return drawn; }, camPose() { const v = new THREE.Vector3(); v.setFromMatrixPosition(mine.group.matrixWorld); camera.updateMatrixWorld(); return v.applyMatrix4(camera.matrixWorldInverse).toArray(); }, get state() { return s; }, get frames() { return frames; }, get mode() { return mode; }, held, reset, setMode, toggleCar, toggleManual, stage, camera };

@@ -788,3 +788,10 @@ A static page with sample data, no server logic, no inline script; every text th
 - Checked: simdrive circle, slalom, wet pad without page errors; N switches the grip (lowest wheel grip 0.55 on, 1 off) AND the shine (pictures `academy-wet-on.png` / `academy-wet-off.png`). Circle pictures `place-circle-pc.png`, `place-circle-phone.png`.
 - Numbers (844x390, circle spawn, standing, software graphics), before -> after: low 23 calls / 40378 tri -> 27 / 49684 (59.9 fps); high 53 / 176374 -> 64 / 116030 (53.7 fps). Low is far under 60 calls / 150 k triangles.
 - `?wet=0` now also starts the shine dry (one line in lab-sim). Not checked: the look on a real phone GPU.
+
+### A2 part 1: chef/place-look merged (pier in the sea, shadows, small smoke clouds)
+- Merged at head 017084a through premerge (scene academy.json and make-academy took the chef's version; the regenerated scene is identical). Node 250/250.
+- `?off=sea,props,palms,containers,lamps,shadow,smoke,world` on lab-sim, and `__sim.setOff(key, bool)`, `__sim.frameCost(n)` (the render plus a wait for the graphics, the smallest of n tries).
+- Where the time goes (software graphics, 1280x720, circle, smallest of 5 rounds x 10 renders, round robin because the machine was loaded by other sessions: plain fps swung 24-55): high, ms per picture: all on 15.7; sea off 14.2; props off 14.3; palms off 13.9; containers off 14.3; smoke off 14.1; **shadows off 9.6** (-6 ms); all four off 9.8. Low (no shadows on that tier): 9.8 all on, 8.6-9.0 with one part off.
+- Calls / triangles at 844x390 circle: cb25e68 low 23 / 40378, high 53 / 176374; first look merge low 27 / 49684, high 64 / 116030; now low 27 / 49924, high 64 / 116498. Low is under 60 calls and 150 k triangles.
+- Pictures `docs/screenshots/sim2/a2-{circle,hairpin,straight}-{pc,phone}.png`, `a2-slide-pc.png` (slide with smoke trail).
