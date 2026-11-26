@@ -763,6 +763,7 @@ const floorRay = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0);
 function floorAt(x, z) {
   floorRay.set(new THREE.Vector3(X(x), 60, z), down);
   const hits = floorRay.intersectObjects(stage.world.group.children.filter((o) => o.isMesh && !o.material?.transparent), false);
+  floorRay.by = hits.length ? (hits[0].object.name || hits[0].object.geometry?.attributes?.position?.count + ' vertices') : null;
   return hits.length ? hits[0].point.y : null;
 }
 /** Every place a car is put: the spawns of the first 18 ids, the restart (and so the ride back up), the start slots of the modes; with the height the car stands at and the drawn ground's. */
@@ -770,7 +771,14 @@ function startSpots() {
   const spots = [{ what: 'restart and ride back up', ...lobbyJson.lobbySpawn }];
   for (let id = 0; id < 18; id++) spots.push({ what: `spawn of id ${id}`, ...lobbyStart(id, lobbyJson.lobbySpawn) });
   for (const [i, g] of (map.grid ?? []).entries()) spots.push({ what: `grid slot ${i}`, x: g.x, z: g.z });
-  return spots.map((p) => { const car = stage.field.groundY(p.x, p.z), floor = floorAt(p.x, p.z); return { what: p.what, x: +p.x.toFixed(1), z: +p.z.toFixed(1), car: +car.toFixed(3), floor: floor === null ? null : +floor.toFixed(3) }; });
+  // samples along the road's centre line, about every 100 m: the drawn terrain must never rise above the driving floor, and the drawn ground must be where the physics is
+  let run = 0, next = 0;
+  for (let i = 1; i < (map.centre?.length ?? 0); i++) {
+    const [x0, z0] = map.centre[i - 1], [x1, z1] = map.centre[i], len = Math.hypot(x1 - x0, z1 - z0);
+    for (; next <= run + len; next += 100) { const t = len ? (next - run) / len : 0; spots.push({ what: `road at ${Math.round(next)} m`, x: x0 + (x1 - x0) * t, z: z0 + (z1 - z0) * t }); }
+    run += len;
+  }
+  return spots.map((p) => { const car = stage.field.groundY(p.x, p.z), floor = floorAt(p.x, p.z); return { what: p.what, x: +p.x.toFixed(1), z: +p.z.toFixed(1), car: +car.toFixed(3), floor: floor === null ? null : +floor.toFixed(3), by: floorRay.by }; });
 }
 window.__drift = { floorAt, startSpots, showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return carGroup; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; } };
 requestAnimationFrame(frame);

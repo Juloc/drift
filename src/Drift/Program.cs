@@ -84,7 +84,10 @@ mime.Mappings[".glb"] = "model/gltf-binary";
 void Serve(string path, string folder)
 {
     if (Find(folder) is { } dir)
+    {
+        if (path == "/play") app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = new PhysicalFileProvider(Path.Combine(dir, "lab")), RequestPath = "/play/lab" });   // the UI lab opens at /play/lab/ (the game's own index stays under wwwroot)
         app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(dir), RequestPath = path, ContentTypeProvider = mime, OnPrepareResponse = c => c.Context.Response.Headers.CacheControl = "no-cache" });
+    }
 }
 Serve("/play", "game");
 Serve("/vendor/three", Path.Combine("vendor", "three"));

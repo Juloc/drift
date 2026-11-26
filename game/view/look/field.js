@@ -179,11 +179,12 @@ export function makeField(scene, { cell = 6 } = {}) {
     const e = edge(x, z);
     // land that falls away may start right at the road's edge (a cliff behind the guardrail: nothing can poke up over the road);
     // land that rises keeps the flat shelf first, wide enough for the grid
-    const b = base(x, z);
-    if (b < 0 && T.drop) { const k = smoothstep(T.drop[0], T.drop[1], e); return -0.15 * (1 - k) + b * k; }
-    if (e < shelf) return -0.15;
+    // on a hillside the grid's facets cut the road's curved descent (up to 13 cm above it in a hollow): the shelf lies deeper there (the play check measures it)
+    const b = base(x, z), sink = slopeDir ? -0.4 : -0.15;
+    if (b < 0 && T.drop) { const k = smoothstep(T.drop[0], T.drop[1], e); return sink * (1 - k) + b * k; }
+    if (e < shelf) return sink;
     const k = smoothstep(shelf, shelf + T.blend, e);
-    return -0.15 * (1 - k) + b * k;
+    return sink * (1 - k) + b * k;
   };
   const slope = (x, z, h = height(x, z)) => Math.hypot(height(x + 1, z) - h, height(x, z + 1) - h);
   /** is a point on water (river or lake)? */

@@ -88,7 +88,7 @@ for (const sz of SIZES) {
     rec.spots = spots.length;
     for (const p of spots) {
       if (p.floor === null) fail(sz.name, `${p.what} (${p.x}, ${p.z}): no ground drawn under the car`);
-      else if (Math.abs(p.floor - p.car) > 0.05) fail(sz.name, `${p.what} (${p.x}, ${p.z}): the car stands at ${p.car}, the drawn ground is at ${p.floor} (${p.floor > p.car ? 'the car is under the ground' : 'the car floats'} by ${Math.abs(p.floor - p.car).toFixed(2)} m)`);
+      else if (Math.abs(p.floor - p.car) > 0.05) fail(sz.name, `${p.what} (${p.x}, ${p.z}): the car stands at ${p.car}, the drawn ground is at ${p.floor} (${p.floor > p.car ? 'the car is under the ground' : 'the car floats'} by ${Math.abs(p.floor - p.car).toFixed(2)} m; drawn by ${p.by})`);
     }
     // (c) every key has a button by touch (on the touch sizes)
     if (sz.touch) {
