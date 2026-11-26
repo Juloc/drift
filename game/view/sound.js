@@ -135,10 +135,12 @@ class LoopVoice extends Voice {
 
 export class SoundSystem {
   /** @param {{AudioCtx?: any, storage?: Storage|null}} o (both injected in tests) */
-  constructor({ AudioCtx = globalThis.AudioContext ?? globalThis.webkitAudioContext, storage = globalThis.localStorage ?? null, keepAllLoops = false, recorded = {}, music = null } = {}) {
+  constructor({ AudioCtx = globalThis.AudioContext ?? globalThis.webkitAudioContext, storage = globalThis.localStorage ?? null, keepAllLoops = false, recorded = {}, music = null, pops = null } = {}) {
     this.AudioCtx = AudioCtx; this.storage = storage; this.keepAllLoops = keepAllLoops; this.ctx = null; this.own = null; this.others = new Map(); this.pool = [];
     this.recorded = recorded;   // car index -> the manifest of its recorded loops (assets/sound/<name>-engine.json); until they are loaded (or where they cannot be) the made loops play
     this.recordedReady = Promise.resolve();
+    this.popsUrl = pops;   // the manifest of recorded exhaust pops (assets/sound/pops.json, tools/sound/work.js job pops); the made crack stays the fallback
+    this.popBuffers = null;
     const get = (k, d) => { try { return storage?.getItem(k) ?? d; } catch { return d; } };
     this.muted = get('drift.mute', '1') === '1';   // off until the player switches it on (the generated sound was far too loud)
     this.volume = Math.max(0, Math.min(1, +get('drift.volume', '0.3')));
@@ -200,6 +202,16 @@ export class SoundSystem {
       } catch { /* the made loops stay */ }
     });
     await Promise.all(jobs);
+    await this.loadPops();
+  }
+  /** The recorded exhaust pops: one Ogg file, the manifest says where each pop starts and how long it is. */
+  async loadPops() {
+    if (!this.popsUrl || !this.ctx?.decodeAudioData || typeof fetch !== 'function') return;
+    try {
+      const m = await (await fetch(this.popsUrl)).json(), bytes = await (await fetch(this.popsUrl.replace(/\.json$/, '.ogg'))).arrayBuffer();
+      const buf = await this.ctx.decodeAudioData(bytes), d = buf.getChannelData(0), sr = buf.sampleRate;
+      this.popBuffers = m.pops.map((p) => { const a = Math.round(p.start * sr), n = Math.round(p.seconds * sr), b = this.ctx.createBuffer(1, n, sr); b.getChannelData(0).set(d.subarray(a, a + n)); return { buf: b, gain: p.gain ?? 1 }; });
+    } catch { /* the made crack stays */ }
   }
   /** Whether a car plays recorded loops (false while they load, or where they could not be). */
   recordedFor(car) { return !!this.loopCache?.get(car)?.recorded; }
@@ -235,6 +247,17 @@ export class SoundSystem {
     if (!this.ctx || this.muted || now - (this.lastPop ?? -1e9) < 150) return;
     this.lastPop = now;
     const t0 = this.ctx.currentTime, n = strength > 0.7 ? 3 : strength > 0.4 ? 2 : 1;
+    if (this.popBuffers?.length) {   // recorded: one to three real pops, none twice in a row, each a little different in pitch and level
+      for (let i = 0; i < n; i++) {
+        let k; do { k = Math.floor(Math.random() * this.popBuffers.length); } while (this.popBuffers.length > 1 && k === this.lastPopK);
+        this.lastPopK = k;
+        const p = this.popBuffers[k], src = this.ctx.createBufferSource(), g = this.ctx.createGain(), t = t0 + i * (0.06 + 0.05 * Math.random());
+        src.buffer = p.buf; if (src.playbackRate) src.playbackRate.value = 0.92 + 0.16 * Math.random();
+        g.gain.value = p.gain * Math.min(1, 0.45 + 0.7 * strength) * (1 - i * 0.18);
+        src.connect(g); g.connect(this.master); src.start(t);
+      }
+      return;
+    }
     for (let i = 0; i < n; i++) {
       const t = t0 + i * (0.05 + 0.04 * ((i * 7) % 3));
       const src = this.ctx.createBufferSource(); src.buffer = this.noise;

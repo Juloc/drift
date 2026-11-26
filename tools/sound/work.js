@@ -176,6 +176,38 @@ const jobs = {
     }
     return { files, tracks: out };
   },
+  /**
+   * Exhaust pops from a recording of an exhaust popping (`file`, `name`, `n` pops, `len` seconds each): the loudest sudden rises of the level (an onset: the level jumps
+   * by 9 dB within 20 ms), at least 0.35 s apart, each cut from 5 ms before it, a 3 ms fade in, a fade out over the last 60 ms, a high-pass at 100 Hz (nothing a phone
+   * speaker only buzzes with), every pop levelled to the same peak. One Ogg file (mono Opus) and a manifest; a WAV with every pop twice to listen.
+   */
+  async pops() {
+    const file = q.get('file'), name = q.get('name') ?? 'pops', want = +(q.get('n') ?? 8), len = +(q.get('len') ?? 0.3), rec = await decode('/src/' + file), x = mono(rec.ch).slice();
+    let hp = 0, prev = 0; const rc = 1 / (2 * Math.PI * 100), a = rc / (rc + 1 / SR);   // a one-pole high-pass
+    for (let i = 0; i < x.length; i++) { const v = x[i]; hp = a * (hp + v - prev); prev = v; x[i] = hp; }
+    const hop = Math.round(0.005 * SR), env = []; for (let i = 0; i + hop <= x.length; i += hop) { let e = 0; for (let k = 0; k < hop; k++) e += x[i + k] * x[i + k]; env.push(10 * Math.log10(e / hop + 1e-12)); }
+    const top = Math.max(...env), cand = [];
+    for (let t = 6; t < env.length - 2; t++) {
+      const before = Math.max(...env.slice(t - 6, t - 1)), rise = Math.max(env[t], env[t + 1]) - before;
+      if (rise > 9 && env[t + 1] > top - 30) { let pk = 0; const a0 = t * hop; for (let k = 0; k < Math.round(0.08 * SR); k++) pk = Math.max(pk, Math.abs(x[a0 + k] ?? 0)); cand.push({ t, at: t * hop, rise, pk }); }
+    }
+    cand.sort((p, q2) => q2.pk - p.pk);
+    const keep = []; for (const c of cand) { if (keep.length >= want) break; if (keep.every((k) => Math.abs(k.at - c.at) > 0.35 * SR)) keep.push(c); }
+    keep.sort((p, q2) => p.at - q2.at);
+    if (keep.length < 3) return { error: `only ${keep.length} onsets found`, cand: cand.length };
+    const N = Math.round(len * SR), pre = Math.round(0.005 * SR), cuts = keep.map((k) => {
+      const from = Math.max(0, k.at - pre), c = x.slice(from, from + N); let pk = 1e-9; for (const v of c) pk = Math.max(pk, Math.abs(v));
+      const fi = Math.round(0.003 * SR), fo = Math.round(0.06 * SR);
+      for (let i = 0; i < c.length; i++) c[i] *= (0.9 / pk) * Math.min(1, i / fi, (c.length - 1 - i) / fo);
+      return { c, at: from / SR };
+    });
+    const gapS = Math.round(0.05 * SR), all = new Float32Array(cuts.length * (N + gapS)), pops = [];
+    cuts.forEach(({ c, at }, i) => { all.set(c, i * (N + gapS)); pops.push({ start: +((i * (N + gapS)) / SR).toFixed(4), seconds: +(c.length / SR).toFixed(4), gain: 0.5, from: +at.toFixed(2) }); });
+    const ogg = await encodeOggOpus([all], { bitrate: 40000 });
+    const listen = new Float32Array(cuts.length * 2 * (N + Math.round(0.4 * SR))); let o = 0; for (const { c } of cuts) for (let k = 0; k < 2; k++) { listen.set(c, o); o += N + Math.round(0.4 * SR); }
+    return { files: [{ path: `game/assets/sound/${name}.ogg`, b64: b64(ogg) }, { path: `game/assets/sound/${name}.json`, b64: btoa(JSON.stringify({ note: `Exhaust pops cut by tools/sound/work.js (job pops) from ${q.get('credit') ?? file}`, rate: SR, pops }, null, 1) + '\n') }, { path: `docs/sound/${name}-listen.wav`, b64: b64(wav(listen)) }],
+      pops, candidates: cand.length, oggKB: Math.round(ogg.length / 1024) };
+  },
   async engine() {
     const file = q.get('file'), name = q.get('name'), rec = await decode('/src/' + file), d = mono(rec.ch), S = spectra(d), track = smoothTrack(firingTrack(S));
     const targets = q.get('rpms').split(',').map(Number), loops = cutLoops(d, track, S.hop, targets);

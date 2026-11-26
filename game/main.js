@@ -10,6 +10,7 @@ import { newScore, scoreStep } from './sim/score.js';
 import { applyTuning, NAMES as TUNE_NAMES, valid as tuneValid } from './sim/tuning.js';
 import { applyFeel, feelOf, PRO } from './sim/feel.js';
 import { FixedLoop } from './sim/loop.js';
+import { ENGINES, revs } from './sim/engine.js';
 import { orbitBot } from './sim/bot.js';
 import { lineBot } from './sim/linebot.js';
 import { trackBot } from './sim/trackbot.js';
@@ -560,7 +561,8 @@ function bodyOf(o) {
 const musicList = await fetch('data/music.json').then((r) => r.json()).then((j) => j.tracks).catch(() => []);
 const startScene = mapList.find((m) => m.id === startId)?.scene;
 const sound = new SoundSystem({
-  recorded: Object.fromEntries(cars.filter((c) => c.sound).map((c) => [c.id, `assets/sound/${c.sound}-engine.json`])),   // a car with `sound` in cars.json plays loops cut from a recording
+  recorded: Object.fromEntries(cars.filter((c) => c.sound).map((c) => [c.id, `assets/sound/${c.sound}-engine.json`])),
+  pops: 'assets/sound/pops.json',   // real exhaust pops where the file exists (else the made crack)   // a car with `sound` in cars.json plays loops cut from a recording
   // the music: a map's own track first (the winter pass: the snowy one); each new track is named with its author and licence (CC BY asks for it)
   music: musicList.length ? { tracks: musicList, first: musicList.find((t) => t.maps?.includes(startScene))?.id ?? null, onTrack: (t) => note(T.nowPlaying.replace('{t}', t.title).replace('{a}', t.author).replace('{l}', t.licence)) } : null,
 });
@@ -888,7 +890,9 @@ function frame(now) {
     sound.update({ speed: speedOf(cur), throttle: lastInp.throttle, slide: paused ? 0 : cur.slide, car: carIndex, top: car.top }, others, { x: drawn.x, z: drawn.z, heading: drawn.h });
   }
   // exhaust pops: lifting off the throttle at speed; the same event goes to the car's flames (window event 'car.pop', detail.strength 0..1)
-  if (lastInp.throttle < 0.2 && popThrottle > 0.7 && speedOf(cur) > 8 && now - popAt > 400) { popAt = now; const strength = Math.min(1, speedOf(cur) / 30); sound.pop(strength); dispatchEvent(new CustomEvent('car.pop', { detail: { strength } })); }
+  // only at high revs: lifting at speed is not enough, the engine must be well up its range (share 0..1 of idle to the limit), the pop grows with it
+  const popRev = (() => { const eng = ENGINES[carIndex] ?? ENGINES[0]; return (revs(speedOf(cur), car.top, eng).rpm - eng.idle) / (eng.max - eng.idle); })();
+  if (lastInp.throttle < 0.2 && popThrottle > 0.7 && popRev > 0.55 && now - popAt > 400) { popAt = now; const strength = Math.min(1, 0.3 + 0.7 * ((popRev - 0.5) / 0.5)); sound.pop(strength); dispatchEvent(new CustomEvent('car.pop', { detail: { strength } })); }
   popThrottle = lastInp.throttle;
   chShow();
   // the HUD: cards for free driving or the race
