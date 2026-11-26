@@ -1,4 +1,4 @@
-// Writes the touge (map 5): game/data/maps/06-touge.json (what the simulation and the server read) and game/data/scenes/touge.json (how it is drawn).
+// Writes the touge (map 0, the lobby: its plaza is where people meet): game/data/maps/06-touge.json (what the simulation and the server read) and game/data/scenes/touge.json (how it is drawn).
 // A plaza at the top by the crater lake, then a narrow road of about 2 km that zigzags down a steep hillside in nine runs joined by eight hairpins; guardrails on both sides are
 // physics walls (the plaza's walls leave the road mouth open), the road ends in a dead end where a run is over (the page then takes the car back to the top).
 // The height is only drawn (the 'slope' terrain mode of the look: the road takes its height from the hillside), the physics stays flat. Run: node tools/make-touge.mjs
@@ -61,7 +61,7 @@ for (let k = 0; k < RUNS - 1; k++) {
 const xs = centre.map((p) => p[0]), zs = centre.map((p) => p[1]);
 const bounds = [[-70, Math.max(...zs) + 40], [Math.max(...xs) + 40, Math.max(...zs) + 40], [Math.max(...xs) + 40, Math.min(...zs) - 40], [-70, Math.min(...zs) - 40]];
 const map = {
-  id: 5, name: 'Touge', kind: 'descent', closed: false, laps: 1, ground: 'grass', bounds, walls, obstacles: [], zones: [{ kind: 'asphalt', x0: -44, z0: -6, x1: 30, z1: 30 }],
+  id: 0, name: 'Touge', lobby: true, kind: 'descent', closed: false, laps: 1, ground: 'grass', bounds, walls, obstacles: [], zones: [{ kind: 'asphalt', x0: -44, z0: -6, x1: 30, z1: 30 }],
   road: { kind: 'asphalt', halfWidth: HW }, centre, halfWidth: HW, loopLength: round(length), gates, grid, clips, lobbySpawn: { x: -8, z: 12, h: round(Math.PI / 2) }, props: [],
 };
 // ---- checks: the grid and the spawn are clear of the walls

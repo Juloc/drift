@@ -154,6 +154,9 @@ export class WorldClient {
     this.bytesOut += 13 + 6; this.framesOut++;
   }
 
+  /** Asks the relay to put this car back at the spawn place (a ride back to the plaza): the next pose must be there. */
+  sendRespawn() { if (this.connected) this.ws.send(new Uint8Array([2, this.seq++ & 255])); }
+
   /** Server time of a frame's 16-bit stamp, and the clock offset (the smallest of the last 10 s is the least delayed packet). */
   stampOf(raw, now) {
     if (this.lastRaw !== null && raw < this.lastRaw - 30000) this.base += 65536;

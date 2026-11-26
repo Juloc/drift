@@ -533,8 +533,8 @@ public class MapFileTests
     public void There_are_five_maps_with_their_own_ids_and_every_one_is_a_track()
     {
         var maps = Maps().ToList();
-        Assert.Equal([0, 1, 2, 3, 4, 5], maps.Select(m => m.Id));
-        Assert.Equal(6, maps.Select(m => m.Name).Distinct().Count());
+        Assert.Equal([0, 1, 2, 3, 4], maps.Select(m => m.Id));
+        Assert.Equal(5, maps.Select(m => m.Name).Distinct().Count());
         foreach (var m in maps)
         {
             var t = RaceTrack.FromJson(m.Json);
@@ -739,7 +739,7 @@ public class BoardTests
         var r = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=0", admin)));
         Assert.Equal(10, r.GetProperty("lap").GetProperty("top").GetArrayLength());
         Assert.Equal(13, r.GetProperty("lap").GetProperty("mine").GetProperty("place").GetInt32());   // not among the ten, but told its place
-        Assert.Equal(6, r.GetProperty("maps").GetArrayLength());
+        Assert.Equal(5, r.GetProperty("maps").GetArrayLength());
         Assert.Equal(0, r.GetProperty("drift").GetProperty("top").GetArrayLength());
         var guest = await TestApp.GuestCookieAsync(await app.JoinAsync(c, await app.GuestLinkAsync(c, admin), "Ann"));
         var g = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/guest/times?map=0", guest)));

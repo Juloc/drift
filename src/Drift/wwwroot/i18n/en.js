@@ -12,7 +12,6 @@ export default {
   'garage.preview': 'The others see {name} in the {car}.',
   'garage.saved': 'Saved',
   'garage.play': 'Drive',
-  'garage.touge': 'Touge (preview)',
   'garage.paint.white': 'White',
   'garage.paint.black': 'Black',
   'garage.paint.silver': 'Silver',

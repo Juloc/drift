@@ -133,6 +133,35 @@ public class RelayTests
     }
 
     [Fact]
+    public void A_respawn_puts_a_visitor_back_at_the_spawn_place_and_nowhere_else_and_not_too_often()
+    {
+        var (r, t) = Make(new RelayOptions { HalfX = 400, HalfZ = 400 });
+        r.SetSpawn(0, 0, 60);
+        var (a, pa) = Join(r);
+        r.OnMessage(a, Pose(150, 0));
+        t.Advance(0.5);
+        r.OnMessage(a, Pose(0, 0));                              // a 150 m jump without a respawn: refused
+        Assert.Equal(1, pa.Count(Wire.Fix));
+        t.Advance(4);
+        r.OnMessage(a, [Wire.Respawn, 7]);
+        r.OnMessage(a, Pose(10, 5));                             // at the spawn place after a respawn: accepted
+        Assert.Equal(1, pa.Count(Wire.Fix));
+        t.Advance(1);
+        r.OnMessage(a, [Wire.Respawn, 8]);                       // too soon after the last one: ignored, the next pose is judged as before
+        r.OnMessage(a, Pose(300, 0));
+        Assert.Equal(2, pa.Count(Wire.Fix));
+        t.Advance(4);
+        var refused = r.Stats.Rejected;
+        r.OnMessage(a, [Wire.Respawn, 9]);
+        r.OnMessage(a, Pose(300, 0));                            // a respawn, but the pose is far from the spawn place: refused
+        Assert.Equal(refused + 1, r.Stats.Rejected);
+        var (b, _) = Join(r, "other");
+        var (r2, _) = Make(); var (c, _) = Join(r2, "c");
+        r2.OnMessage(c, [Wire.Respawn, 1]);                      // no spawn place known: nothing happens, no crash
+        Assert.NotNull(c);
+    }
+
+    [Fact]
     public void Eight_violations_in_ten_seconds_end_the_connection()
     {
         var (r, t) = Make();

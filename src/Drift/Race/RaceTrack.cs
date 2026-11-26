@@ -28,6 +28,8 @@ public sealed class RaceTrack
     public double HalfX { get; init; } = 113;
     public double HalfZ { get; init; } = 78;
     public string Name { get; }
+    /// <summary>The place where people are put back on the lobby map (`lobbySpawn`), if the map has one.</summary>
+    public (double X, double Z)? Spawn { get; init; }
     /// <summary>Length of the way from the centre of gate i to the next one.</summary>
     public IReadOnlyList<double> Legs { get; }
 
@@ -53,6 +55,7 @@ public sealed class RaceTrack
         {
             HalfX = b.Max(p => Math.Abs(p.X)) + 3, HalfZ = b.Max(p => Math.Abs(p.Z)) + 3,
             Segments = Segs(r),
+            Spawn = r.TryGetProperty("lobbySpawn", out var sp) && sp.ValueKind == JsonValueKind.Object ? (N(sp.GetProperty("x")), N(sp.GetProperty("z"))) : null,
             Obstacles = r.TryGetProperty("obstacles", out var ob) ? [.. ob.EnumerateArray().Select(o => (N(o.GetProperty("x")), N(o.GetProperty("z")), N(o.GetProperty("r"))))] : [],
         };
     }

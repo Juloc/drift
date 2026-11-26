@@ -51,7 +51,7 @@ public sealed class RelayOptions
 public static class Wire
 {
     /// <summary>SnapshotFar: the cars outside the interest radius, 7 bytes each (id, x, z, heading), a few times a second. Pages that do not know the frame ignore it.</summary>
-    public const byte Pose = 1, Welcome = 0x80, Roster = 0x81, Snapshot = 0x82, Fix = 0x83, Bye = 0x84, Glow = 0x85, SnapshotFar = 0x86;
+    public const byte Pose = 1, Respawn = 2, Welcome = 0x80, Roster = 0x81, Snapshot = 0x82, Fix = 0x83, Bye = 0x84, Glow = 0x85, SnapshotFar = 0x86;
     public const int PoseLength = 13, EntryLength = 12, FarEntryLength = 7;
     public const byte ByeLarge = 1, ByeViolations = 2, ByeIdle = 3, ByeSilent = 4, ByeFull = 5, ByeReplaced = 6, ByeSession = 7;
 
@@ -71,7 +71,8 @@ public sealed class Session
     public string Name { get; internal set; } = "";
     public string Address { get; internal set; } = "";
     public IPeer Peer { get; internal set; } = null!;
-    internal bool HasPose;
+    internal bool HasPose, AwaitSpawn;
+    internal long RespawnAt = long.MinValue / 2;
     internal byte[] Last = new byte[Wire.PoseLength]; // last accepted POSE frame
     internal double X, Z, H;
     internal long LastMsg, LastMove, LastPoseAt;
@@ -226,6 +227,8 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             a.LastTouch = now;
             if (a.Tokens < 1) { Strike(s, now); return; }
             a.Tokens--;
+            // a respawn (a ride back to the plaza): two bytes; the next pose is a first pose, but it must lie at the spawn place
+            if (f.Length == 2 && f[0] == Wire.Respawn) { Respawn(s, now); return; }
             if (f.Length != Wire.PoseLength || f[0] != Wire.Pose) { Strike(s, now); return; }
             // a per-connection bucket: 15 a second sustained, a burst of 8
             s.Tokens = Math.Min(8, s.Tokens + Seconds(now - s.TokenAt) * (o.PoseHz + 3)); s.TokenAt = now;
@@ -234,6 +237,15 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             s.LastMsg = now;
             Check(s, f, now);
         }
+    }
+
+    double spawnX, spawnZ, spawnR = -1;
+    /// <summary>Where a visitor may be put back (the lobby's plaza): a respawn is accepted only with this set, and the next pose must be within `radius` metres of the place.</summary>
+    public void SetSpawn(double x, double z, double radius) { lock (gate) { spawnX = x; spawnZ = z; spawnR = radius; } }
+    void Respawn(Session s, long now)
+    {
+        if (spawnR < 0 || Seconds(now - s.RespawnAt) < 3) { Stats.Rejected++; return; }   // no spawn place known, or too often
+        s.RespawnAt = now; s.HasPose = false; s.AwaitSpawn = true;
     }
 
     /// <summary>End a visitor's connection from the outside (a replaced or ended session): tells it why, closes, leaves.</summary>
@@ -270,6 +282,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
         double x = Wire.I16(f, 2) / 20.0, z = Wire.I16(f, 4) / 20.0, h = Wire.U16(f, 6) * (2 * Math.PI / 65536), vf = Wire.I16(f, 8) / 50.0;
         double top = o.Top[s.Car];
         bool ok = Math.Abs(x) <= halfX && Math.Abs(z) <= halfZ && Math.Abs(vf) <= 1.15 * top + 2;
+        if (ok && s.AwaitSpawn && !s.HasPose) ok = double.Hypot(x - spawnX, z - spawnZ) <= spawnR;   // the pose after a respawn must be at the spawn place
         // a frame must be newer than the last one (the number wraps at 256): a replayed or reordered frame is dropped
         if (s.HasPose) { var ahead = (byte)(f[1] - s.LastSeq); if (ahead == 0 || ahead > 127) { Stats.Rejected++; return; } }
         s.LastSeq = f[1];
@@ -297,7 +310,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             return;
         }
         Stats.Accepted++;
-        f.CopyTo(s.Last); s.X = x; s.Z = z; s.H = h; s.LastPoseAt = now; s.HasPose = true;
+        f.CopyTo(s.Last); s.X = x; s.Z = z; s.H = h; s.LastPoseAt = now; s.HasPose = true; s.AwaitSpawn = false;
         PoseAccepted?.Invoke(new PoseSample(s, x, z, h, vf, (sbyte)f[10] * Math.PI / 128, f[12], Seconds(now)));
     }
 

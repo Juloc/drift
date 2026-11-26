@@ -254,10 +254,10 @@ test('the five cars: sane numbers, and different from each other', () => {
 const MAPS = read('../data/maps.json').maps.map((m) => ({ ...m, json: read('../data/maps/' + m.file) }));
 const distToSegs = (segs, x, z) => { let best = Infinity; for (let i = 0; i < segs.length; i += 4) { const dx = segs[i + 2] - segs[i], dz = segs[i + 3] - segs[i + 1], l2 = dx * dx + dz * dz; const t = l2 ? Math.max(0, Math.min(1, ((x - segs[i]) * dx + (z - segs[i + 1]) * dz) / l2)) : 0; best = Math.min(best, Math.hypot(x - (segs[i] + dx * t), z - (segs[i + 1] + dz * t))); } return best; };
 
-test('maps: six maps, the meeting place first and the lobby, each with its own name and a real loop (the touge a descent)', () => {
-  assert.deepEqual(MAPS.map((m) => m.id), [0, 1, 2, 3, 4, 5]);
+test('maps: five maps, the touge first and the lobby, each with its own name and a real loop (the touge a descent)', () => {
+  assert.deepEqual(MAPS.map((m) => m.id), [0, 1, 2, 3, 4]);
   assert.equal(MAPS[0].lobby, true);
-  assert.equal(new Set(MAPS.map((m) => m.name)).size, 6);
+  assert.equal(new Set(MAPS.map((m) => m.name)).size, 5);
   for (const m of MAPS) {
     const j = m.json;
     assert.equal(j.id, m.id); assert.equal(j.gates.length, 8); assert.equal(j.grid.length, 8);

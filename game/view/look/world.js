@@ -725,7 +725,7 @@ function roadLamps(S, G, f, scene, look, sideInfo, lampHeads) {
 function mirrorWater(look) {
   const s = look.sky, W = look.water;
   return new THREE.ShaderMaterial({
-    uniforms: { uTop: { value: C(s.top) }, uMid: { value: C(s.mid) }, uHorizon: { value: C(s.horizon).multiplyScalar(W.band ?? 1.4) }, uDeep: { value: C(W.deep) }, uMidH: { value: s.midHeight ?? 0.2 }, uStreak: { value: W.streak ?? 1 } },
+    uniforms: { uTop: { value: C(s.top) }, uMid: { value: C(s.mid) }, uHorizon: { value: C(s.horizon).multiplyScalar(W.band ?? 1.4) }, uDeep: { value: C(W.deep) }, uMidH: { value: W.bandWidth ?? s.midHeight ?? 0.2 }, uStreak: { value: W.streak ?? 1 } },   // water.bandWidth: how far up the reflected sky the horizon band reaches
     vertexShader: /* glsl */ `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: /* glsl */ `
       uniform vec3 uTop, uMid, uHorizon, uDeep; uniform float uMidH, uStreak; varying vec3 vW;
