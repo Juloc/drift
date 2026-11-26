@@ -3,6 +3,7 @@
 //   front / rear / side: the high tier at 1200x800;  phone: the low tier at 844x390 (a phone held sideways), front view.
 // Serves the repository itself on a free port (static files only). Prints one JSON line per picture with the showroom's numbers.
 import { spawn } from 'node:child_process';
+import { GL_FLAGS } from './chrome.mjs';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,7 +26,7 @@ const web = `http://127.0.0.1:${server.address().port}`;
 const chrome = `${homedir()}/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const port = 20000 + Math.floor(Math.random() * 20000), profile = `/tmp/claude-1000/drift-carshots-${port}`;
-const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
+const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
 const stop = () => { try { process.kill(-proc.pid, 'SIGKILL'); } catch {} fs.rmSync(profile, { recursive: true, force: true }); server.close(); };
 process.on('exit', stop);
 let target;

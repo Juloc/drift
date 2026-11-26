@@ -29,6 +29,7 @@ public static class RaceEndpoints
         }
         app.Map(Path, async (HttpContext ctx) => await RaceSocket(ctx));
         app.Map(GuestPath, async (HttpContext ctx) => await RaceSocket(ctx));
+        app.Map(Drift.Play.OpenPlay.RacePath, async (HttpContext ctx) => { if (!Drift.Play.OpenPlay.TryEnter()) { ctx.Response.StatusCode = 503; return; } try { await RaceSocket(ctx); } finally { Drift.Play.OpenPlay.Leave(); } });   // without an account: a mode run (the door /api/open)
         app.Map(GamesPath, async (HttpContext ctx) => await RaceSocket(ctx));
         RelayEndpoint.RunTicker(raceRelay, app.Lifetime.ApplicationStopping, app.Logger);
         _ = Task.Run(async () =>
@@ -50,7 +51,7 @@ public static class RaceEndpoints
         {
             var track = tracks.TryGetValue(map ?? 0, out var t) ? t : tracks[tracks.Keys.Min()];
             var fl = feel == 1 ? 1 : 0;   // the lists are kept apart by the feel of driving: 0 arcade, 1 pro
-            Guid? me = ctx.Items.ContainsKey(Drift.Guests.GuestEndpoints.Key) ? null : ctx.Owner();   // a guest has no place on the board
+            Guid? me = ctx.Items.ContainsKey(Drift.Guests.GuestEndpoints.Key) || ctx.Items.ContainsKey(Drift.Play.OpenPlay.Key) ? null : ctx.Owner();   // a guest has no place on the board
             async Task<object> One(int kind) => new
             {
                 top = (await store.TopAsync(track.MapId, kind, 10, me, fl, ct)).Select(r => new { name = r.Name, value = r.Ms, car = r.Car, mine = r.Mine }),
@@ -59,11 +60,12 @@ public static class RaceEndpoints
             return Results.Ok(new
             {
                 map = track.Name, mapId = track.MapId, feel = fl, laps = track.Laps, maps = tracks.Values.OrderBy(x => x.MapId).Select(x => new { id = x.MapId, name = x.Name }),
-                lap = await One(RaceStore.Lap), race = await One(RaceStore.Race), drift = await One(RaceStore.Drift), tandem = await One(RaceStore.Tandem), tandemRun = await One(RaceStore.TandemRun),
+                lap = await One(RaceStore.Lap), race = await One(RaceStore.Race), drift = await One(RaceStore.Drift), tandem = await One(RaceStore.Tandem), tandemRun = await One(RaceStore.TandemRun), attack = await One(RaceStore.Attack),
             });
         }
         app.MapGet("/api/times", Board);
         app.MapGet("/api/guest/times", Board);   // read only, for guests
+        app.MapGet(Drift.Play.OpenPlay.TimesPath, Board);   // read only, for somebody without an account
         app.MapGet("/api/games/times", Board);
     }
 }

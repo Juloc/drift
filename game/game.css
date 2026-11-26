@@ -1,6 +1,6 @@
 /* The game page in the look of the HUD (probe.css): the small switches, the race bar, the invitation and the result in the same smoked glass. Loaded after style.css and probe.css. */
 html, body { background: #0f0d14; }
-#hud { position: fixed; left: 50%; top: 168px; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; inset: auto; padding: 0; max-width: 92vw; }
+#hud { position: fixed; inset: 168px auto auto 50%; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; padding: 0; max-width: 92vw; }
 body.touch #hud { top: 70px; }
 #hud > * { position: static !important; transform: none !important; left: auto !important; right: auto !important; top: auto !important; margin: 0 !important; pointer-events: auto; }
 #hud > #tandem, #hud > #challenge, #hud > #damage, #hud > #creative-banner { pointer-events: none; }
@@ -39,9 +39,10 @@ body.touch #chips > #feel { width: auto; }
 #back { background: var(--glass) !important; color: var(--white) !important; border-color: var(--glass-edge) !important; backdrop-filter: var(--blur); }
 #fs { background: var(--glass); color: var(--white); border-color: var(--glass-edge); }
 .tag { background: var(--glass); color: var(--white); border: 1px solid var(--glass-edge); font-family: var(--font); }
-#dropped, #note, #result { font-family: var(--font); }
+#dropped, #note, body #result { font-family: var(--font); }
 #note { background: oklch(0.28 0.04 330 / 0.88); bottom: 150px; }
-#result { background: oklch(0.28 0.04 330 / 0.92); color: var(--white); border: 1px solid var(--glass-edge); backdrop-filter: var(--blur); }
+body #result { background: oklch(0.28 0.04 330 / 0.92); color: var(--white); border: 1px solid var(--glass-edge); backdrop-filter: var(--blur); }
+body #result td { color: var(--white); }
 #count { color: #fff; text-shadow: 0 4px 0 oklch(0.3 0.08 330 / 0.6), 0 0 30px oklch(0.68 0.2 var(--accent-hue) / 0.5); font-family: var(--font); }
 #credits-link { color: var(--white); }
 #debug { top: 8px; left: auto; right: 8px; }
@@ -74,3 +75,47 @@ body.touch #summary { font-size: 13px; min-width: 200px; padding: 8px 16px; top:
 body.touch #summary h3 { font-size: 16px; }
 #back { top: 240px !important; bottom: auto !important; width: 40px; height: 40px; font-size: 18px; }
 #chips > #paint { border-radius: 50%; border: 2px solid #fff; }
+#racebar { display: none; }
+body.races #racebar:not([hidden]) { display: flex; }
+#hud #racebar { display: none; }
+body.races #hud #racebar:not([hidden]) { display: flex; }
+#chips > #mode-drift, #chips > #mode-time { width: auto; padding: 0 10px !important; font-size: 11px; }
+#res-mode { display: grid; gap: 6px; margin: 0 0 12px; font: 600 16px var(--font); }
+#res-mode > div { display: flex; justify-content: space-between; gap: 24px; }
+#res-mode > div.main b { font-size: 26px; color: var(--accent); }
+#res-mode .new-best { margin: 2px 0; color: oklch(0.86 0.16 85); font-weight: 800; }
+#res-mode h4 { margin: 8px 0 2px; font-size: 13px; opacity: 0.8; }
+#res-mode .board { margin: 0; padding-left: 22px; font-size: 14px; }
+#res-mode .board .mine { color: var(--accent); font-weight: 800; }
+#res-again { min-height: 44px; margin-right: 8px; padding: 0 16px; border: 1px solid var(--glass-edge); border-radius: 14px; background: var(--accent); color: #fff; font: 700 14px var(--font); }
+
+/* phone: the small reset button (R) under the speed card; the creative chip is in the menu again (every key has a way by touch) */
+#reset { display: none; position: fixed; right: max(var(--gap), env(safe-area-inset-right)); top: 172px; z-index: 3; width: 40px; height: 40px; border: 1px solid var(--glass-edge); border-radius: 14px; background: var(--glass); color: var(--white); font: 700 20px var(--font); box-shadow: var(--shadow); pointer-events: auto; }
+body.touch #reset { display: block; }
+#chips > #creative { display: block; }
+#chips > button { font-size: 16px; }
+
+/* a small phone held sideways (667 px wide): smaller buttons and a narrower arc, so that the arc stays between the pads (the play check found them overlapping) */
+@media (max-width: 720px) and (pointer: coarse), (max-width: 720px) and (hover: none) {
+  .btn.steer { width: 70px; height: 70px; } .btn.gas { width: 80px; height: 108px; } .btn.small { width: 54px; height: 54px; }
+  .pad { gap: 8px; }
+  body.touch .c-angle { width: 150px; }
+}
+
+/* the first visit without an account: ask for a name */
+#namebox { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; display: grid; gap: 10px; width: min(92vw, 360px); padding: 18px 20px; border-radius: 22px; background: oklch(0.28 0.04 330 / 0.94); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); color: var(--white); font: 500 16px var(--font); }
+#namebox h2 { margin: 0; font-size: 22px; } #namebox p { margin: 0; opacity: 0.8; font-size: 14px; }
+#namebox input { min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--glass-edge); background: oklch(1 0 0 / 0.1); color: #fff; font: 600 18px var(--font); }
+#namebox button { min-height: 46px; border: 0; border-radius: 14px; background: var(--accent); color: #fff; font: 800 16px var(--font); }
+#res-mode .hint-account { margin: 4px 0 0; font-size: 13px; opacity: 0.8; }
+#tandem-run { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 16px; border-radius: 12px; background: rgba(12, 10, 24, 0.72); color: #fff; font-size: 15px; text-align: center; pointer-events: none; }
+#tandem-run b { font-size: 18px; }
+#tandem-run span { font-size: 13px; opacity: 0.85; }
+#tandem-run.countdown, #tandem-run.swap { background: color-mix(in srgb, var(--accent, #e0409a) 55%, rgba(12, 10, 24, 0.8)); }
+#ghost-delta { padding: 4px 14px; border-radius: 12px; background: rgba(12, 10, 24, 0.72); color: #fff; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; pointer-events: none; }
+#ghost-delta.ahead, #res-mode .ahead b { color: #6df0a0; }
+#ghost-delta.behind, #res-mode .behind b { color: #ff7a8a; }
+#own-emote { position: fixed; left: 50%; top: 42%; transform: translateX(-50%); z-index: 7; color: #fff; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5)); pointer-events: none; }
+.icon { display: block; margin: auto; }
+#chips button .icon, #chips-toggle .icon, #reset .icon, #emotes button .icon, #emote-open .icon { width: 1.3em; height: 1.3em; }
+.emo .icon { width: 1.6em; height: 1.6em; }

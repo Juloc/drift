@@ -48,7 +48,7 @@ public static class PlayEndpoint
             var g = ctx.Guest();
             var cookie = ctx.Request.Cookies[GuestEndpoints.CookieName(ctx.Request)];
             var guests = sp.GetRequiredService<GuestService>();
-            return new Player(g.Id, g.Name, Drift.Garage.GarageStore.OnlyCar, g.Colour, true, async () => cookie is not null && await guests.ValidateAsync(cookie, CancellationToken.None) is not null, World: g.LinkId == Guid.Empty ? null : g.LinkId.ToString("N"));   // a guest plays in the private world of the link it came in by
+            return new Player(g.Id, OpenPlay.GuestName(g.Name, OpenPlay.German(ctx)), Drift.Garage.GarageStore.OnlyCar, g.Colour, true, async () => cookie is not null && await guests.ValidateAsync(cookie, CancellationToken.None) is not null, World: g.LinkId == Guid.Empty ? null : g.LinkId.ToString("N"));   // a guest plays in the private world of the link it came in by
         }
         if (ctx.IsGameAccount())
         {
@@ -65,7 +65,7 @@ public static class PlayEndpoint
         if (Guid.TryParse(ctx.Request.Query["world"], out var linkId) && await sp.GetRequiredService<GuestService>().LinkActiveAsync(linkId, ctx.RequestAborted)) world = linkId.ToString("N");
         var sessionId = me.Id;   // the id stays the same when the cookie value is rotated: a socket must not be thrown out by a rotation
         var profile = await sp.GetRequiredService<GarageStore>().GetAsync(me.UserId, ctx.RequestAborted);
-        return new Player(me.UserId, GarageStore.DisplayName(me.UserId, profile), profile.Car, profile.Colour, false,
+        return new Player(me.UserId, me.UserName, profile.Car, profile.Colour, false,
             () => life.AliveAsync(sessionId), profile.Glow, await sp.GetRequiredService<TuningStore>().GetAsync(me.UserId, profile.Car, ctx.RequestAborted), world);
     }
 
@@ -77,16 +77,19 @@ public static class PlayEndpoint
         var stats = app.Services.GetRequiredService<StatsTracker>();
         var tandem = app.Services.GetRequiredService<TandemTracker>();
         tandem.Follow(relay);
+        var matches = app.Services.GetRequiredService<TandemMatches>();
+        matches.Follow(relay);
         var challenges = app.Services.GetRequiredService<ChallengeTracker>();
         challenges.Follow(relay);
         Task Lobby(HttpContext ctx, Player p) =>
             RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), p.Car, p.Name.Length > 0 ? p.Name : null, p.Colour, glow: p.Glow, worldKey: p.World,
                 stillValid: p.StillValid, checkEvery: SessionCheck,
-                onText: (sess, text) => { hub.OnLobbyText(p.Id, text); challenges.OnText(sess, text); },
-                joined: s => { stats.Join(s, p.Id, p.Guest); tandem.Join(s, p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Guest, p.Car); challenges.Join(s, p.Id, p.Guest); sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },
-                left: s => { tandem.Leave(s); challenges.Leave(s); sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); _ = stats.LeaveAsync(s); });
+                onText: (sess, text) => { if (matches.OnText(sess, text)) return; hub.OnLobbyText(p.Id, text); challenges.OnText(sess, text); },
+                joined: s => { stats.Join(s, p.Id, p.Guest); tandem.Join(s, p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Guest, p.Car); matches.Join(s, p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Guest, p.Car); challenges.Join(s, p.Id, p.Guest); sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },
+                left: s => { tandem.Leave(s); matches.Leave(s); challenges.Leave(s); sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); _ = stats.LeaveAsync(s); });
         app.Map(Path, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         app.Map(GuestPath, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
+        app.MapGet("/api/open/name", () => Results.Ok(new { name = WorldRelay.Colours[Random.Shared.Next(WorldRelay.Colours.Length)] + " " + WorldRelay.Animals[Random.Shared.Next(WorldRelay.Animals.Length)] }));   // the suggestion in the name field of somebody without an account
         app.Map(OpenPlay.Path, async (HttpContext ctx) =>
         {
             if (!OpenPlay.TryEnter()) { ctx.Response.StatusCode = 503; return; }   // too many without an account at once

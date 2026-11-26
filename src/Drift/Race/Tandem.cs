@@ -178,6 +178,8 @@ public sealed class TandemRun(double roundSeconds = 30, double countdown = 3, do
     public double Total => Points[0, 0] + Points[0, 1] + Points[1, 0] + Points[1, 1];
     TandemCar? a, b;
     double phaseStart, last = -1;
+    /// <summary>When the current phase began (the clock of `Tick`).</summary>
+    public double PhaseStart => phaseStart;
 
     /// <summary>The role of a driver (0 = A, 1 = B) in the current round, or None outside a round.</summary>
     public TandemRole RoleOf(int who) => Now switch

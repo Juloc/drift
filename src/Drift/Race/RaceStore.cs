@@ -19,7 +19,7 @@ public interface IBestTimes
 public sealed class RaceStore(NpgsqlDataSource db) : IBestTimes
 {
     /// <summary>Lap and race: milliseconds, less is better. Drift and tandem: points of the best chain, more is better.</summary>
-    public const int Lap = 0, Race = 1, Drift = 2, Tandem = 3, TandemRun = 4;
+    public const int Lap = 0, Race = 1, Drift = 2, Tandem = 3, TandemRun = 4, Attack = 5;   // Attack: the points of one whole run (the mode Drift attack)
 
     /// <returns>true when this is a new best for the person</returns>
     public async Task<bool> RecordAsync(Guid userId, int map, int kind, int ms, int car, int feel = 0, CancellationToken ct = default) =>
@@ -37,8 +37,8 @@ public sealed class RaceStore(NpgsqlDataSource db) : IBestTimes
     public async Task<List<BoardRow>> TopAsync(int map, int kind, int count = 10, Guid? me = null, int feel = 0, CancellationToken ct = default) =>
         await db.QueryAsync(
             """
-            select t.user_id, coalesce(p.nick, ga.name), coalesce(p.colour, 8), t.ms, t.car_id
-            from drift_best_time t left join drift_profile p on p.user_id = t.user_id left join games_account ga on ga.id = t.user_id
+            select t.user_id, coalesce(ga.name, u.name), coalesce(p.colour, 8), t.ms, t.car_id
+            from drift_best_time t left join drift_profile p on p.user_id = t.user_id left join games_account ga on ga.id = t.user_id left join users u on u.id = t.user_id
             where t.map_id = $1 and t.kind = $2 and t.feel = $4
             order by case when $2 >= 2 then -t.ms else t.ms end asc limit $3
             """,

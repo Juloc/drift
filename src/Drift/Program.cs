@@ -58,6 +58,7 @@ builder.Services.AddSingleton<RaceStore>();
 builder.Services.AddSingleton<ChallengeStore>();
 builder.Services.AddSingleton(sp => new ChallengeTracker(LoadChallenges(), sp.GetRequiredService<ChallengeStore>(), s => sp.GetRequiredService<TandemTracker>().TotalOf(s), id => sp.GetRequiredService<RaceHub>().CreativeOf(id)));
 builder.Services.AddSingleton<IRaceChallenges>(sp => sp.GetRequiredService<ChallengeTracker>());
+builder.Services.AddSingleton(sp => new TandemMatches(sp.GetRequiredService<RaceStore>()));
 builder.Services.AddSingleton(sp => new TandemTracker(sp.GetRequiredService<RaceStore>(), 0, id => sp.GetRequiredService<RaceHub>().FeelOf(id), id => sp.GetRequiredService<RaceHub>().CreativeOf(id)));
 builder.Services.AddSingleton<IReadOnlyDictionary<int, RaceTrack>>(LoadTracks());
 builder.Services.AddSingleton(sp => new RaceHub(TimeProvider.System, sp.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>(), sp.GetRequiredService<RaceStore>(), sp.GetRequiredKeyedService<WorldRelay>("race"), [35, 31, 39, 36, 28]).WithStats(sp.GetRequiredService<StatsStore>()).WithChallenges(sp.GetRequiredService<IRaceChallenges>()));
@@ -84,7 +85,10 @@ mime.Mappings[".glb"] = "model/gltf-binary";
 void Serve(string path, string folder)
 {
     if (Find(folder) is { } dir)
+    {
+        if (path == "/play") app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = new PhysicalFileProvider(Path.Combine(dir, "lab")), RequestPath = "/play/lab" });   // the UI lab opens at /play/lab/ (the game's own index stays under wwwroot)
         app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(dir), RequestPath = path, ContentTypeProvider = mime, OnPrepareResponse = c => c.Context.Response.Headers.CacheControl = "no-cache" });
+    }
 }
 Serve("/play", "game");
 Serve("/vendor/three", Path.Combine("vendor", "three"));

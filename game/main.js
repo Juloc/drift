@@ -11,6 +11,7 @@ import { applyFeel, feelOf, PRO } from './sim/feel.js';
 import { FixedLoop } from './sim/loop.js';
 import { orbitBot } from './sim/bot.js';
 import { lineBot } from './sim/linebot.js';
+import { lobbyStart } from './sim/spawn.js';
 import { newZones, zoneStep } from './sim/zones.js';
 import { createStage, loadLook } from './view/look/stage.js';
 import { sceneFromMap } from './view/look/mapscene.js';
@@ -18,12 +19,14 @@ import { Fleet } from './view/look/fleet.js';
 import { carFx } from './view/carfx.js';
 import { readDevice, startTier, TierPicker } from './view/look/autotier.js';
 import { WheelPool } from './view/wheels.js';
-import { CameraRig } from './view/camera.js';
+import { CameraRig, PRESET_NAMES } from './view/camera.js';
 import { Input } from './view/input.js';
 import { ProbeHud } from './view/probehud.js';
 import { SoundSystem } from './view/sound.js';
 import { newRun, runStep, resultOf } from './sim/challenge.js';
 import { TandemHud } from './view/tandemhud.js';
+import { icon, setIcon, EMOTE_ICONS } from './view/icons.js';
+import { GhostRecorder, GhostPlayer } from './sim/ghost.js';
 import { PracticeBot, TandemPractice, MEETING_PRACTICE_START } from './sim/practice.js';
 import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
@@ -36,12 +39,12 @@ const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
-    online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', tunedMark: 'tuned', paint: 'Paint', privateSession: 'Private session', run: 'Run finished', sumTime: 'Time', sumPoints: 'Points', sumClips: 'Clipping points', sumBest: 'Best drift', clip: 'CLIP', zone: 'Zone', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
+    online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', reset: 'Restart', tunedMark: 'tuned', paint: 'Paint', camPreset_near: 'View: close', camPreset_follow: 'View: behind', camPreset_far: 'View: far', camPreset_top: 'View: from above', camFollowOn: 'Camera comes back by itself', camFollowOff: 'Camera stays where you put it', camDrag: 'Drag to turn the view, wheel to zoom', ctlTouch: 'Controls: touch (tap for keyboard)', ctlPc: 'Controls: keyboard (tap for touch)', modeTraining: 'Training', ghostBest: 'Ghost (your best run)', ghostDiff: 'Difference', newGhost: 'New ghost saved', ghostNone: 'No ghost yet: this run becomes it', modeTandem: 'Tandem', tandemNone: 'Nobody near you: drive up to another car first', tandemSent: 'Invitation sent to {to}', tandemInvite: '{by} asks you for a tandem in two runs', tandemNo_gone: 'That driver is not here any more', tandemNo_busy: 'That driver is busy', tandemNo_declined: 'Declined', tandemNo_timeout: 'No answer', tandemEnd_left: 'Your partner left', tandemEnd_cancelled: 'Tandem ended', tandemSoon: 'Tandem starts in {s}', tandemRound: 'Round {r} of 2', tandemLead: 'You lead', tandemChase: 'You chase', tandemSwap: 'Swap! Next round: {role}', tandemPts: '{n} points', tandemPair: 'Pair', tandemWith: 'With {name}', tandemYou: 'you', tandemThem: 'partner', deviceBest: 'Best on this device', withAccount: 'With an account you get on the board.', nameAsk: 'Your name (shown as "Name (Guest)")', modeDrift: 'Drift attack', modeTime: 'Time attack', again: 'Again', board: 'Best runs', privateSession: 'Private session', run: 'Run finished', sumTime: 'Time', sumPoints: 'Points', sumClips: 'Clipping points', sumBest: 'Best drift', clip: 'CLIP', zone: 'Zone', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
     keysSoft: 'Keyboard: soft (gas and steering build up)', keysDirect: 'Keyboard: direct (all or nothing)', leverOn: 'Mouse throttle lever on (L): wheel or drag up and down; the brake resets it', leverOff: 'Mouse throttle lever off (L)', volume: 'Volume', quality: 'Graphics', camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', creativeOn: 'Creative mode on (K): no scores count, no damage', creativeOff: 'Creative mode off (K)', creativeBanner: 'CREATIVE: scores do not count', creativeChip: 'Creative', damageLabel: 'Damage', damageOn: 'Damage on (V)', damageOff: 'Damage off (V)', soundOn: 'Sound on (M)', soundOff: 'Sound off (M)', musicOff: 'Music: off (placeholder)', musicOn: 'Music: on (placeholder, no music yet)', chLap: 'Set a clean lap in a race or time trial', chDone: 'Challenge finished', chConfirmed: 'confirmed', chFailed: 'ended by a hit', chTitle: 'Challenge',
     feelArcade: 'Arcade', feelPro: 'Pro (fewer aids)', feelKey: 'Feel of driving (X)', tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
-    online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', tunedMark: 'getunt', paint: 'Lack', privateSession: 'Private Runde', run: 'Lauf beendet', sumTime: 'Zeit', sumPoints: 'Punkte', sumClips: 'Clipping-Punkte', sumBest: 'Bester Drift', clip: 'CLIP', zone: 'Zone', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
+    online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', reset: 'Neu starten', tunedMark: 'getunt', paint: 'Lack', camPreset_near: 'Ansicht: nah', camPreset_follow: 'Ansicht: hinten', camPreset_far: 'Ansicht: weit', camPreset_top: 'Ansicht: von oben', camFollowOn: 'Kamera kehrt von selbst zurück', camFollowOff: 'Kamera bleibt, wo du sie hinstellst', camDrag: 'Ziehen dreht die Ansicht, Rad zoomt', ctlTouch: 'Steuerung: Touch (tippen für Tastatur)', ctlPc: 'Steuerung: Tastatur (tippen für Touch)', modeTraining: 'Training', ghostBest: 'Geist (deine beste Fahrt)', ghostDiff: 'Unterschied', newGhost: 'Neuer Geist gespeichert', ghostNone: 'Noch kein Geist: diese Fahrt wird er', modeTandem: 'Tandem', tandemNone: 'Niemand in der Nähe: fahr erst zu einem anderen Auto', tandemSent: 'Einladung an {to} geschickt', tandemInvite: '{by} lädt dich zum Tandem in zwei Durchgängen ein', tandemNo_gone: 'Der Fahrer ist nicht mehr da', tandemNo_busy: 'Der Fahrer ist beschäftigt', tandemNo_declined: 'Abgelehnt', tandemNo_timeout: 'Keine Antwort', tandemEnd_left: 'Dein Partner ist gegangen', tandemEnd_cancelled: 'Tandem beendet', tandemSoon: 'Tandem startet in {s}', tandemRound: 'Runde {r} von 2', tandemLead: 'Du fährst vorn', tandemChase: 'Du folgst', tandemSwap: 'Tausch! Nächste Runde: {role}', tandemPts: '{n} Punkte', tandemPair: 'Paar', tandemWith: 'Mit {name}', tandemYou: 'du', tandemThem: 'Partner', deviceBest: 'Bestwert auf diesem Gerät', withAccount: 'Mit Konto kommst du auf die Bestenliste.', nameAsk: 'Dein Name (wird als "Name (Gast)" gezeigt)', modeDrift: 'Drift-Attacke', modeTime: 'Zeitjagd', again: 'Nochmal', board: 'Beste Läufe', privateSession: 'Private Runde', run: 'Lauf beendet', sumTime: 'Zeit', sumPoints: 'Punkte', sumClips: 'Clipping-Punkte', sumBest: 'Bester Drift', clip: 'CLIP', zone: 'Zone', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
     keysSoft: 'Tastatur: weich (Gas und Lenken bauen sich auf)', keysDirect: 'Tastatur: direkt (alles oder nichts)', leverOn: 'Maus-Gashebel an (L): Rad oder Ziehen nach oben und unten; die Bremse setzt ihn zur\u00fcck', leverOff: 'Maus-Gashebel aus (L)', volume: 'Lautstärke', quality: 'Grafik', camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', creativeOn: 'Kreativ-Modus an (K): keine Wertung, kein Schaden', creativeOff: 'Kreativ-Modus aus (K)', creativeBanner: 'KREATIV: nichts davon z\u00e4hlt', creativeChip: 'Kreativ', damageLabel: 'Schaden', damageOn: 'Schaden an (V)', damageOff: 'Schaden aus (V)', soundOn: 'Ton an (M)', soundOff: 'Ton aus (M)', musicOff: 'Musik: aus (Platzhalter)', musicOn: 'Musik: an (Platzhalter, noch keine Musik)', chLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde', chDone: 'Herausforderung beendet', chConfirmed: 'bestätigt', chFailed: 'durch einen Treffer beendet', chTitle: 'Herausforderung',
     feelArcade: 'Arcade', feelPro: 'Pro (weniger Hilfen)', feelKey: 'Fahrgef\u00fchl (X)', tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
@@ -50,7 +53,9 @@ document.documentElement.lang = de ? 'de' : 'en';
 for (const e of document.querySelectorAll('[data-t]')) e.textContent = T[e.dataset.t];
 
 const $ = (id) => document.getElementById(id);
-const coarse = matchMedia('(pointer: coarse)').matches || params.has('touch');
+const deviceTouch = matchMedia('(pointer: coarse)').matches || params.has('touch');
+let storedControls = null; try { storedControls = localStorage.getItem('drift.controls'); } catch { /* no storage */ }
+const coarse = storedControls === 'touch' ? true : storedControls === 'pc' ? false : deviceTouch;   // the controls: chosen on this device, else what the device is (the menu switches them)
 if (coarse) $('hint').hidden = true;
 if (params.has('debug') || params.has('demo') || params.has('shot') || params.has('pose')) $('hint').hidden = true;
 
@@ -86,7 +91,7 @@ let mapId = startId, look = first.look;
 
 // ----- view: the stage of the look (renderer, light, sky, the world of the map, mist, halos, tyre marks, smoke: view/look/stage.js), the cars and the camera
 const forced = params.get('tier');
-let tierName = ['high', 'medium', 'low'].includes(forced) ? forced : coarse ? 'low' : 'high';
+let tierName = ['high', 'medium', 'low'].includes(forced) ? forced : deviceTouch ? 'low' : 'high';
 let lite = tierName === 'low';
 document.body.classList.toggle('touch', coarse);
 document.body.classList.toggle('lite', lite);
@@ -136,7 +141,10 @@ let onlineCount = 0, meName = '', ownHueIdx = -1, bestDrift = 0, bestLap = 0, la
 const raceInfo = { lap: 1, laps: 1, ms: 0, pos: 1, of: 1 };   // what the server says in a race (the HUD's cards)
 // races, time trials, invitations and challenges are paused (docs/FOCUS.md): the code stays, the UI is hidden unless the address has ?races=1
 const isPrivate = online && (params.has('world') || document.documentElement.dataset.guest === '1');   // a private world (a guest link): the HUD says so
-const raceMode = online && document.documentElement.dataset.race === '1' && params.get('races') === '1';   // the signed-in app: races (the public demo has none)
+// the modes (Drift attack, Time attack) run as a race of one on the server (a descent: from the grid to the last gate); the race bar of the old races stays hidden unless ?races=1
+const raceMode = online && document.documentElement.dataset.race === '1';
+if (params.get('races') === '1') document.body.classList.add('races');
+let runMode = null, pendingMode = null;   // 'drift' | 'time' | null: the mode of the run that is on or about to start   // the signed-in app: races (the public demo has none)
 const lobbyUrl = params.get('ws') || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?car=${carIndex}${glowHue !== null ? '&glow=' + glowHue : ''}`;
 const fmt = (ms) => { const t = Math.max(0, Math.round(ms)); return `${Math.floor(t / 60000)}:${String(Math.floor(t / 1000) % 60).padStart(2, '0')}.${String(Math.floor((t % 1000) / 10)).padStart(2, '0')}`; };
 const show = (id, on) => { const el = $(id); if (el) el.hidden = !on; };
@@ -194,7 +202,7 @@ function openNet(url, inRace) {
     onWelcome(me) {
       if (!inRace && !spawned) {
         const ls = lobbyJson.lobbySpawn;   // the lobby is map 0, whichever map is drawn at this moment
-        const g = { x: ls.x + ((me.id % 6) - 2.5) * 9, z: ls.z + (Math.floor(me.id / 6) % 3) * 8 - 6, h: ls.h };   // spread over the plaza by id (six a row, three rows)
+        const g = lobbyStart(me.id, ls);   // spread over the plaza by id (six a row, three rows)
         cur = prev = makeCar(g.x, g.z, g.h); score = newScore(); cam.snap(cur); spawned = true;
       }
       droppedBtn.hidden = true;
@@ -209,7 +217,7 @@ function openNet(url, inRace) {
     },
     onFix(f) { cur = prev = { ...cur, x: f.x, z: f.z, h: f.h, vx: 0, vz: 0, w: 0 }; },
     onBye(reason) { if (n === net && !racing) { droppedBtn.textContent = reason === 5 ? T.full : T.dropped; droppedBtn.hidden = false; } },
-    onState(st) { if (st === 'open' && !inRace) { n.sendJson({ t: 'feel', v: feel }); if (creative) n.sendJson({ t: 'mode', v: 'creative' }); if (chStarted && chRun && !chRun.done) n.sendJson({ t: 'challenge.start', id: chDef.id }); } if (st === 'closed' && n === net && !racing) { $('online-n').textContent = onlineCount = 0; meName = ''; spawned = false; } },
+    onState(st) { if (st === 'open' && !inRace && pendingMode) { const m = pendingMode; pendingMode = null; setTimeout(() => startMode(m), 800); } if (st === 'open' && !inRace) { n.sendJson({ t: 'feel', v: feel }); if (creative) n.sendJson({ t: 'mode', v: 'creative' }); if (chStarted && chRun && !chRun.done) n.sendJson({ t: 'challenge.start', id: chDef.id }); } if (st === 'closed' && n === net && !racing) { $('online-n').textContent = onlineCount = 0; meName = ''; spawned = false; } },
     onJson: (j) => (inRace ? raceMessage(j) : lobbyMessage(j)),
   });
   n.connect();
@@ -218,8 +226,44 @@ function openNet(url, inRace) {
 
 // ----- races (signed-in app only): invitation, grid, countdown, laps, result, back to the lobby
 let racing = false;
+let inviteKind = 'race';
+/** The tandem in two runs: one banner at the top (countdown, round, your role, your points) while a match runs; the result card when it is over. */
+function tandemRunShow(j) {
+  let el = $('tandem-run');
+  if (!el) { el = Object.assign(document.createElement('div'), { id: 'tandem-run', hidden: true }); el.setAttribute('role', 'status'); ($('hud') ?? document.body).append(el); }
+  if (!j) { el.hidden = true; el.replaceChildren(); return; }
+  const role = (r) => (r === 'lead' ? T.tandemLead : T.tandemChase);
+  const line1 = j.phase === 'countdown' ? T.tandemSoon.replace('{s}', Math.ceil(j.left)) : j.phase === 'swap' ? T.tandemSwap.replace('{role}', role(j.role)) : `${T.tandemRound.replace('{r}', j.round)} \u00b7 ${role(j.role)} \u00b7 ${Math.ceil(j.left)} s`;
+  const line2 = j.phase === 'countdown' ? T.tandemWith.replace('{name}', j.partner) : `${T.tandemPts.replace('{n}', j.mine)} \u00b7 ${T.tandemPair} ${j.total}`;
+  el.replaceChildren(Object.assign(document.createElement('b'), { textContent: line1 }), Object.assign(document.createElement('span'), { textContent: line2 }));
+  el.className = j.phase; el.hidden = false;
+}
+/** Ask the nearest other car (within 80 m) for a tandem in two runs. */
+function tandemInvite() {
+  if (!net?.connected || racing) return;
+  let best = null, bd = 80;
+  for (const o of net.sample(performance.now())) { const d = Math.hypot(o.x - cur.x, o.z - cur.z); if (d < bd) { bd = d; best = o; } }
+  if (!best) { note(T.tandemNone); return; }
+  net.sendJson({ t: 'tandem.invite', with: best.id });
+}
+function showTandemResult(j) {
+  $('res-title').textContent = T.modeTandem;
+  $('res-table').hidden = true;
+  let box = $('res-mode'); if (!box) { box = Object.assign(document.createElement('div'), { id: 'res-mode' }); $('res-table').after(box); }
+  const row = (k, v, cls) => { const r = document.createElement('div'); r.className = cls ?? ''; const a = document.createElement('span'), b = document.createElement('b'); a.textContent = k; b.textContent = v; r.append(a, b); return r; };
+  const nf = (n) => Number(n).toLocaleString(de ? 'de-DE' : 'en-GB');
+  box.replaceChildren(row(T.tandemPair, nf(j.total), 'main'), row(T.tandemWith.replace('{name}', j.partner), ''), row(`${T.tandemRound.replace('{r}', 1)}`, `${T.tandemYou} ${nf(j.mine[0])} \u00b7 ${T.tandemThem} ${nf(j.theirs[0])}`), row(`${T.tandemRound.replace('{r}', 2)}`, `${T.tandemYou} ${nf(j.mine[1])} \u00b7 ${T.tandemThem} ${nf(j.theirs[1])}`));
+  if (params.get('open') === '1') {   // without an account: the best pair score stays on this device
+    let kept = 0; try { kept = Number(localStorage.getItem('drift.best.tandem')) || 0; } catch { /* no storage */ }
+    if (j.total > kept) { kept = j.total; try { localStorage.setItem('drift.best.tandem', String(kept)); } catch { /* not kept */ } box.append(Object.assign(document.createElement('p'), { className: 'new-best', textContent: T.newBest })); }
+    box.append(row(T.deviceBest, nf(kept)), Object.assign(document.createElement('p'), { className: 'hint-account', textContent: T.withAccount }));
+  }
+  if ($('res-again')) $('res-again').hidden = true;
+  show('result', true);
+}
 function lobbyMessage(j) {
   if (j.t === 'race.invite') {
+    inviteKind = 'race';
     $('invite-text').textContent = T.invite.replace('{by}', j.by).replace('{laps}', j.laps).replace('{map}', j.mapName ?? '') + (j.tuned ? ` (${T.tunedMark})` : '');
     show('invite', true);
     clearTimeout(lobbyMessage.timer); lobbyMessage.timer = setTimeout(() => show('invite', false), j.ms);
@@ -230,32 +274,82 @@ function lobbyMessage(j) {
   else if (j.t === 'emote') remotes?.emote(j.id, EMOTES[j.e]);
   else if (j.t === 'tandem') { if (!practice) tandemHud.set(j); }
   else if (j.t === 'tandem.bank') tandemHud.bank(j.points);
+  else if (j.t === 'tandem.invite') {
+    inviteKind = 'tandem';
+    $('invite-text').textContent = T.tandemInvite.replace('{by}', j.by);
+    show('invite', true);
+    clearTimeout(lobbyMessage.timer); lobbyMessage.timer = setTimeout(() => show('invite', false), j.ms);
+  } else if (j.t === 'tandem.sent') note(T.tandemSent.replace('{to}', j.to));
+  else if (j.t === 'tandem.no') note(T['tandemNo_' + j.why] ?? T.tandemNo_gone);
+  else if (j.t === 'tandem.run') { show('invite', false); tandemRunShow(j); }
+  else if (j.t === 'tandem.result') { tandemRunShow(null); showTandemResult(j); }
+  else if (j.t === 'tandem.end') { tandemRunShow(null); note(T['tandemEnd_' + j.why] ?? T.tandemEnd_cancelled); }
   else if (j.t === 'challenge') lobbyChallenge(j);
 }
 
 const chips = Object.assign(document.createElement('div'), { id: 'chips' });   // the small switches (sound, music, feel, creative, emotes, HUD): in a column on a big screen, behind one button on a phone
-const chipsToggle = Object.assign(document.createElement('button'), { id: 'chips-toggle', type: 'button', textContent: '\u2699', ariaLabel: 'Menu' });
+const chipsToggle = Object.assign(document.createElement('button'), { id: 'chips-toggle', type: 'button', ariaLabel: 'Menu' });
+setIcon(chipsToggle, 'gear');
 chipsToggle.addEventListener('click', () => chips.classList.toggle('open'));
 const hudChip = Object.assign(document.createElement('button'), { id: 'hud-chip', type: 'button', textContent: 'HUD', title: 'HUD (H)' });
 hudChip.addEventListener('click', () => hud.cycle());
 document.body.append(chips, chipsToggle);
+// everything a key can do can be done by touch (game/view/touchmap.js lists the keys and where their buttons are; a test keeps the list true): the reset is a small button of its own, the rest is in the menu
+const resetBtn = Object.assign(document.createElement('button'), { id: 'reset', type: 'button', title: 'R', ariaLabel: T.reset });
+setIcon(resetBtn, 'reset');
+resetBtn.addEventListener('click', () => reset());
+document.body.append(resetBtn);
+const menuBtn = (id, label, title, fn) => { const b = Object.assign(document.createElement('button'), { id, type: 'button', title, ariaLabel: title }); setIcon(b, label); b.addEventListener('click', fn); chips.append(b); return b; };
+menuBtn('cam-chip', 'camera', T.camChase, () => cycleCamera());
+menuBtn('dmg-chip', 'wrench', T.damageLabel, () => toggleDamage());
+menuBtn('bot-chip', 'bot', T.practiceBot, () => togglePractice());
+// the camera: the view presets, auto-follow, drag to turn and wheel or two fingers to zoom; the settings stay on this device
+const chase = cam.cams.chase;
+if (chase.user) {
+  try { const k = JSON.parse(localStorage.getItem('drift.cam') ?? 'null'); if (k) { if (PRESET_NAMES.includes(k.preset)) chase.user.preset = k.preset; chase.user.auto = k.auto !== false; if (Number.isFinite(k.zoom)) chase.user.zoom = Math.max(0.55, Math.min(2.4, k.zoom)); } } catch { /* nothing kept */ }
+  const saveCam = () => { try { localStorage.setItem('drift.cam', JSON.stringify({ preset: chase.user.preset, auto: chase.user.auto, zoom: +chase.user.zoom.toFixed(2) })); } catch { /* not kept */ } };
+  menuBtn('view-chip', 'view', T.camPreset_follow, () => { const u = chase.user; u.preset = PRESET_NAMES[(PRESET_NAMES.indexOf(u.preset) + 1) % PRESET_NAMES.length]; u.yaw = 0; u.lift = 0; u.zoom = 1; saveCam(); const t = T['camPreset_' + u.preset]; note(t); $('view-chip').title = t; });
+  $('view-chip').title = T['camPreset_' + chase.user.preset];
+  const followChip = menuBtn('follow-chip', 'follow', T.camFollowOn, () => { chase.user.auto = !chase.user.auto; saveCam(); showFollow(); note(chase.user.auto ? T.camFollowOn : T.camFollowOff); });
+  const showFollow = () => { followChip.setAttribute('aria-pressed', chase.user.auto); followChip.title = chase.user.auto ? T.camFollowOn : T.camFollowOff; };
+  showFollow();
+  const c = renderer.domElement, ptr = new Map();
+  c.addEventListener('contextmenu', (e) => e.preventDefault());
+  c.addEventListener('pointerdown', (e) => { if (cam.mode !== 'chase') return; ptr.set(e.pointerId, { x: e.clientX, y: e.clientY, t: e.pointerType }); try { c.setPointerCapture(e.pointerId); } catch { /* not capturable */ } });
+  c.addEventListener('pointermove', (e) => {
+    const p = ptr.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y, two = [...ptr.values()].filter((q) => q.t === 'touch');
+    if (p.t === 'mouse') chase.nudge(dx * 0.006, -dy * 0.025);
+    else if (two.length === 2) {   // two fingers: the angle between them turns the view, the distance zooms
+      const o = two.find((q) => q !== p), a0 = Math.atan2(p.y - o.y, p.x - o.x), a1 = Math.atan2(e.clientY - o.y, e.clientX - o.x), d0 = Math.hypot(p.x - o.x, p.y - o.y), d1 = Math.hypot(e.clientX - o.x, e.clientY - o.y);
+      let da = a1 - a0; da = Math.atan2(Math.sin(da), Math.cos(da)); chase.nudge(da, 0); if (d0 > 20) chase.zoomBy(d0 / d1);
+    }
+    p.x = e.clientX; p.y = e.clientY;
+  });
+  const up = (e) => { if (ptr.delete(e.pointerId)) saveCam(); };
+  c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
+  c.addEventListener('wheel', (e) => { if (cam.mode !== 'chase') return; e.preventDefault(); chase.zoomBy(Math.exp(e.deltaY * 0.0012)); chase.idle = 0; saveCam(); }, { passive: false });
+}
+menuBtn('controls-chip', coarse ? 'phone' : 'monitor', coarse ? T.ctlTouch : T.ctlPc, () => { try { localStorage.setItem('drift.controls', coarse ? 'pc' : 'touch'); } catch { /* not kept */ } location.reload(); });
+menuBtn('pause-chip', 'pause', 'P', () => { paused = !paused; });
 for (const id of ['racebar', 'invite', 'racehud']) { const el = $(id); if (el) $('hud').append(el); }   // the race bar, the invitation and the race's leave button stand in one column under the score card
 chips.append(hudChip);
 
 // ----- emotes: ten fixed symbols (keys 1 to 0, or the little button), shown over the sender's car for three seconds; there is no free text anywhere
 let emoteSend = null;
-const EMOTES = ['\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F525}', '\u{1F3C1}', '\u{1F44B}', '\u{1F60E}', '\u{1F64F}', '\u{1F4A8}', '\u{1F422}'];
+const EMOTES = EMOTE_ICONS;   // names of our own icons (the ten symbols the server relays by number)
 if (online && raceMode) {
   const bar = Object.assign(document.createElement('div'), { id: 'emotes', hidden: true });
-  const open = Object.assign(document.createElement('button'), { id: 'emote-open', type: 'button', textContent: EMOTES[0], ariaLabel: 'Emotes' });
+  const open = Object.assign(document.createElement('button'), { id: 'emote-open', type: 'button', ariaLabel: 'Emotes' });
+  setIcon(open, EMOTES[0]);
   emoteSend = (e) => send(e);
   const send = (e) => {
     if (racing || !net) return;
     net.sendJson({ t: 'emote', e });
-    const span = Object.assign(document.createElement('span'), { className: 'emo', textContent: EMOTES[e] });
-    hud.toast(EMOTES[e], 'bank');
+    const own = $('own-emote') ?? Object.assign(document.createElement('div'), { id: 'own-emote' }); document.body.append(own);
+    own.replaceChildren(icon(EMOTES[e], 2)); own.hidden = false; clearTimeout(own.timer); own.timer = setTimeout(() => { own.hidden = true; }, 1800);
   };
-  EMOTES.forEach((s, i) => bar.append(Object.assign(document.createElement('button'), { type: 'button', textContent: s, onclick: () => { send(i); bar.hidden = true; } })));
+  EMOTES.forEach((s, i) => { const b = Object.assign(document.createElement('button'), { type: 'button', ariaLabel: s, onclick: () => { send(i); bar.hidden = true; } }); b.append(icon(s, 1.4)); bar.append(b); });
   open.addEventListener('click', () => { bar.hidden = !bar.hidden; });
   document.body.append(bar); chips.append(open);
   addEventListener('keydown', (ev) => { if (ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey || !/^[0-9]$/.test(ev.key)) return; send((+ev.key + 9) % 10); });
@@ -269,25 +363,96 @@ function startRace() {
   net = openNet(params.get('rws') || lobbyUrl.replace('/play/ws', '/play/race/ws'), true);
   window.__net = net;
 }
+// ----- the ghost: every run of the time modes is recorded; the best one is kept on this device. In training it drives again, see-through, and the time ahead or behind it is shown.
+const GHOST_KEY = 'drift.ghost';
+let ghostRec = null, ghostPlay = null, ghostCar = null, ghostRun = false, ghostT = 0, ghostPrevMs = null, ghostNew = false;
+const ghostLoad = () => { try { const d = JSON.parse(localStorage.getItem(GHOST_KEY)); if (d && Array.isArray(d.v) && d.v.length > 30 && d.ms > 0) return d; } catch { /* nothing kept, or broken */ } return null; };
+function ghostStart() {
+  ghostEnd(); ghostNew = false; ghostPrevMs = null;
+  if (!['time', 'training'].includes(runMode)) return;
+  ghostRec = new GhostRecorder(); ghostT = 0;
+  if (runMode !== 'training') return;
+  const d = ghostLoad();
+  if (!d) { note(T.ghostNone); return; }
+  ghostPrevMs = d.ms; ghostPlay = new GhostPlayer(d);
+  ghostCar = fleet.spawn(new THREE.Color().setHSL(0.58, 0.2, 0.75));
+  ghostCar.group.traverse((o) => { if (o.isMesh) { o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone(); for (const m of [].concat(o.material)) { m.transparent = true; m.opacity = 0.42; m.depthWrite = false; m.color?.set('#bfe6ff'); m.emissive?.set('#3a6a8a'); m.map = null; m.needsUpdate = true; } } });
+  scene.add(ghostCar.group);
+}
+function ghostEnd() {
+  if (ghostCar) { scene.remove(ghostCar.group); ghostCar = null; }
+  ghostPlay = null; ghostRun = false; if ($('ghost-delta')) $('ghost-delta').hidden = true;
+}
+function ghostFinish(ms) {
+  ghostRun = false;
+  if (!ghostRec || !ms) return;
+  const kept = ghostLoad();
+  if (!kept || ms < kept.ms) { try { localStorage.setItem(GHOST_KEY, JSON.stringify(ghostRec.data(ms))); ghostNew = true; } catch { /* not kept */ } }
+}
 function raceMessage(j) {
   if (j.t === 'grid') {
     locked = true;
     ensureMap(j.map ?? 0).then(() => { cur = prev = makeCar(j.x, j.z, j.h); score = newScore(); cam.snap(cur); stage.skids.clear(); raceInfo.ms = 0; });
     Object.assign(raceInfo, { pos: j.slot + 1, of: j.n, lap: 1, laps: j.laps, ms: 0 }); bestLap = 0;
+    ghostStart();
     $('rh-pos').textContent = `P${j.slot + 1}/${j.n}`; $('rh-lap').textContent = `${T.lap} 1/${j.laps}`; $('rh-time').textContent = fmt(0); $('rh-drift').textContent = '';
     show('racehud', true); $('count').textContent = T.waitOthers;
   } else if (j.t === 'count') $('count').textContent = j.n;
-  else if (j.t === 'go') { locked = false; $('count').textContent = T.go; setTimeout(() => show('count', false), 900); }
+  else if (j.t === 'go') { ghostRun = ghostRec !== null; locked = false; $('count').textContent = T.go; setTimeout(() => show('count', false), 900); }
   else if (j.t === 'prog') {
     Object.assign(raceInfo, { pos: j.pos, of: j.of, lap: j.lap, laps: j.laps, ms: j.ms });
     $('rh-pos').textContent = `P${j.pos}/${j.of}`; $('rh-lap').textContent = `${T.lap} ${j.lap}/${j.laps}`; $('rh-time').textContent = fmt(j.ms);
     $('rh-drift').textContent = j.drift ? `${j.drift} x${j.mult}` : '';
   } else if (j.t === 'lap') { bestLap = bestLap ? Math.min(bestLap, j.ms) : j.ms; note(`${T.lap} ${j.lap}/${j.of}: ${fmt(j.ms)}`); }
-  else if (j.t === 'finish') note(`${T.finished} P${j.pos}: ${fmt(j.ms)}`);
+  else if (j.t === 'finish') { note(`${T.finished} P${j.pos}: ${fmt(j.ms)}`); ghostFinish(j.ms); }
   else if (j.t === 'result') showResult(j);
   else if (j.t === 'back') endRace();
 }
+/** Starts a mode on the touge: a run of one on the server (the same machinery as a race: grid, countdown, gates, the result and the boards). */
+function startMode(kind) {
+  if (kind === 'tandem') { tandemInvite(); return; }
+  if (!raceMode || racing || !net || !net.connected) return;
+  runMode = kind;
+  net.sendJson({ t: 'race.start', map: 0, laps: 1, solo: true, ...(kind === 'training' ? { train: true } : {}) });
+}
+/** The result of a mode: the numbers of the run and the board of this mode (best run times, or the points of a whole run). */
+async function showModeResult(j, kind = runMode) {
+  const me = net?.roster.get(net.me?.id)?.name, mine = j.rows.find((r) => r.name === me) ?? j.rows[0];
+  const time = kind === 'time' || kind === 'training', train = kind === 'training';
+  $('res-title').textContent = train ? T.modeTraining : time ? T.modeTime : T.modeDrift;
+  $('res-table').hidden = true;
+  let box = $('res-mode'); if (!box) { box = Object.assign(document.createElement('div'), { id: 'res-mode' }); $('res-table').after(box); }
+  const row = (k, v, cls) => { const r = document.createElement('div'); r.className = cls ?? ''; const a = document.createElement('span'), b = document.createElement('b'); a.textContent = k; b.textContent = v; r.append(a, b); return r; };
+  const nf = (n) => Number(n).toLocaleString(de ? 'de-DE' : 'en-GB');
+  const isNew = time ? mine.newLap || mine.newRace : mine.newAttack;
+  box.replaceChildren(row(T.sumTime, mine.ms == null ? T.dnf : fmt(mine.ms), time ? 'main' : ''), row(T.sumPoints, nf(mine.drift), time ? '' : 'main'), row(T.sumBest, nf(mine.bestDrift)));
+  if (train) {
+    const diff = ghostPrevMs && mine.ms ? (mine.ms - ghostPrevMs) / 1000 : null;
+    box.replaceChildren(row(T.sumTime, mine.ms == null ? T.dnf : fmt(mine.ms), 'main'), row(T.ghostBest, ghostPrevMs ? fmt(ghostPrevMs) : '-'), ...(diff === null ? [] : [row(T.ghostDiff, (diff >= 0 ? '+' : '\u2212') + Math.abs(diff).toFixed(2).replace('.', de ? ',' : '.') + ' s', diff < 0 ? 'ahead' : 'behind')]));
+    if (ghostNew) box.append(Object.assign(document.createElement('p'), { className: 'new-best', textContent: T.newGhost }));
+  }
+  if (isNew && !train) box.append(Object.assign(document.createElement('p'), { className: 'new-best', textContent: T.newBest }));
+  if (!train && params.get('open') === '1') {   // without an account: the best value stays on this device, and a hint about the board
+    const key = time ? 'drift.best.time' : 'drift.best.attack', value = time ? mine.ms : mine.drift;
+    let kept = null; try { kept = Number(localStorage.getItem(key)) || null; } catch { /* no storage */ }
+    const better = value != null && (kept === null || (time ? value < kept : value > kept));
+    if (better) { try { localStorage.setItem(key, String(value)); } catch { /* not kept */ } kept = value; }
+    box.append(row(T.deviceBest, kept == null ? '-' : time ? fmt(kept) : nf(kept)), Object.assign(document.createElement('p'), { className: 'hint-account', textContent: T.withAccount }));
+  }
+  show('count', false); show('racehud', false); show('result', true);
+  if (!train) try {   // the board of this mode: the five best, and your line
+    const b = await fetch(params.get('open') === '1' ? '/api/open/times?map=0' : document.documentElement.dataset.guest === '1' ? '/api/guest/times?map=0' : '/api/times?map=0').then((r) => r.json());
+    const one = time ? b.lap : b.attack, list = Object.assign(document.createElement('ol'), { className: 'board' });
+    for (const [i, r] of (one?.top ?? []).slice(0, 5).entries()) { const li = document.createElement('li'); if (r.mine) li.className = 'mine'; li.textContent = `${i + 1}. ${r.name} \u00b7 ${time ? fmt(r.value) : nf(r.value)}`; list.append(li); }
+    if (one?.mine && !(one.top ?? []).slice(0, 5).some((r) => r.mine)) { const li = Object.assign(document.createElement('li'), { className: 'mine', textContent: `${one.mine.place}. ${T.you.replace(/ ?$/, '')} \u00b7 ${time ? fmt(one.mine.value) : nf(one.mine.value)}` }); list.append(li); }
+    if (list.children.length) box.append(Object.assign(document.createElement('h4'), { textContent: T.board }), list);
+  } catch { /* no board: the numbers above are the result */ }
+  let again = $('res-again'); if (!again) { again = Object.assign(document.createElement('button'), { id: 'res-again', type: 'button' }); $('res-back').before(again); again.addEventListener('click', () => { pendingMode = runMode; endRace(); }); }
+  again.textContent = T.again; again.hidden = false;
+}
 function showResult(j) {
+  if (runMode) { showModeResult(j); return; }
+  $('res-table').hidden = false; if ($('res-again')) $('res-again').hidden = true; if ($('res-mode')) $('res-mode').replaceChildren();
   $('res-title').textContent = T.result;
   const body = $('res-table').querySelector('tbody');
   body.replaceChildren();
@@ -302,6 +467,8 @@ function showResult(j) {
 }
 function endRace() {
   if (!racing) return;
+  ghostEnd(); ghostRec = null;
+  if (!pendingMode) runMode = null;
   racing = false; locked = false;
   net.close(); remotes.clear();
   show('result', false); show('racehud', false); show('count', false);
@@ -317,15 +484,17 @@ if (online) {
   $('dropped').addEventListener('click', () => { $('dropped').hidden = true; net.connect(); });
   if (raceMode) {
     show('racebar', true);
+    for (const [kind, label] of [['drift', T.modeDrift], ['time', T.modeTime], ['tandem', T.modeTandem], ['training', T.modeTraining]]) { const b = Object.assign(document.createElement('button'), { id: 'mode-' + kind, type: 'button', textContent: label, title: label }); b.addEventListener('click', () => startMode(kind)); chips.append(b); }
+    if (['drift', 'time', 'tandem', 'training'].includes(params.get('mode'))) pendingMode = params.get('mode');   // ?mode=drift|time starts that mode as soon as the lobby socket is open
     mapList ??= (await fetch('data/maps.json').then((r) => r.json())).maps;
     const sel = $('mapSel');
     for (const m of mapList) sel.append(Object.assign(document.createElement('option'), { value: m.id, textContent: m.name }));
     $('raceBtn').addEventListener('click', () => { const m = mapList.find((x) => x.id === +sel.value); net.sendJson({ t: 'race.start', map: m.id, laps: m.laps }); });
     $('soloBtn').addEventListener('click', () => { const m = mapList.find((x) => x.id === +sel.value); net.sendJson({ t: 'race.start', map: m.id, laps: m.laps, solo: true }); });   // a time trial is a race of one
-    $('invite-yes').addEventListener('click', () => { net.sendJson({ t: 'race.join' }); show('invite', false); });
-    $('invite-no').addEventListener('click', () => { net.sendJson({ t: 'race.decline' }); show('invite', false); });
+    $('invite-yes').addEventListener('click', () => { net.sendJson({ t: inviteKind === 'tandem' ? 'tandem.accept' : 'race.join' }); show('invite', false); });
+    $('invite-no').addEventListener('click', () => { net.sendJson({ t: inviteKind === 'tandem' ? 'tandem.decline' : 'race.decline' }); show('invite', false); });
     $('rh-leave').addEventListener('click', () => { net.sendJson({ t: 'leave' }); endRace(); });
-    $('res-back').addEventListener('click', endRace);
+    $('res-back').addEventListener('click', () => { if (racing) endRace(); else show('result', false); });
   }
 }
 
@@ -371,7 +540,7 @@ function bodyOf(o) {
 const sound = new SoundSystem();
 const soundChip = Object.assign(document.createElement('button'), { id: 'sound', type: 'button' });
 const musicChip = Object.assign(document.createElement('button'), { id: 'music', type: 'button' });
-const showSound = () => { const on = sound.unlocked && !sound.muted; soundChip.textContent = on ? '\u{1F50A}' : '\u{1F507}'; soundChip.title = on ? T.soundOn : T.soundOff; soundChip.setAttribute('aria-pressed', on); musicChip.textContent = '\u266A'; musicChip.title = sound.music ? T.musicOn : T.musicOff; musicChip.setAttribute('aria-pressed', sound.music); };
+const showSound = () => { const on = sound.unlocked && !sound.muted; setIcon(soundChip, on ? 'speaker' : 'speakerOff'); soundChip.title = on ? T.soundOn : T.soundOff; soundChip.setAttribute('aria-pressed', on); setIcon(musicChip, 'music'); musicChip.title = sound.music ? T.musicOn : T.musicOff; musicChip.setAttribute('aria-pressed', sound.music); };
 const unlockSound = () => { sound.unlock(); showSound(); };
 function toggleSound() { if (!sound.unlocked) { unlockSound(); sound.setMuted(false); showSound(); return; } sound.setMuted(!sound.muted); showSound(); }
 for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, unlockSound, { once: true, capture: true });
@@ -393,6 +562,9 @@ if (params.get('open') === '1') {
   dot();
   paintChip.addEventListener('click', () => { try { const n = ((Number(localStorage.getItem('drift.paint')) || 0) + 1) % 27; localStorage.setItem('drift.paint', String(n)); } catch { /* not kept */ } location.reload(); });
   chips.append(paintChip);
+  const nameChip = Object.assign(document.createElement('button'), { id: 'name-chip', type: 'button', textContent: 'Aa', title: T.nameAsk, ariaLabel: T.nameAsk });
+  nameChip.addEventListener('click', () => { const n = prompt(T.nameAsk, (() => { try { return localStorage.getItem('drift.name') ?? ''; } catch { return ''; } })()); if (n === null) return; try { localStorage.setItem('drift.name', n.trim().slice(0, 20)); } catch { /* not kept */ } location.reload(); });
+  chips.append(nameChip);
   try { bestDrift = Number(localStorage.getItem('drift.best')) || 0; } catch { /* no storage */ }   // best values only on this device
 }
 
@@ -485,6 +657,7 @@ function simStep(i) {
     const r = collideCars(cur, o, { applyB: false, ma: myMass, mb: o.m });
     if (r.hit > 0) cur = { ...r.a, hit: Math.max(cur.hit, r.hit) };
   }
+  if (ghostRun && !locked) { ghostT += DT; ghostRec.add(DT, cur.x, cur.z, cur.h); }
   if (cur.hit > 0) { sound.bump(cur.hit); }
   if (damageOn && !creative) {
     const before = dmg;
@@ -519,7 +692,7 @@ function simStep(i) {
       if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + wy, wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
     }
   }
-  if (map.kind === 'descent' && !locked) {
+  if (map.kind === 'descent' && !locked && !racing) {
     const g0 = map.gates[0], end = map.centre.at(-1);
     if (dRunStart < 0 && Math.hypot(cur.x - (g0.a[0] + g0.b[0]) / 2, cur.z - (g0.a[1] + g0.b[1]) / 2) < 10 && speedOf(cur) > 2) dRunStart = simSteps;
     if (dRunStart >= 0 && !runDone && Math.hypot(cur.x - end[0], cur.z - end[1]) < 14) { runDone = simSteps; showSummary({ ms: (simSteps - dRunStart) * DT * 1000, points: Math.round(score.banked + score.pending), clips: zones ? zones.paid.filter(Boolean).length : 0, of: map.clips?.length ?? 0, best: Math.round(Math.max(bestDrift, score.pending)) }); setTimeout(() => { if (runDone) reset(); }, 6000); }
@@ -582,7 +755,16 @@ if (coarse) { tip.hidden = false; const iv = setInterval(() => { if (input.has('
 if (coarse) showTouch();
 addEventListener('touchstart', showTouch, { once: true, passive: true });
 const checkRotate = () => ($('rotate').hidden = !(coarse && innerHeight > innerWidth));
-addEventListener('resize', checkRotate); checkRotate();
+checkRotate();
+// a new size (turning the phone, the browser bar sliding in or out, full screen, a resized window): the renderer's buffer, the pixel ratio, the camera's aspect and the targets of the
+// after-pass are set again (stage.resize), once per frame at most; and the frame loop looks at the window's size every frame, so a missed event heals itself. The canvas is never
+// stretched by CSS to another shape than its buffer (the buffer has the window's shape).
+let fitW = 0, fitH = 0, fitQueued = false;
+const refit = () => { checkRotate(); if (fitQueued) return; fitQueued = true; requestAnimationFrame(() => { fitQueued = false; fitW = innerWidth; fitH = innerHeight; stage.resize(); }); };
+for (const ev of ['resize', 'orientationchange', 'fullscreenchange']) addEventListener(ev, refit);
+visualViewport?.addEventListener('resize', refit);
+// a phone turns itself into landscape: the first tap into the game asks for full screen and locks the orientation (where the browser cannot, the turn hint stays)
+if (coarse) addEventListener('pointerup', async () => { try { if (document.fullscreenEnabled && !document.fullscreenElement) await document.documentElement.requestFullscreen(); await screen.orientation?.lock?.('landscape'); } catch { /* not possible here: the hint stays */ } }, { once: true });
 
 // ----- drawing
 const dbg = $('debug');
@@ -609,6 +791,7 @@ function frame(now) {
   const kmh = speedOf(cur) * 3.6;
 
   // body pose: yaw, a little roll and pitch from the forces; the car stands on the road's drawn height and leans with its slope (only drawn: the physics is flat)
+  if (innerWidth !== fitW || innerHeight !== fitH) { fitW = innerWidth; fitH = innerHeight; stage.resize(); checkRotate(); }
   const field = stage.field, gy = field.groundY(drawn.x, drawn.z), sh = Math.sin(drawn.h), ch = Math.cos(drawn.h);
   const slope = (field.groundY(drawn.x + sh * 1.3, drawn.z + ch * 1.3) - field.groundY(drawn.x - sh * 1.3, drawn.z - ch * 1.3)) / 2.6;
   const roll = Math.max(-0.08, Math.min(0.08, -cur.w * vf * 0.0035));
@@ -632,6 +815,16 @@ function frame(now) {
     const list = net.sample(now);
     remotes.update(list, net.roster, dt);
     remoteBodies = list.filter((o) => !o.far).map((o) => ({ ...bodyOf(o), m: massOf(net.roster.get(o.id)?.car ?? 0) }));
+  }
+  if (ghostCar && ghostPlay) {   // the ghost of your best run, and how far ahead or behind it you are
+    const g = ghostPlay.at(ghostT), gg = field.groundY(g.x, g.z);
+    ghostCar.group.position.set(X(g.x), gg, g.z); ghostCar.group.rotation.set(0, HEAD(g.h), 0, 'YXZ');
+    if (ghostRun) {
+      let el = $('ghost-delta'); if (!el) { el = Object.assign(document.createElement('div'), { id: 'ghost-delta' }); ($('hud') ?? document.body).append(el); }
+      const d = ghostPlay.delta(ghostT, cur.x, cur.z), txt = (d >= 0 ? '+' : '\u2212') + Math.abs(d).toFixed(1).replace('.', de ? ',' : '.') + ' s';
+      if (el.textContent !== txt) el.textContent = txt;
+      el.className = d > 0.05 ? 'behind' : d < -0.05 ? 'ahead' : ''; el.hidden = false;
+    }
   }
   if (practice && botCar) {   // the practice bot, drawn like the other cars, and the chip from the local judgement
     const b = practice.bot.state, { vf: bvf } = bodyVelocity(b), bg = field.groundY(b.x, b.z);
@@ -692,5 +885,41 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
-window.__drift = { showSummary, get carGroup() { return carGroup; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; } };
+/** The height of the drawn ground under a point (the highest surface of the world below 60 m: land, plaza, road), by a ray down: for the play check (tools/playcheck.mjs). */
+const floorRay = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0);
+function floorAt(x, z) {
+  floorRay.set(new THREE.Vector3(X(x), 60, z), down);
+  const hits = floorRay.intersectObjects(stage.world.group.children.filter((o) => o.isMesh && !o.material?.transparent), false);
+  floorRay.by = hits.length ? (hits[0].object.name || hits[0].object.geometry?.attributes?.position?.count + ' vertices') : null;
+  return hits.length ? hits[0].point.y : null;
+}
+/** Every place a car is put: the spawns of the first 18 ids, the restart (and so the ride back up), the start slots of the modes; with the height the car stands at and the drawn ground's. */
+function startSpots() {
+  const spots = [{ what: 'restart and ride back up', ...lobbyJson.lobbySpawn }];
+  for (let id = 0; id < 18; id++) spots.push({ what: `spawn of id ${id}`, ...lobbyStart(id, lobbyJson.lobbySpawn) });
+  for (const [i, g] of (map.grid ?? []).entries()) spots.push({ what: `grid slot ${i}`, x: g.x, z: g.z });
+  // samples along the road's centre line, about every 100 m: the drawn terrain must never rise above the driving floor, and the drawn ground must be where the physics is
+  let run = 0, next = 0;
+  for (let i = 1; i < (map.centre?.length ?? 0); i++) {
+    const [x0, z0] = map.centre[i - 1], [x1, z1] = map.centre[i], len = Math.hypot(x1 - x0, z1 - z0);
+    for (; next <= run + len; next += 100) { const t = len ? (next - run) / len : 0; spots.push({ what: `road at ${Math.round(next)} m`, x: x0 + (x1 - x0) * t, z: z0 + (z1 - z0) * t }); }
+    run += len;
+  }
+  return spots.map((p) => { const car = stage.field.groundY(p.x, p.z), floor = floorAt(p.x, p.z); return { what: p.what, x: +p.x.toFixed(1), z: +p.z.toFixed(1), car: +car.toFixed(3), floor: floor === null ? null : +floor.toFixed(3), by: floorRay.by }; });
+}
+/** The road sampled along its centre every `step` metres, at the centre and near both edges: the height the car stands at (the physics' ground) and the drawn road's (a ray down onto the drawn meshes), for the play check. */
+function roadProbe(step = 5) {
+  const out = [], c = map.centre ?? [], hw = map.halfWidth ?? 4;
+  let run = 0, next = 0;
+  for (let i = 1; i < c.length; i++) {
+    const [x0, z0] = c[i - 1], [x1, z1] = c[i], len = Math.hypot(x1 - x0, z1 - z0);
+    for (; next <= run + len && len > 0; next += step) {
+      const t = (next - run) / len, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t, nx = -(z1 - z0) / len, nz = (x1 - x0) / len;
+      for (const off of [0, hw * 0.8, -hw * 0.8]) { const px = x + nx * off, pz = z + nz * off, car = stage.field.groundY(px, pz), floor = floorAt(px, pz); out.push({ s: Math.round(next), off: +off.toFixed(1), x: +px.toFixed(1), z: +pz.toFixed(1), car: +car.toFixed(3), floor: floor === null ? null : +floor.toFixed(3) }); }
+    }
+    run += len;
+  }
+  return out;
+}
+window.__drift = { roadProbe, get ghost() { return ghostCar; }, floorAt, startSpots, showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return carGroup; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; } };
 requestAnimationFrame(frame);

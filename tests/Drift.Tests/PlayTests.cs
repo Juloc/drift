@@ -61,7 +61,7 @@ public class PlayTests
         Assert.Equal(1, roster[1]);
         Assert.Equal(1, roster[3]);                         // car: everybody drives the AE86 for now (the garage's saved car 2 is kept in the data but not used)
         Assert.Equal(19, roster[4]);                        // hue
-        Assert.Equal("Bolt", System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]));
+        Assert.Equal("mia", System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]));   // a signed-in person always shows the account's name (the garage nickname "Bolt" is kept but not shown)
     }
 
     static async Task<WebSocket> ConnectOpen(TestApp app, string query = "")
@@ -83,14 +83,17 @@ public class PlayTests
         var roster = (await Frame(open, Wire.Roster))!;
         Assert.Equal(2, roster[1]);                                                                    // the same world as the signed-in person
         var mine = System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]);
-        Assert.Contains(mine.Split(' ')[0], Drift.Relay.WorldRelay.Colours.Concat(Drift.Relay.WorldRelay.PaintWords));
-        Assert.DoesNotContain("mia", mine, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(" (Guest)", System.Text.Encoding.UTF8.GetString(roster));                                                             // a guest is shown with the label; no name given: a colour and an animal
+        using var named = await ConnectOpen(app, "?colour=3&lang=de&name=" + Uri.EscapeDataString("Max\nM\u00fcller <b>1</b>"));   // a free name: line breaks go, the rest is text
+        var nr = (await Frame(named, Wire.Roster))!;
+        var all = System.Text.Encoding.UTF8.GetString(nr);
+        Assert.Contains("MaxM\u00fcller <b>1</b> (Gast)", all);
         using var odd = await ConnectOpen(app, "?colour=99");                                          // a paint that is not one: the relay picks a hue, the visitor is not refused
-        Assert.Equal(3, (await Frame(odd, Wire.Roster))![1]);
+        Assert.Equal(4, (await Frame(odd, Wire.Roster))![1]);
     }
 
     [Fact]
-    public async Task Without_a_nickname_a_neutral_name_shows_never_the_account_name()
+    public async Task A_signed_in_person_shows_the_account_name_whatever_the_garage_says()
     {
         await using var db = await TestDb.CreateAsync();
         await using var app = new TestApp(db);
@@ -98,9 +101,7 @@ public class PlayTests
         using var ws = await Connect(app, cookie);
         var roster = (await Frame(ws, Wire.Roster))!;
         var shown = System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]);
-        Assert.NotEqual("mia", shown);
-        Assert.Contains(shown.Split(' ')[0], Drift.Relay.WorldRelay.Colours.Concat(Drift.Relay.WorldRelay.PaintWords));   // a colour word, or white, black, silver for the paints 24 to 26
-        Assert.Contains(shown.Split(' ')[1], Drift.Relay.WorldRelay.Animals);
+        Assert.Equal("mia", shown);
     }
 
     [Fact]

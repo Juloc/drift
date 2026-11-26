@@ -194,7 +194,7 @@ public class GameAccountTests
         var g = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/games/garage", cookie)));
         Assert.Equal("Kiwi 14", g.GetProperty("name").GetString());          // no nickname: the chosen name is shown
         var put = await c.SendAsync(app.Req(HttpMethod.Put, "/api/games/garage", cookie, new { car = 3, colour = 5, nick = "Bolt" }));
-        Assert.Equal("Bolt", (await TestApp.Json(put)).GetProperty("name").GetString());
+        Assert.Equal("Kiwi 14", (await TestApp.Json(put)).GetProperty("name").GetString());   // the account's name, not the nickname
         Assert.Equal(HttpStatusCode.OK, (await c.SendAsync(app.Req(HttpMethod.Put, "/api/games/tuning/3", cookie, new { steer = 2, balance = 0, power = 1, handbrake = 0 }))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await c.SendAsync(app.Req(HttpMethod.Get, "/api/games/tuning", cookie))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await c.SendAsync(app.Req(HttpMethod.Get, "/api/games/stats", cookie))).StatusCode);

@@ -8,6 +8,6 @@ public static class Who
 {
     public static Guid Owner(this HttpContext ctx) => ctx.IsGameAccount() ? ctx.GameAccount().Id : ctx.Person().UserId;
 
-    /// <summary>The name a games account chose (shown when the garage has no nickname); null for a hub person, whose account name is never shown.</summary>
-    public static string? AccountName(this HttpContext ctx) => ctx.IsGameAccount() ? ctx.GameAccount().Name : null;
+    /// <summary>The name that is shown for the person: a games account's name or a hub person's user name (the owner's rule: a signed-in person always shows the account's name; the garage nickname is not shown).</summary>
+    public static string? AccountName(this HttpContext ctx) => ctx.IsGameAccount() ? ctx.GameAccount().Name : ctx.Person().UserName;
 }

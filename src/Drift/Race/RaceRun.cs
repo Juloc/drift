@@ -91,9 +91,11 @@ public sealed class RaceRun(RaceTrack track, int laps)
     {
         var gate = r.NextGate;
         r.GatesPassed++;
-        r.NextGate = (gate + 1) % Track.Gates.Count;
-        if (gate != 0) return;
-        // gate 0 again: a lap is done
+        // a descent has no loop: the gates are met once in order and the last one ends the run; a loop is done when gate 0 comes again
+        var last = Track.Gates.Count - 1;
+        r.NextGate = Track.Open ? Math.Min(gate + 1, last) : (gate + 1) % Track.Gates.Count;
+        if (Track.Open ? gate != last : gate != 0) return;
+        // a lap is done
         var lapMs = ms - r.LapStart * 1000;
         r.LapStart = ms / 1000;
         r.LapsDone++;

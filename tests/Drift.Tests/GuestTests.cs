@@ -193,7 +193,7 @@ public class GuestTests
         await Assert.ThrowsAnyAsync<Exception>(() => Connect(app, admin));                              // a person's cookie is not a guest's
         using var ws = await Connect(app, guest);
         var roster = (await Frame(ws, Wire.Roster))!;
-        Assert.Equal("Kiwi 7", System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]));
+        Assert.Equal("Kiwi 7 (Guest)", System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]));   // a guest is shown with the label
         Assert.Equal(1, roster[3]);                                                                     // the AE86 (the one car for now)
         var ended = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Post, "/api/guest-links/end-all", admin)));
         Assert.Equal(1, ended.GetProperty("ended").GetInt32());
