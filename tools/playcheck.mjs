@@ -1,9 +1,10 @@
 // The play check: opens the game in headless Chromium at a phone held upright, a phone held sideways, a small phone sideways, a tablet and a PC, resizes the window in the middle of a game,
 // and checks what the owner found by hand on a phone: (a) the buffer of the picture, the camera and the screen have the same shape (nothing is stretched), (b) every place a car is put
 // stands on the drawn ground (under 5 cm), (c) every key has a button by touch, (d) no part of the HUD overlaps another or is cut off. Prints a text report, writes a picture per
-// size and an overview picture to docs/screenshots/playcheck/, and exits with 1 when anything fails. Software graphics, one browser at a time (a few minutes).
+// size and an overview picture to docs/screenshots/playcheck/, and exits with 1 when anything fails. The machine's graphics when there is a render node (tools/chrome.mjs), else software; one browser at a time (a few minutes).
 // Usage: node tools/playcheck.mjs [--tier=low] [--only=phone-landscape,pc] [--out=docs/screenshots/playcheck]
 import { spawn } from 'node:child_process';
+import { GL_FLAGS } from './chrome.mjs';
 import { writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { KEYS } from '../game/view/touchmap.js';
@@ -30,7 +31,7 @@ await sleep(800);
 
 async function browser() {
   const port = 22000 + Math.floor(Math.random() * 6000), profile = `/tmp/claude-1000/drift-playcheck-${port}`;
-  const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
+  const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
   let target;
   for (let i = 0; i < 60 && !target; i++) { await sleep(300); try { target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((t) => t.type === 'page'); } catch {} }
   if (!target) throw new Error('no browser');

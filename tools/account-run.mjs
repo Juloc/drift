@@ -2,6 +2,7 @@
 // garage, then up to three together on the game page). Needs cookies from tools/dev-people.mjs.
 // Usage: node tools/account-run.mjs <base url> <cookies.json>   (names in the file: first = garage pictures, all = lobby)
 import { spawn } from 'node:child_process';
+import { GL_FLAGS } from './chrome.mjs';
 import { writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 
@@ -16,7 +17,7 @@ process.on('exit', stopAll);
 
 async function open(name, w, h, dpr = 1, touch = false) {
   const port = 20000 + Math.floor(Math.random() * 20000), profile = `/tmp/claude-1000/drift-acct-${port}`;
-  const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
+  const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
   procs.push(proc);
   let target;
   for (let t = 0; t < 50 && !target; t++) { await sleep(300); try { target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((x) => x.type === 'page'); } catch {} }

@@ -2,6 +2,7 @@
 // both drive the same drift for the countdown and both rounds, and the result card shows. Pictures to docs/screenshots/tandem-*.png; exits with 1 when a step does not happen.
 // Usage: node tools/tandemcheck.mjs http://127.0.0.1:5077 [--out=docs/screenshots]
 import { spawn } from 'node:child_process';
+import { GL_FLAGS } from './chrome.mjs';
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 const url = process.argv[2] ?? 'http://127.0.0.1:5077', out = (process.argv.find((a) => a.startsWith('--out=')) ?? '--out=docs/screenshots').slice(6);
@@ -11,7 +12,7 @@ mkdirSync(out, { recursive: true });
 const stops = []; process.on('exit', () => stops.forEach((f) => f()));
 async function browser() {
   const port = 22000 + Math.floor(Math.random() * 6000), profile = `/tmp/claude-1000/drift-tandemcheck-${port}`;
-  const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
+  const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
   let target;
   for (let i = 0; i < 60 && !target; i++) { await sleep(300); try { target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((t) => t.type === 'page'); } catch {} }
   if (!target) throw new Error('no browser');

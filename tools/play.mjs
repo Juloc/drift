@@ -3,6 +3,7 @@
 // frame times are NOT phone numbers: they show that the page runs and what it draws.
 // Usage: node tools/play.mjs <width> <height> <name> [--touch] [--tier=low|medium|high] [--secs=8] [--dpr=1] [--query=a=b&c=d] [--web=http://127.0.0.1:8150 | --port=8150]
 import { spawn } from 'node:child_process';
+import { GL_FLAGS } from './chrome.mjs';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 
@@ -12,7 +13,7 @@ const chrome = `${homedir()}/.cache/ms-playwright/chromium-1248/chrome-linux64/c
 const port = 20000 + Math.floor(Math.random() * 20000); // a free one of our own: other projects' browsers may listen on others
 const url = `${opt.web ?? 'http://127.0.0.1:' + (opt.port ?? 8150)}/game/index.html?debug=1${opt.touch ? '&touch=1' : ''}${opt.tier ? '&tier=' + opt.tier : ''}${opt.query ? '&' + opt.query : ''}`;
 const profile = `/tmp/claude-1000/drift-play-${port}`;
-const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
+const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
 const stop = () => { try { process.kill(-proc.pid, 'SIGKILL'); } catch {} };
 process.on('exit', stop);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

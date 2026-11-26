@@ -1,6 +1,7 @@
 // Opens a page in headless Chromium (software graphics, nice 10), waits for an expression to be true, prints the value of another.
 // Usage: node tools/pageeval.mjs <url> <ready expression> <value expression> [width=844] [height=390] [shot.png] [clip=x,y,w,h,scale]
 import { spawn } from 'node:child_process';
+import { GL_FLAGS } from './chrome.mjs';
 import fs from 'node:fs';
 import { homedir } from 'node:os';
 
@@ -8,7 +9,7 @@ const [url, ready, value, w = 844, h = 390, shotFile, clipArg] = process.argv.sl
 const chrome = `${homedir()}/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const port = 20000 + Math.floor(Math.random() * 20000), profile = `/tmp/claude-1000/drift-eval-${port}`;
-const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
+const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
 const stop = () => { try { process.kill(-proc.pid, 'SIGKILL'); } catch {} fs.rmSync(profile, { recursive: true, force: true }); };
 process.on('exit', stop);
 let target;

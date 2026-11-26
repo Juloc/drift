@@ -1,8 +1,9 @@
 // Pictures and numbers of the look probe (game/lookprobe.html) in headless Chromium through the DevTools protocol. One browser at a
-// time, software graphics (no GPU here): the frame time is a CPU renderer's, useful only to compare two looks on this machine.
+// time, the machine's graphics when it has a render node (tools/chrome.mjs), else software: then the frame time is a CPU renderer's, useful only to compare two looks.
 // Usage: node tools/shoot-probe.mjs <width> <height> <name> [--tier=high|low] [--touch] [--dpr=1] [--query=view=overview] [--port=8150]
 //        [--page=game/index.html (the game, measured the same way)] [--bench=6 frames] [--out=dir] [--text (print the HUD's text)] [--lang=de|en] [--eval=js run before measuring] [--probe=x,y,z;x,y,z (where these points are on the screen)]
 import { spawn } from 'node:child_process';
+import { GL_FLAGS, GPU } from './chrome.mjs';
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 
@@ -13,7 +14,7 @@ const port = 20000 + Math.floor(Math.random() * 20000);
 const page = opt.page ?? 'game/lookprobe.html';
 const url = `http://127.0.0.1:${opt.port ?? 8150}/${page}?lang=${opt.lang ?? 'de'}${opt.touch ? '&touch=1' : ''}${opt.tier ? '&tier=' + opt.tier : ''}${opt.query ? '&' + opt.query : ''}`;
 const profile = `/tmp/claude-1000/drift-probe-${port}`;
-const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
+const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
 const stop = () => { try { process.kill(-proc.pid, 'SIGKILL'); } catch {} };
 process.on('exit', stop);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -41,6 +42,7 @@ try {
   await evalJs(`window.__probe ??= (()=>{const st=__drift.stage;return {renderer:st.renderer,frames:1e9,get worldTriangles(){return st.world.triangles},get buildMs(){return st.buildMs},t:0,slip:0,sunScreen:()=>null,bench(n){const gl=st.renderer.getContext(),px=new Uint8Array(4),a=performance.now();for(let i=0;i<n;i++){st.render();gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);}return (performance.now()-a)/n;}};})()`);
   if (opt.eval) await evalJs(opt.eval);   // e.g. hide parts to see what they cost
   const stats = JSON.parse(await evalJs(`(()=>{const p=__probe;const ms=p.bench(+(${opt.bench ?? 6}));const r=p.renderer.info.render;return JSON.stringify({triangles:r.triangles,calls:r.calls,msPerFrameSoftware:+ms.toFixed(1),buffer:[p.renderer.domElement.width,p.renderer.domElement.height],worldTriangles:Math.round(p.worldTriangles),buildMs:Math.round(p.buildMs),t:+p.t.toFixed(2),slip:Math.round(p.slip),sun:p.sunScreen(),probe:p.screen&&${JSON.stringify(opt.probe ?? null)}?${JSON.stringify(opt.probe ?? '')}.split(';').map(q=>p.screen(...q.split(',').map(Number))):undefined,programs:p.renderer.info.programs.length,geometries:p.renderer.info.memory.geometries})})()`));
+  stats.msPerFrame = stats.msPerFrameSoftware; stats.graphics = GPU ? 'gpu' : 'software';   // (the old name stays for the notes that quote it; with the machine's graphics it is a real frame time)
   await sleep(300);
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   mkdirSync('docs/screenshots', { recursive: true });

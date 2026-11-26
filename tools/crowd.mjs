@@ -2,6 +2,7 @@
 // Prints what each one sees (visitors, other cars drawn, bytes on the wire) and writes a picture of the first.
 // Usage: node tools/crowd.mjs [browsers=3] [seconds=14] [picture-name]   (software graphics; its own free ports)
 import { spawn } from 'node:child_process';
+import { GL_FLAGS } from './chrome.mjs';
 import { writeFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 
@@ -14,7 +15,7 @@ process.on('exit', stopAll);
 
 async function open(i) {
   const port = 20000 + Math.floor(Math.random() * 20000), profile = `/tmp/claude-1000/drift-crowd-${port}`;
-  const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
+  const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
   procs.push(proc);
   let target;
   for (let t = 0; t < 50 && !target; t++) { await sleep(300); try { target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((x) => x.type === 'page'); } catch {} }
