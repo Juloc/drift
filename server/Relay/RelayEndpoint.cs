@@ -59,7 +59,7 @@ public static class RelayEndpoint
     /// <paramref name="joined"/> (optional) gets the session once the visitor is in, and <paramref name="left"/> when it is out.
     /// </summary>
     public static async Task Serve(HttpContext ctx, WorldRelay relay, string address, int car, string? name = null, int? hue = null,
-        Func<Task<bool>>? stillValid = null, Action<Session>? joined = null, Action<Session>? left = null, TimeSpan? checkEvery = null, Action<Session, string>? onText = null, int? glow = null)
+        Func<Task<bool>>? stillValid = null, Action<Session>? joined = null, Action<Session>? left = null, TimeSpan? checkEvery = null, Action<Session, string>? onText = null, int? glow = null, string? worldKey = null)
     {
         if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }
         // a page of another site must not be able to drive through this socket
@@ -68,7 +68,7 @@ public static class RelayEndpoint
         { ctx.Response.StatusCode = 403; return; }
         using var ws = await ctx.WebSockets.AcceptWebSocketAsync();
         var peer = new SocketPeer(ws);
-        var session = relay.Join(peer, address, car, name, hue, glow);
+        var session = relay.Join(peer, address, car, name, hue, glow, worldKey);
         if (session is null) { await peer.Finish(); return; }
         var sender = Task.CompletedTask;
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted);

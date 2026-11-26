@@ -44,6 +44,7 @@ export default {
   'guest.used': '{n} of {max} used',
   'guest.end': 'End',
   'guest.ended': 'Link ended',
+  'guest.join': 'Drive in this session',
   'guest.none': 'No guest link is valid right now.',
   'guest.endAll': 'End all guest links',
   'guest.endAllTitle': 'End all guest links?',

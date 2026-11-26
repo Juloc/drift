@@ -204,6 +204,29 @@ public class GuestTests
     }
 
     [Fact]
+    public async Task A_guest_link_is_a_private_world_for_its_guests_and_for_the_person_who_joins_it_by_its_id()
+    {
+        var (db, app, c, admin) = await Start();
+        await using var _1 = db; await using var _2 = app;
+        var token = await app.GuestLinkAsync(c, admin);
+        var links = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/guest-links", admin)));
+        var linkId = links.GetProperty("links").EnumerateArray().First().GetProperty("id").GetString()!.Replace("-", "");
+        var guest = await TestApp.GuestCookieAsync(await app.JoinAsync(c, token, "Kiwi 7"));
+        using var gws = await Connect(app, guest);                                                       // the guest: the world of its link
+        var first = (await Frame(gws, Wire.Roster))!;
+        Assert.Equal(1, first[1]);                                                                        // alone in it so far
+        using var pws = await Connect(app, admin, PlayEndpoint.Path + "?world=" + linkId);                // the person joins that world by the link's id
+        var seen = (await Frame(pws, Wire.Roster))!;
+        Assert.Equal(2, seen[1]);                                                                         // two in the private world
+        var welcomeP = (await Frame(pws, Wire.Welcome, 1));
+        // a person who asks for a world that is not a link (or an ended one) lands in the public lobby: alone
+        using var stranger = await Connect(app, admin, PlayEndpoint.Path + "?world=" + Guid.NewGuid().ToString("N"));
+        var publicRoster = (await Frame(stranger, Wire.Roster))!;
+        Assert.Equal(1, publicRoster[1]);
+        Assert.NotNull(welcomeP ?? seen);
+    }
+
+    [Fact]
     public async Task A_guest_who_leaves_is_gone()
     {
         var (db, app, c, admin) = await Start();

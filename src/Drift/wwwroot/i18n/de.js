@@ -43,6 +43,7 @@ export default {
   'guest.valid': 'Gültig bis {until}',
   'guest.used': '{n} von {max} verwendet',
   'guest.end': 'Beenden',
+  'guest.join': 'In dieser Sitzung fahren',
   'guest.ended': 'Link beendet',
   'guest.none': 'Gerade ist kein Gastlink gültig.',
   'guest.endAll': 'Alle Gastlinks beenden',

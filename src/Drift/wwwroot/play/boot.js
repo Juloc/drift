@@ -8,7 +8,8 @@ else {
   const tuning = tr.ok ? (await tr.json()).cars[g.car] : null;
   if (tuning) globalThis.__tune = [tuning.steer, tuning.balance, tuning.power, tuning.handbrake];
   const url = new URL(location.href);
-  url.searchParams.set('ws', `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/play/ws`);
+  const world = new URLSearchParams(location.search).get('world');   // a private session of a guest link: the socket joins that world only
+  url.searchParams.set('ws', `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/play/ws${world && /^[0-9a-f-]{32,36}$/i.test(world) ? '?world=' + world : ''}`);
   url.searchParams.set('car', String(g.car));
   if (globalThis.__tune?.some((v) => v !== 0)) url.searchParams.set('tune', globalThis.__tune.join(','));   // the browser's own physics; the server knows the numbers itself
   if (g.glow !== null && g.glow !== undefined) url.searchParams.set('glow', String(g.glow));   // only for drawing our own: the server tells the others from the garage

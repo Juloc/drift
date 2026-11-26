@@ -149,6 +149,8 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     readonly Random rnd = random ?? Random.Shared;
     readonly object gate = new();
     readonly List<List<Session>> worlds = [];
+    /// <summary>The key of each world in `worlds` (the same index): null for the public lobby worlds, a name for a private world that only those who know it enter (a guest link's id).</summary>
+    readonly List<string?> worldKeys = [];
     readonly Dictionary<string, AddressState> addresses = [];
     public RelayStats Stats { get; } = new();
     /// <summary>Called, under the relay's lock, for every accepted pose: keep it short (queue it, do not call back into the relay).</summary>
@@ -165,7 +167,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     /// <paramref name="hue"/> (0..23) the caller says who the visitor is (a signed-in person); without them the relay picks
     /// a name from its fixed list and a free colour (the public world). The caller has checked the text of a name.
     /// </summary>
-    public Session? Join(IPeer peer, string address, int car, string? name = null, int? hue = null, int? glow = null)
+    public Session? Join(IPeer peer, string address, int car, string? name = null, int? hue = null, int? glow = null, string? worldKey = null)
     {
         lock (gate)
         {
@@ -175,11 +177,13 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             while (a.Joins.Count > 0 && Seconds(now - a.Joins.Peek()) > 60) a.Joins.Dequeue();
             if (a.Connections >= o.MaxPerAddress || a.Joins.Count >= o.JoinsPerMinutePerAddress) { Refuse(peer, Wire.ByeFull); return null; }
             // first world with room, else a new one
-            int w = worlds.FindIndex(x => x.Count < o.MaxPerWorld);
+            // a private world (a key): its own world, made when the first one comes; a public join never lands in a private world
+            int w = worldKey is null ? worlds.FindIndex(x => x.Count < o.MaxPerWorld && worldKeys[worlds.IndexOf(x)] is null) : worldKeys.IndexOf(worldKey);
+            if (w >= 0 && worlds[w].Count >= o.MaxPerWorld) { Refuse(peer, Wire.ByeFull); return null; }
             if (w < 0)
             {
                 if (worlds.Count >= o.MaxWorlds) { Refuse(peer, Wire.ByeFull); return null; }
-                worlds.Add([]); w = worlds.Count - 1;
+                worlds.Add([]); worldKeys.Add(worldKey); w = worlds.Count - 1;
             }
             var members = worlds[w];
             byte id = 0; while (members.Any(m => m.Id == id)) id++;
@@ -210,7 +214,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
             members.Remove(s);
             BroadcastRoster(members);
             // an empty last world closes; earlier ones keep their number while anyone is in a later one
-            while (worlds.Count > 0 && worlds[^1].Count == 0) worlds.RemoveAt(worlds.Count - 1);
+            while (worlds.Count > 0 && worlds[^1].Count == 0) { worlds.RemoveAt(worlds.Count - 1); worldKeys.RemoveAt(worldKeys.Count - 1); }
         }
     }
 
