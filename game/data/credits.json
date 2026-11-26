@@ -248,6 +248,99 @@
         "en": "\"Old Japanese Lamp\" by MarcHoogkamp, CC BY 4.0; changed: merged, scaled, textures reduced, own light",
         "de": "„Old Japanese Lamp“ von MarcHoogkamp, CC BY 4.0; verändert: zusammengefasst, skaliert, Texturen verkleinert, eigenes Licht"
       }
+    },
+    {
+      "id": "f20c-sound",
+      "kind": "sound",
+      "name": "2002 Honda F20C (engine recording)",
+      "file": [
+        "game/assets/sound/ae86-engine.ogg",
+        "game/assets/sound/ae86-engine.json"
+      ],
+      "author": "Tyler Riddle",
+      "authorUrl": "https://commons.wikimedia.org/wiki/User:Triddle",
+      "source": "https://commons.wikimedia.org/wiki/File:2002-Honda-F20C.ogg",
+      "licence": "CC BY 3.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "attribution": true,
+      "changes": "cut into engine loops, warped to steady revs, levelled, re-encoded",
+      "use": {
+        "en": "\"2002-Honda-F20C.ogg\" by Tyler Riddle, CC BY 3.0; changed: cut into the AE86's engine loops, warped to steady revs, re-encoded",
+        "de": "„2002-Honda-F20C.ogg“ von Tyler Riddle, CC BY 3.0; verändert: in die Motor-Schleifen des AE86 geschnitten, auf gleichmäßige Drehzahl gebracht, neu kodiert"
+      }
+    },
+    {
+      "id": "music-nightdrive",
+      "kind": "music",
+      "name": "Chillwave Nightdrive",
+      "file": [
+        "game/assets/music/nightdrive.ogg"
+      ],
+      "author": "Bogart VGM",
+      "authorUrl": "https://www.facebook.com/BogartVGM/",
+      "source": "https://opengameart.org/content/chillwave-nightdrive",
+      "licence": "CC BY 3.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "attribution": true,
+      "changes": "levelled, short fades, re-encoded",
+      "use": {
+        "en": "Music: \"Chillwave Nightdrive\" by Bogart VGM (facebook.com/BogartVGM), CC BY 3.0; changed: levelled, re-encoded",
+        "de": "Musik: „Chillwave Nightdrive“ von Bogart VGM (facebook.com/BogartVGM), CC BY 3.0; verändert: Lautstärke angeglichen, neu kodiert"
+      }
+    },
+    {
+      "id": "music-chill-lofi",
+      "kind": "music",
+      "name": "Chill lofi inspired",
+      "file": [
+        "game/assets/music/chill-lofi.ogg"
+      ],
+      "author": "omfgdude",
+      "source": "https://opengameart.org/content/chill-lofi-inspired",
+      "licence": "CC0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "levelled, re-encoded",
+      "use": {
+        "en": "Music: \"Chill lofi inspired\" by omfgdude, CC0",
+        "de": "Musik: „Chill lofi inspired“ von omfgdude, CC0"
+      }
+    },
+    {
+      "id": "music-lofi-again",
+      "kind": "music",
+      "name": "Lofi again",
+      "file": [
+        "game/assets/music/lofi-again.ogg"
+      ],
+      "author": "omfgdude",
+      "source": "https://opengameart.org/content/lofi-again",
+      "licence": "CC0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "levelled, re-encoded",
+      "use": {
+        "en": "Music: \"Lofi again\" by omfgdude, CC0",
+        "de": "Musik: „Lofi again“ von omfgdude, CC0"
+      }
+    },
+    {
+      "id": "music-snow-wave",
+      "kind": "music",
+      "name": "Lost in the Snow Wave",
+      "file": [
+        "game/assets/music/snow-wave.ogg"
+      ],
+      "author": "hatmix",
+      "source": "https://opengameart.org/content/lost-in-the-snow-wave",
+      "licence": "CC0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "levelled, re-encoded",
+      "use": {
+        "en": "Music: \"Lost in the Snow Wave\" by hatmix, CC0",
+        "de": "Musik: „Lost in the Snow Wave“ von hatmix, CC0"
+      }
     }
   ]
 }

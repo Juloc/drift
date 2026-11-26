@@ -8,6 +8,16 @@ Updated 2026-11-26 (evening) by the building session. Every session updates this
 - **Car 1 is the AE86** (was Pip): its own materials, glowing lamps, underbody, contact shadow, headlight pool, brake lights,
   exhaust flames with the event `car.pop`, underglow on the road (`docs/CAR-PIPELINE.md`). Not on a real phone; glass and rims wait
   for the GPU PC; the C# tests were not run for the renamed car (`scripts/test.sh` needs Docker).
+- **Recorded engine and music (2026-11-26, downloads with the owner's yes):** the AE86 plays loops cut from a real recording (Honda F20C, Wikimedia,
+  CC BY 3.0): `tools/sound/run.mjs engine` measures the firing frequency over the recording (`docs/sound/source-f20c.png`), picks a stretch for each of
+  five revs (1500 to 6300) rising (on load) and falling (off load), warps it in time to a steady firing frequency and closes it into a loop;
+  `game/assets/sound/ae86-engine.ogg` (79 KB, mono Opus) with its manifest; `cars.json` `sound: "ae86"`; the made loops stay the fallback (no
+  Opus decoder, no file). Proof: `docs/sound/ae86-rec-ramp.wav` and `.png` (the game's player through the gears), `ae86-loops.wav` (each loop four
+  times). Music: four tracks (CC BY 3.0 Bogart VGM, CC0 omfgdude twice, CC0 hatmix), 3.2 MB of Opus in `game/assets/music/`, `game/data/music.json`,
+  `game/view/music.js`: shuffled, the map's own track first (winter: the snowy one), 4 s crossfades between two streamed audio elements, its own
+  volume slider, off by default, silenced by the sound switch; each track named with author and licence when it starts; credits page lists them
+  (with the author's link). No encoder program on the machine: Opus from the browser's WebCodecs encoder, packed by `tools/sound/oggopus.js`.
+  Not checked: heard by a person (only spectrograms and play state), on iPhone Safari (Ogg Opus support), the engine level against the tyres in a drive.
 - **Practice ground (map 5, 2026-11-26):** `tools/make-practice.mjs` writes `game/data/maps/07-practice.json` and a stand-in scene `scenes/practice.json`
   (the look's own scene comes from the look chat). A level pad of 220 x 140 m (free corner, drift circles of 15 and 25 m, a figure eight, slalom lanes with
   cones 15 and 22 m apart; `cones` are soft data, not walls: drawing them and a points penalty are still to do) and a 691 m course out of the pad and back

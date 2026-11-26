@@ -47,6 +47,22 @@ Downloaded and **not used** (2026-11-26), because they did not bring the picture
 CC BY 4.0; thin see-through branch cards and 4k textures, the mockup's cedars are dense and soft) and "Low Poly Pink Cherry Blossom Tree 3D
 Model" (emaanrazarizvi, CC BY 4.0; hard facets, 3.8k triangles). The downloads stay outside the repository (`drift-mockups/assets-download/`).
 
+## Sound and music
+
+Downloaded 2026-11-26 with the owner's yes, each into its own folder outside the repository (`~/projects/drift-mockups/assets-download/audio-2026-11-26/`);
+only the files made from them are committed. Made by `tools/sound/work.js` in headless Chromium (no encoder program: the browser's Opus encoder,
+`tools/sound/oggopus.js` packs the Ogg file).
+
+| File | Title | Author | Source | Licence | Changed |
+|---|---|---|---|---|---|
+| `game/assets/sound/ae86-engine.ogg`, `.json` | 2002-Honda-F20C.ogg (a 2.0 l four revving, recorded in the engine bay) | Tyler Riddle (Wikimedia user Triddle) | https://commons.wikimedia.org/wiki/File:2002-Honda-F20C.ogg | CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/) | ten stretches cut out (five revs, rising and falling), each warped in time to a steady firing frequency, closed into a loop, levelled, mono Opus 48 kbps |
+| `game/assets/music/nightdrive.ogg` | Chillwave Nightdrive | Bogart VGM (https://www.facebook.com/BogartVGM/, the link the author asks for) | https://opengameart.org/content/chillwave-nightdrive | CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/) | levelled, 30 ms fades at both ends, Opus 48 kbps (from MP3) |
+| `game/assets/music/chill-lofi.ogg` | Chill lofi inspired | omfgdude | https://opengameart.org/content/chill-lofi-inspired | CC0 | levelled, fades, Opus 48 kbps |
+| `game/assets/music/lofi-again.ogg` | Lofi again | omfgdude | https://opengameart.org/content/lofi-again | CC0 | levelled, fades, mono Opus |
+| `game/assets/music/snow-wave.ogg` | Lost in the Snow Wave (the lower bass lead mix) | hatmix | https://opengameart.org/content/lost-in-the-snow-wave | CC0 | levelled, fades, Opus 48 kbps |
+
+In the game every track is named with its author and licence when it starts, and all of them are on the credits page (`game/data/credits.json`).
+
 ## Packs
 
 None used.

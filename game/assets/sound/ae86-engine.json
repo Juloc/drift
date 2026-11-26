@@ -1,0 +1,103 @@
+{
+ "note": "Engine loops cut by tools/sound/work.js (job engine) from 2002-Honda-F20C.ogg (Tyler Riddle, CC BY 3.0); each loop is stored three times, the middle copy is played",
+ "rate": 48000,
+ "rpms": [
+  1500,
+  2600,
+  3800,
+  5000,
+  6300
+ ],
+ "loops": [
+  {
+   "layer": "on",
+   "rpm": 1500,
+   "start": 0.48,
+   "seconds": 0.48,
+   "from": 49.6,
+   "sourceRpm": 1552,
+   "slope": 12
+  },
+  {
+   "layer": "off",
+   "rpm": 1500,
+   "start": 1.92,
+   "seconds": 0.48,
+   "from": 49.6,
+   "sourceRpm": 1552,
+   "slope": 12
+  },
+  {
+   "layer": "on",
+   "rpm": 2600,
+   "start": 3.341542,
+   "seconds": 0.461542,
+   "from": 56.33,
+   "sourceRpm": 2600,
+   "slope": -115
+  },
+  {
+   "layer": "off",
+   "rpm": 2600,
+   "start": 4.726167,
+   "seconds": 0.461542,
+   "from": 14.95,
+   "sourceRpm": 2608,
+   "slope": -953
+  },
+  {
+   "layer": "on",
+   "rpm": 3800,
+   "start": 6.091354,
+   "seconds": 0.442104,
+   "from": 27.48,
+   "sourceRpm": 3795,
+   "slope": 0
+  },
+  {
+   "layer": "off",
+   "rpm": 3800,
+   "start": 7.417667,
+   "seconds": 0.442104,
+   "from": 132.7,
+   "sourceRpm": 3793,
+   "slope": -1683
+  },
+  {
+   "layer": "on",
+   "rpm": 5000,
+   "start": 8.757875,
+   "seconds": 0.456,
+   "from": 117.85,
+   "sourceRpm": 4993,
+   "slope": 514
+  },
+  {
+   "layer": "off",
+   "rpm": 5000,
+   "start": 10.125875,
+   "seconds": 0.456,
+   "from": 132.3,
+   "sourceRpm": 4545,
+   "slope": -902
+  },
+  {
+   "layer": "on",
+   "rpm": 6300,
+   "start": 11.495021,
+   "seconds": 0.457146,
+   "from": 120.9,
+   "sourceRpm": 6301,
+   "slope": 279
+  },
+  {
+   "layer": "off",
+   "rpm": 6300,
+   "start": 12.866458,
+   "seconds": 0.457146,
+   "from": 132.3,
+   "sourceRpm": 4545,
+   "slope": -902
+  }
+ ]
+}
