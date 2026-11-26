@@ -69,14 +69,20 @@ const poolTexture = () => canvasTexture(128, 256, (x, w, h) => {
   }
   x.putImageData(img, 0, 0);
 });
-const flameTexture = () => canvasTexture(64, 64, (x, w, h) => {
-  // a short tongue seen from the side: white-blue core at the pipe (bottom), yellow, orange at the edge, gone at the top
-  const g = x.createRadialGradient(w / 2, h * 0.92, 0, w / 2, h * 0.92, h * 0.85);
-  g.addColorStop(0, 'rgba(225,235,255,1)'); g.addColorStop(0.18, 'rgba(255,230,150,1)'); g.addColorStop(0.45, 'rgba(255,135,40,0.85)'); g.addColorStop(0.75, 'rgba(120,90,255,0.25)'); g.addColorStop(1, 'rgba(60,40,200,0)');
-  x.fillStyle = g; x.beginPath(); x.moveTo(w * 0.5, 0); x.bezierCurveTo(w * 1.05, h * 0.45, w * 0.8, h, w * 0.5, h); x.bezierCurveTo(w * 0.2, h, -w * 0.05, h * 0.45, w * 0.5, 0); x.fill();
+const flameTexture = () => canvasTexture(64, 128, (x, w, h) => {
+  // a sharp tongue seen from the side, the root at the pipe (bottom) and the tip at the top: blue at the root, white-yellow, orange at the tip; hard edges (no fog)
+  const g = x.createLinearGradient(0, h, 0, 0);
+  g.addColorStop(0, 'rgba(110,150,255,1)'); g.addColorStop(0.18, 'rgba(170,200,255,1)'); g.addColorStop(0.4, 'rgba(255,235,170,1)'); g.addColorStop(0.7, 'rgba(255,150,50,1)'); g.addColorStop(1, 'rgba(255,100,20,0.9)');
+  x.fillStyle = g; x.beginPath(); x.moveTo(w * 0.5, 0); x.bezierCurveTo(w * 0.62, h * 0.3, w * 0.98, h * 0.62, w * 0.62, h); x.lineTo(w * 0.38, h); x.bezierCurveTo(w * 0.02, h * 0.62, w * 0.38, h * 0.3, w * 0.5, 0); x.fill();
 });
 const glowTexture = () => canvasTexture(64, 64, (x, w) => {
   const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, w, w);
+});
+const haloTexture = () => canvasTexture(64, 64, (x, w) => {
+  // a lamp's glow: a small hot core and a long soft tail (the old round spot was a flat disc that read as a pink balloon beside the body)
+  const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.07, 'rgba(255,255,255,0.9)'); g.addColorStop(0.2, 'rgba(255,255,255,0.32)'); g.addColorStop(0.45, 'rgba(255,255,255,0.09)'); g.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = g; x.fillRect(0, 0, w, w);
 });
 const padTexture = () => canvasTexture(128, 256, (x, w, h) => {
@@ -261,7 +267,7 @@ export function dressCar(group, spec = {}, { lite = false } = {}) {
   }
   if (spec.glassUv) {
     let env = null; group.traverse((o) => { if (o.isMesh && !env) env = o.material?.envMap ?? null; });
-    splitPalette(group, spec.glassUv, new THREE.MeshStandardMaterial({ name: 'fx_glass', color: 0x05070b, metalness: 0, roughness: 0.06, envMap: env, envMapIntensity: 0.32 }));
+    splitPalette(group, spec.glassUv, new THREE.MeshPhysicalMaterial({ name: 'fx_glass', color: 0x05070b, metalness: 0, roughness: 0.3, specularIntensity: 0.18, envMap: env, envMapIntensity: 0.9 }));   // not a mirror: the sun's direct highlight on a side window was a white-orange ball (with the bloom it looked like a light beside the car), so the specular is turned down and the sky reflection kept
   }
   const m = measure(group), { box } = m;
   const len = box.max.z - box.min.z, half = Math.max(0.3, m.halfTrack - 0.14);
@@ -341,7 +347,13 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     if (!o.isMesh) return;
     const own = (mat) => {
       if (!/^lamp_rear_/i.test(mat?.name ?? '')) return mat;
-      if (!brakeMats.has(mat)) { const c = mat.clone(); c.userData.base = Math.max(3.2, mat.emissiveIntensity); c.emissiveIntensity = c.userData.base; brakeMats.set(mat, c); }
+      if (!brakeMats.has(mat)) {
+        // the red lamp (the brake light): dim when only the lights are on, 3.5x brighter and a pink-red (a pure red over-exposed turns orange-white and the two states
+        // looked the same) when braking: 11 on the red channel, well over the bloom threshold (2.8, the brightest channel counts), so the bloom catches it; the white parts (reverse, reflector) stay as they are
+        const c = mat.clone(), red = c.emissive && c.emissive.r > 0.8 && c.emissive.g < 0.3 && c.emissive.b < 0.3;
+        if (red) c.emissive.setRGB(1, 0.06, 0.16);
+        c.userData.base = red ? 1.7 : 2.2; c.userData.boost = red ? 6.5 : 1; c.emissiveIntensity = c.userData.base; brakeMats.set(mat, c);
+      }
       return brakeMats.get(mat);
     };
     o.material = Array.isArray(o.material) ? o.material.map(own) : own(o.material);
@@ -353,32 +365,32 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   const groundFlashMat = new THREE.MeshBasicMaterial({ name: 'fx_flash_ground', map: glowTexture(), color: new THREE.Color(1, 0.55, 0.2).multiplyScalar(0.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const flames = tips.map((tip) => {
     const g = new THREE.Group(); g.position.copy(tip);
-    const plane = new THREE.PlaneGeometry(0.16, 0.3).translate(0, 0.15, 0).rotateX(-Math.PI / 2);   // 30 cm, pointing along -z (backwards)
+    const plane = new THREE.PlaneGeometry(0.13, 0.3).translate(0, 0.15, 0).rotateX(-Math.PI / 2);   // 30 cm long at most, pointing along -z (backwards)
     g.add(new THREE.Mesh(plane, flameMat), new THREE.Mesh(plane.clone().rotateZ(Math.PI / 2), flameMat));
-    const flash = new THREE.Sprite(flashMat); flash.scale.setScalar(0.3); g.add(flash);
+    const flash = new THREE.Sprite(flashMat); flash.scale.setScalar(0.2); g.add(flash);
     // warm on the road under the rear: NOT in the flame's group (that one is turned about the pipe at every pop)
-    const ground = new THREE.Mesh(flat(new THREE.PlaneGeometry(0.55, 0.55)), groundFlashMat); ground.position.set(tip.x, 0.02, tip.z - 0.1); ground.visible = false;
+    const ground = new THREE.Mesh(flat(new THREE.PlaneGeometry(0.3, 0.3)), groundFlashMat); ground.position.set(tip.x, 0.02, tip.z - 0.1); ground.visible = false;
     g.visible = false; g.userData.flash = flash; g.userData.ground = ground;
     return g;
   });
   const lights = [];   // no real light: a point light this close over the glossy road drew a long streak towards the camera (the warm quad on the road is enough)
   // halos: a soft glow in front of each lamp (camera-facing, depth-tested so the body hides them), on every tier
-  const haloMat = (c, k) => new THREE.SpriteMaterial({ name: 'fx_halo', map: glowTexture(), color: new THREE.Color(c).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
-  const rearHaloMat = haloMat(0xff2a18, 0.9), frontHaloMat = haloMat(0xfff0d8, 0.7);
-  let rearOpacity = 0.55;
+  const haloTex = haloTexture(), haloMat = (c, k) => new THREE.SpriteMaterial({ name: 'fx_halo', map: haloTex, color: new THREE.Color(c).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  const rearHaloMat = haloMat(0xff2a18, 1.4), frontHaloMat = haloMat(0xfff0d8, 1.0);
+  let rearOpacity = 0.55, haloK = 1;   // haloK: 0.5 when the post pass (bloom) is on: the bloom already glows every bright lamp, so the halo is half as strong then
   const halos = [];
   const haloPoints = [];   // the phone: all halos as one Points draw call
-  for (const [re, mat, out, k] of [[/^lamp_rear_/i, rearHaloMat, -1, 0.62], [/^lamp_front_/i, frontHaloMat, 1, 0.55]]) {
+  for (const [re, mat, out, k] of [[/^lamp_rear_/i, rearHaloMat, -1, 0.62], [/^lamp_front_/i, frontHaloMat, 1, 0.55]]) {   // k * 0.5 m: a glow about as wide as the lamp's glass, not a balloon beside the body
     for (const l of lampCentres(re)) {
-      if (lite) { haloPoints.push({ at: l.at.clone().add(new THREE.Vector3(0, 0, out * 0.05)), out, rear: out < 0, size: k * 0.75 }); continue; }
-      const h = new THREE.Sprite(mat); h.position.copy(l.at).add(new THREE.Vector3(0, 0, out * 0.05)); h.scale.setScalar(k * 0.75);   // a fixed soft spot (35 to 40 cm), not the lamp's whole width
+      if (lite) { haloPoints.push({ at: l.at.clone().add(new THREE.Vector3(0, 0, out * 0.05)), out, rear: out < 0, size: k * 0.55 }); continue; }
+      const h = new THREE.Sprite(mat); h.position.copy(l.at).add(new THREE.Vector3(0, 0, out * 0.05)); h.scale.setScalar(k * 0.55);   // a fixed soft spot (about 30 cm), not the lamp's whole width
       h.userData.base = h.scale.x; h.userData.rear = out < 0; h.userData.out = out; halos.push(h);
       // a lamp's glow only shows from the side it shines to: faded out by the angle between the lamp's direction and the camera
       // (seen from behind, the front halos stuck out over the bonnet as two warm dots above the roof)
       h.onBeforeRender = (renderer, scene, camera) => {
         h.getWorldPosition(_hp); car.group.getWorldDirection(_fw).multiplyScalar(out);
         const facing = _fw.dot(_cd.subVectors(camera.position, _hp).normalize());
-        h.material.opacity = (h.userData.rear ? rearOpacity : 1) * Math.max(0, Math.min(1, (facing - 0.05) / 0.35));
+        h.material.opacity = (h.userData.rear ? rearOpacity : 1) * haloK * Math.max(0, Math.min(1, (facing - 0.05) / 0.35));
       };
     }
   }
@@ -395,15 +407,15 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(haloPoints.flatMap((h) => h.at.toArray()), 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(haloPoints.length * 3), 3));
-    haloCloud = new THREE.Points(g, new THREE.PointsMaterial({ name: 'fx_halo_points', map: glowTexture(), size: Math.max(...haloPoints.map((h) => h.size)), sizeAttenuation: true, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    haloCloud = new THREE.Points(g, new THREE.PointsMaterial({ name: 'fx_halo_points', map: haloTex, size: Math.max(...haloPoints.map((h) => h.size)), sizeAttenuation: true, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
     haloCloud.frustumCulled = false;
-    const rearC = new THREE.Color(0xff2a18).multiplyScalar(0.9), frontC = new THREE.Color(0xfff0d8).multiplyScalar(0.7), c = g.attributes.color;
+    const rearC = new THREE.Color(0xff2a18).multiplyScalar(1.4), frontC = new THREE.Color(0xfff0d8).multiplyScalar(1.0), c = g.attributes.color;
     haloCloud.onBeforeRender = (renderer, scene, camera) => {   // each halo by its own angle to the camera, the rear ones brighter when braking
       haloCloud.updateWorldMatrix(true, false); car.group.getWorldDirection(_fw);
       haloPoints.forEach((h, i) => {
         _hp.copy(h.at).applyMatrix4(haloCloud.matrixWorld);
         const facing = _fw.dot(_cd.subVectors(camera.position, _hp).normalize()) * h.out;
-        const k = Math.max(0, Math.min(1, (facing - 0.05) / 0.35)) * (h.rear ? rearOpacity : 1);
+        const k = Math.max(0, Math.min(1, (facing - 0.05) / 0.35)) * (h.rear ? rearOpacity : 1) * haloK;
         const col = h.rear ? rearC : frontC; c.setXYZ(i, col.r * k, col.g * k, col.b * k);
       });
       c.needsUpdate = true;
@@ -416,7 +428,7 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   // pops: one burst per event, its strength sets the size and one or two smaller after-bangs
   let queue = [], life = 0, strength = 0;
   const fire = (s) => {
-    life = 0.06 + 0.06 * s; strength = s;   // 60 to 120 ms
+    life = 0.033 + 0.033 * s; strength = s;   // 2 to 4 frames: a flame is only seen for an instant
     for (const f of flames) { f.visible = true; f.rotation.z = Math.random() * Math.PI; }
   };
   const onPop = (e) => {
@@ -436,9 +448,9 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     },
     update(dt, s) {
       const braking = s.brake > 0.1;
-      for (const mat of brakeMats.values()) mat.emissiveIntensity = mat.userData.base * (braking ? 2.5 : 1);
-      rearOpacity = braking ? 1 : 0.55;
-      for (const h of halos) if (h.userData.rear) h.scale.setScalar(h.userData.base * (braking ? 1.35 : 1));
+      for (const mat of brakeMats.values()) mat.emissiveIntensity = mat.userData.base * (braking ? mat.userData.boost : 1);
+      rearOpacity = braking ? 1 : 0.55; haloK = s.post ? 0.5 : 1;
+      for (const h of halos) if (h.userData.rear) h.scale.setScalar(h.userData.base * (braking ? 1.6 : 1));   // braking: the glow jumps in size and strength
       // the headlight pool lies on the road: each of its points 1.5 cm over the ground under it (s.groundAt(x, z) in world space)
       // the contact shadow and the underglow too (a flat sheet cut into the road wherever the slope changes under the car)
       if (s.groundAt) {
@@ -455,10 +467,10 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
       for (const f of flames) {
         f.visible = on; f.userData.ground.visible = on;
         if (!on) continue;
-        const len = (0.7 + 0.6 * strength) * (0.7 + 0.3 * k);   // 20 to 40 cm
-        f.scale.set(0.8 + 0.4 * strength, 1, len);
-        f.userData.flash.scale.setScalar((0.2 + 0.25 * strength) * k);
-        groundFlashMat.opacity = 0.6 * k * strength;
+        const len = (0.5 + 0.5 * strength) * (0.8 + 0.2 * k);   // 15 to 30 cm
+        f.scale.set(0.7 + 0.3 * strength, 1, len);
+        f.userData.flash.scale.setScalar((0.1 + 0.12 * strength) * k);   // at most 22 cm
+        groundFlashMat.opacity = 0.15 * k * strength;
       }
       for (const l of lights) l.intensity = on ? 6 * strength * k : 0;
     },

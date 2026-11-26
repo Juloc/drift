@@ -119,3 +119,20 @@ test('the other cars play the same loops in one layer: never more than 4 + 4 x 2
   s.update(own, [], { x: 0, z: 0 });
   assert.ok(s.loopsPlaying <= 4, 'the others went quiet: their loops stopped');
 });
+
+test('a pop plays recorded pops when they are loaded (never the same one twice in a row), else the made crack; muted: silent', () => {
+  const { Ctx } = fakeAudio(), s = new SoundSystem({ AudioCtx: Ctx, storage: store() });
+  s.unlock();
+  const played = [], make = s.ctx.createBufferSource.bind(s.ctx);
+  s.ctx.createBufferSource = () => { const src = make(); const start = src.start; src.start = (...a) => { played.push(src.buffer); return start?.apply(src, a); }; return src; };
+  s.pop(1, 0);
+  assert.equal(played.length, 3, 'the made crack: three bursts of noise for a strong pop'); assert.ok(played.every((b) => b === s.noise));
+  played.length = 0;
+  const a = { n: 'a' }, b = { n: 'b' }, c = { n: 'c' };
+  s.popBuffers = [{ buf: a, gain: 1 }, { buf: b, gain: 1 }, { buf: c, gain: 0.8 }];
+  for (let i = 0; i < 20; i++) s.pop(1, 1000 * (i + 1));
+  assert.equal(played.length, 60); assert.ok(played.every((x) => [a, b, c].includes(x)), 'only recorded pops');
+  for (let i = 1; i < played.length; i++) assert.notEqual(played[i], played[i - 1], 'never the same pop twice in a row');
+  s.pop(0.2, 90000); assert.equal(played.length, 61, 'a weak pop is one pop');
+  s.setMuted(true); s.pop(1, 99999); assert.equal(played.length, 61, 'muted: silent');
+});

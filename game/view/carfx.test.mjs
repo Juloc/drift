@@ -174,3 +174,18 @@ test('leanBody: the body turns on its own group, the wheels stay where they are;
   const fx = carFx(car, {}, { lite: true, listen: false });
   let p = fx.flames[0]; while (p && p.name !== 'body_lean_in') p = p.parent; assert.ok(p, 'the flames are with the body');
 });
+
+test('a pop is a short sharp flame: 15 to 30 cm long, a flash of at most 22 cm, seen for two to four frames; a bright pink-red brake light', () => {
+  const car = fakeCar();
+  const fx = carFx(car, { exhaust: [[0.4, 0.3, -2.1]] }, { lite: true, listen: false });
+  for (const [strength, frames] of [[0.2, 2], [1, 4]]) {
+    fx.pop(strength);
+    let seen = 0, long = 0, flash = 0;
+    for (let i = 0; i < 12; i++) { fx.update(1 / 60, { brake: 0 }); const f = fx.flames[0]; if (f.visible) { seen++; long = Math.max(long, f.scale.z * 0.3); flash = Math.max(flash, f.userData.flash.scale.x); } else if (seen) break; }   // (the first burst; the after-bangs come later)
+    assert.ok(seen >= 2 && seen <= 4 && seen <= frames + 0.5, `strength ${strength}: ${seen} frames`);
+    assert.ok(long >= 0.12 && long <= 0.3 + 1e-9, `length ${long}`); assert.ok(flash <= 0.22 + 1e-9, `flash ${flash}`);
+  }
+  const red = [...fx.brakeMats.values()].find((m) => m.emissive.g < 0.2);
+  assert.ok(red, 'the red lamp is a pink-red'); const idle = red.emissiveIntensity;
+  fx.update(1 / 60, { brake: 1 }); assert.ok(red.emissiveIntensity >= idle * 3.5 && red.emissiveIntensity * red.emissive.r > 2.8 * 1.5, 'braking: at least 3.5 times the light, over the bloom threshold');
+});
