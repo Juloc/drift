@@ -12,6 +12,9 @@ public class PageTests
     [InlineData("/play/net/world.js", "text/javascript")]
     [InlineData("/play/data/cars.json", "application/json")]
     [InlineData("/play/data/maps/06-touge.json", "application/json")]
+    [InlineData("/play/lab-sim.html", "text/html")]
+    [InlineData("/play/lab-sim.js", "text/javascript")]
+    [InlineData("/play/sim/sim2.js", "text/javascript")]
     [InlineData("/vendor/three/three.module.js", "text/javascript")]
     [InlineData("/vendor/three/three.core.js", "text/javascript")]
     public async Task The_game_page_and_its_files_are_served_with_the_security_headers(string url, string type)

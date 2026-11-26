@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#2a2340">
+<title>Drift: new driving model (test page)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2716%27 fill=%27%23e0409a%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="lab-sim.css">
+</head>
+<body>
+<canvas id="view" tabindex="0" aria-label="Test drive"></canvas>
+<div id="simhud" aria-live="off"></div>
+<p id="simhint"></p>
+<nav id="simtouch" aria-label="Controls">
+  <div class="pad left">
+    <button type="button" class="btn steer" data-ctl="left" aria-label="Steer left">&#9664;</button>
+    <button type="button" class="btn steer" data-ctl="right" aria-label="Steer right">&#9654;</button>
+  </div>
+  <div class="pad mid">
+    <button type="button" class="btn chip" data-key="KeyQ" aria-label="Gear down">Q &minus;</button>
+    <button type="button" class="btn chip" data-key="KeyE" aria-label="Gear up">E +</button>
+    <button type="button" class="btn chip" data-key="KeyM" aria-label="Manual gearbox">M</button>
+    <button type="button" class="btn chip" data-key="KeyT" aria-label="Stock car or drift set-up">T</button>
+    <button type="button" class="btn chip" data-key="KeyR" aria-label="Reset">R</button>
+  </div>
+  <div class="pad right">
+    <button type="button" class="btn small" data-ctl="clutch" aria-label="Clutch">CLUTCH</button>
+    <button type="button" class="btn small" data-ctl="hand" aria-label="Handbrake">HAND</button>
+    <button type="button" class="btn small" data-ctl="brake" aria-label="Brake">BRAKE</button>
+    <button type="button" class="btn gas" data-ctl="gas" aria-label="Throttle">GAS</button>
+  </div>
+</nav>
+<nav id="simmodes" aria-label="Assist level">
+  <button type="button" data-mode="arcade">1 Arcade</button>
+  <button type="button" data-mode="sport">2 Sport</button>
+  <button type="button" data-mode="sim">3 Sim</button>
+</nav>
+<script type="module" src="lab-sim.js"></script>
+</body>
+</html>

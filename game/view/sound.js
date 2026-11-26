@@ -75,9 +75,10 @@ class Voice {
   }
   setEngine(car) { this.eng = ENGINES[car] ?? ENGINES[0]; this.car = car; this.gear = 1; this.filter.frequency.value = this.eng.tone; this.bGain.gain.value = this.eng.sub; }
   /** Sets the voice for a car: speed (m/s), throttle 0..1, the slide 0..1, the car's top speed; `level` scales everything (the distance), `pan` is -1..1. */
-  set({ speed, throttle, slide, top, surface }, level, pan, now) {
+  set({ speed, throttle, slide, top, surface, rpm }, level, pan, now) {
     const t = this.ctx.currentTime, eng = this.eng;
-    const r = revs(speed, top, eng, this.gear); this.gear = r.gear;
+    // `rpm` given (the test page of the new driving model, sim/sim2.js: the engine's own revs): used as they are; else the virtual gearbox makes them from the speed
+    const r = rpm !== undefined ? { gear: this.gear, rpm } : revs(speed, top, eng, this.gear); this.gear = r.gear;
     const f = Math.min(900, Math.max(20, firing(r.rpm, eng)));
     this.a.frequency.setTargetAtTime(f, t, 0.04); this.b.frequency.setTargetAtTime(f / 2, t, 0.04);
     this.filter.frequency.setTargetAtTime(eng.tone + 2200 * throttle + 1200 * ((r.rpm - eng.idle) / (eng.max - eng.idle)), t, 0.06);
@@ -157,7 +158,7 @@ class LoopVoice extends Voice {
   set(o, level, pan) {
     const gearBefore = this.gear;
     super.set(o, level, pan);   // tyres, turbo, pan, the gear and the overall gain
-    const t = this.ctx.currentTime, eng = this.eng, r = revs(o.speed, o.top, eng, gearBefore);
+    const t = this.ctx.currentTime, eng = this.eng, r = o.rpm !== undefined ? { gear: gearBefore, rpm: o.rpm } : revs(o.speed, o.top, eng, gearBefore);
     this.rpm = r.rpm;
     const w = loopWeights(r.rpm, this.rpms), lv = this.cheap ? { on: 0.6 + 0.4 * Math.max(0, Math.min(1, o.throttle)) } : layerLevels(o.throttle, r.rpm, eng);
     for (const b of this.bank) {

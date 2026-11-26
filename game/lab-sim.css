@@ -1,0 +1,45 @@
+/* The test page of the new driving model (lab-sim.html): the canvas, a read-out panel in the game's glass style, touch buttons, the three assist chips. */
+:root { --glass: rgba(24, 18, 44, 0.62); --edge: rgba(255, 255, 255, 0.16); --white: #fff; --accent: #e0409a; --font: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #1b1530; color: var(--white); font: 13px var(--font); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#simhud { position: fixed; inset: 0; pointer-events: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+.card { position: absolute; background: var(--glass); border: 1px solid var(--edge); border-radius: 14px; backdrop-filter: blur(8px); padding: 8px 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3); }
+#c-speed { right: max(10px, env(safe-area-inset-right)); bottom: 10px; width: 210px; }
+#c-speed .big { display: flex; align-items: baseline; gap: 8px; }
+#c-speed .big b { font: 700 38px var(--font); font-variant-numeric: tabular-nums; }
+#c-speed .big span { opacity: 0.7; }
+#c-speed .gear { margin-left: auto; min-width: 44px; padding: 2px 8px; border: 1px solid var(--edge); border-radius: 10px; text-align: center; font: 700 22px var(--font); }
+.bar { position: relative; height: 8px; margin: 5px 0; border-radius: 5px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+.bar i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); border-radius: 5px; }
+.bar.rev { height: 12px; }
+.bar.rev u { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; }
+.bar.rev i.hot { background: #ff5060; }
+.lbl { display: flex; justify-content: space-between; font-size: 11px; opacity: 0.8; }
+#c-mode { left: max(10px, env(safe-area-inset-left)); top: 10px; max-width: 230px; line-height: 1.5; }
+#c-mode b { color: #ffb0d4; }
+#c-g { left: max(10px, env(safe-area-inset-left)); bottom: 10px; width: 150px; }
+#c-g canvas { display: block; width: 100%; aspect-ratio: 1; }
+#c-wheels { left: calc(max(10px, env(safe-area-inset-left)) + 160px); bottom: 10px; width: 250px; }
+#c-wheels .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 14px; }
+#c-wheels .w .bar { height: 6px; margin: 3px 0; }
+#c-wheels .w i.red { background: #ff5060; }
+#c-wheels .w i.blue { background: #6aa8ff; }
+#simhint { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); margin: 0; padding: 4px 12px; border-radius: 12px; background: var(--glass); border: 1px solid var(--edge); font-size: 12px; opacity: 0.85; pointer-events: none; text-align: center; max-width: 60vw; }
+#simmodes { position: fixed; right: max(10px, env(safe-area-inset-right)); top: 10px; display: flex; gap: 6px; z-index: 5; }
+#simmodes button { min-height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--edge); background: var(--glass); color: var(--white); font: 600 13px var(--font); cursor: pointer; }
+#simmodes button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); }
+#simtouch { display: none; position: fixed; inset: auto 0 0 0; pointer-events: none; z-index: 4; padding: 0 max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+body.touch #simtouch { display: flex; justify-content: space-between; align-items: flex-end; }
+#simtouch .pad { display: flex; gap: 8px; pointer-events: none; }
+#simtouch .pad.mid { position: absolute; left: max(8px, env(safe-area-inset-left)); bottom: 74px; flex-wrap: wrap; max-width: 150px; }
+#simtouch .btn { pointer-events: auto; border: 1px solid var(--edge); background: var(--glass); color: var(--white); border-radius: 16px; font: 700 14px var(--font); min-width: 54px; min-height: 54px; touch-action: none; }
+#simtouch .btn.on { background: var(--accent); }
+#simtouch .btn.gas { min-width: 78px; min-height: 96px; }
+#simtouch .btn.small { min-width: 58px; min-height: 48px; font-size: 11px; }
+#simtouch .btn.chip { min-width: 44px; min-height: 40px; font-size: 12px; }
+body.touch #c-speed { bottom: auto; top: 58px; width: 170px; }
+body.touch #c-g { display: none; }
+body.touch #c-wheels { bottom: auto; top: 10px; left: 50%; transform: translateX(-50%); width: 200px; }
+body.touch #simhint { display: none; }
+body.touch #c-mode { top: 58px; font-size: 11px; max-width: 160px; }
