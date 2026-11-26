@@ -6,8 +6,16 @@ Updated 2026-11-26 (evening) by the building session. Every session updates this
 ## Car models (2026-11-25, batch 1 on branch claude/cars-batch-1, 2026-11-26)
 
 - **Car 1 is the AE86** (was Pip): its own materials, glowing lamps, underbody, contact shadow, headlight pool, brake lights,
-  exhaust flames with the event `car.pop`, underglow strips (`docs/CAR-PIPELINE.md`). Not on a real phone; glass and rims wait
+  exhaust flames with the event `car.pop`, underglow on the road (`docs/CAR-PIPELINE.md`). Not on a real phone; glass and rims wait
   for the GPU PC; the C# tests were not run for the renamed car (`scripts/test.sh` needs Docker).
+- **0.6.2 feedback C1/C2 (2026-11-26):** the underglow is one soft pad of light lying on the road under each of its points (no
+  strips: the lit strip was a hard line under the door; the flat pad cut into the road where the slope changed and flickered);
+  the contact shadow lies on the road the same way; each copy bends its own sheet (they shared the template's). The other drivers'
+  glow patch now sits on the road's height and slope (it lay at height 0). Smoke and skid marks start at the model's own rear
+  tyres (`fleet.dims.rear`: the contact points in the car's axes, right one first, with width and radius; `rearWheel(dims, side)`
+  in `view/look/fleet.js`) and at the road's height under each tyre, not under the car's middle. Pictures
+  `docs/screenshots/cars/ae86-glow-slope-phone.png` (40 % slope, side), `ae86-glow-sag-phone.png`. Flicker judged from stills
+  and by construction, not watched while driving on a real phone.
 
 - **Batch 1:** six more downloaded cars (all CC BY 4.0, Lexyc16): AE86 Trueno `ae86`, Skyline GT-R R34 `r34`, Silvia S14
   `s14`, RX-7 FC `fc`, MX-5 NA `mx5`, 911 930 Turbo `p930`; phone and high file each, emblems removed, own wheels, credits and

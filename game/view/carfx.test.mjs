@@ -116,3 +116,44 @@ test('phone tier: the four wheels are one instanced mesh that follows steering a
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(); ws.getMatrixAt(0, m); m.decompose(new THREE.Vector3(), q, new THREE.Vector3());
   assert.ok(q.angleTo(new THREE.Quaternion()) > 0.3, 'steering and spin reach the instance');
 });
+
+test('the underglow lies on the road under each of its points (a slope, a crest), the contact shadow too; no strips', () => {
+  const car = fakeCar();
+  dressCar(car.group, {});
+  const copy = car.group.clone();   // another copy of the same car (it shares the template's geometry)
+  car.group.position.set(5, 2, 3); car.group.rotation.set(-0.1, 0.4, 0, 'YXZ'); car.group.updateMatrixWorld(true);
+  const fx = carFx(car, {}, { lite: true, listen: false });
+  const ground = (x, z) => 2 + 0.12 * (z - 3) - 0.03 * (x - 5) ** 2;   // a 12 % hill with a crown across it
+  fx.setGlow(18);
+  fx.update(0.016, { brake: 0, groundAt: ground });
+  const pad = car.group.getObjectByName('fx_glow_pad'), shadow = car.group.getObjectByName('fx_shadow'), v = new THREE.Vector3();
+  for (const [mesh, lift] of [[pad, 0.025], [shadow, 0.012]]) {
+    const p = mesh.geometry.attributes.position;
+    let worst = 0;
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(mesh.matrixWorld); worst = Math.max(worst, Math.abs(v.y - ground(v.x, v.z) - lift)); }
+    assert.ok(worst < 0.01, `${mesh.name} ${worst}`);
+  }
+  let strips = 0; car.group.traverse((o) => { if (o.material?.name === 'fx_glow_strip') strips++; });
+  assert.equal(strips, 0);
+  // each copy's shadow gets its own geometry before it is bent: the other copy's stays flat
+  const ys = copy.getObjectByName('fx_shadow').geometry.attributes.position.array.filter((_, i) => i % 3 === 1);
+  assert.ok(ys.every((y) => Math.abs(y - ys[0]) < 1e-6), 'the other copy\'s shadow is untouched');
+  fx.setGlow(null); fx.update(0.016, { brake: 0, groundAt: ground });
+  assert.equal(car.group.getObjectByName('fx_glow').visible, false);
+});
+
+test('measure gives the rear tyres as drawn: right one first, contact point on the road, width and radius', () => {
+  const root = new THREE.Group(), mats = Object.fromEntries(SLOTS.map((s) => [s, new THREE.MeshStandardMaterial({ name: 'game_' + s })]));
+  root.add(new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.0, 4.2).translate(0, 0.7, 0), new THREE.MeshStandardMaterial({ name: 'paint' })));
+  // the older files name the sides the wrong way round: rl on -x here; the hub (the pivot) sits 4 cm inside the tyre's middle
+  for (const [n, x, z] of [['wheel_fl', 0.7, 1.2], ['wheel_fr', -0.7, 1.2], ['wheel_rl', -0.72, -1.25], ['wheel_rr', 0.72, -1.25]]) {
+    const w = new THREE.Group(); w.name = n; w.position.set(x, 0.3, z);
+    w.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16).rotateZ(Math.PI / 2).translate(Math.sign(x) * 0.04, 0, 0), mats.rubber)); root.add(w);
+  }
+  const m = measure(prepareCar(root, mats).group);
+  assert.equal(m.rearTyres.length, 2);
+  const [r, l] = m.rearTyres;
+  assert.ok(Math.abs(r.contact.x + 0.76) < 1e-3 && Math.abs(l.contact.x - 0.76) < 1e-3, `${r.contact.x} ${l.contact.x}`);
+  assert.ok(Math.abs(r.contact.z + 1.25) < 1e-3 && Math.abs(r.contact.y) < 1e-3);
+  assert.ok(Math.abs(r.width - 0.2) < 1e-3 && Math.abs(r.radius - 0.3) < 0.01);
+});

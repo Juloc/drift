@@ -3,7 +3,7 @@
 import * as THREE from '../../vendor/three/three.module.js';
 import { buildCar } from './carmodel.js';
 import { makeClay } from '../core/materials.js';
-import { CAR_DIMS } from './look/fleet.js';
+import { rearWheel } from './look/fleet.js';
 import { X, HEAD } from './space.js';
 
 const WHEEL_R = 0.358, BLOB = [1.15, 2.3];
@@ -58,10 +58,10 @@ export class Remotes {
       rc.spin += (o.vf * dt) / WHEEL_R;
       rc.car.setWheels(o.steer, rc.spin);
       const gl = this.glowOf?.(o.id);
-      if (gl !== undefined && gl >= 0) this.glowPool.add(X(o.x), o.z, HEAD(o.h), gl, this.glowBoost?.() ?? 1);
+      if (gl !== undefined && gl >= 0) this.glowPool.add(X(o.x), o.z, HEAD(o.h), gl, this.glowBoost?.() ?? 1, gy, -Math.atan(grade));   // on the road's height and slope (it lay at height 0: under a hill or floating)
       const drifting = (o.flags & 2) !== 0 || (o.flags & 1) !== 0;
       for (let i = 0; i < 2; i++) {
-        const wp = this.v.set((i ? 1 : -1) * (this.fleet?.dims ?? CAR_DIMS).wheelX, 0, -(this.fleet?.dims ?? CAR_DIMS).wheelZ).applyMatrix4(g.matrix);
+        const rw = rearWheel(this.fleet?.dims, i ? 1 : -1), wp = this.v.set(rw.x, 0, rw.z).applyMatrix4(g.matrix);
         if (drifting && this.frame % 3 === 0) smoke.emit(wp.x, 0.35 + gy, wp.z, 0, 0, 0.5);
         skids.mark(2 + o.id * 2 + i, wp.x, wp.z, 0, 0, drifting, gy);
       }

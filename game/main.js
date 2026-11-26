@@ -29,7 +29,7 @@ import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
 import { WorldClient } from './net/world.js';
 import { Remotes, hueColour } from './view/remotes.js';
-import { CAR_DIMS } from './view/look/fleet.js';
+import { rearWheel } from './view/look/fleet.js';
 import { GlowPool } from './view/wheels.js';
 
 const params = new URLSearchParams(location.search);
@@ -104,7 +104,7 @@ let ownColour = new THREE.Color().setHSL(ownHue, 0.62, 0.42);
 if (params.has('paint')) ownColour = hueColour(+params.get('paint') || 0);   // ?paint=0..26 for pictures (24 white, 25 black, 26 silver)
 if (/^[0-9a-f]{6}$/i.test(params.get('paint') ?? '')) ownColour = new THREE.Color('#' + params.get('paint'));   // ?paint=ffffff: any colour for pictures
 let mine = fleet.spawn(ownColour);
-const fxFor = (c) => (fleet.file ? carFx(c, cars[carIndex]?.fx, { lite }) : null);   // brake lights, exhaust flames (on the event car.pop that the throttle code below fires), underglow strips
+const fxFor = (c) => (fleet.file ? carFx(c, cars[carIndex]?.fx, { lite }) : null);   // brake lights, exhaust flames (on the event car.pop that the throttle code below fires), underglow on the road
 let mineFx = fxFor(mine);
 const carGroup = new THREE.Group();
 carGroup.add(mine.group);
@@ -513,9 +513,10 @@ function simStep(i) {
   if (simSteps % 3 === 0 && !paused) {
     const slid = (Math.abs(bodySlip(cur)) > 0.2 || inp.handbrake > 0) && speedOf(cur) > 3, S = look.smoke, t = Math.atan2(cur.vx, cur.vz), push = S.drift ?? 0, out = S.offset ?? 0;
     for (const sx of [-1, 1]) {
-      const ry = HEAD(cur.h), c = Math.cos(ry), sn = Math.sin(ry), lx = sx * (fleet.dims ?? CAR_DIMS).wheelX, lz = -(fleet.dims ?? CAR_DIMS).wheelZ, wx = X(cur.x) + lx * c + lz * sn, wz = cur.z - lx * sn + lz * c;
-      stage.skids.mark(sx < 0 ? 0 : 1, wx, wz, 0, 0, slid && speedOf(cur) > 3, stage.field.groundY(cur.x, cur.z));
-      if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + stage.field.groundY(cur.x, cur.z), wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
+      // at the model's own rear tyre (fleet.js rearWheel), on the road's height under that tyre (not under the car's middle: on a slope they differ)
+      const ry = HEAD(cur.h), c = Math.cos(ry), sn = Math.sin(ry), { x: lx, z: lz } = rearWheel(fleet.dims, sx), wx = X(cur.x) + lx * c + lz * sn, wz = cur.z - lx * sn + lz * c, wy = stage.field.groundY(X(wx), wz);
+      stage.skids.mark(sx < 0 ? 0 : 1, wx, wz, 0, 0, slid && speedOf(cur) > 3, wy);
+      if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + wy, wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
     }
   }
   if (map.kind === 'descent' && !locked) {
@@ -620,8 +621,8 @@ function frame(now) {
   stage.smoke.car.value.set(X(drawn.x), gy, drawn.z);
   spin += (vf * dt) / WHEEL_R;
   glowPool.begin();
-  if (mineFx) { mineFx.setGlow(glowHue); mineFx.update(paused ? 0 : dt, { brake: lastInp.brake, groundAt: (wx, wz) => stage.field.groundY(X(wx), wz) }); }   // a model car: strips along the sills, not a patch (X: the view's x is the physics' x mirrored)
-  else if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy);
+  if (mineFx) { mineFx.setGlow(glowHue); mineFx.update(paused ? 0 : dt, { brake: lastInp.brake, groundAt: (wx, wz) => stage.field.groundY(X(wx), wz) }); }   // a model car: its own underglow lying on the road (X: the view's x is the physics' x mirrored)
+  else if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy, -Math.atan(slope));
   pool.begin();
   mine.setWheels(cur.steer, spin);
   if (!fleet.file) pool.blob(X(drawn.x), drawn.z, BLOB[0], BLOB[1], HEAD(drawn.h), gy);   // a model car brings its own contact shadow

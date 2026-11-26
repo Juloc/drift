@@ -9,6 +9,8 @@ import { buildS15 } from '../s15.js';
 
 const MAGIC = 0x123456;   // the colour the template is made in, so that the paint material (or a copy a file's texture made of it) is found by its colour
 export const CAR_DIMS = { wheelX: 0.8, wheelZ: 1.27 };   // the model's wheels (the S15's numbers, which the RX-7 file follows)
+/** The rear contact point of side sx (-1 right, +1 left) in the car's axes: { x, z } (the model's tyre when known). */
+export const rearWheel = (dims, sx) => dims?.rear?.[sx < 0 ? 0 : 1] ?? { x: sx * (dims ?? CAR_DIMS).wheelX, z: -(dims ?? CAR_DIMS).wheelZ };
 
 export class Fleet {
   /** @param stage createStage()'s result  @param {{ model?: string }} o the model file's name (data in game/assets/cars/) */
@@ -18,7 +20,14 @@ export class Fleet {
     const { stage } = this;
     this.tpl = await this.make(MAGIC, { model: this.model, kit: false });
     this.file = !!this.tpl.url; this.url = this.tpl.url ?? null;
-    if (this.file) { const m = dressCar(this.tpl.group, this.fx, { lite: stage.carTier !== 'high' }); this.dims = { wheelX: m.halfTrack, wheelZ: -m.rear }; }   // the skid marks at the model's rear wheels   // underbody, contact shadow, headlight pool: every copy has them
+    // underbody, contact shadow, headlight pool: every copy has them. dims: where smoke and skid marks start, in the car's axes
+    // (x left, z forwards, the road at y 0): `rear` the two rear tyres' contact points as drawn, the right one (-x) first, each with
+    // its width and radius; wheelX / wheelZ the older two numbers (the pivots), kept for the code car and older callers
+    if (this.file) {
+      const m = dressCar(this.tpl.group, this.fx, { lite: stage.carTier !== 'high' });
+      const rear = m.rearTyres.length === 2 ? m.rearTyres.map((t) => ({ x: t.contact.x, z: t.contact.z, width: t.width, radius: t.radius })) : null;
+      this.dims = { wheelX: m.halfTrack, wheelZ: -m.rear, ...(rear ? { rear } : {}) };
+    }
     this.uniforms = paintCar(this.tpl.group, stage.sun, stage.look.car);
     this.paintMat = this.tpl.materials?.paint ?? null;
     return this;
