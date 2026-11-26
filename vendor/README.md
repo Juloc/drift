@@ -28,3 +28,25 @@ One addon, **with one changed line**: `RoomEnvironment.js` (the studio-like room
 More addons, same single changed line (`} from 'three';` to `} from '../../three.module.js';`): `GLTFLoader.js` with its two helpers `BufferGeometryUtils.js` and `SkeletonUtils.js` (loads the car models, `docs/CAR-MODELS.md`) and `GLTFExporter.js` (only used by `tools/export-s15.mjs` in Node to write the test model; the game does not load it). The meshopt decoder is **not** vendored: it carries inline WebAssembly, which the content policy would have to allow; car files are uncompressed for now.
 
 To update: `npm pack three@<version>` in a scratch folder, copy the same three files, update this table.
+
+## Addons of the hero corner (r186)
+
+Same release as the core, MIT. Each file has its `import ... from 'three'` changed to the relative `../../three.module.js`; nothing else. sha256 of the vendored files:
+
+| File | sha256 |
+|---|---|
+| `three/addons/postprocessing/EffectComposer.js` | `af78417adddaa482b742ddcfdf551ca0b35d77d58493f2e96439fdc219905ef0` |
+| `three/addons/postprocessing/GTAOPass.js` | `17b5f96f5d71f123068934c0962f3094a8a335618c1507392b5c74793a709f10` |
+| `three/addons/postprocessing/MaskPass.js` | `7cd08eee9d5d6f5578beaddbdcbe9c384f6873810af27f22ab7db3ceeb127aa3` |
+| `three/addons/postprocessing/OutputPass.js` | `e31bb5e6843c43e99113198824c2242b95abe2ed9047e725691fd6453fc8321f` |
+| `three/addons/postprocessing/Pass.js` | `ac015c53e4a491b4f071535d003e6208ec56e00cfbb74942d93556dd53c45673` |
+| `three/addons/postprocessing/RenderPass.js` | `11d4309065ed205241291a6e1e3f6d54acd11ee16a753313a2b4b33a5ce4b189` |
+| `three/addons/postprocessing/ShaderPass.js` | `1a07592b97c68fec70b9ece4ee32522878c9e71e8364c10f359480b8cd676ef2` |
+| `three/addons/postprocessing/UnrealBloomPass.js` | `246ded822cd0fc5643b5bdc53e9542deeae168d2550c010891264920abb4bca2` |
+| `three/addons/shaders/CopyShader.js` | `a33057d5ac91c43304c186ac0e8816e62bb2ed471d3a00ff3018dfd5c0389718` |
+| `three/addons/shaders/GTAOShader.js` | `29436879b67434c591c3854470688d927173b66edc9dc1ff957341544035cdd9` |
+| `three/addons/shaders/LuminosityHighPassShader.js` | `123c9d8c4155fa296822eb3325574e82a6c5f4cb30eed065c6cc073ba7ca3bbe` |
+| `three/addons/shaders/OutputShader.js` | `353479f77a8d7e2629d49ccac9fc2f5dbfdda5442e0adf867b00377a2fcb0cb2` |
+| `three/addons/shaders/PoissonDenoiseShader.js` | `a7a47d760be2bd2e772556b240a2848940f3fa7fce4187e7c25484db64b9a4bc` |
+| `three/addons/math/SimplexNoise.js` | `4b1455617135e6b477de76244de07547d95570643379b72f4758e50161b06072` |
+| `three/addons/loaders/HDRLoader.js` | `f98403abc4846e4929df2d58aaaa835b1982fccfe414f37b20d0c9631993947c` |

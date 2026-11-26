@@ -62,3 +62,14 @@ test('pages: every script and style a page names is there', () => {
   }
   assert.deepEqual(bad, []);
 });
+
+test('pages: the development pages of the lab are known (each has its script, no inline script or style) and the vendored addons import three by a relative path', () => {
+  const lab = ['game/lab-sim.html', 'game/lab-look.html', 'game/lab-nature.html', 'game/lab-corner.html', 'game/lab-drive.html'].filter((p) => existsSync(p));
+  assert.ok(lab.length >= 4 && lab.includes('game/lab-corner.html'));
+  for (const p of lab) {
+    const html = readFileSync(p, 'utf8');
+    assert.match(html, /<script[^>]*\ssrc="[^"]+"/, `${p} loads a script`);
+    assert.ok(!/<script(?![^>]*\ssrc=)[^>]*>\s*\S/.test(html) && !/<style/i.test(html) && !/\sstyle="/.test(html), `${p} has no inline script or style`);
+  }
+  for (const f of walk('vendor/three/addons').filter((f) => f.endsWith('.js'))) assert.ok(!/from\s+['"]three['"]/.test(readFileSync(f, 'utf8')), `${f} still imports the bare name three`);
+});

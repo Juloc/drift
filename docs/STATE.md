@@ -815,3 +815,8 @@ A static page with sample data, no server logic, no inline script; every text th
 - Credits (48 entries) and ASSETS table (48 lines), test checks each file against both.
 - Sizes: trees 92-568 KB (TwistedTree 490-570 KB, CommonTree 305-350, DeadTree ~280-320, Pine 90-245), everything else 9-113 KB.
 - Seen on the sheet: Bush_Common (bush-a) and all five TwistedTrees are dark RED (the kit's autumn leaf texture), DeadTrees are nearly black, Plant_7 / Plant_7_Big are purple ground cover; the CommonTrees, Pines, grasses, flowers, pebbles read fine.
+
+### Corner part 1: chef/corner merged, licences clean
+- Merged `chef/corner` (the hero corner: `game/lab-corner.html` + `lab-corner.js`, `tools/cornershot.mjs`, vendored three r186 addons for post-processing and HDR, Kenney kits, two Poly Haven files). Default sky is now `the_sky_is_on_fire` (the `?sky=` parameter still works).
+- Pruned to what the page loads (measured by the browser's resource list): kit 10048 -> 1184 KB (502 files deleted, 57 kept), sky 10320 -> 5860 KB (belfast sunset removed), tex 2464 KB unchanged. The picture is the same (checked by eye; two runs of the same page already differ in pixels, so hashes only become possible with `still=1` in part 2).
+- `docs/ASSETS.md` (hero corner section, addons note), `game/data/credits.json` (kit-racing, kit-nature, kit-city, kit-watercraft with every file named, sky-fire, tex-asphalt-02, the nature manifest), `vendor/README.md` (sha256 of the addons). `tests/js/pages.test.mjs` knows the lab pages and checks the addons' imports. `tools/simdrive.mjs --page=... --ready=<js>` waits for another page's own ready flag.

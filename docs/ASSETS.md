@@ -142,3 +142,19 @@ The kit was unpacked outside the repository (it stays in the chief's download fo
 | `game/assets/env/pebble-square-4.glb` | Pebble Square 4 (Pebble_Square_4) | Quaternius (https://quaternius.com) | https://opengameart.org/content/stylized-nature-megakit | CC0 1.0 | cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs) |
 | `game/assets/env/pebble-square-5.glb` | Pebble Square 5 (Pebble_Square_5) | Quaternius (https://quaternius.com) | https://opengameart.org/content/stylized-nature-megakit | CC0 1.0 | cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs) |
 | `game/assets/env/pebble-square-6.glb` | Pebble Square 6 (Pebble_Square_6) | Quaternius (https://quaternius.com) | https://opengameart.org/content/stylized-nature-megakit | CC0 1.0 | cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs) |
+
+## The hero corner (real models, a real sky; all CC0 1.0)
+
+From `~/projects/drift-mockups/assets-download/QUELLEN.md` (downloaded with the owner's yes). Only the files the corner scene loads are kept in the repository (the kits came whole, about 9 MB; now 1.2 MB). Every file is listed one by one in `game/data/credits.json`.
+
+| Files | Title | Author | Source | Licence | Changes |
+|---|---|---|---|---|---|
+| `game/assets/kit/racing/` (29 files) | Racing Kit 1.2 | Kenney (https://kenney.nl) | https://opengameart.org/content/racing-kit | CC0 1.0 | only the files the scene loads; barriers, grandstand, pylon, fence, flags, lights, pits and a tent |
+| `game/assets/kit/nature/` (14 files) | Nature Kit 2.1 | Kenney (https://kenney.nl) | https://opengameart.org/content/nature-kit | CC0 1.0 | only the files the scene loads; palms, bushes, grass, flowers and rocks |
+| `game/assets/kit/city/` (8 files) | City Kit (Industrial) 2.0 | Kenney (https://kenney.nl) | https://opengameart.org/content/city-kit-industrial | CC0 1.0 | only the files the scene loads; buildings, a tank, a chimney and shipping containers |
+| `game/assets/kit/watercraft/` (6 files) | Watercraft Kit | Kenney (https://kenney.nl) | https://opengameart.org/content/watercraft-pack | CC0 1.0 | only the files the scene loads; cargo ships and a sailing boat |
+| `game/assets/sky/the_sky_is_on_fire_2k.hdr` | HDRI "The Sky Is On Fire" | Poly Haven (https://polyhaven.com) | https://polyhaven.com/a/the_sky_is_on_fire | CC0 1.0 | none (2k version); the other sky of the download was removed |
+| `game/assets/tex/asphalt_02_{diff,nor_gl,rough}_1k.jpg` | Asphalt 02 | Poly Haven | https://polyhaven.com/a/asphalt_02 | CC0 1.0 | none (1k versions) |
+| `game/assets/env/nature.json` | list of the converted Quaternius files | own list | (see the nature kit section) | CC0 1.0 | made by tools/make-nature.mjs |
+
+**three.js addons for the corner scene** (MIT like the vendored core, r186; each has its import of `three` changed to `../../three.module.js`; hashes in `vendor/README.md`): `postprocessing/{EffectComposer,RenderPass,GTAOPass,UnrealBloomPass,OutputPass,ShaderPass,MaskPass,Pass}.js`, `shaders/{CopyShader,GTAOShader,LuminosityHighPassShader,OutputShader,PoissonDenoiseShader}.js`, `math/SimplexNoise.js`, `loaders/HDRLoader.js`.
