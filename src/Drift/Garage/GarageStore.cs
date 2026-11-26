@@ -11,11 +11,14 @@ public sealed class GarageStore(NpgsqlDataSource db)
 {
     public static readonly string[] CarNames = ["Dart", "AE86", "Bruno", "Marlin", "Ox"];
 
+    /// <summary>The one car everybody drives for now (docs/FOCUS.md: exactly one car): the AE86. What a person saved earlier stays in the database and stays valid, but is not used.</summary>
+    public const int OnlyCar = 1;
+
     /// <summary>The profile, or the defaults of a person who has never saved one: the first car, a colour that follows the person's id.</summary>
     public async Task<Profile> GetAsync(Guid userId, CancellationToken ct = default) =>
         await db.FirstAsync("select car_id, colour, nick, glow from drift_profile where user_id = $1",
-            r => new Profile(r.GetInt16(0), r.GetInt16(1), r.TextOrNull(2), r.IsDBNull(3) ? null : r.GetInt16(3)), ct, userId)
-        ?? new Profile(0, DefaultColour(userId), null);
+            r => new Profile(OnlyCar, r.GetInt16(1), r.TextOrNull(2), r.IsDBNull(3) ? null : r.GetInt16(3)), ct, userId)
+        ?? new Profile(OnlyCar, DefaultColour(userId), null);
 
     public async Task<Profile> SaveAsync(Guid userId, Profile p, CancellationToken ct = default)
     {
@@ -36,7 +39,7 @@ public sealed class GarageStore(NpgsqlDataSource db)
     public static string NeutralName(Guid userId, int colour)
     {
         var h = userId.ToByteArray().Aggregate(17, (a, b) => unchecked(a * 31 + b));
-        return Drift.Relay.WorldRelay.Colours[colour / 2 % Drift.Relay.WorldRelay.Colours.Length] + " " + Drift.Relay.WorldRelay.Animals[(h & 0x7fffffff) % Drift.Relay.WorldRelay.Animals.Length];
+        return (colour >= 24 ? Drift.Relay.WorldRelay.PaintWords[Math.Min(2, colour - 24)] : Drift.Relay.WorldRelay.Colours[colour / 2 % Drift.Relay.WorldRelay.Colours.Length]) + " " + Drift.Relay.WorldRelay.Animals[(h & 0x7fffffff) % Drift.Relay.WorldRelay.Animals.Length];
     }
 
     /// <summary>New drivers are white (the paint of the first mockup car); 24 is white.</summary>

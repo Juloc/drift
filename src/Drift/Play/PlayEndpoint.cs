@@ -47,7 +47,7 @@ public static class PlayEndpoint
             var g = ctx.Guest();
             var cookie = ctx.Request.Cookies[GuestEndpoints.CookieName(ctx.Request)];
             var guests = sp.GetRequiredService<GuestService>();
-            return new Player(g.Id, g.Name, g.Car, g.Colour, true, async () => cookie is not null && await guests.ValidateAsync(cookie, CancellationToken.None) is not null);
+            return new Player(g.Id, g.Name, Drift.Garage.GarageStore.OnlyCar, g.Colour, true, async () => cookie is not null && await guests.ValidateAsync(cookie, CancellationToken.None) is not null);
         }
         if (ctx.IsGameAccount())
         {

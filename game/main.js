@@ -59,7 +59,7 @@ const [cars, mapList] = await Promise.all([
   fetch('data/maps.json').then((r) => r.json()).then((j) => j.maps),
 ]);
 const online = document.documentElement.dataset.mode === 'online';
-const carIndex = params.has('car') ? Math.min(cars.length - 1, +params.get('car') || 0) : online ? Math.floor(Math.random() * cars.length) : 0;
+const carIndex = params.has('car') ? Math.min(cars.length - 1, +params.get('car') || 0) : online ? Math.floor(Math.random() * cars.length) : 1;   // (one car for now, docs/FOCUS.md: the AE86 is car 1; the signed-in page is told 1 by the server)
 // ?tune=steer,balance,power,handbrake (each -3..3, at most 10 points together): the garage's tuning of this car, seen by this page only
 const tuneParts = (params.get('tune') ?? '').split(',').map(Number);
 const tune = Object.fromEntries(TUNE_NAMES.map((k, i) => [k, tuneParts[i] ?? 0]));

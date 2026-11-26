@@ -72,3 +72,4 @@ body.touch #fs { top: 238px; }
 #summary b { font-weight: 700; }
 body.touch #summary { font-size: 13px; min-width: 200px; padding: 8px 16px; top: 40%; }
 body.touch #summary h3 { font-size: 16px; }
+#back { top: 240px !important; bottom: auto !important; width: 40px; height: 40px; font-size: 18px; }

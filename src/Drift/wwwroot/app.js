@@ -53,6 +53,7 @@ async function garagePage(me) {
   const preview = h('p', { class: 'garage-preview' });
   const swatch = (hue) => { const b = h('button', { class: 'swatch', type: 'button', role: 'radio', 'aria-label': t('garage.colourN', { n: hue / 15 + 1 }) }); b.style.setProperty('--h', hue); return b; };
 
+  state.car = 1;   // one car for now (docs/FOCUS.md): the AE86; the other four stay valid in the data but are not offered
   const carButtons = CARS.map((c, i) => {
     const bars = STATS.map((s) => h('div', { class: 'stat' }, h('span', { class: 'stat-name', text: t('garage.stat.' + s) }),
       h('span', { class: 'bars', 'aria-hidden': 'true' }, [1, 2, 3, 4, 5].map((n) => h('i', { class: n <= c[s] ? 'on' : '' })))));
@@ -115,7 +116,7 @@ async function garagePage(me) {
     title: t('garage.title'), sub: t('garage.sub'),
     actions: [h('a', { class: 'btn primary', href: '/play/' }, icon('bolt'), t('garage.play'))],
     body: h('div', { class: 'page stack' },
-      h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.car') }), h('div', { class: 'cars', role: 'radiogroup', 'aria-label': t('garage.car') }, carButtons)),
+      h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.car') }), h('div', { class: 'cars', role: 'radiogroup', 'aria-label': t('garage.car') }, carButtons.filter((_, i) => i === 1))),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.colour') }), h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.colour') }, swatches)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('tune.title') }), h('p', { class: 'muted', text: t('tune.intro') }), points, tuneBox, h('div', { class: 'cluster' }, tuneReset)),
       h('section', { class: 'card stack' }, h('h2', { class: 'card-title', text: t('garage.glow') }), h('p', { class: 'muted', text: t('garage.glowHint') }), glowOff, h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': t('garage.glow') }, glowSwatches)),
