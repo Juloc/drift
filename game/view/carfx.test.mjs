@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import * as THREE from '../../vendor/three/three.module.js';
 import { prepareCar } from './carglb.js';
 import { SLOTS } from './carglb.js';
-import { dressCar, carFx, measure, splitPalette } from './carfx.js';
+import { dressCar, carFx, measure, splitPalette, treadTyres } from './carfx.js';
 
 function fakeCar() {
   const mats = Object.fromEntries(SLOTS.map((s) => [s, new THREE.MeshStandardMaterial({ name: 'game_' + s })]));
@@ -63,4 +63,20 @@ test('splitPalette takes the faces of one palette field into their own mesh and 
   assert.deepEqual([...glass.geometry.index.array], [0, 1, 2]);
   assert.deepEqual([...mesh.geometry.index.array], [3, 4, 5]);
   assert.equal(splitPalette(root, [0.9, 0.1], new THREE.MeshStandardMaterial()), null);
+});
+
+test('treadTyres takes the tyre faces of each wheel into a tread mesh with UVs round the axle', () => {
+  const root = new THREE.Group();
+  for (const n of ['wheel_fl', 'wheel_fr']) {
+    const spin = new THREE.Group(); root.add(spin);
+    const g = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16, 1, true).rotateZ(Math.PI / 2);   // the tread round the x axis, like a wheel (open: a tyre has no centre point)
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2).map((_, i) => (i % 2 ? 0.875 : 0.625)), 2));
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ name: 'own_palette' })); m.name = n + '_own'; spin.add(m);
+  }
+  assert.equal(treadTyres(root, [0.625, 0.875]), 2);
+  const tyres = []; root.traverse((o) => { if (o.isMesh && o.material.name === 'fx_tyre') tyres.push(o); });
+  assert.equal(tyres.length, 2);
+  const uv = tyres[0].geometry.attributes.uv;
+  let span = 0; for (let t = 0; t < uv.count; t += 3) span = Math.max(span, Math.abs(uv.getX(t) - uv.getX(t + 1)), Math.abs(uv.getX(t) - uv.getX(t + 2)));
+  assert.ok(span < 0.5, 'no triangle runs round the seam');
 });
