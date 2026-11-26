@@ -173,12 +173,59 @@ export function treadTyres(group, uvAt, colour = 0x1b1b1d) {
   return n;
 }
 
+/** Puts the faces of `from` (a mesh) into `into` (a mesh, same material), in its space; only the attributes both have. */
+export function mergeInto(into, from) {
+  into.updateWorldMatrix(true, false); from.updateWorldMatrix(true, false);
+  const a = into.geometry, b0 = from.geometry.index ? from.geometry.toNonIndexed() : from.geometry.clone();
+  b0.applyMatrix4(new THREE.Matrix4().copy(into.matrixWorld).invert().multiply(from.matrixWorld));
+  const names = Object.keys(a.attributes).filter((k) => b0.attributes[k] && b0.attributes[k].itemSize === a.attributes[k].itemSize);
+  const ga = new THREE.BufferGeometry(), gb = new THREE.BufferGeometry();
+  for (const k of names) { ga.setAttribute(k, a.attributes[k]); gb.setAttribute(k, b0.attributes[k]); }
+  ga.setIndex(a.index ?? [...Array(a.attributes.position.count).keys()]);
+  gb.setIndex([...Array(b0.attributes.position.count).keys()]);
+  const g = mergeGeometries([ga, gb]);
+  if (!g) return false;
+  into.geometry = g;
+  from.parent?.remove(from);
+  return true;
+}
+
+/**
+ * The four wheels of a model car as one draw call (the phone tier): an instanced copy of the front left wheel, its four matrices
+ * taken from the wheels' pivot > spin > mesh before every frame it is drawn (the right ones turned round: outward is -x).
+ * The original wheel meshes stay in the tree (hidden), so steering and spinning work as before.
+ */
+export class WheelSet extends THREE.InstancedMesh {
+  constructor(geometry, material) { super(geometry, material, 4); this.name = 'fx_wheels'; this.frustumCulled = false; this.userData.fx = true; }
+  clone() { return new WheelSet(this.geometry, this.material).copy(this, false); }
+  onBeforeRender() {
+    const root = this.parent;
+    if (!root) return;
+    if (!this.userData.found) {   // the pivots of this copy of the car (found once per copy, kept outside userData: it holds plain data only)
+      this._wheels = ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr'].map((n) => root.getObjectByName(n + '_pivot')).filter(Boolean)
+        .map((pivot, i, all) => { const spin = pivot.children[0], mesh = spin.children.find((c) => c.isMesh); if (mesh) mesh.visible = false;
+          return { pivot, spin, mesh, right: Math.sign(pivot.position.x) !== Math.sign(all[0].position.x) }; });   // turned round: the wheels on the other side than the one whose shape is used (the older files name their sides the wrong way round)
+      this.userData.found = true;
+    }
+    const m = WheelSet._m;
+    this._wheels.forEach((w, i) => {
+      m.multiplyMatrices(w.pivot.matrix, w.spin.matrix);
+      if (w.mesh) m.multiply(w.mesh.matrix);
+      if (w.right) m.multiply(WheelSet._turn);
+      this.setMatrixAt(i, m);
+    });
+    this.instanceMatrix.needsUpdate = true;   // (used from the next frame: the wheels' spin is a frame late, not their place)
+  }
+}
+WheelSet._m = new THREE.Matrix4();
+WheelSet._turn = new THREE.Matrix4().makeRotationY(Math.PI);
+
 export function dressCar(group, spec = {}, { lite = false } = {}) {
   // windows: their own dark tinted glass, a weak reflection of the sky (the palette's glass reflected it fully: a pale plate)
-  if (spec.tyreUv) treadTyres(group, spec.tyreUv);
+  if (spec.tyreUv && !lite) treadTyres(group, spec.tyreUv);   // (the phone: the tyres stay in the wheel's palette, one draw call for all four wheels)
   // rims: their own part (later: wheel size, rim colour and finish); a satin metal with a calm reflection of the sky, not a mirror
   // that turns orange or blue in the dusk
-  if (spec.rimUv) {
+  if (spec.rimUv && !lite) {
     let env = null; group.traverse((o) => { if (o.isMesh && !env) env = o.material?.envMap ?? null; });
     const r = spec.rim ?? {};
     const rim = new THREE.MeshStandardMaterial({ name: 'fx_rim', color: new THREE.Color().setRGB(...(r.color ?? [0.16, 0.165, 0.175])), metalness: r.metal ?? 0.55, roughness: r.rough ?? 0.35, envMap: env, envMapIntensity: r.env ?? 0.7 });
@@ -190,7 +237,7 @@ export function dressCar(group, spec = {}, { lite = false } = {}) {
     if (!paintMesh) break;
     const [lo, hi] = [new THREE.Vector3(...part.lo), new THREE.Vector3(...part.hi)];
     const n = splitPalette(group, part.uv, paintMesh.material, 0.06, { only: /^body_/, where: (c, nrm) => c.x >= lo.x && c.x <= hi.x && c.y >= lo.y && c.y <= hi.y && c.z >= lo.z && c.z <= hi.z && nrm.y >= (part.up ?? -1) });
-    if (n) n.name = 'body_paint_' + (part.name ?? 'part');
+    if (n && !mergeInto(paintMesh, n)) n.name = 'body_paint_' + (part.name ?? 'part');   // into the paint mesh: no extra draw call
   }
   if (spec.glassUv) {
     let env = null; group.traverse((o) => { if (o.isMesh && !env) env = o.material?.envMap ?? null; });
@@ -223,6 +270,17 @@ export function dressCar(group, spec = {}, { lite = false } = {}) {
   pool.position.set(0, 0.015, box.max.z - 0.2 + 5.5); pool.renderOrder = 2; pool.name = 'fx_pool';   // its near edge just under the bumper
   const fx = new THREE.Group(); fx.name = 'fx'; fx.add(under, shadow, pool);
   group.add(tag(fx));
+  if (lite) {
+    // the underbody into the body's own palette mesh (its faces on the black field): one draw call less
+    const pal = group.getObjectByName('body_own_palette');
+    if (pal) {
+      const uv = under.geometry.attributes.uv, cell = spec.trimUv ?? [0.125, 0.875];
+      if (uv) { for (let i = 0; i < uv.count; i++) uv.setXY(i, cell[0], cell[1]); mergeInto(pal, under); }
+    }
+    // the four wheels as one instanced mesh
+    const fl = group.getObjectByName('wheel_fl_pivot')?.children[0]?.children.find((c) => c.isMesh);
+    if (fl) { const ws = new WheelSet(fl.geometry, fl.material); ws.castShadow = fl.castShadow; fl.parent.parent.parent.add(ws); }
+  }
   return m;
 }
 
@@ -274,8 +332,10 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   const rearHaloMat = haloMat(0xff2a18, 0.9), frontHaloMat = haloMat(0xfff0d8, 0.7);
   let rearOpacity = 0.55;
   const halos = [];
+  const haloPoints = [];   // the phone: all halos as one Points draw call
   for (const [re, mat, out, k] of [[/^lamp_rear_/i, rearHaloMat, -1, 0.62], [/^lamp_front_/i, frontHaloMat, 1, 0.55]]) {
     for (const l of lampCentres(re)) {
+      if (lite) { haloPoints.push({ at: l.at.clone().add(new THREE.Vector3(0, 0, out * 0.05)), out, rear: out < 0, size: k * 0.75 }); continue; }
       const h = new THREE.Sprite(mat); h.position.copy(l.at).add(new THREE.Vector3(0, 0, out * 0.05)); h.scale.setScalar(k * 0.75);   // a fixed soft spot (35 to 40 cm), not the lamp's whole width
       h.userData.base = h.scale.x; h.userData.rear = out < 0; h.userData.out = out; halos.push(h);
       // a lamp's glow only shows from the side it shines to: faded out by the angle between the lamp's direction and the camera
@@ -295,7 +355,26 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   for (const s of [-1, 1]) { const strip = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.02, glowLen), stripMat); strip.position.set(s * sideX, 0.16, (m.front + m.rear) / 2); glow.add(strip); }
   const pad = new THREE.Mesh(flat(new THREE.PlaneGeometry(box.max.x - box.min.x + 1.0, box.max.z - box.min.z + 0.2)), groundMat); pad.position.set(0, 0.018, mid); pad.renderOrder = 3; glow.add(pad);
   glow.visible = false;
-  const fxg = new THREE.Group(); fxg.name = 'fx_live'; fxg.add(...flames, ...flames.map((f) => f.userData.ground), ...lights, ...halos, glow);
+  let haloCloud = null;
+  if (haloPoints.length) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(haloPoints.flatMap((h) => h.at.toArray()), 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(haloPoints.length * 3), 3));
+    haloCloud = new THREE.Points(g, new THREE.PointsMaterial({ name: 'fx_halo_points', map: glowTexture(), size: Math.max(...haloPoints.map((h) => h.size)), sizeAttenuation: true, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    haloCloud.frustumCulled = false;
+    const rearC = new THREE.Color(0xff2a18).multiplyScalar(0.9), frontC = new THREE.Color(0xfff0d8).multiplyScalar(0.7), c = g.attributes.color;
+    haloCloud.onBeforeRender = (renderer, scene, camera) => {   // each halo by its own angle to the camera, the rear ones brighter when braking
+      haloCloud.updateWorldMatrix(true, false); car.group.getWorldDirection(_fw);
+      haloPoints.forEach((h, i) => {
+        _hp.copy(h.at).applyMatrix4(haloCloud.matrixWorld);
+        const facing = _fw.dot(_cd.subVectors(camera.position, _hp).normalize()) * h.out;
+        const k = Math.max(0, Math.min(1, (facing - 0.05) / 0.35)) * (h.rear ? rearOpacity : 1);
+        const col = h.rear ? rearC : frontC; c.setXYZ(i, col.r * k, col.g * k, col.b * k);
+      });
+      c.needsUpdate = true;
+    };
+  }
+  const fxg = new THREE.Group(); fxg.name = 'fx_live'; fxg.add(...flames, ...flames.map((f) => f.userData.ground), ...lights, ...halos, ...(haloCloud ? [haloCloud] : []), glow);
   car.group.add(tag(fxg));
 
   const poolMesh = car.group.getObjectByName('fx_pool');
