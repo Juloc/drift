@@ -368,8 +368,9 @@ function zones(S, f, scene, look) {
 // ---------------------------------------------------------------- the meeting place: surface, bays, kerb, a rail on the valley side, lamps, benches, its own trees
 function plaza(S, G, f, scene, look, lite, lampHeads, pools = []) {
   const P = scene.plaza, R = look.road, pts = P.pts, rnd = mulberry32(41);
-  // the plaza is flat at the height of the road where it starts (on a hillside that is not 0): everything of it is drawn on that level
-  const gp = f.groundY(pts[0][0], pts[0][1]);
+  // the plaza is flat at the height of the road where it starts (on a hillside that is not 0): everything of it is drawn on that level.
+  // (The road's first point, not the height under a corner of the plaza: near a hairpin that is the road's lower leg, 14 m further down.)
+  const gp = f.roadYs[0];
   S.push(trs(0, gp, 0, 0, 0, 0)); G.push(trs(0, gp, 0, 0, 0, 0));
   // scene.plaza.slabs (metres): the floor in stone slabs, each a little lighter or darker, with lighter joints between them (the joints are the floor below)
   if (P.slabs && P.surface !== false) {
