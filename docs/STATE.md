@@ -612,3 +612,15 @@ A static page with sample data, no server logic, no inline script; every text th
   the menu open; checks every part inside the screen and its safe area, no overlap, nothing cut off by its place, touch buttons at least
   44 px, no page errors; an overview sheet. First run: passed, 33 pictures (docs/screenshots/uicheck-overview.png).
 - Not checked: a real phone (the safe area is emulated by Chromium), the race bar and the invitation in a real race.
+
+## R2 to R4 and the drawn road on the surface (slice 3, first part)
+- Smoke (R2, R3): billows.js has no cut-out round the car any more (the per-pixel ellipse is gone). The puffs start at the model's rear tyres (fleet.dims.rear, as main.js
+  emits them), small and dense (`smoke.start`), low (`smoke.rise`, `maxRise`) and squashed on the screen (`smoke.flat`), so they never stand up over the car's body; puffs very
+  near the camera thin out (`near`, `nearWidth`). The turn of the puffs (`al[i * 2 + 1]`), swallowed by a comment since round 9, is back.
+- Lights (R4): the warm pools on the ground are a net laid on the ground (not a flat square over a banked road), and pools that would overlap more than a little are
+  merged (only the bigger stays): lamps and lanterns keep their glow box and halo, the ground light no longer adds up to one blotch. Headlight spots belong to the cars (carfx.js).
+- The drawn road on the surface: on a map with the track system (`field.surfaceRoad`) every ribbon, lamp, post, chevron and patch takes its height from `groundY` (the surface the
+  car drives on, with its side tilt) instead of the centre height; asphalt patches are strips of the road's own net. The play check is green again: 5 sizes, 0 problems (the road
+  was 0.27 m off the car at 435 m; 3 more places 0.06 to 0.16 m: the patches were flat boxes on a tilted road).
+- Not yet (needs slice 2, the new Touge): land that follows the road as cut and fill, the 34 degree embankment with retaining walls and rock faces, props placed on the land height
+  from the frame. `tools/sequence.mjs` (through devq) makes a drive sequence on a sheet: docs/screenshots/sequences/.

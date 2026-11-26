@@ -262,6 +262,12 @@ function bridge(S, f, scene, look, lite) {
   for (const s of [-1, 1]) S.box(0.5, 1.1, B.length + 4, X(B.x) + (alongX ? 0 : s * (B.width / 2 + 0.15)), deck + 1.5, zc + (alongX ? s * (B.width / 2 + 0.15) : 0), shade, { r: 0, ry });
 }
 
+/**
+ * The height the road's surface has at road point `i`, `o` metres to the right of its centre line. On a map built with the track system (field.surfaceRoad) that is the surface the
+ * car drives on (centre height plus side tilt: the same function as the physics, so the drawn road and the car agree); else the centre height of the grade.
+ */
+const baseY = (f, p, rv, o, i) => (f.surfaceRoad ? f.groundY(p[0] + rv[0] * o, p[1] + rv[1] * o) : f.roadYs[i]);
+
 // ---------------------------------------------------------------- the road: asphalt, shoulders, white edge lines, yellow centre dashes
 function strip(S, f, a, b, ya, yb, colour, keep = () => true) {
   const right = (d) => [d[1], -d[0]];
@@ -274,7 +280,7 @@ function strip(S, f, a, b, ya, yb, colour, keep = () => true) {
     if (run.length < 2) continue;
     const g = gridGeo(run.length, 2, (r, c) => {
       const i = run[r], p = f.road[i], rv = right(f.info.dir[i]), o = c ? b : a;
-      return [X(p[0] + rv[0] * o), (c ? yb : ya) + f.roadYs[i], p[1] + rv[1] * o, typeof colour === 'function' ? colour(i, c) : colour];
+      return [X(p[0] + rv[0] * o), (c ? yb : ya) + baseY(f, p, rv, o, i), p[1] + rv[1] * o, typeof colour === 'function' ? colour(i, c) : colour];
     });
     S.add(orient(g, UP), null, { keepColors: true, jitter: 0, wobble: 0 });
   }
@@ -284,13 +290,15 @@ function strip(S, f, a, b, ya, yb, colour, keep = () => true) {
 function ribbon(S, f, offs, colour, { y = 0.02, keep = () => true, dy = () => 0, shift = () => 0 } = {}) {
   const right = (d) => [d[1], -d[0]], runs = [], H = f.info.head, n = f.road.length;
   // a lite builder (the phone) takes every second point where the road runs nearly straight; in the bends every point stays
-  const fine = (i) => !S.lite || i % 2 === 0 || i === n - 1 || Math.abs(Math.atan2(Math.sin(H[Math.min(n - 1, i + 1)] - H[Math.max(0, i - 1)]), Math.cos(H[Math.min(n - 1, i + 1)] - H[Math.max(0, i - 1)]))) > 0.06;
+  // (on a map with the track system also where the road's side tilt changes: the surface bends there and the drawn road must follow it)
+  const tilt = (i) => { const rv = right(f.info.dir[i]), p = f.road[i], w = f.hw; return baseY(f, p, rv, w, i) - baseY(f, p, rv, -w, i); };
+  const fine = (i) => !S.lite || i % 2 === 0 || i === n - 1 || Math.abs(Math.atan2(Math.sin(H[Math.min(n - 1, i + 1)] - H[Math.max(0, i - 1)]), Math.cos(H[Math.min(n - 1, i + 1)] - H[Math.max(0, i - 1)]))) > 0.06 || (f.surfaceRoad && Math.abs(tilt(Math.min(n - 1, i + 1)) - tilt(Math.max(0, i - 1))) > 0.03);
   for (let i = 0; i < n; i++) if (keep(i) && fine(i)) { const last = runs.at(-1)?.at(-1); if (last === undefined || !(i === last + 1 || (i === last + 2 && keep(last + 1)))) runs.push([i]); else runs[runs.length - 1].push(i); }
   for (const run of runs) {
     if (run.length < 2) continue;
     const g = gridGeo(run.length, offs.length, (r, c) => {
       const i = run[r], p = f.road[i], rv = right(f.info.dir[i]), o = offs[c] + shift(i);
-      return [X(p[0] + rv[0] * o), y + (f.lift ?? 0) + dy(i, c) + f.roadYs[i], p[1] + rv[1] * o, colour(i, c, o)];
+      return [X(p[0] + rv[0] * o), y + (f.lift ?? 0) + dy(i, c) + baseY(f, p, rv, o, i), p[1] + rv[1] * o, colour(i, c, o)];
     });
     S.add(orient(g, UP), null, { keepColors: true, jitter: 0, wobble: 0 });
   }
@@ -334,8 +342,14 @@ function road(S, f, look, onPlaza, rnd, lite, scene) {
   // patches (darker rectangles of newer asphalt) and cracks (thin dark lines)
   const patch = C(R.asphalt).multiplyScalar(0.78), crack = C(R.asphalt).multiplyScalar(0.55);
   for (let d = 30; d < f.info.length - 10; d += lite ? 41 : 17) {
-    const p = pointAt(f.road, f.info, d), ry = Math.atan2(X(p.dir[0]), p.dir[1]), r = [p.dir[1], -p.dir[0]], o = (rnd() - 0.5) * hw * 1.4, y = f.roadY(d) + 0.03 + lift;
-    if (rnd() < 0.5) S.box(1.2 + rnd() * 2, 0.01, 1.5 + rnd() * 3, X(p.x + r[0] * o), y, p.z + r[1] * o, patch, { r: 0, jitter: 0.02, ry: ry + (rnd() - 0.5) * 0.2 });
+    const p = pointAt(f.road, f.info, d), ry = Math.atan2(X(p.dir[0]), p.dir[1]), r = [p.dir[1], -p.dir[0]], o = (rnd() - 0.5) * hw * 1.4, y = (f.surfaceRoad ? f.groundY(p.x + r[0] * o, p.z + r[1] * o) : f.roadY(d)) + 0.03 + lift;   // (on the track system's road: on its tilted surface, not at the height of the centre line)
+    if (rnd() < 0.5) {
+      const pw = 1.2 + rnd() * 2, pl = 1.5 + rnd() * 3, turn = (rnd() - 0.5) * 0.2;
+      if (f.surfaceRoad) {   // laid on the tilted surface: a strip of the road's own net (a flat box would stand 6 cm over its high side)
+        const i0 = Math.round(d / (f.info.length / (f.road.length - 1)));
+        ribbon(S, f, [o - pw / 2, o + pw / 2], () => patch.clone(), { y: 0.03, keep: (i) => i >= i0 && i <= i0 + 2 });
+      } else S.box(pw, 0.01, pl, X(p.x + r[0] * o), y, p.z + r[1] * o, patch, { r: 0, jitter: 0, ry: ry + turn });
+    }
     else for (let c = 0, cx = p.x + r[0] * o, cz = p.z + r[1] * o, a = ry + (rnd() - 0.5) * 2; c < 4; c++) {
       const len = 0.6 + rnd() * 0.9, nx = cx + Math.sin(a) * len, nz = cz + Math.cos(a) * len;
       S.box(0.05, 0.01, len, X((cx + nx) / 2), y + 0.002, (cz + nz) / 2, crack, { r: 0, jitter: 0, ry: Math.atan2(X(nx - cx), nz - cz) });
@@ -499,7 +513,7 @@ function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza = () 
   for (let d = 10; d < f.info.length; d += 22) {
     const p = pointAt(f.road, f.info, d), si = sideInfo[p.i];
     if (onPlaza(p.x, p.z)) continue;
-    const r = right(p.dir), s = -si.valley, x = p.x + r[0] * s * (hw + 1.1), z = p.z + r[1] * s * (hw + 1.1), ry = Math.atan2(X(p.dir[0]), p.dir[1]), y = f.roadY(d);
+    const r = right(p.dir), s = -si.valley, x = p.x + r[0] * s * (hw + 1.1), z = p.z + r[1] * s * (hw + 1.1), ry = Math.atan2(X(p.dir[0]), p.dir[1]), y = f.surfaceRoad ? f.groundY(x, z) : f.roadY(d);
     S.box(0.12, 1.4, 0.12, X(x), 0.3 + y, z, white, { r: 0, ry });
     S.box(0.13, 0.14, 0.13, X(x), 0.8 + y, z, band, { r: 0, ry });
     G.box(0.07, 0.1, 0.03, X(x), 0.8 + y, z - p.dir[1] * 0.07, refl, { r: 0, ry });
@@ -515,7 +529,7 @@ function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza = () 
       const p = pointAt(f.road, f.info, b.s + ds), r = right(p.dir), o = hw + 1.7;
       const x = p.x + r[0] * out * o, z = p.z + r[1] * out * o;
       // the board's front (+z of its own) looks back along the road, towards the driver
-      S.push(trs(X(x), f.roadY(b.s + ds), z, 0, Math.atan2(-X(p.dir[0]), -p.dir[1]), 0));
+      S.push(trs(X(x), f.surfaceRoad ? f.groundY(x, z) : f.roadY(b.s + ds), z, 0, Math.atan2(-X(p.dir[0]), -p.dir[1]), 0));
       for (const sx of [-0.55, 0.55]) S.box(0.09, 3.2, 0.09, sx, 0.1, -0.07, post, { r: 0 });
       S.box(1.9, 1.0, 0.08, 0, 1.6, 0, board, { r: 0.06, jitter: 0 });
       // the glowing chevrons are in the unlit mesh, placed through the same transform
@@ -696,7 +710,7 @@ function postLantern(S, G, look, x, y, z, ry, h = 2.8) {
 function bendSet(S, G, f, look, b, lampHeads, pools, lite) {
   const rnd = mulberry32(Math.round(b.s * 7)), hw = f.hw, out = b.turn > 0 ? -1 : 1, right = (d) => [d[1], -d[0]], L = look.land;
   // a place at `ds` metres from the apex, `o` metres out from the road's middle on `side`: x, z, the ground there, the road's height, the road's heading
-  const at = (ds, o, side) => { const p = pointAt(f.road, f.info, b.s + ds), r = right(p.dir), x = p.x + r[0] * side * o, z = p.z + r[1] * side * o, ry = f.roadY(b.s + ds);
+  const at = (ds, o, side) => { const p = pointAt(f.road, f.info, b.s + ds), r = right(p.dir), x = p.x + r[0] * side * o, z = p.z + r[1] * side * o, ry = f.surfaceRoad ? f.groundY(x, z) : f.roadY(b.s + ds);
     return { x, z, y: Math.max(f.height(x, z), ry - 0.15), road: ry, ry: Math.atan2(X(p.dir[0]), p.dir[1]), face: Math.atan2(-X(r[0] * side), -r[1] * side) }; };
   const light = (q, h, pool, halo) => { lampHeads.push([X(q.x), q.y + h, q.z, halo]); pools.push([X(q.x), q.road, q.z, pool]); };
   const rock = () => C(L.rock).lerp(C(L.rockDark), rnd() * 0.6), moss = () => C(L.high).lerp(C(look.land.moss ?? '#6f8a5c'), 0.5 + rnd() * 0.5);
@@ -858,7 +872,7 @@ function roadLamps(S, G, f, scene, look, sideInfo, lampHeads, pools = []) {
   const L = look.lamp, pole = C(L.pole), every = scene.road.lamps, hgt = L.height ?? 7, right = (d) => [d[1], -d[0]];
   for (let d = every * 0.5; d < f.info.length - 5; d += every) {
     const p = pointAt(f.road, f.info, d), si = sideInfo[p.i], side = -si.valley, r = right(p.dir), o = f.hw + 0.9;
-    const x = p.x + r[0] * side * o, z = p.z + r[1] * side * o, y = f.roadY(d), hx = p.x + r[0] * side * (f.hw - 1.4), hz = p.z + r[1] * side * (f.hw - 1.4);
+    const x = p.x + r[0] * side * o, z = p.z + r[1] * side * o, y = f.surfaceRoad ? f.groundY(x, z) : f.roadY(d), hx = p.x + r[0] * side * (f.hw - 1.4), hz = p.z + r[1] * side * (f.hw - 1.4);
     S.cyl(0.09, 0.13, hgt, X(x), y + hgt / 2, z, pole, { seg: 6 });
     const len = Math.hypot(hx - x, hz - z);
     S.box(0.1, 0.1, len, X((x + hx) / 2), y + hgt, (z + hz) / 2, pole, { r: 0, ry: Math.atan2(X(hx - x), hz - z) });
