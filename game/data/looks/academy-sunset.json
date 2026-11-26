@@ -67,19 +67,19 @@
  "sun": {
   "dir": [
    0.55,
-   0.2,
+   0.34,
    -1
   ],
   "colour": "#ffb070",
-  "intensity": 3.6
+  "intensity": 4.6
  },
  "fill": {
   "sky": "#9698c4",
   "ground": "#8c7a6e",
-  "intensity": 1.7
+  "intensity": 1.35
  },
  "fog": {
-  "colour": "#d8a2b4",
+  "colour": "#c9a0c0",
   "near": 420,
   "far": 5200
  },
@@ -89,7 +89,7 @@
   "y": -64
  },
  "grade": {
-  "exposure": 1.08,
+  "exposure": 1.02,
   "bloom": 0.55,
   "threshold": 1.9,
   "warmth": 0.25,
@@ -145,11 +145,11 @@
   "shade": "#7a4458"
  },
  "ridges": [
-  "#6a5f8f",
-  "#8576a3",
-  "#a08db3",
-  "#bba6c2",
-  "#d8bfcc"
+  "#4f4a7c",
+  "#62588c",
+  "#786a9c",
+  "#9480ac",
+  "#b49cbc"
  ],
  "pine": {
   "trunk": "#3a2c26",
@@ -228,7 +228,7 @@
   "height": 0.12,
   "behind": 0.25,
   "every": 2,
-  "carDim": 0.35
+  "carDim": 0.15
  },
  "skid": {
   "colour": "#0e0c14",
@@ -403,6 +403,8 @@
    "#5c9a8a",
    "#c05c7c",
    "#e8dfd4"
-  ]
+  ],
+  "grass": "#6c8a48",
+  "grassDark": "#55703e"
  }
 }

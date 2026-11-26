@@ -113,10 +113,14 @@ export function buildPlaceLook(json, look, env, groundY = () => 0, tierName = 'h
   const parts = [], lampHeads = [], flat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
   const cx = (P.x0 + P.x1) / 2, zs = P.z0 - 14, zn = P.z1 + 12;   // the sea side (south, towards the sun) and the stand side
   // --- the quay: a concrete apron to the water with bollards, then the sea
-  parts.push(box(P.x1 - P.x0 + 90, 1.6, 26, X(cx), y0 - 0.8 + 0.01, P.z0 - 15, L.concrete ?? '#b9a79c'));
+  parts.push(box(P.x1 - P.x0 + 90, 6, 26, X(cx), y0 - 3 + 0.01, P.z0 - 15, L.concrete ?? '#b9a79c'));
+  parts.push(box(30, 6, P.z1 - P.z0 + 56, X(P.x1 + 17), y0 - 3 + 0.01, (P.z0 + P.z1) / 2, L.concrete ?? '#b9a79c'));   // and along the east side
+  // the land side: a green platform north and west (the stand and the palms stand on it), a little uneven in colour
+  for (let i = 0; i < 9; i++) parts.push(box((P.x1 - P.x0 + 150) / 9 + 0.1, 6, 70, X(P.x0 - 75 + ((P.x1 - P.x0 + 150) / 9) * (i + 0.5)), y0 - 3 + 0.005, P.z1 + 36, i % 2 ? L.grass ?? '#6c8a48' : L.grassDark ?? '#55703e'));
+  for (let i = 0; i < 6; i++) parts.push(box(74, 6, (P.z1 - P.z0 + 30) / 6 + 0.1, X(P.x0 - 38), y0 - 3 + 0.005, P.z0 - 28 + ((P.z1 - P.z0 + 30) / 6) * (i + 0.5), i % 2 ? L.grassDark ?? '#55703e' : L.grass ?? '#6c8a48'));
   for (let x = P.x0 - 30; x <= P.x1 + 30; x += 14) parts.push(box(0.7, 0.9, 0.7, X(x), y0 + 0.45, P.z0 - 26.5, '#3a3840'));
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(6000, 3000).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: C(L.sea ?? '#3c4a7c'), roughness: 0.16, metalness: 0.0, envMap: env, envMapIntensity: 1.5 }));
-  sea.position.set(X(cx), y0 - 2.2, P.z0 - 28 - 1500); sea.name = 'place:sea'; group.add(sea);
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: C(L.sea ?? '#3c4a7c'), roughness: 0.16, metalness: 0.0, envMap: env, envMapIntensity: 1.5 }));
+  sea.position.set(X(cx), y0 - 2.2, (P.z0 + P.z1) / 2); sea.name = 'place:sea'; group.add(sea);
   // --- containers stacked on the quay (colours of the look), instanced
   const cols = (L.containers ?? ['#c8503c', '#3c6a9a', '#d8a23c', '#4c8a7a', '#b84a6a', '#e6dcd0']).map(C), boxes = [];
   for (let x = P.x0 + 6; x < P.x1 - 60; x += 13.2) { if (r() < 0.25) continue; const hgt = 1 + Math.floor(r() * 3); for (let k = 0; k < hgt; k++) boxes.push([X(x + (r() - 0.5) * 0.4), y0 + 1.3 + k * 2.62, zs - 5 + (k ? (r() - 0.5) * 0.3 : 0), Math.floor(r() * cols.length)]); }
@@ -125,8 +129,8 @@ export function buildPlaceLook(json, look, env, groundY = () => 0, tierName = 'h
   cont.instanceMatrix.needsUpdate = true; if (cont.instanceColor) cont.instanceColor.needsUpdate = true; cont.castShadow = true; cont.name = 'place:containers'; group.add(cont);
   // --- harbour cranes on the quay to one side (tall gantries with a boom over the water), a ship and a lighthouse out at sea
   const steel = L.crane ?? '#5a5f96';
-  for (const [x, s] of [[P.x1 - 40, 1], [P.x1 - 4, 1.1], [P.x1 + 36, 0.95]]) {
-    const gx = X(x), gz = zs - 4;
+  for (const [x, z, s] of [[P.x1 - 30, zs - 4, 1], [P.x1 + 18, P.z0 + 40, 1.1], [P.x1 + 18, P.z0 + 100, 0.95]]) {
+    const gx = X(x), gz = z;
     for (const [dx, dz] of [[-7, -5], [7, -5], [-7, 5], [7, 5]]) parts.push(box(1.1, 30 * s, 1.1, gx + dx, y0 + 15 * s, gz + dz, steel));
     parts.push(box(16, 1.4, 12, gx, y0 + 30 * s, gz, steel), box(3, 3, 46 * s, gx, y0 + 33 * s, gz - 12 * s, steel), box(5, 4, 6, gx, y0 + 27 * s, gz - 2, '#e8e2d8'));
     parts.push(box(0.5, 20 * s, 0.5, gx, y0 + 43 * s, gz + 3, steel), box(1.2, 1.2, 14 * s, gx, y0 + 35.5 * s, gz + 9 * s, steel));
