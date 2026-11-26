@@ -26,7 +26,20 @@ const STATS = ['power', 'top', 'grip', 'slide', 'agility'];
 const HUES = Array.from({ length: 24 }, (_, i) => i * 15);
 const PAINTS = [['white', '#e6e1d8'], ['black', '#18181d'], ['silver', '#b9bec8']];   // paints 24 to 26
 
-start({ icon: 'bolt', onSignedIn: run });
+// the first page for somebody who is not signed in: drive at once (no account) or sign in; an invitation or the sign-in itself skip it
+async function landing() {
+  try {
+    const me = await api('GET', '/api/auth/me');
+    if (me.user || me.setupNeeded || /^#(invite=|signin)/.test(location.hash)) return false;
+    document.title = me.app.name;
+    document.body.replaceChildren(h('main', { class: 'auth' }, h('section', { class: 'card stack' },
+      h('h1', { class: 'card-title', text: me.app.name }), h('p', { class: 'muted', text: t('landing.text') }),
+      h('a', { class: 'btn primary', href: '/play/' }, icon('bolt'), t('landing.drive')),
+      h('button', { class: 'btn outline', type: 'button', onclick: () => { location.hash = 'signin'; location.reload(); } }, t('landing.signin')))));
+    return true;
+  } catch { return false; }
+}
+if (!(await landing())) start({ icon: 'bolt', onSignedIn: run });
 
 function run(me) {
   const frame = shell({

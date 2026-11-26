@@ -64,6 +64,31 @@ public class PlayTests
         Assert.Equal("Bolt", System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]));
     }
 
+    static async Task<WebSocket> ConnectOpen(TestApp app, string query = "")
+    {
+        var client = app.Server.CreateWebSocketClient();
+        client.ConfigureRequest = r => r.Headers["Origin"] = "http://localhost";
+        return await client.ConnectAsync(new Uri("ws://localhost" + OpenPlay.Path + query), CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Somebody_without_an_account_joins_the_same_public_lobby_with_a_name_from_the_relay_and_the_paint_of_the_device()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        var cookie = await app.SignedInAsync(app.Http(), "mia");
+        using var person = await Connect(app, cookie);
+        _ = await Frame(person, Wire.Roster);
+        using var open = await ConnectOpen(app, "?colour=25");                                         // no cookie, no account: the black paint
+        var roster = (await Frame(open, Wire.Roster))!;
+        Assert.Equal(2, roster[1]);                                                                    // the same world as the signed-in person
+        var mine = System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]);
+        Assert.Contains(mine.Split(' ')[0], Drift.Relay.WorldRelay.Colours.Concat(Drift.Relay.WorldRelay.PaintWords));
+        Assert.DoesNotContain("mia", mine, StringComparison.OrdinalIgnoreCase);
+        using var odd = await ConnectOpen(app, "?colour=99");                                          // a paint that is not one: the relay picks a hue, the visitor is not refused
+        Assert.Equal(3, (await Frame(odd, Wire.Roster))![1]);
+    }
+
     [Fact]
     public async Task Without_a_nickname_a_neutral_name_shows_never_the_account_name()
     {

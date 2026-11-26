@@ -42,6 +42,7 @@ public static class PlayEndpoint
     public static async Task<Player> WhoAsync(HttpContext ctx)
     {
         var sp = ctx.RequestServices;
+        if (ctx.Items.ContainsKey(OpenPlay.Key)) return OpenPlay.Player(ctx);   // without an account: a name from the relay, a paint from the device, nothing kept
         if (ctx.Items.ContainsKey(GuestEndpoints.Key))
         {
             var g = ctx.Guest();
@@ -79,13 +80,18 @@ public static class PlayEndpoint
         var challenges = app.Services.GetRequiredService<ChallengeTracker>();
         challenges.Follow(relay);
         Task Lobby(HttpContext ctx, Player p) =>
-            RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), p.Car, p.Name, p.Colour, glow: p.Glow, worldKey: p.World,
+            RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), p.Car, p.Name.Length > 0 ? p.Name : null, p.Colour, glow: p.Glow, worldKey: p.World,
                 stillValid: p.StillValid, checkEvery: SessionCheck,
                 onText: (sess, text) => { hub.OnLobbyText(p.Id, text); challenges.OnText(sess, text); },
-                joined: s => { stats.Join(s, p.Id, p.Guest); tandem.Join(s, p.Id, p.Name, p.Guest, p.Car); challenges.Join(s, p.Id, p.Guest); sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },
+                joined: s => { stats.Join(s, p.Id, p.Guest); tandem.Join(s, p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Guest, p.Car); challenges.Join(s, p.Id, p.Guest); sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },
                 left: s => { tandem.Leave(s); challenges.Leave(s); sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); _ = stats.LeaveAsync(s); });
         app.Map(Path, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         app.Map(GuestPath, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
+        app.Map(OpenPlay.Path, async (HttpContext ctx) =>
+        {
+            if (!OpenPlay.TryEnter()) { ctx.Response.StatusCode = 503; return; }   // too many without an account at once
+            try { await Lobby(ctx, await WhoAsync(ctx)); } finally { OpenPlay.Leave(); }
+        });
         app.Map(GamesPath, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         RelayEndpoint.RunTicker(relay, app.Lifetime.ApplicationStopping, app.Logger);
     }

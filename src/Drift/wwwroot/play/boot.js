@@ -1,8 +1,18 @@
 // Starts the game page for a signed-in person: asks the garage which car, points the game at the signed-in socket,
-// then loads the game's own main.js (the files of game/, served next to this one). No session: back to the app's sign-in.
+// then loads the game's own main.js (the files of game/, served next to this one). No session: the game starts without an account in the public lobby (/api/open/ws):
+// the name comes from the server, the paint from this device (kept here), nothing else is kept.
 const r = await fetch('/api/garage', { headers: { Accept: 'application/json' } });
-if (r.status === 401) location.replace('/');
-else {
+if (r.status === 401) {
+  let paint = NaN;
+  try { paint = Number(localStorage.getItem('drift.paint')); } catch { /* no storage */ }
+  if (!Number.isInteger(paint) || paint < 0 || paint > 26) { paint = Math.floor(Math.random() * 24); try { localStorage.setItem('drift.paint', String(paint)); } catch { /* not kept */ } }
+  const url = new URL(location.href);
+  url.searchParams.set('ws', `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/open/ws?colour=${paint}`);
+  url.searchParams.set('car', '1');
+  url.searchParams.set('open', '1');
+  history.replaceState(null, '', url);
+  await import('./main.js');
+} else {
   const g = await r.json();
   const tr = await fetch('/api/tuning', { headers: { Accept: 'application/json' } });
   const tuning = tr.ok ? (await tr.json()).cars[g.car] : null;

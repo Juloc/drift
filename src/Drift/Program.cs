@@ -29,7 +29,7 @@ builder.AddBase(new BaseAppOptions("drift", "Drift", typeof(Program).Assembly)
         new AppRole("member", new Localized("Driver", "Fahrer")),
     ],
     // guests: an own door (SEC-07): the check admits a live guest session, and the join path (which checks the link's secret itself)
-    Doors = [new ApiDoor("/api/guest", GuestEndpoints.Check, 4096), new ApiDoor(GameAccountEndpoints.Prefix, GameAccountEndpoints.Check, 4096)],
+    Doors = [new ApiDoor("/api/guest", GuestEndpoints.Check, 4096), new ApiDoor("/api/open", OpenPlay.Check, 4096), new ApiDoor(GameAccountEndpoints.Prefix, GameAccountEndpoints.Check, 4096)],
     Migrations = [MigrationSet.FromAssembly(typeof(Program).Assembly, "app")],
 });
 builder.Services.AddSingleton<GarageStore>();
