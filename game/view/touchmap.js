@@ -8,7 +8,7 @@ export const KEYS = {
   KeyK: { touch: 'creative' },     // creative mode
   KeyX: { touch: 'feel' },         // arcade or pro
   KeyM: { touch: 'sound' },        // sound
-  KeyN: { touch: 'modes-open' },   // the choice of the game mode
+  KeyN: { touch: 'modes-open', appOnly: true },   // the choice of the game mode (only where the page can start a mode: the lobby)
   KeyP: { touch: 'pause-chip' },   // pause
   KeyF: { touch: 'fs' },           // full screen
   KeyH: { touch: 'hud-chip' },     // HUD level
