@@ -368,3 +368,4 @@ All five milestones of SCOPE are built. Waits for the owner: design and details,
 - Back button moved under the menu button (it covered the minimap on the PC).
 - Merged on the chief's say: look round 9 (4489347) and the cars branch tip (9604279). Full run: node 159; .NET 232 (a run at 231 with one expectation fixed afterwards, the class run green).
 - Pictures: `game-touge-tal.png` (AE86, white, 1600x900), `game-touge-tal-phone.png` (844x390), `game-touge-kehre.png`. The white AE86 does not burn out in the tal picture.
+- **M1_parallel_sign_ups made stable:** it measured the machine: the password hashing gate sheds a request that waits more than 3 s and eight parallel sign-ups under load could exceed that. The test app now uses a gate that waits up to 60 s (the gate itself is tested on its own, H1). Run twice on a loaded machine (eight busy loops): green both times.
