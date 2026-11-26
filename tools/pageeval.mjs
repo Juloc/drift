@@ -23,7 +23,8 @@ await send('Emulation.setDeviceMetricsOverride', { width: +w, height: +h, device
 await send('Page.navigate', { url });
 for (let t = 0; t < 120 && !(await ev(`!!(${ready})`)); t++) await sleep(500);
 await sleep(1000);
-console.log(JSON.stringify(await ev(value), null, 1));
+const result = JSON.stringify(await ev(value), null, 1);
+await new Promise((r) => process.stdout.write(result + '\n', r));   // a big result through a pipe: wait until it is written (process.exit would cut it)
 if (shotFile) { const s = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(shotFile, Buffer.from(s.result.data, 'base64')); }
 if (logs.length) console.log('console:\n  ' + logs.slice(0, 15).join('\n  '));
 stop(); process.exit(0);
