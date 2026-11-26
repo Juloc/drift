@@ -642,7 +642,24 @@ function showSummary({ ms, points, clips, of, best }) {
 // ----- soft cones (a map's `cones`, the practice ground): drawn as little cones, knocked over when the car touches them, each costs points; the count shows beside the score
 let coneMesh = null, coneState = null, coneEl = null;
 const coneDummy = new THREE.Object3D();
+// ----- low things to practise on (a map's `obstacles` with a `what: 'tyre'`, and its walls of style 'barrier': tyres to drift round, concrete barriers): the physics knows them as obstacles and walls, this draws them
+let propMeshes = [];
+function propsBuild() {
+  for (const m of propMeshes) { scene.remove(m); m.geometry.dispose(); m.material.dispose(); } propMeshes = [];
+  const tyres = (map.obstacles ?? []).filter((o) => o.what === 'tyre'), barriers = (map.walls ?? []).filter((w) => w.style === 'barrier');
+  if (tyres.length) {
+    const m = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.55, 0.55, 0.5, 14), new THREE.MeshStandardMaterial({ color: '#25252c', roughness: 0.9 }), tyres.length), d = new THREE.Object3D();
+    tyres.forEach((o, i) => { d.position.set(X(o.x), stage.field.groundY(o.x, o.z) + 0.25, o.z); d.updateMatrix(); m.setMatrixAt(i, d.matrix); });
+    scene.add(m); propMeshes.push(m);
+  }
+  for (const w of barriers) for (let i = 0; i < w.pts.length - 1; i++) {
+    const [x0, z0] = w.pts[i], [x1, z1] = w.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0), y = stage.field.groundY((x0 + x1) / 2, (z0 + z1) / 2);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.9, len), new THREE.MeshStandardMaterial({ color: '#8d8a86', roughness: 0.95 }));
+    m.position.set(X((x0 + x1) / 2), y + 0.45, (z0 + z1) / 2); m.rotation.y = -Math.atan2(x1 - x0, z1 - z0) + 0; scene.add(m); propMeshes.push(m);
+  }
+}
 function conesBuild() {
+  propsBuild();
   if (coneMesh) { scene.remove(coneMesh); coneMesh.geometry.dispose(); coneMesh.material.dispose(); coneMesh = null; }
   coneState = null; if (coneEl) coneEl.hidden = true;
   const list = map?.cones ?? []; if (!list.length) return;
@@ -663,7 +680,8 @@ function conesReset() {
 }
 function conesShow() {
   if (!coneEl) { coneEl = Object.assign(document.createElement('div'), { id: 'cones', role: 'status' }); ($('hud') ?? document.body).append(coneEl); }
-  coneEl.hidden = !coneMesh; coneEl.textContent = `${T.cones} ${coneState?.hits ?? 0}` + (coneState?.hits ? ` (\u2212${coneState.hits * PENALTY})` : '');
+  coneEl.hidden = !coneMesh || !map.practice;   // (the counter only where the cones cost points: the practice ground; on the plaza they are just there)
+  coneEl.textContent = `${T.cones} ${coneState?.hits ?? 0}` + (coneState?.hits ? ` (\u2212${coneState.hits * PENALTY})` : '');
 }
 function conesStep() {
   if (!coneState) return;
@@ -672,7 +690,7 @@ function conesStep() {
   coneState = next;
   for (const i of next.event) conesPlace(i, true);
   // the practice ground only (a map with cones): each cone costs its points from the drift in progress, and from what is banked when nothing is pending (never under zero)
-  if (!creative) { let cut = next.event.length * PENALTY; const fromPending = Math.min(score.pending, cut); cut -= fromPending; const fromBank = Math.min(score.banked, cut); score = { ...score, pending: score.pending - fromPending, banked: score.banked - fromBank }; }
+  if (!creative && map.practice) { let cut = next.event.length * PENALTY; const fromPending = Math.min(score.pending, cut); cut -= fromPending; const fromBank = Math.min(score.banked, cut); score = { ...score, pending: score.pending - fromPending, banked: score.banked - fromBank }; }
   coneMesh.instanceMatrix.needsUpdate = true; conesShow(); sound.bump?.(1.5);
 }
 function reset() {
