@@ -771,14 +771,14 @@ function simStep(i) {
     if (st.event) tandemHud.bank(st.event.points);
   }
   // smoke from the rear wheels, 40 times a second, as in the probe: it drifts off to the left of the way the car goes (not into the camera behind it) and starts a little outside the wheel
-  if (simSteps % 3 === 0 && !paused) {
+  if (simSteps % (look.smoke.every ?? 2) === 0 && !paused) {
     const slid = (Math.abs(bodySlip(cur)) > 0.2 || inp.handbrake > 0) && speedOf(cur) > 3, S = look.smoke, t = Math.atan2(cur.vx, cur.vz), push = S.drift ?? 0, out = S.offset ?? 0;
     const W = wheelPoints(fleet.dims), sh = Math.sin(cur.h), ch = Math.cos(cur.h);
     for (const sx of [-1, 1]) {
       // at the model's own rear tyre (right: sx -1), on the road's surface under that tyre; the mark lies in the surface's plane (its gradient, in drawing axes)
-      const [lx, lz] = W[sx < 0 ? 3 : 2], px = cur.x + lz * sh - lx * ch, wz = cur.z + lz * ch + lx * sh, wx = X(px), sf = roadSurface(px, wz, _ws), wy = sf.y;
+      const [lx, lz0] = W[sx < 0 ? 3 : 2], lz = lz0 - (S.behind ?? 0), px = cur.x + lz * sh - lx * ch, wz = cur.z + lz * ch + lx * sh, wx = X(px), sf = roadSurface(px, wz, _ws), wy = sf.y;
       stage.skids.mark(sx < 0 ? 0 : 1, wx, wz, 0, 0, slid && speedOf(cur) > 3, wy, -sf.gx, sf.gz);
-      if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + wy, wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
+      if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, (S.height ?? 0.12) + wy, wz + Math.sin(t) * out, X(cur.vx * (S.throw ?? -0.12) - Math.cos(t) * push), cur.vz * (S.throw ?? -0.12) + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));   // from the tyre's contact point, thrown back (look.smoke: height, behind, throw)
     }
   }
   if (map.kind === 'descent' && !locked && !racing) {

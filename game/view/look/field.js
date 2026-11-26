@@ -195,7 +195,7 @@ export function makeField(scene, { cell = 6 } = {}) {
   /** is a point on water (river or lake)? */
   const onIsland = (x, z) => { const I = scene.lake?.island; return !!I && Math.hypot(x - I.x, z - I.z) < I.r * 0.8; };
   const wet = (x, z, margin = 0) => !onIsland(x, z) && ( (R.width > 0 && Math.abs(z - riverZ(x)) < R.width / 2 + margin && x < (R.x1 ?? Infinity)) || (scene.lake && Math.hypot((x - scene.lake.x) / (scene.lake.rx + margin), (z - scene.lake.z) / (scene.lake.rz + margin)) < 1));
-  return { track: trk, plazaLevel, core: T.rocksBox ?? T.core ?? T.extent, onIsland, slope: !!slopeDir, waterY, closed, insideSide, floor: R.y, lift: scene.road.lift ?? 0, road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
+  return { track: trk, plazaLevel, core: T.rocksBox ?? T.core ?? T.extent, onIsland, slope: !!slopeDir, waterY, closed, insideSide, floor: R.y, lift: scene.road.lift ?? 0, road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, surfaceRoad: !!trk, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
 }
 
 /** Bends of a road: places where the heading turns by more than `min` rad over `span` metres; the sign is the turn (+ = right). */

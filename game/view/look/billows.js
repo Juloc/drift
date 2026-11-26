@@ -68,33 +68,34 @@ export class Billows {
     geo.setAttribute('aData', this.data); geo.setAttribute('aAlpha', this.alpha); geo.instanceCount = capacity;
     this.car = { value: new THREE.Vector3(0, -999, 0) };
     const S = look.smoke;
-    this.carRadius = S.carRadius ?? 1.6;   // look.smoke.carRadius: the clear disc round the car on screen (metres at the car's depth)
     this.material = new THREE.ShaderMaterial({
-      uniforms: { tMap: { value: (S.texture === 'wisp' ? wispTexture : S.texture === 'soft' ? softTexture : billowTexture)(S.colour, S.shade) }, uCar: this.car, uCarView: { value: new THREE.Vector4(0, 0, 0, 0) }, uCarNdc: { value: new THREE.Vector4(0, 0, 0, 0) }, uTop: { value: S.screenTop ?? 1.2 }, uClear: { value: S.clear ?? 0 }, uNear: { value: S.near ?? 3 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
+      uniforms: { tMap: { value: (S.texture === 'wisp' ? wispTexture : S.texture === 'soft' ? softTexture : billowTexture)(S.colour, S.shade) }, uTop: { value: S.screenTop ?? 1.2 }, uCarNdc: { value: new THREE.Vector4(0, 0, 0, 0) }, uCarZ: { value: 0 }, uDim: { value: S.carDim ?? 0.35 }, uNear: { value: S.near ?? 3 }, uNearW: { value: S.nearWidth ?? 2.5 }, uFlat: { value: S.flat ?? 1 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
       vertexShader: /* glsl */ `
         attribute vec4 aData; attribute vec2 aAlpha;
-        uniform vec4 uCarView; uniform float uTop;   // the car in view space (xyz) and its radius on screen (w, in view units at its depth)
-        varying vec2 vUv; varying float vA; varying vec3 vW; varying float vDist; varying vec2 vNdc; varying float vFront;
+        uniform float uTop, uFlat, uCarZ, uDim; uniform vec4 uCarNdc;
+        varying vec2 vUv; varying float vA; varying float vDist;
         void main() {
-          vUv = uv; vA = aAlpha.x; vW = aData.xyz;
+          vUv = uv; vA = aAlpha.x;
           float c = cos(aAlpha.y), s = sin(aAlpha.y);
-          vec2 p = vec2(position.x * c - position.y * s, position.x * s + position.y * c) * aData.w;
+          // a low, wide cloud (look.smoke.flat < 1 squashes it on the screen): smoke that hugs the road and never stands up in front of the car's body
+          vec2 p = vec2(position.x * c - position.y * s, (position.x * s + position.y * c) * uFlat) * aData.w;
           vec4 mv = modelViewMatrix * vec4(aData.xyz, 1.0);
-          // a puff in front of the car is cleared where it covers the car on screen (per pixel, in the fragment shader): the car is always seen, the smoke beside it stays
-          vFront = uCarView.w > 0.0 && -mv.z < -uCarView.z - 0.5 ? 1.0 : 0.0;
+          // a puff between the camera and the car, over the car's place on the screen, is dimmed as a whole (look.smoke.carDim: how much of it stays), softly and per puff:
+          // there is no cut-out, no hole, no edge; smoke beside and behind the car is untouched
+          if (uCarNdc.z > 0.0 && -mv.z < uCarZ - 0.3) { vec4 cc = projectionMatrix * mv; float dd = length((cc.xy / cc.w - uCarNdc.xy) / uCarNdc.zw); vA *= mix(uDim, 1.0, smoothstep(0.8, 1.7, dd)); }
+          mv.z += min(aData.w * 0.45, 1.3);   // a puff stands a little towards the camera: a big puff that starts at the road would otherwise be cut flat where its quad goes under the road
           mv.xy += p; vDist = -mv.z;
           gl_Position = projectionMatrix * mv;
-          vNdc = gl_Position.xy / gl_Position.w;   // a camera-facing quad has one depth, so this interpolates exactly
           // never in the upper part of the picture (look.smoke.screenTop, in -1..1 of the screen height): no smoke behind the HUD cards or over the view
           vA *= smoothstep(uTop + 0.25, uTop, gl_Position.y / gl_Position.w);
         }`,
       fragmentShader: /* glsl */ `
-        uniform sampler2D tMap; uniform vec3 uCar, uTint; uniform float uClear, uNear; uniform vec4 uCarNdc;   // the car on screen: centre (xy) and the half axes of its ellipse (zw)
-        varying vec2 vUv; varying float vA; varying vec3 vW; varying float vDist; varying vec2 vNdc; varying float vFront;
+        uniform sampler2D tMap; uniform vec3 uTint; uniform float uNear, uNearW;
+        varying vec2 vUv; varying float vA; varying float vDist;
         void main() {
           vec4 t = texture2D(tMap, vUv);
-          float a = t.a * vA * smoothstep(uNear, uNear + 2.5, vDist) * (uClear > 0.0 ? smoothstep(uClear * 0.6, uClear + 1.5, distance(vW.xz, uCar.xz)) : 1.0);
-          if (vFront > 0.0 && uCarNdc.z > 0.0) a *= smoothstep(0.75, 1.1, length((vNdc - uCarNdc.xy) / uCarNdc.zw));
+          // smoke very near the camera thins out (a puff the camera is inside would be a white wall); there is no cut-out round the car
+          float a = t.a * vA * smoothstep(uNear, uNear + uNearW, vDist);
           if (a < 0.01) discard;
           gl_FragColor = vec4(t.rgb * uTint, a);
           #include <tonemapping_fragment>
@@ -104,7 +105,7 @@ export class Billows {
     });
     this.mesh = new THREE.Mesh(geo, this.material);
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 4;
-    this.opacity = S.opacity ?? 0.9;
+    this.opacity = S.opacity ?? 0.9; this.rise = S.rise ?? 0.3;   // look.smoke.rise: the height above the given point where a puff starts
     this.scale = S.size ?? 1;   // how big the billows grow
     // the mockups' smoke: soft trails behind the rear wheels that grow with the drift angle and thin out fast; a little more at the start
     // of a slide (`burst` times as big for `burstTime` s after a pause of more than 0.4 s), never a wall over the picture
@@ -114,18 +115,18 @@ export class Billows {
     // never a wall: the puffs rise at most `maxRise` m over where they started and grow to at most `maxSize` m
     this.maxRise = S.maxRise ?? 99; this.maxSize = S.maxSize ?? 99; this.base = new Float32Array(this.cap);
   }
-  /** The car's place for the fade (drawing space) and the camera: smoke in front of the car is cleared where it covers the car (an ellipse `radius` m wide, 0.6 of that high). */
-  aim(camera, radius = this.carRadius) {
-    const u = this.material.uniforms, p = this.car.value.clone().add(new THREE.Vector3(0, 0.7, 0)).applyMatrix4(camera.matrixWorldInverse);
-    u.uCarView.value.set(p.x, p.y, p.z, radius);
-    const P = camera.projectionMatrix.elements, d = -p.z;
+  /** The car's place on the screen for the soft dimming of the puffs in front of it (see the vertex shader). */
+  aim(camera, radius = 1.4) {
+    const u = this.material.uniforms, p = this.car.value.clone().add(new THREE.Vector3(0, 0.6, 0)).applyMatrix4(camera.matrixWorldInverse), d = -p.z;
+    u.uCarZ.value = d;
     if (d < 0.5) { u.uCarNdc.value.set(0, 0, 0, 0); return; }
+    const P = camera.projectionMatrix.elements;
     u.uCarNdc.value.set((P[0] * p.x + P[8] * p.z) / d, (P[5] * p.y + P[9] * p.z) / d, (P[0] * radius) / d, (P[5] * radius * 0.6) / d);
   }
   rnd() { this.seed = (this.seed * 16807) % 2147483647; return this.seed / 2147483647; }
   emit(x, y, z, vx, vz, strength) {
     const i = this.next; this.next = (this.next + 1) % this.cap;
-    this.pos.set([x, y + 0.3, z], i * 3); this.base[i] = y;
+    this.pos.set([x, y + this.rise, z], i * 3); this.base[i] = y;
     this.vel.set([vx + (this.rnd() - 0.5) * 1.4, 0.35 + strength * 0.4, vz + (this.rnd() - 0.5) * 1.4], i * 3);
     if (this.clock - this.lastEmit > 0.4) this.slideStart = this.clock;
     this.lastEmit = this.clock;
@@ -148,7 +149,8 @@ export class Billows {
       const k = this.age[i] / this.life[i];
       d[i * 4] = this.pos[i * 3]; d[i * 4 + 1] = this.pos[i * 3 + 1]; d[i * 4 + 2] = this.pos[i * 3 + 2];
       d[i * 4 + 3] = k >= 1 ? 0 : Math.min(this.maxSize, (this.grow0 + k * this.growK) * this.grow[i] * this.scale);
-      al[i * 2] = k >= 1 ? 0 : this.opacity * Math.pow(1 - k, 1 / this.fade) * Math.min(1, k * 20);   // fade < 1: thins out sooner al[i * 2 + 1] = this.spin[i] + k * 0.6;
+      al[i * 2] = k >= 1 ? 0 : this.opacity * Math.pow(1 - k, 1 / this.fade) * Math.min(1, k * 20);   // fade < 1: thins out sooner
+      al[i * 2 + 1] = this.spin[i] + k * 0.6;
     }
     this.data.needsUpdate = true; this.alpha.needsUpdate = true;
   }

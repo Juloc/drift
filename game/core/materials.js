@@ -125,7 +125,8 @@ export function makeGlow() {
  * Positions can be moved every frame with `set`.
  */
 export class Halos {
-  constructor(capacity = 96) {
+  /** `maxPx`: the biggest a halo gets on the screen; `nearFade` (metres): halos fade out within this distance of the camera (no giant disc in front of the lens). */
+  constructor(capacity = 96, { maxPx = 180, nearFade = 0 } = {}) {
     this.capacity = capacity;
     this.n = 0;
     this.pos = new Float32Array(capacity * 3);
@@ -138,20 +139,20 @@ export class Halos {
     g.setDrawRange(0, 0);
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 2000);
     this.material = new THREE.ShaderMaterial({
-      uniforms: { uScale: { value: 600 } },
+      uniforms: { uScale: { value: 600 }, uMax: { value: maxPx }, uFade: { value: nearFade } },
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       vertexShader: /* glsl */ `
         attribute float size;
         attribute vec3 tint;
-        uniform float uScale;
+        uniform float uScale, uMax, uFade;
         varying vec3 vColor;
         void main() {
-          vColor = tint;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vColor = uFade > 0.0 ? tint * smoothstep(uFade * 0.2, uFade, -mv.z) : tint;
           gl_Position = projectionMatrix * mv;
-          gl_PointSize = min(size * uScale / -mv.z, 180.0);
+          gl_PointSize = min(size * uScale / -mv.z, uMax);
         }`,
       fragmentShader: /* glsl */ `
         varying vec3 vColor;

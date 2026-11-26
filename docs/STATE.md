@@ -646,3 +646,15 @@ A static page with sample data, no server logic, no inline script; every text th
 - **Numbers** (best of three, `shoot-probe --bench=60`, GPU shared with other work, so noisy by about 5 ms): PC high tier 17.9 -> 18.9 ms a picture, draw calls 57 -> 58, triangles +16; phone low tier 6.2 -> 5.5 ms (noise), draw calls 22 -> 23. No measurable cost; the one extra draw call is the stars.
 - Tests `game/view/look/stars.test.mjs` (3): one Points, 600 to 800 stars, none under 15 degrees, weaker towards the sun, the same twice; the look keys (dusk weak < winter < harbour, desert none); the touge look's bands and warm colours. Node 236 pass; the play check: all green but the one known problem (slice 3).
 - Not done / not checked: `tools/palette.mjs` boxes (the slope areas are the land's colours, not the sky's: untouched here); winter and harbour were not looked at in a picture; a real phone; the clouds of the other looks (desert, harbour, winter) are as before.
+
+## R2 to R4 and the drawn road on the surface (slice 3, first part)
+- Smoke (R2, R3): billows.js has no cut-out round the car any more (the per-pixel ellipse is gone). The puffs start at the model's rear tyres (fleet.dims.rear, as main.js
+  emits them), small and dense (`smoke.start`), low (`smoke.rise`, `maxRise`) and squashed on the screen (`smoke.flat`), so they never stand up over the car's body; puffs very
+  near the camera thin out (`near`, `nearWidth`). The turn of the puffs (`al[i * 2 + 1]`), swallowed by a comment since round 9, is back.
+- Lights (R4): the warm pools on the ground are a net laid on the ground (not a flat square over a banked road), and pools that would overlap more than a little are
+  merged (only the bigger stays): lamps and lanterns keep their glow box and halo, the ground light no longer adds up to one blotch. Headlight spots belong to the cars (carfx.js).
+- The drawn road on the surface: on a map with the track system (`field.surfaceRoad`) every ribbon, lamp, post, chevron and patch takes its height from `groundY` (the surface the
+  car drives on, with its side tilt) instead of the centre height; asphalt patches are strips of the road's own net. The play check is green again: 5 sizes, 0 problems (the road
+  was 0.27 m off the car at 435 m; 3 more places 0.06 to 0.16 m: the patches were flat boxes on a tilted road).
+- Not yet (needs slice 2, the new Touge): land that follows the road as cut and fill, the 34 degree embankment with retaining walls and rock faces, props placed on the land height
+  from the frame. `tools/sequence.mjs` (through devq) makes a drive sequence on a sheet: docs/screenshots/sequences/.
