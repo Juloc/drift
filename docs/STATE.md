@@ -538,3 +538,18 @@ A static page with sample data, no server logic, no inline script; every text th
 - The game: `?demo=line` with the hills on drives the track bot; the practice partner (key B) drives the surface model when the hills are on; `?shot=kehre|tal|platz` are made again with the track bot on the surface model (`tools/make-shots.mjs`) and always run on it (`?phys=0` forces the flat one): the pictures and checks now show the car the new model drives. A hairpin is taken sideways at about 45 km/h and 34 to 40 degrees (the old pictures showed 80 km/h: the flat model on a road with no limits). Pictures: `docs/screenshots/track2/touge3-*.png`.
 - Tests: `game/sim/trackbot.test.mjs` (3). Node 216 pass. Play check: the page loads at all sizes, the one known problem of slice 3.
 - Not done: `tools/posecheck.mjs` (the car chat's) still drives its sample road with the line bot and the flat model; the default for players is still the flat model (the switch is the owner's to flip).
+
+## The HUD on a fixed grid (D5, D8 of FEHLER-0.6.2)
+- `game/view/frame.js` and `game/frame.css`: one grid over the whole screen with nine named places (top left, top, top right; a middle row
+  of its own with the menu, the messages and reset; bottom left, bottom, bottom right). The safe area (notch, rounded corners) is in its
+  padding; gaps with clamp(). Every part of the HUD stands in exactly one place; the parts made later by main.js or the app's page are
+  placed when they appear (a MutationObserver), so main.js is unchanged. ProbeHud mounts the frame. The messages (toast, damage, note, tip,
+  key hint, the race bar) have the middle to themselves and never spill over the cards. Cards scale by the smaller of width/1600 and
+  height/900 (a phone: 844 x 390); buttons keep their size, at least 44 px on a touch screen. On a phone the open menu is one row to swipe.
+- Cause of D5: the cards were placed `absolute` inside #phud, whose safe-area padding does not move absolute children, so on a phone with a
+  notch the left cards lay under it. Cause of D8: the messages were all placed at fixed heights round the top middle (96 to 168 px) and the
+  switches, the damage note and the key hint at fixed spots, so they met the score card and each other.
+- `tools/uicheck.mjs` (run through devq): eleven screens, from 640 x 360 with a notch to 3440 x 1440, each quiet, with messages and with
+  the menu open; checks every part inside the screen and its safe area, no overlap, nothing cut off by its place, touch buttons at least
+  44 px, no page errors; an overview sheet. First run: passed, 33 pictures (docs/screenshots/uicheck-overview.png).
+- Not checked: a real phone (the safe area is emulated by Chromium), the race bar and the invitation in a real race.
