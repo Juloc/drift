@@ -9,6 +9,7 @@ import { RenderPass } from '../vendor/three/addons/postprocessing/RenderPass.js'
 import { GTAOPass } from '../vendor/three/addons/postprocessing/GTAOPass.js';
 import { UnrealBloomPass } from '../vendor/three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../vendor/three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from '../vendor/three/addons/postprocessing/ShaderPass.js';
 
 window.__err = []; addEventListener('error', (e) => window.__err.push(String(e.message))); addEventListener('unhandledrejection', (e) => window.__err.push(String(e.reason?.message ?? e.reason)));
 const params = new URLSearchParams(location.search), q = (k, d) => (params.has(k) ? +params.get(k) : d);
@@ -35,7 +36,7 @@ const sunDir = (() => {
 })();
 scene.background = hdr; scene.backgroundIntensity = q('bg', 0.5); scene.environment = hdr; scene.environmentIntensity = q('env', 0.75);
 // the place's own axes: -z looks to the sea; the sun stands a little to the right of that
-const sunAz = Math.atan2(sunDir.x, -sunDir.z), yaw = -(sunAz - q('sunSide', 0.42));
+const sunAz = Math.atan2(sunDir.x, -sunDir.z), yaw = -(sunAz - q('sunSide', -0.3));
 root.rotation.y = yaw;
 const toWorld = (x, y, z) => new THREE.Vector3(x, y, z).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 const sun = new THREE.DirectionalLight(new THREE.Color(1, 0.72, 0.5), q('sun', 3.2));
@@ -81,7 +82,7 @@ asphalt.onBeforeCompile = (sh) => {
     .replace('#include <map_fragment>', `#include <map_fragment>
     float big = fbm(vWp.xz * 0.05), hollow = fbm(vWp.xz * 0.16 + 31.0);
     diffuseColor.rgb *= 0.86 + 0.26 * big;                                   // lighter and darker areas, so it is not one grey
-    wetK = smoothstep(${q('wet0', 0.5).toFixed(3)}, ${q('wet1', 0.62).toFixed(3)}, hollow) * 0.95 + 0.25 * smoothstep(0.35, 0.6, big);   // puddles in the hollows, damp around them
+    wetK = smoothstep(${q('wet0', 0.46).toFixed(3)}, ${q('wet1', 0.58).toFixed(3)}, hollow) * 0.95 + 0.25 * smoothstep(0.35, 0.6, big);   // puddles in the hollows, damp around them
     diffuseColor.rgb *= mix(1.0, 0.6, wetK);`)
     .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.03, wetK);')
     .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = normalize(mix(normal, nonPerturbedNormal, wetK));');   // water lies flat over the bumps
@@ -110,7 +111,7 @@ jobs.push(scatter('kit/racing/barrierRed.gltf', bl.filter((_, i) => i % 2 === 0)
 const cones = []; for (let a = 1.7; a < 4.8; a += 0.16) cones.push([14 + Math.sin(a) * 15.2, -4 + Math.cos(a) * 15.2, rnd() * 6, 5.2]);
 jobs.push(scatter('kit/racing/pylon.gltf', cones, { tint: '#ff8a3a' }));
 // the grandstand on the left with flags, a fence in front of it, floodlights
-jobs.push(scatter('kit/racing/grandStandCovered.gltf', [[-30, -40, 0.9, R], [-36.4, -35, 0.9, R], [-42.8, -30, 0.9, R], [-49.2, -25, 0.9, R]]));
+jobs.push(scatter('kit/racing/grandStandCovered.gltf', [[-30, -40, 0.9 + Math.PI, R], [-36.4, -35, 0.9 + Math.PI, R], [-42.8, -30, 0.9 + Math.PI, R], [-49.2, -25, 0.9 + Math.PI, R]]));
 jobs.push(scatter('kit/racing/fenceStraight.gltf', lineOf(-44.5, 6, -44.5, -42, 8).map(([x, z]) => [x, z, Math.PI / 2, R])));
 jobs.push(scatter('kit/racing/flagCheckers.gltf', [[-46, 10, 0, 7], [-46, -46, 0, 7]]), scatter('kit/racing/flagRed.gltf', [[-46, 14, 0, 7]]), scatter('kit/racing/flagGreen.gltf', [[-46, -50, 0, 7]]));
 const masts = [[-45, 18], [-45, -22], [-12, -58], [26, -58], [44, -20]];
@@ -137,24 +138,31 @@ jobs.push(scatter('kit/nature/rock_largeA.glb', green(10, 3)), scatter('kit/natu
 // ---- the car, mid-drift, with smoke rolling off the rear tyres
 const car = (await loader.loadAsync('assets/cars/ae86-hi.glb')).scene;
 car.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-const carYaw = q('carYaw', 2.75); car.position.set(q('carX', 0), 0, q('carZ', 0)); car.rotation.y = carYaw; root.add(car);
+const carYaw = q('carYaw', 3.5); car.position.set(q('carX', 0), 0, q('carZ', 0)); car.rotation.y = carYaw; root.add(car);
 const puffTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'), g = x.createRadialGradient(64, 60, 4, 64, 64, 62); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.55, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
-const back = new THREE.Vector3(-Math.sin(carYaw), 0, -Math.cos(carYaw)), sideV = new THREE.Vector3(Math.cos(carYaw), 0, -Math.sin(carYaw));
-for (let i = 0; i < q('smoke', 46); i++) {
-  const t = i / 46, d = 1.2 + t * 13 + rnd() * 1.2, sc = 0.9 + t * 4.2 + rnd() * 0.8, sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: new THREE.Color().setRGB(1.0, 0.86 - 0.12 * rnd(), 0.84 - 0.1 * rnd()).multiplyScalar(0.92), opacity: 0.6 * (1 - t * 0.75), depthWrite: false, fog: true }));
-  sp.position.copy(car.position).addScaledVector(back, d).addScaledVector(sideV, (rnd() - 0.5) * (1.6 + t * 3) + (i % 2 ? 0.7 : -0.7) * (1 - t)); sp.position.y = 0.35 + t * 1.6 + rnd() * 0.5; sp.scale.setScalar(sc); root.add(sp);
+const travel = q('travel', 2.72), trail = new THREE.Vector3(-Math.sin(travel), 0, -Math.cos(travel)), across = new THREE.Vector3(Math.cos(carYaw), 0, -Math.sin(carYaw)), rear = new THREE.Vector3(-Math.sin(carYaw), 0, -Math.cos(carYaw));
+for (let i = 0; i < q('smoke', 70); i++) {
+  // thick and small at the two rear tyres, rolling up and thinning along the way the car came
+  const t = (i / 70) ** 1.3, d = t * 17, sc = 0.7 + t * 5 + rnd() * 0.6, wheel = i % 2 ? 0.72 : -0.72;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: new THREE.Color().setRGB(1.0, 0.8 + 0.08 * rnd(), 0.76 + 0.1 * rnd()), opacity: 0.62 * (1 - t) ** 0.8 + 0.06, depthWrite: false, fog: true }));
+  sp.position.copy(car.position).addScaledVector(rear, 1.25).addScaledVector(across, wheel * (1 - t * 0.5) + (rnd() - 0.5) * t * 4).addScaledVector(trail, d); sp.position.y = 0.3 + t * 1.9 + rnd() * 0.4 * t; sp.scale.setScalar(sc); root.add(sp);
 }
+// lamps that glow: a soft warm disc at every mast's head (the bloom takes it from there)
+for (const [x, z] of masts) { const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: new THREE.Color(1, 0.82, 0.55).multiplyScalar(q('lamp', 5)), blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); g.position.set(x, 9.6, z); g.scale.setScalar(3.2); root.add(g); }
 await Promise.all(jobs);
 
 // ---- the camera's fixed place and the picture's finish: ambient occlusion (corners and contacts get dark), bloom on what really is bright, tone mapping
-const camAt = toWorld(q('cx', -4.2), q('cy', 1.35), q('cz', 7.2)), lookAt = toWorld(q('lx', 1.2), q('ly', 0.95), q('lz', -4));
+const camAt = toWorld(q('cx', 5.6), q('cy', 1.3), q('cz', 7.6)), lookAt = toWorld(q('lx', -1.6), q('ly', 0.95), q('lz', -5));
 camera.position.copy(camAt); camera.lookAt(lookAt);
 sun.target.position.copy(toWorld(0, 0, -10)); sun.position.copy(sun.target.position).addScaledVector(sunLift, 110);
 const composer = new EffectComposer(renderer); composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
 if (q('ao', 1)) { const ao = new GTAOPass(scene, camera, innerWidth, innerHeight); ao.updateGtaoMaterial({ radius: q('aoR', 0.9), distanceExponent: 1.4, thickness: 1.2, scale: q('aoS', 1.25), samples: 16 }); ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 }); composer.addPass(ao); }
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), q('bloom', 0.22), 0.6, q('bloomT', 3.0)));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), q('bloom', 0.18), 0.5, q('bloomT', 1.6)));
 composer.addPass(new OutputPass());
+composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null }, uSat: { value: q('sat', 1.12) }, uCon: { value: q('con', 1.06) }, uVig: { value: q('vig', 0.32) } },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: 'uniform sampler2D tDiffuse; uniform float uSat, uCon, uVig; varying vec2 vUv; void main() { vec3 c = texture2D(tDiffuse, vUv).rgb; float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat); c = (c - 0.5) * uCon + 0.5; vec2 d = vUv - 0.5; c *= 1.0 - uVig * dot(d, d) * 1.6; gl_FragColor = vec4(c, 1.0); }' }));
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight, false); composer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
 window.__dbg = () => ({ sun: sunDir.toArray().map((v) => +v.toFixed(3)), yaw: +yaw.toFixed(3), cam: camera.position.toArray().map((v) => +v.toFixed(1)), children: root.children.length, hdr: [hdr.image.width, hdr.image.height, hdr.image.data?.constructor?.name], px: Array.from(hdr.image.data.slice(0, 4)) });
 let frames = 0;
