@@ -79,6 +79,12 @@ const glowTexture = () => canvasTexture(64, 64, (x, w) => {
   const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = g; x.fillRect(0, 0, w, w);
 });
+const haloTexture = () => canvasTexture(64, 64, (x, w) => {
+  // a lamp's glow: a small hot core and a long soft tail (the old round spot was a flat disc that read as a pink balloon beside the body)
+  const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.07, 'rgba(255,255,255,0.9)'); g.addColorStop(0.2, 'rgba(255,255,255,0.32)'); g.addColorStop(0.45, 'rgba(255,255,255,0.09)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, w, w);
+});
 const padTexture = () => canvasTexture(128, 256, (x, w, h) => {
   // underglow on the road: a soft rounded rectangle, strongest just outside the sills, fading under the middle and outwards
   const img = x.createImageData(w, h);
@@ -363,22 +369,22 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   });
   const lights = [];   // no real light: a point light this close over the glossy road drew a long streak towards the camera (the warm quad on the road is enough)
   // halos: a soft glow in front of each lamp (camera-facing, depth-tested so the body hides them), on every tier
-  const haloMat = (c, k) => new THREE.SpriteMaterial({ name: 'fx_halo', map: glowTexture(), color: new THREE.Color(c).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
-  const rearHaloMat = haloMat(0xff2a18, 0.9), frontHaloMat = haloMat(0xfff0d8, 0.7);
-  let rearOpacity = 0.55;
+  const haloTex = haloTexture(), haloMat = (c, k) => new THREE.SpriteMaterial({ name: 'fx_halo', map: haloTex, color: new THREE.Color(c).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  const rearHaloMat = haloMat(0xff2a18, 1.4), frontHaloMat = haloMat(0xfff0d8, 1.0);
+  let rearOpacity = 0.55, haloK = 1;   // haloK: 0.5 when the post pass (bloom) is on: the bloom already glows every bright lamp, so the halo is half as strong then
   const halos = [];
   const haloPoints = [];   // the phone: all halos as one Points draw call
-  for (const [re, mat, out, k] of [[/^lamp_rear_/i, rearHaloMat, -1, 0.62], [/^lamp_front_/i, frontHaloMat, 1, 0.55]]) {
+  for (const [re, mat, out, k] of [[/^lamp_rear_/i, rearHaloMat, -1, 0.62], [/^lamp_front_/i, frontHaloMat, 1, 0.55]]) {   // k * 0.5 m: a glow about as wide as the lamp's glass, not a balloon beside the body
     for (const l of lampCentres(re)) {
-      if (lite) { haloPoints.push({ at: l.at.clone().add(new THREE.Vector3(0, 0, out * 0.05)), out, rear: out < 0, size: k * 0.75 }); continue; }
-      const h = new THREE.Sprite(mat); h.position.copy(l.at).add(new THREE.Vector3(0, 0, out * 0.05)); h.scale.setScalar(k * 0.75);   // a fixed soft spot (35 to 40 cm), not the lamp's whole width
+      if (lite) { haloPoints.push({ at: l.at.clone().add(new THREE.Vector3(0, 0, out * 0.05)), out, rear: out < 0, size: k * 0.55 }); continue; }
+      const h = new THREE.Sprite(mat); h.position.copy(l.at).add(new THREE.Vector3(0, 0, out * 0.05)); h.scale.setScalar(k * 0.55);   // a fixed soft spot (about 30 cm), not the lamp's whole width
       h.userData.base = h.scale.x; h.userData.rear = out < 0; h.userData.out = out; halos.push(h);
       // a lamp's glow only shows from the side it shines to: faded out by the angle between the lamp's direction and the camera
       // (seen from behind, the front halos stuck out over the bonnet as two warm dots above the roof)
       h.onBeforeRender = (renderer, scene, camera) => {
         h.getWorldPosition(_hp); car.group.getWorldDirection(_fw).multiplyScalar(out);
         const facing = _fw.dot(_cd.subVectors(camera.position, _hp).normalize());
-        h.material.opacity = (h.userData.rear ? rearOpacity : 1) * Math.max(0, Math.min(1, (facing - 0.05) / 0.35));
+        h.material.opacity = (h.userData.rear ? rearOpacity : 1) * haloK * Math.max(0, Math.min(1, (facing - 0.05) / 0.35));
       };
     }
   }
@@ -395,15 +401,15 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(haloPoints.flatMap((h) => h.at.toArray()), 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(haloPoints.length * 3), 3));
-    haloCloud = new THREE.Points(g, new THREE.PointsMaterial({ name: 'fx_halo_points', map: glowTexture(), size: Math.max(...haloPoints.map((h) => h.size)), sizeAttenuation: true, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    haloCloud = new THREE.Points(g, new THREE.PointsMaterial({ name: 'fx_halo_points', map: haloTex, size: Math.max(...haloPoints.map((h) => h.size)), sizeAttenuation: true, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
     haloCloud.frustumCulled = false;
-    const rearC = new THREE.Color(0xff2a18).multiplyScalar(0.9), frontC = new THREE.Color(0xfff0d8).multiplyScalar(0.7), c = g.attributes.color;
+    const rearC = new THREE.Color(0xff2a18).multiplyScalar(1.4), frontC = new THREE.Color(0xfff0d8).multiplyScalar(1.0), c = g.attributes.color;
     haloCloud.onBeforeRender = (renderer, scene, camera) => {   // each halo by its own angle to the camera, the rear ones brighter when braking
       haloCloud.updateWorldMatrix(true, false); car.group.getWorldDirection(_fw);
       haloPoints.forEach((h, i) => {
         _hp.copy(h.at).applyMatrix4(haloCloud.matrixWorld);
         const facing = _fw.dot(_cd.subVectors(camera.position, _hp).normalize()) * h.out;
-        const k = Math.max(0, Math.min(1, (facing - 0.05) / 0.35)) * (h.rear ? rearOpacity : 1);
+        const k = Math.max(0, Math.min(1, (facing - 0.05) / 0.35)) * (h.rear ? rearOpacity : 1) * haloK;
         const col = h.rear ? rearC : frontC; c.setXYZ(i, col.r * k, col.g * k, col.b * k);
       });
       c.needsUpdate = true;
@@ -437,8 +443,8 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     update(dt, s) {
       const braking = s.brake > 0.1;
       for (const mat of brakeMats.values()) mat.emissiveIntensity = mat.userData.base * (braking ? 2.5 : 1);
-      rearOpacity = braking ? 1 : 0.55;
-      for (const h of halos) if (h.userData.rear) h.scale.setScalar(h.userData.base * (braking ? 1.35 : 1));
+      rearOpacity = braking ? 1 : 0.55; haloK = s.post ? 0.5 : 1;
+      for (const h of halos) if (h.userData.rear) h.scale.setScalar(h.userData.base * (braking ? 1.6 : 1));   // braking: the glow jumps in size and strength
       // the headlight pool lies on the road: each of its points 1.5 cm over the ground under it (s.groundAt(x, z) in world space)
       // the contact shadow and the underglow too (a flat sheet cut into the road wherever the slope changes under the car)
       if (s.groundAt) {

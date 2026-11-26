@@ -8,6 +8,15 @@ Updated 2026-11-26 (evening) by the building session. Every session updates this
 - **Car 1 is the AE86** (was Pip): its own materials, glowing lamps, underbody, contact shadow, headlight pool, brake lights,
   exhaust flames with the event `car.pop`, underglow on the road (`docs/CAR-PIPELINE.md`). Not on a real phone; glass and rims wait
   for the GPU PC; the C# tests were not run for the renamed car (`scripts/test.sh` needs Docker).
+- **Car lights and pops (2026-11-26, car chat owns all car lights; the look chat the world's):** halo with a hot small core and a long soft tail
+  (`haloTexture`), about 30 cm instead of 40 (it read as a pink balloon beside the body), rear stronger, jumping in size 1.6x and in strength
+  when braking, half as strong when the post pass (bloom) is on (`update(dt, { post })`), faded by the angle so no halo shows through the body; the
+  headlight pool already lies on the surface (follows the slope; exact once the road is drawn with its bank, slice 3). Pops only at high revs
+  (over 55 % of idle to limit) and stronger with them; recorded pops play from `assets/sound/pops.json` when the file exists (waiting for the owner's
+  download of Freesound 433584; `tools/sound/work.js` job `pops` cuts it), else the made crack. Underglow (C1): lies on `surfaceAt` to 0.0 mm; the
+  drawn road has no bank yet (slice 3), so it is buried on one side and floats on the other at banked spots; measure again after slice 3.
+  Pictures `docs/screenshots/cars/ae86-lights-*.png`, `ae86-glow-banked-L.png`, `ae86-pop-rear.png`. No lens pattern (the model's lamps are flat colours
+  in the palette). Not checked on a phone.
 - **Recorded engine and music (2026-11-26, downloads with the owner's yes):** the AE86 plays loops cut from a real recording (Honda F20C, Wikimedia,
   CC BY 3.0): `tools/sound/run.mjs engine` measures the firing frequency over the recording (`docs/sound/source-f20c.png`), picks a stretch for each of
   five revs (1500 to 6300) rising (on load) and falling (off load), warps it in time to a steady firing frequency and closes it into a loop;
