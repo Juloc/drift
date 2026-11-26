@@ -770,3 +770,7 @@ A static page with sample data, no server logic, no inline script; every text th
 - The brief's weight 0.75 toward travel shows the car at only about 8 deg; the picture target (20-30 deg) needed 0.65, which is what is built.
 - Pictures: `action-drift-pc.png`, `action-drift-phone.png`, `calm-drift-phone.png`.
 - Round 3 addition: sim2.js with `smokeOf(s, car, i)` (tread heats by power per contact area), `tools/smokecheck.mjs` (held drift: both rear wheels 100 %); picture `docs/screenshots/sim2/drift-smoke-both.png`.
+
+### Colour study B of the touge look
+- `game/data/looks/touge-dusk-b.json` = touge-dusk.json + the chief's patch (welt-demo-w1), name "Touge at dusk, colour study B"; touge-dusk.json untouched. `game/view/look/variant.js`: `?look=a|b`, else the menu chip's choice (localStorage `drift.look`), default A. Game menu chip "Look: A/B" switches live (via ensureMap/stage.load, not during a race); the test page reads `?look=b` too.
+- `node tools/lookshots.mjs [--chip]`: tal and kehre, A and B, PC and phone landscape, one sheet (`docs/screenshots/look-b/sheet.png`) with frame time, draw calls, triangles. A and B: calls 24/23 and triangles 131783/130055 identical; frame times in software graphics 16-17 ms (A) and 20-24 ms (B) but B always ran second in the same browser, so that is noise to re-check on a real GPU.
