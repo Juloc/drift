@@ -11,7 +11,18 @@ test('every file the slots name exists, and the models together are under 1.5 MB
   for (const s of SLOTS) { const st = statSync(new URL(`${s.file}.glb`, dir)); assert.ok(st.size > 1000, s.file); }
   for (const f of ['bush-a', 'bush-b', 'fern', 'plant-a', 'plant-b', 'grass-a', 'grass-b', 'flowers-a', 'flowers-b', 'tree-a', 'tree-b', 'tree-c', 'pebble-a', 'pebble-b']) total += statSync(new URL(`${f}.glb`, dir)).size;
   assert.ok(total < 1.5 * 1024 * 1024, `${(total / 1024).toFixed(0)} KB`);
-  assert.ok(readdirSync(dir).filter((f) => /^(bush|fern|plant|grass|flowers|tree|pebble)/.test(f)).length === 14);
+});
+
+test('the converted kit: every model in nature.json is a file, in the credits and in ASSETS.md (CC0), and the sheet exists', () => {
+  const man = JSON.parse(readFileSync(new URL('nature.json', dir), 'utf8')).models, credits = JSON.parse(readFileSync(new URL('../../data/credits.json', import.meta.url), 'utf8')).entries, assets = readFileSync(new URL('../../../docs/ASSETS.md', import.meta.url), 'utf8');
+  assert.ok(man.length >= 48);
+  for (const m of man) {
+    assert.ok(statSync(new URL(`${m.file}.glb`, dir)).size > 1000, m.file);
+    const c = credits.find((e) => (e.file ?? []).includes(`game/assets/env/${m.file}.glb`));
+    assert.ok(c && c.licence === 'CC0 1.0' && c.author === 'Quaternius' && c.source, `${m.file} in the credits`);
+    assert.ok(assets.includes(`game/assets/env/${m.file}.glb`), `${m.file} in ASSETS.md`);
+  }
+  assert.ok(readdirSync(dir).filter((f) => f.endsWith('.glb') && !['lantern.glb', 'rocks.glb'].includes(f)).length === man.length, 'no file without a line in nature.json');
 });
 
 test('every place is on the platform, off the pad (2 m), off the stand and the masts, and the same every time', () => {

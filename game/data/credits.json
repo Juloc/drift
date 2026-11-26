@@ -646,6 +646,652 @@
         "en": "Pebble, square 3 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
         "de": "Pebble, square 3 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
       }
+    },
+    {
+      "id": "env-commontree-1",
+      "kind": "model",
+      "name": "CommonTree 1 (Stylized Nature MegaKit: CommonTree_1)",
+      "file": [
+        "game/assets/env/commontree-1.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "CommonTree 1 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "CommonTree 1 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-commontree-2",
+      "kind": "model",
+      "name": "CommonTree 2 (Stylized Nature MegaKit: CommonTree_2)",
+      "file": [
+        "game/assets/env/commontree-2.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "CommonTree 2 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "CommonTree 2 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-deadtree-1",
+      "kind": "model",
+      "name": "DeadTree 1 (Stylized Nature MegaKit: DeadTree_1)",
+      "file": [
+        "game/assets/env/deadtree-1.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "DeadTree 1 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "DeadTree 1 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-deadtree-2",
+      "kind": "model",
+      "name": "DeadTree 2 (Stylized Nature MegaKit: DeadTree_2)",
+      "file": [
+        "game/assets/env/deadtree-2.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "DeadTree 2 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "DeadTree 2 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-deadtree-3",
+      "kind": "model",
+      "name": "DeadTree 3 (Stylized Nature MegaKit: DeadTree_3)",
+      "file": [
+        "game/assets/env/deadtree-3.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "DeadTree 3 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "DeadTree 3 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-deadtree-4",
+      "kind": "model",
+      "name": "DeadTree 4 (Stylized Nature MegaKit: DeadTree_4)",
+      "file": [
+        "game/assets/env/deadtree-4.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "DeadTree 4 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "DeadTree 4 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-deadtree-5",
+      "kind": "model",
+      "name": "DeadTree 5 (Stylized Nature MegaKit: DeadTree_5)",
+      "file": [
+        "game/assets/env/deadtree-5.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "DeadTree 5 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "DeadTree 5 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pine-1",
+      "kind": "model",
+      "name": "Pine 1 (Stylized Nature MegaKit: Pine_1)",
+      "file": [
+        "game/assets/env/pine-1.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pine 1 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pine 1 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pine-2",
+      "kind": "model",
+      "name": "Pine 2 (Stylized Nature MegaKit: Pine_2)",
+      "file": [
+        "game/assets/env/pine-2.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pine 2 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pine 2 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pine-3",
+      "kind": "model",
+      "name": "Pine 3 (Stylized Nature MegaKit: Pine_3)",
+      "file": [
+        "game/assets/env/pine-3.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pine 3 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pine 3 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pine-4",
+      "kind": "model",
+      "name": "Pine 4 (Stylized Nature MegaKit: Pine_4)",
+      "file": [
+        "game/assets/env/pine-4.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pine 4 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pine 4 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pine-5",
+      "kind": "model",
+      "name": "Pine 5 (Stylized Nature MegaKit: Pine_5)",
+      "file": [
+        "game/assets/env/pine-5.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pine 5 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pine 5 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-twistedtree-1",
+      "kind": "model",
+      "name": "TwistedTree 1 (Stylized Nature MegaKit: TwistedTree_1)",
+      "file": [
+        "game/assets/env/twistedtree-1.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "TwistedTree 1 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "TwistedTree 1 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-twistedtree-2",
+      "kind": "model",
+      "name": "TwistedTree 2 (Stylized Nature MegaKit: TwistedTree_2)",
+      "file": [
+        "game/assets/env/twistedtree-2.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "TwistedTree 2 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "TwistedTree 2 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-twistedtree-3",
+      "kind": "model",
+      "name": "TwistedTree 3 (Stylized Nature MegaKit: TwistedTree_3)",
+      "file": [
+        "game/assets/env/twistedtree-3.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "TwistedTree 3 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "TwistedTree 3 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-twistedtree-4",
+      "kind": "model",
+      "name": "TwistedTree 4 (Stylized Nature MegaKit: TwistedTree_4)",
+      "file": [
+        "game/assets/env/twistedtree-4.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "TwistedTree 4 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "TwistedTree 4 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-twistedtree-5",
+      "kind": "model",
+      "name": "TwistedTree 5 (Stylized Nature MegaKit: TwistedTree_5)",
+      "file": [
+        "game/assets/env/twistedtree-5.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "TwistedTree 5 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "TwistedTree 5 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-clover-1",
+      "kind": "model",
+      "name": "Clover 1 (Stylized Nature MegaKit: Clover_1)",
+      "file": [
+        "game/assets/env/clover-1.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Clover 1 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Clover 1 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-plant-1-big",
+      "kind": "model",
+      "name": "Plant 1 Big (Stylized Nature MegaKit: Plant_1_Big)",
+      "file": [
+        "game/assets/env/plant-1-big.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Plant 1 Big from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Plant 1 Big aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-plant-7",
+      "kind": "model",
+      "name": "Plant 7 (Stylized Nature MegaKit: Plant_7)",
+      "file": [
+        "game/assets/env/plant-7.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Plant 7 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Plant 7 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-plant-7-big",
+      "kind": "model",
+      "name": "Plant 7 Big (Stylized Nature MegaKit: Plant_7_Big)",
+      "file": [
+        "game/assets/env/plant-7-big.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Plant 7 Big from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Plant 7 Big aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-grass-common-tall",
+      "kind": "model",
+      "name": "Grass Common Tall (Stylized Nature MegaKit: Grass_Common_Tall)",
+      "file": [
+        "game/assets/env/grass-common-tall.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Grass Common Tall from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Grass Common Tall aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-grass-wispy-short",
+      "kind": "model",
+      "name": "Grass Wispy Short (Stylized Nature MegaKit: Grass_Wispy_Short)",
+      "file": [
+        "game/assets/env/grass-wispy-short.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Grass Wispy Short from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Grass Wispy Short aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-flower-3-single",
+      "kind": "model",
+      "name": "Flower 3 Single (Stylized Nature MegaKit: Flower_3_Single)",
+      "file": [
+        "game/assets/env/flower-3-single.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Flower 3 Single from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Flower 3 Single aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-flower-4-single",
+      "kind": "model",
+      "name": "Flower 4 Single (Stylized Nature MegaKit: Flower_4_Single)",
+      "file": [
+        "game/assets/env/flower-4-single.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Flower 4 Single from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Flower 4 Single aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-round-2",
+      "kind": "model",
+      "name": "Pebble Round 2 (Stylized Nature MegaKit: Pebble_Round_2)",
+      "file": [
+        "game/assets/env/pebble-round-2.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble Round 2 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble Round 2 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-round-3",
+      "kind": "model",
+      "name": "Pebble Round 3 (Stylized Nature MegaKit: Pebble_Round_3)",
+      "file": [
+        "game/assets/env/pebble-round-3.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble Round 3 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble Round 3 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-round-4",
+      "kind": "model",
+      "name": "Pebble Round 4 (Stylized Nature MegaKit: Pebble_Round_4)",
+      "file": [
+        "game/assets/env/pebble-round-4.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble Round 4 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble Round 4 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-round-5",
+      "kind": "model",
+      "name": "Pebble Round 5 (Stylized Nature MegaKit: Pebble_Round_5)",
+      "file": [
+        "game/assets/env/pebble-round-5.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble Round 5 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble Round 5 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-square-1",
+      "kind": "model",
+      "name": "Pebble Square 1 (Stylized Nature MegaKit: Pebble_Square_1)",
+      "file": [
+        "game/assets/env/pebble-square-1.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble Square 1 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble Square 1 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-square-2",
+      "kind": "model",
+      "name": "Pebble Square 2 (Stylized Nature MegaKit: Pebble_Square_2)",
+      "file": [
+        "game/assets/env/pebble-square-2.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble Square 2 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble Square 2 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-square-4",
+      "kind": "model",
+      "name": "Pebble Square 4 (Stylized Nature MegaKit: Pebble_Square_4)",
+      "file": [
+        "game/assets/env/pebble-square-4.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble Square 4 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble Square 4 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-square-5",
+      "kind": "model",
+      "name": "Pebble Square 5 (Stylized Nature MegaKit: Pebble_Square_5)",
+      "file": [
+        "game/assets/env/pebble-square-5.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble Square 5 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble Square 5 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-square-6",
+      "kind": "model",
+      "name": "Pebble Square 6 (Stylized Nature MegaKit: Pebble_Square_6)",
+      "file": [
+        "game/assets/env/pebble-square-6.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble Square 6 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble Square 6 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
     }
   ]
 }

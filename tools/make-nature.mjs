@@ -12,16 +12,22 @@ const opt = Object.fromEntries(process.argv.slice(2).map((a) => { const t = a.re
 if (!opt.kit) { console.error('usage: node tools/make-nature.mjs --kit=/path/to/unpacked/kit'); process.exit(1); }
 const KIT = opt.kit, OUT = new URL(`../${opt.out ?? 'game/assets/env'}/`, import.meta.url).pathname;
 
-// name of the file, the kit's model, height to scale to (null: true size), texture size (default 256)
-export const MODELS = [
-  ['bush-a', 'Bush_Common', 1], ['bush-b', 'Bush_Common_Flowers', 1],
-  ['fern', 'Fern_1', 1],
-  ['plant-a', 'Plant_1', 1], ['plant-b', 'Clover_2', 1],
-  ['grass-a', 'Grass_Common_Short', 1], ['grass-b', 'Grass_Wispy_Tall', 1],
-  ['flowers-a', 'Flower_3_Group', 1, 256], ['flowers-b', 'Flower_4_Group', 1, 256],
-  ['tree-a', 'CommonTree_5', null], ['tree-b', 'CommonTree_3', null], ['tree-c', 'CommonTree_4', null],
-  ['pebble-a', 'Pebble_Round_1', null], ['pebble-b', 'Pebble_Square_3', null],
+// name of the file, the kit's model, height to scale to (null: true size), texture size (default 256). The 14 first keep their names (game/view/look/nature.js reads them); the rest
+// are named after the kit's model in kebab case. Plants, grass and flowers are 1 m high (the slots scale them); trees, pebbles, the "big" plants and the flat ground cover
+// (Plant_7, 0.25 m high) are true size.
+const KEPT = [
+  ['bush-a', 'Bush_Common', 1], ['bush-b', 'Bush_Common_Flowers', 1], ['fern', 'Fern_1', 1], ['plant-a', 'Plant_1', 1], ['plant-b', 'Clover_2', 1],
+  ['grass-a', 'Grass_Common_Short', 1], ['grass-b', 'Grass_Wispy_Tall', 1], ['flowers-a', 'Flower_3_Group', 1, 256], ['flowers-b', 'Flower_4_Group', 1, 256],
+  ['tree-a', 'CommonTree_5', null], ['tree-b', 'CommonTree_3', null], ['tree-c', 'CommonTree_4', null], ['pebble-a', 'Pebble_Round_1', null], ['pebble-b', 'Pebble_Square_3', null],
 ];
+const MORE = [
+  'CommonTree_1', 'CommonTree_2', 'DeadTree_1', 'DeadTree_2', 'DeadTree_3', 'DeadTree_4', 'DeadTree_5', 'Pine_1', 'Pine_2', 'Pine_3', 'Pine_4', 'Pine_5',
+  'TwistedTree_1', 'TwistedTree_2', 'TwistedTree_3', 'TwistedTree_4', 'TwistedTree_5',
+  'Clover_1', 'Plant_1_Big', 'Plant_7', 'Plant_7_Big', 'Grass_Common_Tall', 'Grass_Wispy_Short', 'Flower_3_Single', 'Flower_4_Single',
+  'Pebble_Round_2', 'Pebble_Round_3', 'Pebble_Round_4', 'Pebble_Round_5', 'Pebble_Square_1', 'Pebble_Square_2', 'Pebble_Square_4', 'Pebble_Square_5', 'Pebble_Square_6',
+];
+const TRUE_SIZE = /Tree|Pine|Pebble|Plant_1_Big|Plant_7/;
+export const MODELS = [...KEPT, ...MORE.map((m) => [m.toLowerCase().replace(/_/g, '-'), m, TRUE_SIZE.test(m) ? null : 1])];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const chrome = `${homedir()}/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`;
@@ -51,7 +57,7 @@ const SIZES = { 5120: 1, 5121: 1, 5122: 2, 5123: 2, 5125: 4, 5126: 4 }, TYPES = 
 async function build([name, src, height, texSize = 256]) {
   const g = JSON.parse(readFileSync(`${KIT}/glTF/${src}.gltf`, 'utf8')), bin = readFileSync(`${KIT}/glTF/${src}.bin`);
   for (const n of g.nodes) if (n.translation || n.rotation || n.scale) throw new Error(`${src}: a node with its own transform`);
-  const chunks = [], views = [], accessors = [];
+  const chunks = [], views = [], accessors = [], bmin = [1e9, 1e9, 1e9], bmax = [-1e9, -1e9, -1e9];
   const addView = (data, target) => { const off = chunks.reduce((a, c) => a + c.length, 0); const b = pad4(data); chunks.push(b); views.push({ buffer: 0, byteOffset: off, byteLength: data.length, ...(target ? { target } : {}) }); return views.length - 1; };
   const meshes = g.meshes.map((m) => ({ name: m.name, primitives: m.primitives.map((p) => {
     const attrs = {};
@@ -60,7 +66,13 @@ async function build([name, src, height, texSize = 256]) {
       const raw = Buffer.alloc(a.count * comp * size); for (let i = 0; i < a.count; i++) bin.copy(raw, i * comp * size, (bv.byteOffset ?? 0) + (a.byteOffset ?? 0) + i * stride, (bv.byteOffset ?? 0) + (a.byteOffset ?? 0) + i * stride + comp * size);
       if (k === 'COLOR_0') continue;   // the kit's vertex colour is a dark mask (it made every plant nearly black under the look's light): left out
       {
-        accessors.push({ bufferView: addView(raw, 34962), componentType: a.componentType, count: a.count, type: a.type, ...(a.min ? { min: a.min, max: a.max } : {}) });
+        let mn = a.min, mx = a.max;
+        if (k === 'POSITION') {   // the real bounds of the vertices (the kit's declared bounds are wrong for some models: the fern's were three times too wide)
+          const f = new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.length)); mn = [1e9, 1e9, 1e9]; mx = [-1e9, -1e9, -1e9];
+          for (let i = 0; i < a.count; i++) for (let c = 0; c < 3; c++) { mn[c] = Math.min(mn[c], f[i * 3 + c]); mx[c] = Math.max(mx[c], f[i * 3 + c]); }
+          for (let c = 0; c < 3; c++) { bmin[c] = Math.min(bmin[c], mn[c]); bmax[c] = Math.max(bmax[c], mx[c]); }
+        }
+        accessors.push({ bufferView: addView(raw, 34962), componentType: a.componentType, count: a.count, type: a.type, ...(mn ? { min: mn, max: mx } : {}) });
       }
       attrs[k] = accessors.length - 1;
     }
@@ -82,8 +94,7 @@ async function build([name, src, height, texSize = 256]) {
     materials.push(nm);
   }
   // stand on y = 0, centred on x and z, scaled to `height` (or true size)
-  const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
-  for (const m of g.meshes) for (const p of m.primitives) { const a = g.accessors[p.attributes.POSITION]; for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], a.min[i]); mx[i] = Math.max(mx[i], a.max[i]); } }
+  const mn = bmin, mx = bmax;
   const k = height ? height / (mx[1] - mn[1]) : 1;
   const root = { name, children: g.scenes[0].nodes, scale: [k, k, k], translation: [(-(mn[0] + mx[0]) / 2) * k, -mn[1] * k, (-(mn[2] + mx[2]) / 2) * k] };
   const nodes = [...g.nodes, root], json = {
@@ -100,7 +111,8 @@ async function build([name, src, height, texSize = 256]) {
 }
 
 mkdirSync(OUT, { recursive: true });
-let total = 0;
-for (const m of MODELS) { const r = await build(m); total += r.kb; console.log(`${r.name.padEnd(10)} ${String(r.kb).padStart(5)} KB  ${r.size.join(' x ')} m  (${r.src}, scale ${r.scale})`); }
-console.log(`total ${total} KB`);
+let total = 0; const manifest = [];
+for (const m of MODELS) { const r = await build(m); total += r.kb; manifest.push({ file: r.name, kit: r.src, kb: r.kb, size: r.size, scale: r.scale }); console.log(`${r.name.padEnd(18)} ${String(r.kb).padStart(5)} KB  ${r.size.join(' x ')} m  (${r.src}, scale ${r.scale})`); }
+writeFileSync(`${OUT}nature.json`, JSON.stringify({ note: 'made by tools/make-nature.mjs: every model of the nature kit that was converted (true size where scale is 1)', models: manifest }, null, 1) + '\n');
+console.log(`total ${total} KB in ${MODELS.length} files`);
 ws.close(); stops.forEach((f) => f()); process.exit(0);
