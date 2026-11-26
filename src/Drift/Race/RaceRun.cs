@@ -26,6 +26,9 @@ public sealed class Runner(Guid person, string name, int car, int hue, double to
     public bool Dnf { get; set; }
     public double Progress { get; internal set; }
     public DriftScore Drift { get; } = new();
+    /// <summary>The clipping points of the map, judged on the poses (null until the first pose), and the bonus they have paid into the chain so far.</summary>
+    internal ZoneScore? Zones;
+    public double ZonePoints { get; internal set; }
     internal double LapStart;
     internal bool HasLast;
     internal double LastX, LastZ, LastT;
@@ -75,6 +78,9 @@ public sealed class RaceRun(RaceTrack track, int laps)
                 var implied = double.Hypot(x - r.LastX, z - r.LastZ) / (t - r.LastT);
                 var speed = Math.Min(Math.Min(Math.Abs(vf) / Math.Max(0.3, Math.Cos(beta)), implied * 1.25 + 1), 1.15 * r.Top + 2);
                 r.Drift.Step(Math.Clamp(beta, -1.4, 1.4), speed, (flags & 4) != 0 ? 5 : 0, Math.Abs(beta), dt);
+                r.Zones ??= new ZoneScore(Track.Clips);
+                var bonus = r.Zones.Step(x, z, Math.Clamp(beta, -1.4, 1.4), speed);
+                if (bonus > 0 && r.Drift.Pending > 0) { r.Drift.AddPending(bonus); r.ZonePoints += bonus; }
             }
             if (Track.Crosses(r.NextGate, r.LastX, r.LastZ, x, z, out var at))
             {

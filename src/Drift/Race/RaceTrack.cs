@@ -44,6 +44,9 @@ public sealed class RaceTrack
     /// <summary>The version of the road: 1 = a map from before the track system, 2 = a road of the track system (the map file's `track.version`). Pages say which they drive on, boards are kept apart by it.</summary>
     public int RoadVersion { get; init; } = 1;
 
+    /// <summary>The clipping points of the map (`clips`: x, z and an optional zone radius): a drift through the zone round one pays a bonus (ZoneScore).</summary>
+    public IReadOnlyList<(double X, double Z, double R)> Clips { get; init; } = [];
+
     /// <summary>The revision of a road of the track system whose shape was changed afterwards (the map file's `track.rev`, 0 when it never was): bests of another revision are another board.</summary>
     public int Rev { get; init; }
 
@@ -70,6 +73,7 @@ public sealed class RaceTrack
             HalfX = b.Max(p => Math.Abs(p.X)) + 3, HalfZ = b.Max(p => Math.Abs(p.Z)) + 3,
             Segments = Segs(r),
             Open = r.TryGetProperty("closed", out var cl) && cl.ValueKind == JsonValueKind.False,
+            Clips = r.TryGetProperty("clips", out var cp) && cp.ValueKind == JsonValueKind.Array ? [.. cp.EnumerateArray().Select(c => (N(c.GetProperty("x")), N(c.GetProperty("z")), c.TryGetProperty("r", out var cr) ? N(cr) : 0.0))] : [],
             Rev = r.TryGetProperty("track", out var tr) && tr.ValueKind == JsonValueKind.Object && tr.TryGetProperty("rev", out var rv) && rv.TryGetInt32(out var rev) ? rev : 0,
             RoadVersion = r.TryGetProperty("track", out var tk) && tk.ValueKind == JsonValueKind.Object && tk.TryGetProperty("version", out var tv) && tv.TryGetInt32(out var ver) ? ver : 1,
             Spawn = r.TryGetProperty("lobbySpawn", out var sp) && sp.ValueKind == JsonValueKind.Object ? (N(sp.GetProperty("x")), N(sp.GetProperty("z"))) : null,

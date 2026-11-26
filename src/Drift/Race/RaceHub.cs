@@ -366,7 +366,7 @@ public sealed class RaceHub
                 pos = i + 1, name = r.Name, car = r.Car, hue = r.Hue,
                 ms = r.FinishMs is { } f ? (int?)(int)f : null,
                 bestLap = r.BestLap is { } b ? (int?)(int)b : null,
-                drift = (int)r.Drift.Total, bestDrift = (int)Math.Max(r.Drift.Best, r.Drift.Pending), newDrift = flags[r.Person].Drift,
+                drift = (int)r.Drift.Total, zones = (int)r.ZonePoints, bestDrift = (int)Math.Max(r.Drift.Best, r.Drift.Pending), newDrift = flags[r.Person].Drift,
                 points = Math.Round((r.Finished && i < PositionPoints.Length ? PositionPoints[i] : 0) + r.Drift.Total / 100, 1),
                 dnf = r.Dnf, clean = r.CleanLaps, tuned = r.Tuned, creative = r.Creative,
                 newLap = flags[r.Person].Lap, newRace = flags[r.Person].Race, newAttack = flags[r.Person].Attack,

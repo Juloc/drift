@@ -469,6 +469,7 @@ public class RaceHubTests
         var row = rig.Racing["anna"].Peer.Last("result")!.Value.GetProperty("rows").EnumerateArray().Single();
         Assert.InRange(row.GetProperty("ms").GetInt32() / 1000.0, 80, 140);                      // the road at 20 m/s
         Assert.True(row.GetProperty("drift").GetInt32() > 500, "a drifting run earns points");
+        Assert.True(row.GetProperty("zones").GetInt32() > 300 && row.GetProperty("zones").GetInt32() < row.GetProperty("drift").GetInt32(), "the clipping points of the touge paid a bonus that is part of the run's points");
         Assert.True(row.GetProperty("newAttack").GetBoolean() && row.GetProperty("newLap").GetBoolean());
         Assert.Contains(rig.Best.Written, w => w.Kind == RaceStore.Attack);                    // the points of the whole run are on the board of the mode
         Assert.Contains(rig.Best.Written, w => w.Kind == RaceStore.Lap);                       // and the time on the board of the other

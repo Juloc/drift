@@ -21,6 +21,9 @@ public sealed class DriftScore
     public bool Drifting { get; private set; }
     public double Best { get; private set; }
 
+    /// <summary>Points that fall due outside the drift itself (a clipping point's bonus): they join the chain in progress, so they are multiplied by it no more and lost with it on a hit.</summary>
+    public void AddPending(double points) { if (Pending > 0) Pending += points; }
+
     /// <summary>What the car has earned so far: banked plus what is still pending.</summary>
     public double Total => Banked + Pending;
 
