@@ -1,6 +1,6 @@
 // What a model car gets besides its file: an underbody (frame, axles, drive shaft, exhaust pipe in rough strokes), a contact
 // shadow in the car's own shape, a pool of headlight on the road ahead, brake lights that brighten when braking, underglow as
-// two light strips along the sills, and flames with a flash at the exhaust when the throttle is lifted or the box shifts up.
+// a soft pad of underglow on the road, and flames with a flash at the exhaust when the throttle is lifted or the box shifts up.
 // The pops come from the game: it fires `car.pop` on window ({ strength 0..1 }) when the throttle is lifted at speed and plays the
 // bang itself (game/main.js); the flames listen to that one event, so picture and sound go off together. No canvas in Node: the
 // textures are made only where a document exists.
@@ -22,7 +22,23 @@ export function measure(group) {
   const zs = wheels.map((w) => w.z), xs = wheels.map((w) => Math.abs(w.x));
   const front = wheels.length ? Math.max(...zs) : 1.3, rear = wheels.length ? Math.min(...zs) : -1.3;
   const halfTrack = wheels.length ? Math.min(...xs) : 0.75, radius = wheels.length ? wheels[0].y : 0.32;
-  return { box, front, rear, halfTrack, radius };
+  // each tyre as it is drawn (the box of its meshes, not its pivot): the middle, the width, the radius, the point it touches the road
+  const tyres = [];
+  for (const k of ['fl', 'fr', 'rl', 'rr']) {
+    const node = group.getObjectByName(`wheel_${k}_pivot`) ?? group.getObjectByName(`wheel_${k}`), b = new THREE.Box3();
+    node?.traverse((o) => {
+      if (!o.isMesh || o.isInstancedMesh) return;
+      const p = o.geometry.attributes.position, mm = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      for (let i = 0; i < p.count; i++) b.expandByPoint(v.fromBufferAttribute(p, i).applyMatrix4(mm));
+    });
+    if (b.isEmpty()) continue;
+    const at = b.getCenter(new THREE.Vector3()), size = b.getSize(new THREE.Vector3());
+    tyres.push({ at, width: size.x, radius: size.y / 2, contact: new THREE.Vector3(at.x, b.min.y, at.z) });
+  }
+  // the two rear tyres' contact points, the right one (-x) first (by their place: older files name their sides the wrong way round)
+  const midZ = tyres.length ? tyres.reduce((a, t) => a + t.at.z, 0) / tyres.length : 0;
+  const rearTyres = tyres.filter((t) => t.at.z < midZ).sort((a, b) => a.at.x - b.at.x);
+  return { box, front, rear, halfTrack, radius, tyres, rearTyres };
 }
 
 /** A soft shape drawn on a canvas (null in Node). */
@@ -77,14 +93,18 @@ const padTexture = () => canvasTexture(128, 256, (x, w, h) => {
 const flat = (geo) => geo.rotateX(-Math.PI / 2);
 const _v = new THREE.Vector3(), _inv = new THREE.Matrix4(), _hp = new THREE.Vector3(), _fw = new THREE.Vector3(), _cd = new THREE.Vector3();
 /** Moves each vertex of a flat sheet (child of a car) to 1.5 cm above the ground under it; keeps its own x and z. */
-function layOnGround(mesh, groundAt) {
+function layOnGround(mesh, groundAt, lift = 0.015) {
+  if (!mesh.userData.flatY) {   // its own geometry first: the copies of a car share it, and each lies on its own piece of road
+    mesh.geometry = mesh.geometry.clone();
+    const p = mesh.geometry.attributes.position;
+    mesh.userData.flatY = Float32Array.from({ length: p.count }, (_, i) => p.getY(i));
+  }
   const p = mesh.geometry.attributes.position;
-  if (!mesh.userData.flatY) mesh.userData.flatY = Float32Array.from({ length: p.count }, (_, i) => p.getY(i));
   mesh.updateWorldMatrix(true, false);
   _inv.copy(mesh.matrixWorld).invert();
   for (let i = 0; i < p.count; i++) {
     _v.set(p.getX(i), mesh.userData.flatY[i], p.getZ(i)).applyMatrix4(mesh.matrixWorld);
-    _v.y = groundAt(_v.x, _v.z) + 0.015;
+    _v.y = groundAt(_v.x, _v.z) + lift;
     _v.applyMatrix4(_inv);
     p.setY(i, _v.y);
   }
@@ -262,7 +282,7 @@ export function dressCar(group, spec = {}, { lite = false } = {}) {
   under.name = 'fx_underbody'; under.castShadow = false;
   // contact shadow: the car's own footprint, a little bigger than the body, lying on the road
   const shadowMap = shadowTexture();
-  const shadow = new THREE.Mesh(flat(new THREE.PlaneGeometry(box.max.x - box.min.x + 0.7, len + 0.9)), new THREE.MeshBasicMaterial({ name: 'fx_shadow', color: 0xffffff, map: shadowMap, transparent: true, opacity: 0.85, depthWrite: false }));   // black pixels, the shape in their alpha
+  const shadow = new THREE.Mesh(flat(new THREE.PlaneGeometry(box.max.x - box.min.x + 0.7, len + 0.9, 2, 8)), new THREE.MeshBasicMaterial({ name: 'fx_shadow', color: 0xffffff, map: shadowMap, transparent: true, opacity: 0.85, depthWrite: false }));   // black pixels, the shape in their alpha
   shadow.position.set(0, 0.012, (box.max.z + box.min.z) / 2); shadow.renderOrder = 1; shadow.name = 'fx_shadow';
   // headlight pool on the road ahead
   const poolMap = poolTexture();
@@ -285,7 +305,22 @@ export function dressCar(group, spec = {}, { lite = false } = {}) {
 }
 
 /**
- * The parts and the behaviour of one car (call for each spawned copy): brake lights, flames and flash, underglow strips.
+ * The body apart from the wheels (call on the template, after dressCar): every part of the model except the wheels goes into `body_lean`, a group that turns
+ * about a point 35 cm above the road (about where a car rolls and pitches about), so the game can dive and lean the body while the chassis and its wheels stay
+ * on the road (sim/carpose.js). The copies of the car get it with the rest. Returns the group (null when the model has no wheels).
+ */
+export function leanBody(group) {
+  const pivot = group.getObjectByName('wheel_fl_pivot') ?? group.getObjectByName('wheel_fl'), holder = pivot?.parent;
+  if (!holder || group.getObjectByName('body_lean')) return group.getObjectByName('body_lean') ?? null;
+  const lean = new THREE.Group(), inner = new THREE.Group(), centre = 0.35;
+  lean.name = 'body_lean'; inner.name = 'body_lean_in'; lean.position.y = centre; inner.position.y = -centre; lean.add(inner);
+  for (const c of [...holder.children]) if (!/^wheel_/.test(c.name) && !c.isInstancedMesh) inner.add(c);
+  holder.add(lean);
+  return lean;
+}
+
+/**
+ * The parts and the behaviour of one car (call for each spawned copy): brake lights, flames and flash, underglow on the road.
  * `listen` (default: when there is a window): the flames follow the window event `car.pop`; dispose() stops listening.
  * @returns {{ update(dt, s): void, pop(strength, hold?): void, setGlow(hue|null): void, dispose(): void }} s = { brake 0..1 }
  */
@@ -347,13 +382,13 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
       };
     }
   }
-  // underglow: a thin light strip under each sill and one soft pad of light on the road under the whole car
-  const stripMat = new THREE.MeshBasicMaterial({ name: 'fx_glow_strip', color: 0xffffff, toneMapped: false });
-  const groundMat = new THREE.MeshBasicMaterial({ name: 'fx_glow_ground', map: padTexture(), color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  // underglow: one soft pad of light on the road under the whole car, no strips (seen from the side a lit strip was a hard line
+  // under the door). It lies on the ground under each of its points, so it follows a slope and a crest (a flat sheet in the car's
+  // axes cut into the road at every change of slope and flickered), and a polygon offset keeps it off the road's depth.
+  const groundMat = new THREE.MeshBasicMaterial({ name: 'fx_glow_ground', map: padTexture(), color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
   const glow = new THREE.Group(); glow.name = 'fx_glow';
-  const sideX = Math.max(0.4, m.halfTrack - 0.02), glowLen = Math.max(1, m.front - m.rear - 0.75), mid = (box.max.z + box.min.z) / 2;
-  for (const s of [-1, 1]) { const strip = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.02, glowLen), stripMat); strip.position.set(s * sideX, 0.16, (m.front + m.rear) / 2); glow.add(strip); }
-  const pad = new THREE.Mesh(flat(new THREE.PlaneGeometry(box.max.x - box.min.x + 1.0, box.max.z - box.min.z + 0.2)), groundMat); pad.position.set(0, 0.018, mid); pad.renderOrder = 3; glow.add(pad);
+  const mid = (box.max.z + box.min.z) / 2;
+  const pad = new THREE.Mesh(flat(new THREE.PlaneGeometry(box.max.x - box.min.x + 1.0, box.max.z - box.min.z + 0.6, 4, 10)), groundMat); pad.name = 'fx_glow_pad'; pad.position.set(0, 0.02, mid); pad.renderOrder = 3; glow.add(pad);
   glow.visible = false;
   let haloCloud = null;
   if (haloPoints.length) {
@@ -375,9 +410,9 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     };
   }
   const fxg = new THREE.Group(); fxg.name = 'fx_live'; fxg.add(...flames, ...flames.map((f) => f.userData.ground), ...lights, ...halos, ...(haloCloud ? [haloCloud] : []), glow);
-  car.group.add(tag(fxg));
+  (car.group.getObjectByName('body_lean_in') ?? car.group).add(tag(fxg));   // with the body: the flames stay at the pipe and the halos at the lamps when it dives
 
-  const poolMesh = car.group.getObjectByName('fx_pool');
+  const poolMesh = car.group.getObjectByName('fx_pool'), shadowMesh = car.group.getObjectByName('fx_shadow');
   // pops: one burst per event, its strength sets the size and one or two smaller after-bangs
   let queue = [], life = 0, strength = 0;
   const fire = (s) => {
@@ -397,7 +432,7 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     dispose() { if (listen) window.removeEventListener('car.pop', onPop); },
     setGlow(hue) {
       glow.visible = hue !== null && hue !== undefined;
-      if (glow.visible) { const c = new THREE.Color().setHSL(hue / 24, 1, 0.55); stripMat.color.copy(c).multiplyScalar(2.2); groundMat.color.copy(c).multiplyScalar(0.45); }
+      if (glow.visible) groundMat.color.setHSL(hue / 24, 1, 0.55).multiplyScalar(0.6);
     },
     update(dt, s) {
       const braking = s.brake > 0.1;
@@ -405,7 +440,12 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
       rearOpacity = braking ? 1 : 0.55;
       for (const h of halos) if (h.userData.rear) h.scale.setScalar(h.userData.base * (braking ? 1.35 : 1));
       // the headlight pool lies on the road: each of its points 1.5 cm over the ground under it (s.groundAt(x, z) in world space)
-      if (s.groundAt && poolMesh) layOnGround(poolMesh, s.groundAt);
+      // the contact shadow and the underglow too (a flat sheet cut into the road wherever the slope changes under the car)
+      if (s.groundAt) {
+        if (poolMesh) layOnGround(poolMesh, s.groundAt);
+        if (shadowMesh) layOnGround(shadowMesh, s.groundAt, 0.012);
+        if (glow.visible) layOnGround(pad, s.groundAt, 0.025);
+      }
       for (const q of queue) q.t -= dt;
       const due = queue.filter((q) => q.t <= 0); queue = queue.filter((q) => q.t > 0);
       for (const q of due) fire(q.s);

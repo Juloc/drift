@@ -145,7 +145,7 @@ possible without remodelling). In the game: `?model=ae86` (the car is not in `ca
 - Paint (G1, G2): the game's paint is a solid colour under a clear coat (metal 0.05, rough 0.45, coat 1, coat rough 0.05) on the
   high tier, rough 0.22 on phones. A calm reflection of the dusk sky needs an environment map made from the look's own sky:
   `stage.js` (the look session's).
-- Underglow: one soft pad of light under the whole car (zero at every edge) plus the thin sill strips; the floor pan only
+- Underglow: one soft pad of light under the whole car (zero at every edge) lying on the road under each of its points (no sill strips: a hard line from the side); the floor pan only
   between the axles, the silencer an oval drum.
 - Pictures: the look probe takes `?model=ae86&paint=ffffff&pop=1` and dresses a model car with the same effects
   (`ae86-probe-touge.png`, `ae86-probe-touge-phone.png`); the showroom takes `&pop=1&brake=1&glow=16&steer=0.3`
@@ -160,8 +160,8 @@ possible without remodelling). In the game: `?model=ae86` (the car is not in `ca
 - `game/view/carfx.js` (tests in `carfx.test.mjs`): `dressCar` puts an underbody (floor pan, axles, drive shaft, differential,
   exhaust pipe and silencer, one draw call), a contact shadow in the car's footprint (no circle) and a headlight pool on the
   road on the template, so every copy has them; `carFx` gives one car brake lights that brighten when braking (its own copies
-  of the `lamp_rear_` materials), flames and a flash at the exhaust (`cars.json` `fx.exhaust`) and underglow as two strips
-  along the sills plus their light on the road (`?glow=` / the garage setting; replaces the round patch for a model car).
+  of the `lamp_rear_` materials), flames and a flash at the exhaust (`cars.json` `fx.exhaust`) and underglow as light on
+  the road, lying on it under each of its points (`?glow=` / the garage setting; replaces the round patch for a model car).
 - **Pops:** the game fires `car.pop` on `window` (`detail.strength` 0..1) when the throttle drops from above 0.7 to below 0.2 at
   more than 8 m/s, at most every 400 ms, and plays the bang itself (`game/main.js`, the drift session's code); the flames
   listen to that event only (a strong pop gets one or two smaller after-bangs), so sound and picture go together. Shift

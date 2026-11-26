@@ -46,7 +46,7 @@ export class WheelPool {
     this.blobs.instanceMatrix.needsUpdate = true;
   }
 }
-const _rx = new THREE.Matrix4(), _ry = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+const _e = new THREE.Euler(), _rx = new THREE.Matrix4(), _ry = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 
 function mergeTwo(a, b) {
   const g = new THREE.BufferGeometry();
@@ -83,10 +83,11 @@ export class GlowPool {
     this._m = new THREE.Matrix4();
   }
   begin() { this.n = 0; }
-  /** x, z in drawing space, ry = the car's yaw there, hue = index 0..23, strength = 1 (a bit more at night). */
-  add(x, z, ry, hue, strength = 1, y = 0) {
+  /** x, z in drawing space, ry = the car's yaw there, hue = index 0..23, strength = 1 (a bit more at night), y = the road's height,
+   *  pitch = the road's slope along the car (as the car's own pitch: -atan(grade)), so the patch lies on a hill instead of cutting into it. */
+  add(x, z, ry, hue, strength = 1, y = 0, pitch = 0) {
     if (this.n >= this.mesh.instanceMatrix.count) return;
-    this._m.compose(_p.set(x, 0.1 + y, z), _q.setFromAxisAngle(_up, ry), _s.set(4.4, 1, 6.2));
+    this._m.compose(_p.set(x, 0.1 + y, z), _q.setFromEuler(_e.set(pitch, ry, 0, 'YXZ')), _s.set(4.4, 1, 6.2));
     this.mesh.setMatrixAt(this.n, this._m);
     this.mesh.setColorAt(this.n, this._c.setHSL((hue * 15) / 360, 1, 0.55).multiplyScalar(strength));
     this.n++;
