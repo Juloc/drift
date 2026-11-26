@@ -12,6 +12,7 @@ import { applyFeel, feelOf, PRO } from './sim/feel.js';
 import { FixedLoop } from './sim/loop.js';
 import { orbitBot } from './sim/bot.js';
 import { lineBot } from './sim/linebot.js';
+import { trackBot } from './sim/trackbot.js';
 import { lobbyStart } from './sim/spawn.js';
 import { newZones, zoneStep } from './sim/zones.js';
 import { createStage, loadLook } from './view/look/stage.js';
@@ -57,7 +58,7 @@ const $ = (id) => document.getElementById(id);
 // the 2.5D physics on the road's surface (slope force, wheel load, hill hold, crest and dip), to compare with the flat one: ?phys=1 or 0, else what the menu's switch kept on
 // this device; flat until the owner has driven both
 let storedPhys = null; try { storedPhys = localStorage.getItem('drift.phys'); } catch { /* no storage */ }
-const phys25 = params.has('phys') ? params.get('phys') === '1' : storedPhys === '1';
+const phys25 = params.has('phys') ? params.get('phys') === '1' : params.has('shot') ? true : storedPhys === '1';   // (the fixed shots for pictures and checks are made with the model on the surface: tools/make-shots.mjs)
 const deviceTouch = matchMedia('(pointer: coarse)').matches || params.has('touch');
 let storedControls = null; try { storedControls = localStorage.getItem('drift.controls'); } catch { /* no storage */ }
 const coarse = storedControls === 'touch' ? true : storedControls === 'pc' ? false : deviceTouch;   // the controls: chosen on this device, else what the device is (the menu switches them)
@@ -637,11 +638,11 @@ reset();
 // ?pose=x,z,h,slipDeg,kmh puts the car anywhere (nose heading h in radians, drifting with that slip at that speed), ?t=seconds of run-up with the line bot in front of it.
 let lineDriver = null;
 const shotDef = params.has('shot') ? (await fetch('data/shots.json').then((r) => r.json()))[params.get('shot')] ?? null : null;
-if (shotDef) { const s = shotDef.start; cur = prev = { ...makeCar(s.x, s.z, s.h), vx: Math.sin(s.h) * s.v, vz: Math.cos(s.h) * s.v }; cam.snap(cur); lineDriver = lineBot(stage.field.road, shotDef.bot); damageOn = false; }
+if (shotDef) { const s = shotDef.start; cur = prev = { ...makeCar(s.x, s.z, s.h), vx: Math.sin(s.h) * s.v, vz: Math.cos(s.h) * s.v }; cam.snap(cur); lineDriver = shotDef.driver === 'track' && map.surface ? trackBot(map.surface, { car, ...shotDef.bot }) : lineBot(stage.field.road, shotDef.bot); damageOn = false; }
 if (params.has('pose')) { const [px, pz, ph, pslip, pkmh] = params.get('pose').split(',').map(Number), v = pkmh / 3.6, dir = ph - (pslip * Math.PI) / 180; cur = prev = { ...makeCar(px, pz, ph), vx: Math.sin(dir) * v, vz: Math.cos(dir) * v }; cam.snap(cur); if (params.has('t')) lineDriver = lineBot(stage.field.road, { closed: map.closed !== false, speed: 30, corner: 11, kick: 0.25, look: 14, hold: 0.55 }); }
 const demo = params.get('demo') === 'orbit', demoLine = params.get('demo') === 'line';   // ?demo=orbit|line: a bot drives (a circle, or the map's loop) for pictures
 const freecam = params.has('freecam') ? params.get('freecam').split(',').map(Number) : null;
-if (demoLine) { const o = map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); lineDriver = lineBot(stage.field.road, map.closed === false ? { closed: false, speed: 30, corner: 11, kick: 0.25, look: 14, hold: 0.55 } : { closed: true, speed: 22, corner: 15 }); }   // (the touge numbers: a clean run of about 118 s with 30 to 40 degree drifts in the hairpins, no wall touched)
+if (demoLine) { const o = map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); lineDriver = phys25 && map.surface ? trackBot(map.surface, { car }) : lineBot(stage.field.road, map.closed === false ? { closed: false, speed: 30, corner: 11, kick: 0.25, look: 14, hold: 0.55 } : { closed: true, speed: 22, corner: 15 }); }   // (the touge numbers: a clean run of about 118 s with 30 to 40 degree drifts in the hairpins, no wall touched)
 if (demo) { const o = mapId === 0 ? { x: -30, z: 8, h: Math.PI / 2 } : map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); }
 
 // ----- the practice partner (?bot=1 or the key B): a bot drives a drift circle next to you; the tandem bonus is judged here, nothing is sent
@@ -652,7 +653,7 @@ function togglePractice(on = !practice) {
   if (!on) { practice = null; tandemHud.set(null); return; }
   if (!practice) {
     const start = params.get('bot') === 'near' ? { x: cur.x + 6, z: cur.z, h: cur.h } : mapId === 0 ? MEETING_PRACTICE_START : map.grid[0];   // ?bot=near: right beside you (for pictures and tests)   // a clear run and an open circle; the bot waits there for you to find it
-    practice = { bot: new PracticeBot(map, car, start, 1), scorer: new TandemPractice(), spin: 0 };
+    practice = { bot: new PracticeBot(map, car, start, 1, phys25 && map.surface ? roadSurface : null), scorer: new TandemPractice(), spin: 0 };
   }
   botCar = fleet.spawn(new THREE.Color().setHSL(((car.colour + 180) % 360) / 360, 0.62, 0.42));
   scene.add(botCar.group);

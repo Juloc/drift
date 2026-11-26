@@ -17,14 +17,15 @@ export const poseOf = (s) => ({ x: s.x, z: s.z, h: s.h, vf: bodyVelocity(s).vf, 
 
 export class PracticeBot {
   /** @param {{x:number,z:number,h:number}} start @param {object} car the car's numbers (as the player's) @param {number} dir 1 = circle to the right, -1 = left */
-  constructor(map, car, start, dir = 1) {
-    this.map = map; this.car = car; this.dir = dir; this.t = 0;
+  /** `surf`: the road's surface ((x, z, out) -> y, gx, gz) when the bot is to drive the model on a surface, as the player does with the hills switched on */
+  constructor(map, car, start, dir = 1, surf = null) {
+    this.map = map; this.car = car; this.dir = dir; this.t = 0; this.surf = surf;
     this.state = makeCar(start.x, start.z, start.h);
   }
   /** One fixed step (DT). */
   step() {
     const mu = surfaceAt(this.map, this.state.x, this.state.z).mu;
-    this.state = collide(this.map, step(this.state, orbitBot(this.t, this.state, { start: 1.5, dir: this.dir }), this.car, mu, DT));
+    this.state = collide(this.map, step(this.state, orbitBot(this.t, this.state, { start: 1.5, dir: this.dir }), this.car, mu, DT, this.surf));
     this.t += DT;
     return this.state;
   }
