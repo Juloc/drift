@@ -22,6 +22,14 @@ Updated 2026-11-26 (evening) by the building session. Every session updates this
   cone texture (blue at the root, orange at the tip), 15 to 30 cm, 2 to 4 frames, flash at most 22 cm, ground flash 30 cm at 15 % (no fog ball).
   Pictures `docs/screenshots/cars/ae86-lights-*.png`, `ae86-glow-banked-L.png`, `ae86-pop-rear.png`. No lens pattern (the model's lamps are flat colours
   in the palette). Not checked on a phone.
+- **Real tyre sounds (2026-11-26; the owner said yes to the one download):** the squeal of your own car is a recorded loop (Tom Haigh, CC BY 3.0, OpenGameArt, 42 KB Opus,
+  `tools/sound/run.mjs squeal`; pitch measured 926 Hz) over the made squeal (which keeps 30 % for body): it plays faster or slower with the slip (`squealF / 926`), a
+  chirp at the start (the pitch glides down from a third above in 160 ms, the level overshoots), held, then it sags in pitch while it fades (0.12 s). The ground
+  changes the layers (`sim/tyresound.js` `SURFACE_MIX`, `looseLevel`): grass and sand do not squeal but rumble more, scrub more and crackle with loose stuff (a made
+  buffer of random clicks), snow swishes, ice is thin; the ground comes from `surfaceAt(map, x, z).kind` for your car (the other drivers' cars stay asphalt). The wall
+  thud (`bump`, it existed) got a low thump (a sine falling 150 to 65 Hz) under the dull body and a short rattle for hard hits. No free gravel or thud recording without a
+  sign-in was found, so those are made. Proof: `docs/sound/ae86-ground.wav/.png` (asphalt, grass with ploughing, asphalt, a drift: chirp, held, end, snow), `ae86-mix.wav/.png`
+  (the same with the engine: the squeal as bright as the engine lines), `ae86-thuds.wav/.png` (four hits 5 to 28 m/s). Not checked: heard by a person, a phone's speaker.
 - **Paint, tyres, rims against the dusk mockup (2026-11-26, high tier; the phone tier keeps its single-material wheels):** tyres are dark grey rubber (0x2e2f34, matt 0.92)
   shaded by vertex colours (sidewall darkest at the rim, a lighter shoulder with a thin lighter ring where the lettering would be, the tread a little darker); rims are
   light satin metal with depth by vertex colours (`shadeRims`: dark dish inside, front of the spokes lighter, the outer lip lightest; env 1.0, metal 0.75); the tyres

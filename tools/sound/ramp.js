@@ -4,18 +4,19 @@
 import { SoundSystem } from '../../game/view/sound.js';
 
 const q = new URLSearchParams(location.search), car = +(q.get('car') ?? 1), SR = +(q.get('sr') ?? 22050), top = 33;
-const tyres = q.get('scene') === 'tyres';   // ?scene=tyres: the tyres alone (the engine muted) through roll, turn-in, drift, a switch, a big angle, roll-out
-const SECS = tyres ? 10 : 13;
+const scene = q.get('scene'), ground = scene === 'ground' || scene === 'mix', thuds = scene === 'thuds', tyres = scene === 'tyres' || ground || thuds;   // ?scene=mix: the same drive with the engine too (the mix: the engine on top, the tyres clearly heard in the drift); ?scene=ground: asphalt, grass, asphalt with a drift, snow; ?scene=thuds: four hits of rising strength   // ?scene=tyres: the tyres alone (the engine muted) through roll, turn-in, drift, a switch, a big angle, roll-out
+const SECS = ground ? 12 : thuds ? 7 : tyres ? 10 : 13;
 class Offline { constructor() { return new OfflineAudioContext(1, SR * SECS, SR); } }
 const store = { getItem: (k) => ({ 'drift.mute': '0', 'drift.volume': '1' })[k] ?? null, setItem() {} };
 // ?rec=1: the car's loops cut from a recording (game/assets/sound/<name>-engine.json, as the game plays them), else the made ones
 const cars = (await (await fetch('../../game/data/cars.json')).json()).cars, recName = cars.find((c) => c.id === car)?.sound;
-const s = new SoundSystem({ AudioCtx: Offline, storage: store, keepAllLoops: q.has('all'), recorded: q.has('rec') && recName ? { [car]: `../../game/assets/sound/${recName}-engine.json` } : {} });   // ?all=1: all ten loops play all the time (to compare the cost)
+const s = new SoundSystem({ AudioCtx: Offline, storage: store, keepAllLoops: q.has('all'), recorded: q.has('rec') && recName ? { [car]: `../../game/assets/sound/${recName}-engine.json` } : {}, squeal: q.has('rec') ? '../../game/assets/sound/squeal.json' : null });   // ?all=1: all ten loops play all the time (to compare the cost)
 s.unlock();
 await s.recordedReady;
 if (q.has('rec') && !s.recordedFor(car)) throw new Error('the recorded loops did not load');
+if (q.has('rec') && !s.recordedSqueal) throw new Error('the recorded squeal did not load');
 const ctx = s.ctx;
-if (tyres) s.own.lowCut.disconnect();   // the engine's loops out of the mix: only the tyres are heard
+if (tyres && scene !== 'mix') s.own.lowCut.disconnect();   // the engine's loops out of the mix: only the tyres are heard
 // the drive: [time, speed m/s, throttle]
 const lerp = (a, b, t0, t1, t) => a + (b - a) * Math.max(0, Math.min(1, (t - t0) / (t1 - t0)));
 // the tyre drive: [speed, throttle, slide]
@@ -27,20 +28,29 @@ const tyreDrive = (t) => {
   if (t < 8) return [18, 0.9, lerp(0.65, 0.95, 6.5, 7, t)];   // a big angle: scrubbing
   return [lerp(18, 4, 8, 10, t), 0, lerp(0.95, 0, 8, 8.8, t)];   // rolling out
 };
+// the ground drive: [speed, throttle, slide, surface]: asphalt rolling, grass (ploughing, then rolling), asphalt again with a drift (the start, held, the end), then snow
+const groundDrive = (t) => {
+  if (t < 2.5) return [lerp(10, 20, 0, 2.5, t), 0.6, 0, 'asphalt'];
+  if (t < 5) return [20, 0.6, t > 3.2 && t < 4.4 ? 0.5 : 0.05, 'grass'];
+  if (t < 6.2) return [lerp(20, 21, 5, 6.2, t), 0.7, 0.03, 'asphalt'];
+  if (t < 9.2) return [21, 0.85, t < 6.6 ? lerp(0.05, 0.62, 6.2, 6.6, t) : t < 8.4 ? 0.62 : lerp(0.62, 0.04, 8.4, 9.2, t), 'asphalt'];
+  return [lerp(21, 12, 9.2, 12, t), 0.3, t < 10.5 ? 0.35 : 0.05, 'snow'];
+};
 const drive = (t) => {
   if (t < 1) return [0, 0];
   if (t < 8) return [top * ((t - 1) / 7) ** 0.8, 1];   // full throttle through the gears
   if (t < 9.5) return [top, 1];   // at the limiter
   return [Math.max(0, top - (t - 9.5) * 4), 0];   // throttle shut, coasting
 };
-const marks = tyres ? [[0, 'rolling away'], [2, 'turn-in'], [3, 'drift held'], [5.5, 'switch'], [6.5, 'big angle'], [8, 'rolling out']] : [[0, 'idle'], [1, 'full throttle through the gears'], [8, 'limiter'], [9.5, 'throttle shut: off load, pops']];
+const marks = ground ? [[0, 'asphalt'], [2.5, 'grass'], [3.2, 'ploughing'], [5, 'asphalt'], [6.2, 'drift starts (chirp)'], [6.6, 'held'], [8.4, 'ends'], [9.2, 'snow']] : thuds ? [[1, 'hit 5 m/s'], [2.5, 'hit 12'], [4, 'hit 20'], [5.5, 'hit 28']] : tyres ? [[0, 'rolling away'], [2, 'turn-in'], [3, 'drift held'], [5.5, 'switch'], [6.5, 'big angle'], [8, 'rolling out']] : [[0, 'idle'], [1, 'full throttle through the gears'], [8, 'limiter'], [9.5, 'throttle shut: off load, pops']];
 const step = 128 / SR * 4;   // every four render quanta (23 ms at 22 kHz)
 let lastThrottle = 0;
 for (let t = 0; t < SECS - step; t += step) {
   const at = Math.round(t * SR / 128) * 128 / SR;
   ctx.suspend(at).then(() => {
-    const [speed, throttle, slide = 0] = tyres ? tyreDrive(at) : drive(at);
-    s.update({ speed, throttle, slide, car, top }, [], { x: 0, z: 0, heading: 0 });
+    const [speed, throttle, slide = 0, surface = 'asphalt'] = ground ? groundDrive(at) : thuds ? [0, 0, 0] : tyres ? tyreDrive(at) : drive(at);
+    s.update({ speed, throttle, slide, car, top, surface }, [], { x: 0, z: 0, heading: 0 });
+    if (thuds) for (const [ht, a] of [[1, 5], [2.5, 12], [4, 20], [5.5, 28]]) if (Math.abs(at - ht) < step / 2) s.bump(a, at * 1000);
     if (!tyres && lastThrottle > 0.7 && throttle < 0.2) s.pop(1, at * 1000);   // as the game does it (main.js)
     lastThrottle = throttle;
     ctx.resume();

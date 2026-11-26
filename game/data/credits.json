@@ -341,6 +341,25 @@
         "en": "Music: \"Lost in the Snow Wave\" by hatmix, CC0",
         "de": "Musik: „Lost in the Snow Wave“ von hatmix, CC0"
       }
+    },
+    {
+      "id": "tyre-squeal",
+      "kind": "sound",
+      "name": "Car tire squeal skid loop",
+      "file": [
+        "game/assets/sound/squeal.ogg"
+      ],
+      "author": "Tom Haigh (audible-edge)",
+      "authorUrl": "https://opengameart.org/content/car-tire-squeal-skid-loop",
+      "source": "https://opengameart.org/content/car-tire-squeal-skid-loop",
+      "licence": "CC BY 3.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "attribution": true,
+      "changes": "seam closed with a crossfade, levelled, played at a pitch that follows the slip, re-encoded as Opus",
+      "use": {
+        "en": "Tyre squeal: \"Car tire squeal skid loop\" by Tom Haigh (audible-edge), CC BY 3.0; changed: levelled, pitch follows the slip, re-encoded",
+        "de": "Reifenquietschen: „Car tire squeal skid loop“ von Tom Haigh (audible-edge), CC BY 3.0; verändert: Lautstärke angeglichen, Tonhöhe folgt dem Schlupf, neu kodiert"
+      }
     }
   ]
 }

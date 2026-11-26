@@ -569,6 +569,7 @@ const musicList = await fetch('data/music.json').then((r) => r.json()).then((j) 
 const startScene = mapList.find((m) => m.id === startId)?.scene;
 const sound = new SoundSystem({
   recorded: Object.fromEntries(cars.filter((c) => c.sound).map((c) => [c.id, `assets/sound/${c.sound}-engine.json`])),
+  squeal: 'assets/sound/squeal.json',   // a real tyre squeal loop for your own car (else the made one)
   pops: 'assets/sound/pops.json',   // real exhaust pops where the file exists (else the made crack)   // a car with `sound` in cars.json plays loops cut from a recording
   // the music: a map's own track first (the winter pass: the snowy one); each new track is named with its author and licence (CC BY asks for it)
   music: musicList.length ? { tracks: musicList, first: musicList.find((t) => t.maps?.includes(startScene))?.id ?? null, onTrack: (t) => note(T.nowPlaying.replace('{t}', t.title).replace('{a}', t.author).replace('{l}', t.licence)) } : null,
@@ -950,7 +951,7 @@ function frame(now) {
   if (next && next !== tierName) changeTier(next);
   if (sound.unlocked) {   // the engine and the tyres of your car, and the four nearest others
     const others = net ? net.sample(now).map((o) => ({ id: o.id, x: o.x, z: o.z, speed: o.vf, throttle: (o.flags & 2) ? 0.9 : Math.abs(o.vf) > 1 ? 0.6 : 0, slide: (o.flags & 3) ? 0.8 : 0, car: net.roster.get(o.id)?.car ?? 0, top: cars[net.roster.get(o.id)?.car ?? 0]?.top ?? 33 })) : [];
-    sound.update({ speed: speedOf(cur), throttle: lastInp.throttle, slide: paused ? 0 : cur.slide, car: carIndex, top: car.top }, others, { x: drawn.x, z: drawn.z, heading: drawn.h });
+    sound.update({ speed: speedOf(cur), throttle: lastInp.throttle, slide: paused ? 0 : cur.slide, car: carIndex, top: car.top, surface: surfaceAt(map, cur.x, cur.z).kind }, others, { x: drawn.x, z: drawn.z, heading: drawn.h });
   }
   // exhaust pops: lifting off the throttle at speed; the same event goes to the car's flames (window event 'car.pop', detail.strength 0..1)
   // only at high revs: lifting at speed is not enough, the engine must be well up its range (share 0..1 of idle to the limit), the pop grows with it

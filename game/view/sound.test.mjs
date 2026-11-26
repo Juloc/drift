@@ -90,10 +90,11 @@ test('a hit makes a short burst, louder with the hit, at most one in 120 ms, not
   s.bump(20, 0); assert.equal(made.src, 0, 'nothing before the click');
   s.unlock(); const base = made.src;
   s.bump(1, 1000); assert.equal(made.src, base, 'a tap under 2 m/s is silent');
-  s.bump(15, 2000); assert.equal(made.src, base + 1);
-  s.bump(25, 2050); assert.equal(made.src, base + 1, 'one at a time');
-  s.bump(25, 2300); assert.equal(made.src, base + 2);
-  s.setMuted(true); s.bump(25, 5000); assert.equal(made.src, base + 2, 'muted');
+  s.bump(6, 1500); assert.equal(made.src, base + 1, 'a soft hit: the dull body only');
+  s.bump(15, 2000); assert.equal(made.src, base + 3, 'a hard hit: the body and the rattle');
+  s.bump(25, 2050); assert.equal(made.src, base + 3, 'one at a time');
+  s.bump(25, 2300); assert.equal(made.src, base + 5);
+  s.setMuted(true); s.bump(25, 5000); assert.equal(made.src, base + 5, 'muted');
 });
 
 test('a new device starts muted, the volume is kept and capped behind a limiter', () => {
@@ -135,4 +136,28 @@ test('a pop plays recorded pops when they are loaded (never the same one twice i
   for (let i = 1; i < played.length; i++) assert.notEqual(played[i], played[i - 1], 'never the same pop twice in a row');
   s.pop(0.2, 90000); assert.equal(played.length, 61, 'a weak pop is one pop');
   s.setMuted(true); s.pop(1, 99999); assert.equal(played.length, 61, 'muted: silent');
+});
+
+test('the recorded squeal: a chirp when it starts (the pitch glides down, the level overshoots), then it holds without chirping again, the pitch follows the slip, and a new squeal chirps again', () => {
+  const { Ctx } = fakeAudio(), s = new SoundSystem({ AudioCtx: Ctx, storage: store() });
+  s.unlock();
+  const calls = [];
+  const rec = (name) => ({ value: 1, setTargetAtTime(v) { this.value = v; calls.push([name, 'target', v]); }, setValueAtTime(v) { this.value = v; calls.push([name, 'set', v]); }, exponentialRampToValueAtTime(v) { calls.push([name, 'ramp', v]); }, cancelScheduledValues() {} });
+  const loopBuf = { getChannelData: () => new Float32Array(10) };
+  s.own.setEngine(1); s.own.useSqueal(loopBuf, 925);
+  s.own.sq.src.playbackRate = rec('rate'); s.own.sq.g.gain = rec('gain');
+  const drive = (slide) => s.own.set({ speed: 20, throttle: 0.8, slide, top: 35, surface: 'asphalt' }, 1, 0);
+  drive(0); assert.equal(calls.filter((c) => c[1] === 'ramp').length, 0, 'no squeal, no chirp');
+  drive(0.5);
+  const first = calls.filter((c) => c[0] === 'rate' && c[1] === 'set'), ramp = calls.filter((c) => c[1] === 'ramp');
+  assert.equal(first.length, 1); assert.equal(ramp.length, 1);
+  assert.ok(first[0][2] > ramp[0][2] * 1.2, 'the chirp starts a third higher than where it settles');
+  assert.ok(calls.some((c) => c[0] === 'gain' && c[1] === 'set'), 'the level overshoots');
+  drive(0.55); drive(0.6); assert.equal(calls.filter((c) => c[1] === 'ramp').length, 1, 'held: no second chirp');
+  const hold = calls.filter((c) => c[0] === 'rate' && c[1] === 'target'); assert.ok(hold.length >= 2, 'the pitch follows');
+  drive(0); drive(0); drive(0.5); assert.equal(calls.filter((c) => c[1] === 'ramp').length, 2, 'a new squeal chirps again');
+  // on grass the recorded squeal is (almost) silent
+  const g = calls.length; s.own.set({ speed: 20, throttle: 0.8, slide: 0.6, top: 35, surface: 'grass' }, 1, 0);
+  const last = calls.slice(g).filter((c) => c[0] === 'gain' && c[1] === 'target').at(-1);
+  assert.ok(!last || last[2] < 0.2, `grass: no squeal (${last?.[2]})`);
 });
