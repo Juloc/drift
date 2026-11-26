@@ -35,7 +35,7 @@ await b.send('Page.navigate', { url: `${base}${opt.path ?? '/play/?lang=de'}${op
 let ok = false; for (let i = 0; i < 240 && !(ok = await b.ev('!!window.__drift && __drift.info.frames > 5 && (!window.__net || __net.connected)')); i++) await sleep(500);
 if (!ok) { console.log('the game did not start', b.logs.slice(0, 2)); process.exit(1); }
 if (opt.do) console.log('do:', JSON.stringify(await b.ev(opt.do)));
-if (opt.wait) for (let i = 0; i < 120 && !(await b.ev(opt.wait)); i++) await sleep(500);
+if (opt.wait) for (let i = 0; i < +(opt.waitSeconds ?? 60) * 2 && !(await b.ev(opt.wait)); i++) await sleep(500);
 await sleep(+(opt.after ?? 800));
 const s = await b.send('Page.captureScreenshot', { format: 'png' }); writeFileSync(out, Buffer.from(s.result.data, 'base64'));
 if (opt.eval) console.log('eval:', JSON.stringify(await b.ev(opt.eval)));
