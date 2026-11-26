@@ -380,6 +380,272 @@
         "en": "Tyre squeal: \"Car tire squeal skid loop\" by Tom Haigh (audible-edge), CC BY 3.0; changed: levelled, pitch follows the slip, re-encoded",
         "de": "Reifenquietschen: „Car tire squeal skid loop“ von Tom Haigh (audible-edge), CC BY 3.0; verändert: Lautstärke angeglichen, Tonhöhe folgt dem Schlupf, neu kodiert"
       }
+    },
+    {
+      "id": "env-bush-a",
+      "kind": "model",
+      "name": "Bush (Stylized Nature MegaKit: Bush_Common)",
+      "file": [
+        "game/assets/env/bush-a.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Bush from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Bush aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-bush-b",
+      "kind": "model",
+      "name": "Bush with flowers (Stylized Nature MegaKit: Bush_Common_Flowers)",
+      "file": [
+        "game/assets/env/bush-b.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Bush with flowers from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Bush with flowers aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-fern",
+      "kind": "model",
+      "name": "Fern (Stylized Nature MegaKit: Fern_1)",
+      "file": [
+        "game/assets/env/fern.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Fern from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Fern aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-plant-a",
+      "kind": "model",
+      "name": "Plant (Stylized Nature MegaKit: Plant_1)",
+      "file": [
+        "game/assets/env/plant-a.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Plant from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Plant aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-plant-b",
+      "kind": "model",
+      "name": "Clover (Stylized Nature MegaKit: Clover_2)",
+      "file": [
+        "game/assets/env/plant-b.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Clover from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Clover aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-grass-a",
+      "kind": "model",
+      "name": "Grass, common, short (Stylized Nature MegaKit: Grass_Common_Short)",
+      "file": [
+        "game/assets/env/grass-a.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Grass, common, short from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Grass, common, short aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-grass-b",
+      "kind": "model",
+      "name": "Grass, wispy, tall (Stylized Nature MegaKit: Grass_Wispy_Tall)",
+      "file": [
+        "game/assets/env/grass-b.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Grass, wispy, tall from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Grass, wispy, tall aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-flowers-a",
+      "kind": "model",
+      "name": "Flowers, group 3 (Stylized Nature MegaKit: Flower_3_Group)",
+      "file": [
+        "game/assets/env/flowers-a.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Flowers, group 3 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Flowers, group 3 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-flowers-b",
+      "kind": "model",
+      "name": "Flowers, group 4 (Stylized Nature MegaKit: Flower_4_Group)",
+      "file": [
+        "game/assets/env/flowers-b.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, 1 m high, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Flowers, group 4 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Flowers, group 4 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-tree-a",
+      "kind": "model",
+      "name": "Common tree 5 (Stylized Nature MegaKit: CommonTree_5)",
+      "file": [
+        "game/assets/env/tree-a.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, 7.0 m, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Common tree 5 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Common tree 5 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-tree-b",
+      "kind": "model",
+      "name": "Common tree 3 (Stylized Nature MegaKit: CommonTree_3)",
+      "file": [
+        "game/assets/env/tree-b.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, 9.4 m, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Common tree 3 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Common tree 3 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-tree-c",
+      "kind": "model",
+      "name": "Common tree 4 (Stylized Nature MegaKit: CommonTree_4)",
+      "file": [
+        "game/assets/env/tree-c.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, 9.4 m, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Common tree 4 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Common tree 4 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-a",
+      "kind": "model",
+      "name": "Pebble, round 1 (Stylized Nature MegaKit: Pebble_Round_1)",
+      "file": [
+        "game/assets/env/pebble-a.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, 0.5 m, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble, round 1 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble, round 1 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
+    },
+    {
+      "id": "env-pebble-b",
+      "kind": "model",
+      "name": "Pebble, square 3 (Stylized Nature MegaKit: Pebble_Square_3)",
+      "file": [
+        "game/assets/env/pebble-b.glb"
+      ],
+      "author": "Quaternius",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "cut out of the kit, one file per model, standing on y = 0 and centred, true size, 0.37 m, only the colour texture (256 px, WebP or JPEG), no vertex colour, matte (tools/make-nature.mjs)",
+      "use": {
+        "en": "Pebble, square 3 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
+        "de": "Pebble, square 3 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
+      }
     }
   ]
 }

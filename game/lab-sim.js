@@ -12,6 +12,7 @@ import { CameraRig, ActionCam } from './view/camera.js';
 import { SoundSystem } from './view/sound.js';
 import { buildPlace, ConeField } from './view/academy.js';
 import { buildPlaceLook } from './view/look/place.js';
+import { buildNature } from './view/look/nature.js';
 import { newCones, coneStep } from './sim/cones.js';
 import { gripPerWheel } from './sim/exercise.js';
 import { FixedLoop } from './sim/loop.js';
@@ -75,12 +76,14 @@ const academy = buildPlace(json, groundAt); stage.scene.add(academy.group);
 // the look of the place (view/look/place.js): asphalt, barriers, sea and harbour, stand, palms, floodlights; the plain pad's blocks and wet sheet go
 const placeLook = buildPlaceLook(json, look, stage.env, groundAt, tierName); stage.scene.add(placeLook.group); placeLook.setWet(params.get("wet") !== "0");   // (the shine starts as the grip does: ?wet=0 starts dry)
 if (stage.world.road) stage.world.road.visible = false;   // the place draws its own asphalt
+buildNature(json, look, groundAt, tierName).then((g) => stage.scene.add(g));   // bushes, grass, flowers, trees and pebbles on the green platform (CC0 models, view/look/nature.js)
 for (const m of academy.wet) m.visible = false; academy.group.children.forEach((o) => { if (o.isInstancedMesh) o.visible = false; });
 // ?off=sea,props,palms,containers,lamps,shadow,smoke,world: switches parts of the picture off one at a time to find what costs the frame rate (kept for later); `__sim.setOff(key, bool)` does it live
 function setOff(k, off) {
   if (k === 'shadow') { stage.renderer.shadowMap.enabled = !off && !!stage.tier.shadows; stage.sun.castShadow = !off && !!stage.tier.shadows; stage.scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; }); }
   else if (k === 'world') stage.world.group.visible = !off;
   else if (k === 'smoke') stage.smoke.mesh.visible = !off;
+  else if (k === 'nature') stage.scene.traverse((o) => { if (o.name === 'place:nature') o.visible = !off; });
   else placeLook.group.traverse((o) => { if (o.name === 'place:' + k) o.visible = !off; });
 }
 for (const k of (params.get('off') ?? '').split(',').filter(Boolean)) setOff(k, true);

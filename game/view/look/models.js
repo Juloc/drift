@@ -4,7 +4,7 @@
 // The files come in after the world is drawn (they are small); a file that cannot be read leaves its places empty.
 import * as THREE from '../../../vendor/three/three.module.js';
 
-async function readModel(name) {
+export async function readModel(name) {
   const { GLTFLoader } = await import('../../../vendor/three/addons/loaders/GLTFLoader.js');
   const url = new URL(`../../assets/env/${name}.glb`, import.meta.url).href;
   // the content policy (connect-src 'self'): textures through ordinary images, not image bitmaps fetched from blob: addresses. A plugin hands the

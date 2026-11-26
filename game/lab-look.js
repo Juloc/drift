@@ -9,6 +9,7 @@ import { sunDirection } from './view/look/sky.js';
 import { Fleet } from './view/look/fleet.js';
 import { buildPlace, ConeField } from './view/academy.js';
 import { buildPlaceLook } from './view/look/place.js';
+import { buildNature } from './view/look/nature.js';
 import { X, HEAD } from './view/space.js';
 import { GROUPS, SLIDERS, getPath, setPath, anglesOf, dirOf } from './lab-look-schema.js';
 
@@ -39,6 +40,7 @@ const plain = buildPlace(json, groundAt); stage.scene.add(plain.group);   // the
 for (const m of plain.wet) m.visible = false; plain.group.children.forEach((o) => { if (o.isInstancedMesh) o.visible = false; });
 const cones = new ConeField(json.cones, groundAt); stage.scene.add(cones.mesh);
 let wetOn = true, placeLook = null;
+buildNature(json, look, groundAt, tierName).then((g) => stage.scene.add(g));   // the models of the kit on the green platform
 const key2 = () => stage.scene.children.find((o) => o.isDirectionalLight && o !== stage.sun);
 
 // ---- applying a change
