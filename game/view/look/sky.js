@@ -54,10 +54,10 @@ export function makeSky(look, radius = 1800) {
         col = mix(col, uSun, disc * (1.0 - dens * 0.15));
         if (uMoonGlow > 0.0) {
           float m = dot(d, uMoonDir);
-          col += uMoon * pow(max(m, 0.0), 220.0) * uMoonGlow;
+          col += uMoon * (pow(max(m, 0.0), 2400.0) + 0.25 * pow(max(m, 0.0), 300.0)) * uMoonGlow;
           float disc = smoothstep(uMoonCos - 0.00015, uMoonCos + 0.00005, m);
           float mare = 0.88 + 0.12 * fbm(vec2(d.x, d.y) * 900.0);
-          col = mix(col, uMoon * mare, disc * (1.0 - dens * 0.7));
+          col = mix(col, uMoon * mare, disc * (1.0 - dens * 0.3));
         }
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>

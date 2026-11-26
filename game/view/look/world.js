@@ -10,6 +10,7 @@ import { makeGlow } from '../../core/materials.js';
 import { mulberry32, noise2, smoothstep } from '../../core/rng.js';
 import { X } from '../space.js';
 import { makeField, bends, pointAt, insidePoly, distToPoly } from './field.js';
+import { sunDirection } from './sky.js';
 
 const C = (hex) => new THREE.Color(hex);
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3();
@@ -71,11 +72,12 @@ export function buildWorld(scene, look, tierName = 'high') {
   road(Rb, f, look, onPlaza, mulberry32(23), lite, scene);
   zones(Rb, f, scene, look);
   if (scene.plaza) plaza(S, G, f, scene, look, lite, lampHeads);
-  roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza);
+  const pools = [];   // warm pools of light on the ground under the lamps and lanterns: [x, y, z, radius] in drawing space
+  roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza, lampHeads, pools);
   trees(S, f, scene, look, tier, rnd, lite);
   rocks(S, f, look, tier, rnd, sideInfo, lite);
   details(S, G, f, scene, look, tier, mulberry32(29), lite, sideInfo, onPlaza);
-  if (scene.road.lamps) roadLamps(S, G, f, scene, look, sideInfo, lampHeads);
+  if (scene.road.lamps) roadLamps(S, G, f, scene, look, sideInfo, lampHeads, pools);
   if (scene.props) props(S, G, f, scene, look, lite, lampHeads);
 
   const group = new THREE.Group();
@@ -113,6 +115,8 @@ export function buildWorld(scene, look, tierName = 'high') {
       diffuseColor.rgb *= ${(1 - (look.road.grain ?? 0.32) * 0.7).toFixed(3)} + grain * ${(look.road.grain ?? 0.32).toFixed(3)};`);   // look.road.grain: how strong
   };
   group.add(solid, lights, roadMesh);
+  const poolMesh = lightPools(pools, look);
+  if (poolMesh) group.add(poolMesh);
   if (water) group.add(water);
   if (far) group.add(far);
   return { group, field: f, lampHeads, road: roadMesh, triangles: [solid, lights, water, roadMesh, far].filter(Boolean).reduce((n, m) => n + m.geometry.index.count / 3, 0) };
@@ -429,7 +433,7 @@ function railRun(S, G, look, line0, every, lite, yAt = () => 0) {
 }
 
 // ---------------------------------------------------------------- along the road: guardrails on the valley side, reflector posts on the other, chevrons in the bends
-function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza = () => false) {
+function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza = () => false, lampHeads = [], pools = []) {
   const hw = f.hw, right = (d) => [d[1], -d[0]];
   // guardrail runs: consecutive points where the land on the valley side falls by more than 2.5 m (one rail per side)
   for (const side of [-1, 1]) {
@@ -453,7 +457,9 @@ function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza = () 
   }
   // chevrons: three pink boards with a white arrow on the outside of each bend, facing the driver coming from the plaza
   const Cv = look.chevron, board = C(Cv.board), post = C(Cv.post);
-  const pts = [[-0.17, 0.26], [0.0, 0.26], [0.19, 0], [0.0, -0.26], [-0.17, -0.26], [0.02, 0]], hot = glow(Cv.arrow, 2.2);
+  const pts = [[-0.17, 0.26], [0.0, 0.26], [0.19, 0], [0.0, -0.26], [-0.17, -0.26], [0.02, 0]], hot = glow(Cv.arrow, Cv.glow ?? 2.2);
+  // look.chevron.count: two arrows (default) or three smaller ones side by side, as on the mockup's boards
+  const three = Cv.count === 3, arrows = three ? [-0.52, 0, 0.52] : [-0.38, 0.32], ak = three ? 1.25 : 1.5;
   for (const b of bends(f.info, { min: f.bendMin, span: f.bendSpan })) {
     const out = b.turn > 0 ? -1 : 1, mirror = b.turn > 0 ? 1 : -1;
     for (const ds of [-11, 0, 11]) {
@@ -463,11 +469,21 @@ function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza = () 
       S.push(trs(X(x), f.roadY(b.s + ds), z, 0, Math.atan2(-X(p.dir[0]), -p.dir[1]), 0));
       for (const sx of [-0.55, 0.55]) S.box(0.09, 3.2, 0.09, sx, 0.1, -0.07, post, { r: 0 });
       S.box(1.9, 1.0, 0.08, 0, 1.6, 0, board, { r: 0.06, jitter: 0 });
-      // the glowing double chevron is in the unlit mesh, placed through the same transform
+      // the glowing chevrons are in the unlit mesh, placed through the same transform
       G.push(S.top.clone());
-      for (const ox of [-0.38, 0.32]) G.prism(pts.map(([a, c]) => [a * 1.5 * mirror, c * 1.5]), 0.03, ox * mirror, 1.6, 0.055, hot, { bevel: 0, jitter: 0 });
+      for (const ox of arrows) G.prism(pts.map(([a, c]) => [a * ak * mirror, c * ak]), 0.03, ox * mirror, 1.6, 0.055, hot, { bevel: 0, jitter: 0 });
       G.pop();
       S.pop();
+    }
+    // look.lantern.bends: a stone lantern on the inside of every bend and one at its exit on the outside (between the road and the rail, where the
+    // chase camera looks), each with a warm pool of light round it
+    if (look.lantern?.bends) for (const [ds, sd, o] of [[0, -out, hw + 2.4], [20, out, hw + 0.95]]) {
+      const p = pointAt(f.road, f.info, b.s + ds), r = right(p.dir), side = sd;
+      const x = p.x + r[0] * side * o, z = p.z + r[1] * side * o, y = Math.max(f.height(x, z), f.roadY(b.s + ds) - 0.2), k = look.lantern.size ?? 1.1;
+      if (onPlaza(x, z)) continue;
+      stoneLantern(S, G, look, x, y, z, Math.atan2(X(p.dir[0]), p.dir[1]), k);
+      lampHeads.push([X(x), y + 1.85 * k, z, look.lantern.halo ?? 1.6]);
+      pools.push([X(x), y, z, look.lantern.pool ?? 5]);
     }
   }
 }
@@ -502,6 +518,9 @@ function trees(S, f, scene, look, tier, rnd, lite) {
   const K = scene.lake, nearLake = (x, z) => !!K && Math.hypot((x - K.x) / K.rx, (z - K.z) / K.rz) < 1.9;
   const [x0, z0, x1, z1] = scene.terrain.extent, ry = f.floor;
   const [cx0, cz0, cx1, cz1] = scene.terrain.core ?? scene.terrain.extent;
+  // scene.terrain.sight (drop per metre): below the road a tree's top stays under the line of sight from the road down into the valley, so the lake
+  // shows over the forest; the tallest a tree may be at (x, z) (Infinity above the road or without it)
+  const sight = scene.terrain.sight, capH = (x, z, e, rel) => (sight == null || rel > -1 ? Infinity : -rel + 1.2 - e * sight);
   // `near`: only within 45 m of the road or the plaza (the frame of every picture), else anywhere (half of them near the core)
   const place = (count, kind, near) => {
     let made = 0;
@@ -518,7 +537,8 @@ function trees(S, f, scene, look, tier, rnd, lite) {
       // away from the road, cherries stay low by the river and pines thin out on the valley floor
       if (!near && kind === 'cherry' && rel > ry + 14 && rnd() > 0.1) continue;
       if (kind === 'pine' && rel < ry + 3 && rnd() > 0.35) continue;
-      const h = kind === 'pine' ? 7 + rnd() * 8 : 8 + rnd() * 4;
+      const cap = capH(x, z, e, rel), h = Math.min(cap, kind === 'pine' ? 7 + rnd() * 8 : 8 + rnd() * 4);
+      if (h < 4) continue;
       (kind === 'pine' ? pine : cherry)(S, look, x, y - 0.3, z, h, rnd, lite);
       made++;
       // pines grow in groups: a few more of different sizes round the first
@@ -527,7 +547,9 @@ function trees(S, f, scene, look, tier, rnd, lite) {
         if (f.edge(gx, gz) < f.shelf + 1.5 || f.wet(gx, gz, 4)) continue;
         const gr = f.relHeight(gx, gz), gy = gr + f.groundY(gx, gz);
         if (gr < ry + 2 || f.slope(gx, gz, gy) > 0.85 || (f.base(gx, gz) < -2 && f.edge(gx, gz) < (f.openValley ?? 0))) continue;
-        pine(S, look, gx, gy - 0.3, gz, h * (0.45 + rnd() * 0.7), rnd, lite);
+        const gh = Math.min(capH(gx, gz, f.edge(gx, gz), gr), h * (0.45 + rnd() * 0.7));
+        if (gh < 3) continue;
+        pine(S, look, gx, gy - 0.3, gz, gh, rnd, lite);
         made++;
       }
     }
@@ -551,7 +573,8 @@ function trees(S, f, scene, look, tier, rnd, lite) {
     const rel = f.relHeight(x, z), y = rel + f.groundY(x, z);
     if (rel < ry + 3 || f.slope(x, z, y) > 0.9) continue;
     for (let g = 0, m = 3 + Math.floor(rnd() * 6); g < m; g++, n++) {
-      const gx = x + (rnd() - 0.5) * 22, gz = z + (rnd() - 0.5) * 22, h = 7 + rnd() * 9, gy = f.height(gx, gz);
+      const gx = x + (rnd() - 0.5) * 22, gz = z + (rnd() - 0.5) * 22, gy = f.height(gx, gz), h = Math.min(7 + rnd() * 9, capH(gx, gz, f.edge(gx, gz), gy - f.groundY(gx, gz)));
+      if (h < 3) continue;
       S.cone(h * 0.28, h, X(gx), gy + h * 0.45, gz, C(P.dark).lerp(C(P.mid), rnd() * 0.6), { seg: 5, ry: rnd() * 3 });
     }
   }
@@ -582,6 +605,19 @@ function rocks(S, f, look, tier, rnd, sideInfo, lite) {
 // ---------------------------------------------------------------- the small things: grass tufts and stones at the roadside, bushes, petals under the
 // cherry trees, power poles with sagging wires along the slope, a stone lantern and a small shrine gate by the plaza
 const TRI = (() => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, 0, -0.35, 0.5, 0, -0.2, 0, 0, 0.45], 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0], 3)); return g; })();
+
+/** A stone lantern (tōrō): plinth, shaft, the light box with a warm window, a pyramid roof; `k` scales it. */
+function stoneLantern(S, G, look, x, y, z, ry, k = 1) {
+  const stoneC = C(look.lantern?.stone ?? '#b7a8a6');
+  S.box(0.9 * k, 0.3 * k, 0.9 * k, X(x), y + 0.15 * k, z, stoneC, { r: 0.04, ry });
+  S.cyl(0.16 * k, 0.2 * k, 1.2 * k, X(x), y + 0.9 * k, z, stoneC, { seg: 6 });
+  S.box(0.75 * k, 0.15 * k, 0.75 * k, X(x), y + 1.55 * k, z, stoneC, { r: 0.03, ry });
+  S.box(0.5 * k, 0.45 * k, 0.5 * k, X(x), y + 1.85 * k, z, stoneC.clone().multiplyScalar(0.9), { r: 0.02, ry });
+  G.box(0.36 * k, 0.3 * k, 0.52 * k, X(x), y + 1.85 * k, z, glow(look.lamp.light, look.lantern?.glow ?? 2.4), { r: 0, ry });
+  G.box(0.52 * k, 0.3 * k, 0.36 * k, X(x), y + 1.85 * k, z, glow(look.lamp.light, look.lantern?.glow ?? 2.4), { r: 0, ry });
+  S.cone(0.75 * k, 0.45 * k, X(x), y + 2.3 * k, z, stoneC, { seg: 4, ry: ry + Math.PI / 4 });
+  S.ball(0.12 * k, X(x), y + 2.6 * k, z, stoneC, { detail: 0 });
+}
 
 function details(S, G, f, scene, look, tier, rnd, lite, sideInfo, onPlaza) {
   const D = tier.details ?? {}, L = look.land, right = (d) => [d[1], -d[0]], hw = f.hw;
@@ -641,17 +677,11 @@ function details(S, G, f, scene, look, tier, rnd, lite, sideInfo, onPlaza) {
   for (const m of scene.marks ?? []) {
     const y = at(m.x, m.z), stoneC = C(look.lantern?.stone ?? '#b7a8a6'), red = C(look.lantern?.gate ?? '#c8423f'), ry = m.ry ?? 0;
     if (m.type === 'lantern') {
-      S.box(0.9, 0.3, 0.9, X(m.x), y + 0.15, m.z, stoneC, { r: 0.04, ry });
-      S.cyl(0.16, 0.2, 1.2, X(m.x), y + 0.9, m.z, stoneC, { seg: 6 });
-      S.box(0.75, 0.15, 0.75, X(m.x), y + 1.55, m.z, stoneC, { r: 0.03, ry });
-      S.box(0.5, 0.45, 0.5, X(m.x), y + 1.85, m.z, stoneC.clone().multiplyScalar(0.9), { r: 0.02, ry });
-      G.box(0.36, 0.3, 0.52, X(m.x), y + 1.85, m.z, glow(look.lamp.light, 2.4), { r: 0, ry });
-      S.cone(0.75, 0.45, X(m.x), y + 2.3, m.z, stoneC, { seg: 4, ry: ry + Math.PI / 4 });
-      S.ball(0.12, X(m.x), y + 2.6, m.z, stoneC, { detail: 0 });
+      stoneLantern(S, G, look, m.x, y, m.z, ry);
     } else if (m.type === 'clip') {   // a clipping point of the zone scoring: a low white guide post with a dark band and a glowing pink reflector, as along a mountain road
       S.box(0.14, 0.95, 0.14, X(m.x), y + 0.475, m.z, C('#f4efee'), { r: 0.02, jitter: 0 });
       S.box(0.15, 0.14, 0.15, X(m.x), y + 0.7, m.z, C('#2b2630'), { r: 0.02, jitter: 0 });
-      G.box(0.1, 0.2, 0.05, X(m.x), y + 0.82, m.z, glow('#ff5a96', 2.8), { r: 0, jitter: 0 });
+      G.box(0.13, 0.3, 0.155, X(m.x), y + 0.8, m.z, glow(look.chevron?.arrow ?? '#ff5a96', 4), { r: 0, jitter: 0 });   // seen from every side, as bright as the chevrons
     } else if (m.type === 'gate') {
       S.push(trs(X(m.x), y, m.z, 0, ry, 0));
       // a torii: two red pillars, a tie beam and a black-capped top beam; m.width / m.height scale it (a road torii is wide)
@@ -704,7 +734,7 @@ function props(S, G, f, scene, look, lite, lampHeads) {
 }
 
 // ---------------------------------------------------------------- street lamps along the road (scene.road.lamps: metres apart), on the uphill side, the arm over the road
-function roadLamps(S, G, f, scene, look, sideInfo, lampHeads) {
+function roadLamps(S, G, f, scene, look, sideInfo, lampHeads, pools = []) {
   const L = look.lamp, pole = C(L.pole), every = scene.road.lamps, hgt = L.height ?? 7, right = (d) => [d[1], -d[0]];
   for (let d = every * 0.5; d < f.info.length - 5; d += every) {
     const p = pointAt(f.road, f.info, d), si = sideInfo[p.i], side = -si.valley, r = right(p.dir), o = f.hw + 0.9;
@@ -714,7 +744,26 @@ function roadLamps(S, G, f, scene, look, sideInfo, lampHeads) {
     S.box(0.1, 0.1, len, X((x + hx) / 2), y + hgt, (z + hz) / 2, pole, { r: 0, ry: Math.atan2(X(hx - x), hz - z) });
     G.box(0.42, 0.08, 0.26, X(hx), y + hgt - 0.08, hz, glow(L.light, 2.4), { r: 0, ry: Math.atan2(X(p.dir[0]), p.dir[1]) });
     lampHeads.push([X(hx), y + hgt - 0.2, hz]);
+    if (L.pool) pools.push([X(hx), y, hz, L.pool]);   // look.lamp.pool: the radius of the light on the road under the lamp
   }
+}
+
+/** The warm pools of light on the ground (one mesh of flat quads with a soft round glow, added on top; nothing is lit for real). */
+function lightPools(pools, look) {
+  if (!pools.length) return null;
+  const pos = [], uv = [], idx = [];
+  pools.forEach(([x, y, z, r], n) => {
+    for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { pos.push(x + a * r, y + 0.08, z + b * r); uv.push((a + 1) / 2, (b + 1) / 2); }
+    idx.push(n * 4, n * 4 + 2, n * 4 + 1, n * 4, n * 4 + 3, n * 4 + 2);
+  });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x2 = c.getContext('2d'), gr = x2.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x2.fillStyle = gr; x2.fillRect(0, 0, 64, 64);
+  const m = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: C(look.lamp.light).multiplyScalar(look.lamp.poolGlow ?? 0.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const mesh = new THREE.Mesh(g, m); mesh.renderOrder = 2;
+  return mesh;
 }
 
 /**
@@ -725,10 +774,12 @@ function roadLamps(S, G, f, scene, look, sideInfo, lampHeads) {
 function mirrorWater(look) {
   const s = look.sky, W = look.water;
   return new THREE.ShaderMaterial({
-    uniforms: { uTop: { value: C(s.top) }, uMid: { value: C(s.mid) }, uHorizon: { value: C(s.horizon).multiplyScalar(W.band ?? 1.4) }, uDeep: { value: C(W.deep) }, uMidH: { value: W.bandWidth ?? s.midHeight ?? 0.2 }, uStreak: { value: W.streak ?? 1 } },   // water.bandWidth: how far up the reflected sky the horizon band reaches
+    uniforms: { uTop: { value: C(s.top) }, uMid: { value: C(s.mid) }, uHorizon: { value: C(s.horizon).multiplyScalar(W.band ?? 1.4) }, uDeep: { value: C(W.deep) }, uMidH: { value: W.bandWidth ?? s.midHeight ?? 0.2 }, uStreak: { value: W.streak ?? 1 },   // water.bandWidth: how far up the reflected sky the horizon band reaches
+      // water.path: the bright streaked lane of the low sun's glow on the water, under the sun (strength, width in 1 - cos of the bearing, colour)
+      uSun: { value: sunDirection(look) }, uPath: { value: W.path ?? 0 }, uPathW: { value: W.pathWidth ?? 0.02 }, uPathC: { value: C(W.pathColour ?? s.horizon) } },
     vertexShader: /* glsl */ `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: /* glsl */ `
-      uniform vec3 uTop, uMid, uHorizon, uDeep; uniform float uMidH, uStreak; varying vec3 vW;
+      uniform vec3 uTop, uMid, uHorizon, uDeep, uSun, uPathC; uniform float uMidH, uStreak, uPath, uPathW; varying vec3 vW;
       float h1(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float n1(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h1(i), h1(i + vec2(1, 0)), f.x), mix(h1(i + vec2(0, 1)), h1(i + vec2(1, 1)), f.x), f.y); }
       void main() {
@@ -742,7 +793,13 @@ function mirrorWater(look) {
         float e = max(R.y, 0.0);
         vec3 sky = e < uMidH ? mix(uHorizon, uMid, smoothstep(0.0, uMidH, e)) : mix(uMid, uTop, smoothstep(uMidH, 0.8, e));
         float fres = 0.15 + 0.85 * pow(1.0 - max(dot(-V, N), 0.0), 4.0);
-        gl_FragColor = vec4(mix(uDeep, sky, fres), 1.0);
+        vec3 c = mix(uDeep, sky, fres);
+        // the lane of the sunset on the water: where the view's bearing meets the sun's, broken into vertical streaks by the ripples
+        float a = dot(fw, normalize(uSun.xz + 1e-4));
+        float lane = exp(-(1.0 - a) / uPathW) * (1.0 - smoothstep(0.05, 0.45, e));
+        float st = smoothstep(0.3, 0.7, n1(vec2(dot(vW.xz, side) * 0.35, dot(vW.xz, fw) * 0.004)));
+        c += uPathC * uPath * lane * (0.25 + 0.75 * st);
+        gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
