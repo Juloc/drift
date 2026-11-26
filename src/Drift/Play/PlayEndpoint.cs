@@ -77,14 +77,16 @@ public static class PlayEndpoint
         var stats = app.Services.GetRequiredService<StatsTracker>();
         var tandem = app.Services.GetRequiredService<TandemTracker>();
         tandem.Follow(relay);
+        var matches = app.Services.GetRequiredService<TandemMatches>();
+        matches.Follow(relay);
         var challenges = app.Services.GetRequiredService<ChallengeTracker>();
         challenges.Follow(relay);
         Task Lobby(HttpContext ctx, Player p) =>
             RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), p.Car, p.Name.Length > 0 ? p.Name : null, p.Colour, glow: p.Glow, worldKey: p.World,
                 stillValid: p.StillValid, checkEvery: SessionCheck,
-                onText: (sess, text) => { hub.OnLobbyText(p.Id, text); challenges.OnText(sess, text); },
-                joined: s => { stats.Join(s, p.Id, p.Guest); tandem.Join(s, p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Guest, p.Car); challenges.Join(s, p.Id, p.Guest); sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },
-                left: s => { tandem.Leave(s); challenges.Leave(s); sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); _ = stats.LeaveAsync(s); });
+                onText: (sess, text) => { if (matches.OnText(sess, text)) return; hub.OnLobbyText(p.Id, text); challenges.OnText(sess, text); },
+                joined: s => { stats.Join(s, p.Id, p.Guest); tandem.Join(s, p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Guest, p.Car); matches.Join(s, p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Guest, p.Car); challenges.Join(s, p.Id, p.Guest); sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name.Length > 0 ? p.Name : s.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },
+                left: s => { tandem.Leave(s); matches.Leave(s); challenges.Leave(s); sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); _ = stats.LeaveAsync(s); });
         app.Map(Path, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         app.Map(GuestPath, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         app.MapGet("/api/open/name", () => Results.Ok(new { name = WorldRelay.Colours[Random.Shared.Next(WorldRelay.Colours.Length)] + " " + WorldRelay.Animals[Random.Shared.Next(WorldRelay.Animals.Length)] }));   // the suggestion in the name field of somebody without an account

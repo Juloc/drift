@@ -228,7 +228,7 @@
   "height": 1.2,
   "side": 0,
   "look": 14,
-  "lookY": -0.5,
+  "lookY": 0.5,
   "travel": 0.6,
   "fov": 52,
   "turn": 8,

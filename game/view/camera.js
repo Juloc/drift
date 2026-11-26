@@ -56,31 +56,56 @@ export class DriverCam {
   }
 }
 
+/** The chase camera's presets: how far behind the car and how high above the road it sits (metres). */
+export const PRESETS = { near: { dist: 5.4, up: 2.5 }, follow: { dist: 7.6, up: 3.5 }, far: { dist: 11.5, up: 5 }, top: { dist: 7, up: 10 } };
+export const PRESET_NAMES = Object.keys(PRESETS);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
 /**
- * The chase camera of a look (look.camera: dist, height, side, look, lookY, travel, fov, turn, swing): low, close behind the car and a little to its right, looking along where the car is going (between
- * its nose and its travel) and so down the road; it follows softly and sits on the road's drawn height (`ground(x, z)`, the physics underneath is flat).
+ * The chase camera of a look (look.camera: side, look, lookY, travel, fov, turn, turnDrift, swing; its distance and height are the presets'): behind the car and above it, looking along where the
+ * car is going (between its nose and its travel). It is NOT fixed to the car: the point it follows, the road's height under it and the direction it looks are all damped, so a bump, a
+ * crest, a spring or a knock does not shake the picture (docs/STATE: the owner got sick of the old one).
+ * The player can turn it round the car (`user.yaw`), tilt it (`user.lift`, metres of height) and zoom (`user.zoom`); with `user.auto` the angle and height come back by themselves a moment after
+ * the player lets go (zoom stays), without it the camera stays where it was put.
  */
 export class LookChase {
-  constructor(camera, C, ground = null) { this.camera = camera; this.C = C; this.ground = ground; this.yaw = 0; this.ready = false; this.fov = C.fov; }
+  constructor(camera, C, ground = null) {
+    this.camera = camera; this.C = C; this.ground = ground; this.fov = C.fov;
+    this.user = { preset: 'follow', auto: true, yaw: 0, lift: 0, zoom: 1 };
+    this.idle = 9; this.ready = false;
+  }
+  /** the player is dragging: the camera follows the hand and does not go back */
+  nudge(dyaw, dlift) { this.user.yaw += dyaw; this.user.lift = clamp(this.user.lift + dlift, -1.5, 9); this.idle = 0; }
+  zoomBy(f) { this.user.zoom = clamp(this.user.zoom * f, 0.55, 2.4); }
   snap(s) { this.ready = false; this.sw = undefined; this.update(s, 0, 0); }
   update(s, top, dt) {
-    const C = this.C, g = this.ground ?? (() => 0);
+    const C = this.C, g = this.ground ?? (() => 0), U = this.user, P = PRESETS[U.preset] ?? PRESETS.follow;
     const reversing = s.vx * Math.sin(s.h) + s.vz * Math.cos(s.h) < -1;
     const travel = speedOf(s) > 4 && !reversing ? Math.atan2(s.vx, s.vz) : s.h;
     const aim = s.h + angDiff(s.h, travel) * C.travel;
-    if (!this.ready) { this.yaw = aim; this.ready = true; }
-    this.yaw += angDiff(this.yaw, aim) * (1 - Math.exp(-4 * dt));
-    const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), rx = fz, rz = -fx;   // forward and right (simulation axes)
-    // `turn` (degrees, + = to the right) turns the view away from the road, e.g. into the valley beside it
-    // `turnDrift` (degrees at 0.6 rad of drift angle; negative: the view turns away from the side the car slides to): the car stays towards the left of the picture and the road ahead stays in view in both directions of drift
-    const slip = angDiff(travel, s.h), ty = this.yaw + (((C.turn ?? 0) + (C.turnDrift ?? 0) * Math.max(-1, Math.min(1, slip / 0.6))) * Math.PI) / 180;
-    // `swing` (metres per radian of drift angle): the camera swings out to the side the nose points to, so the drift angle is seen; softly
+    if (!this.ready) { this.yaw = aim; this.x = s.x; this.z = s.z; this.gy = g(s.x, s.z); this.ex = 0; this.ready = true; }
+    // everything that follows the car is damped: its place, the height of the road under it, the direction (slowly: a slide does not swing the picture)
+    this.x = damp(this.x, s.x, 8, dt); this.z = damp(this.z, s.z, 8, dt);
+    this.gy = damp(this.gy, g(s.x, s.z), 3.5, dt);
+    this.yaw += angDiff(this.yaw, aim) * (1 - Math.exp(-2.2 * dt));
+    // after the player let go, the angle and the height come back to the preset (zoom stays)
+    this.idle += dt;
+    if (U.auto && this.idle > 1.4) { const k = 1 - Math.exp(-1.6 * dt); U.yaw -= angDiff(0, U.yaw) * k; U.lift -= U.lift * k; }
+    const yaw = this.yaw + U.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw), rx = fz, rz = -fx;
+    // `turn` (degrees, + = to the right) turns the view away from the road; `turnDrift`: the car stays towards one side of the picture in a slide; `swing`: the camera swings out with the drift angle, softly
+    const slip = angDiff(travel, s.h), ty = this.yaw + (((C.turn ?? 0) + (C.turnDrift ?? 0) * clamp(slip / 0.6, -1, 1)) * Math.PI) / 180;
     const swingTo = (C.swing ?? 0) * angDiff(travel, s.h);
-    this.sw = (this.sw ?? swingTo) + (swingTo - (this.sw ?? swingTo)) * (1 - Math.exp(-3 * dt));
-    const side = C.side + this.sw;
-    const cx = s.x - fx * C.dist + rx * side, cz = s.z - fz * C.dist + rz * side, lx = s.x + Math.sin(ty) * C.look, lz = s.z + Math.cos(ty) * C.look;
-    this.camera.position.set(X(cx), C.height + Math.max(g(cx, cz), g(s.x, s.z)), cz);
-    this.camera.lookAt(X(lx), C.lookY + g(lx, lz), lz);
+    this.sw = (this.sw ?? swingTo) + (swingTo - (this.sw ?? swingTo)) * (1 - Math.exp(-2 * dt));
+    const side = C.side + this.sw, dist = P.dist * U.zoom, up = (P.up + U.lift) * U.zoom;
+    const cx = this.x - fx * dist + rx * side, cz = this.z - fz * dist + rz * side;
+    let cy = this.gy + up;
+    // never under the road beside it (a hairpin below, a crest in front): the extra height comes quickly and goes slowly, so it never jerks
+    const need = Math.max(0, g(cx, cz) + 1.1 - cy);
+    this.ex = need > this.ex ? damp(this.ex, need, 10, dt) : damp(this.ex, need, 2, dt);
+    cy += this.ex;
+    const lx = this.x + Math.sin(ty) * C.look, lz = this.z + Math.cos(ty) * C.look;
+    this.camera.position.set(X(cx), cy, cz);
+    this.camera.lookAt(X(lx), this.gy + C.lookY + Math.min(0, up - P.up) * 0.2, lz);
     if (this.camera.fov !== C.fov) { this.camera.fov = C.fov; this.camera.updateProjectionMatrix(); }
   }
 }

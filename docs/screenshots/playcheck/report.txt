@@ -1,6 +1,5 @@
-play check passed: 5 sizes, 0 problem(s)
-phone-portrait 390x844: 1 shape check(s), 47 start places, 10 touch buttons, 14 HUD parts (the turn hint covers the screen (a phone held upright))
-phone-landscape 844x390: 5 shape check(s), 47 start places, 10 touch buttons, 14 HUD parts
-phone-small-landscape 667x375: 1 shape check(s), 47 start places, 10 touch buttons, 14 HUD parts
-tablet 820x1180: 1 shape check(s), 47 start places, 10 touch buttons, 14 HUD parts (the turn hint covers the screen (a phone held upright))
+play check FAILED: 1 sizes, 3 problem(s)
 pc 1600x900: 5 shape check(s), 47 start places, - touch buttons, 6 HUD parts
+PROBLEM pc: the car's height is off the drawn road by 0.75 m (365 m, offset 3.6: car -11.92, drawn -12.671)
+PROBLEM pc: the road's height steps by 2.57 m in 5 m (385 m): too steep for a car
+PROBLEM pc: the road's height kinks by 1.03 m over 5 m (375 m): the car would jump

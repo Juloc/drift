@@ -1,6 +1,6 @@
 /* The game page in the look of the HUD (probe.css): the small switches, the race bar, the invitation and the result in the same smoked glass. Loaded after style.css and probe.css. */
 html, body { background: #0f0d14; }
-#hud { position: fixed; left: 50%; top: 168px; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; inset: auto; padding: 0; max-width: 92vw; }
+#hud { position: fixed; inset: 168px auto auto 50%; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; padding: 0; max-width: 92vw; }
 body.touch #hud { top: 70px; }
 #hud > * { position: static !important; transform: none !important; left: auto !important; right: auto !important; top: auto !important; margin: 0 !important; pointer-events: auto; }
 #hud > #tandem, #hud > #challenge, #hud > #damage, #hud > #creative-banner { pointer-events: none; }
@@ -108,3 +108,14 @@ body.touch #reset { display: block; }
 #namebox input { min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--glass-edge); background: oklch(1 0 0 / 0.1); color: #fff; font: 600 18px var(--font); }
 #namebox button { min-height: 46px; border: 0; border-radius: 14px; background: var(--accent); color: #fff; font: 800 16px var(--font); }
 #res-mode .hint-account { margin: 4px 0 0; font-size: 13px; opacity: 0.8; }
+#tandem-run { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 16px; border-radius: 12px; background: rgba(12, 10, 24, 0.72); color: #fff; font-size: 15px; text-align: center; pointer-events: none; }
+#tandem-run b { font-size: 18px; }
+#tandem-run span { font-size: 13px; opacity: 0.85; }
+#tandem-run.countdown, #tandem-run.swap { background: color-mix(in srgb, var(--accent, #e0409a) 55%, rgba(12, 10, 24, 0.8)); }
+#ghost-delta { padding: 4px 14px; border-radius: 12px; background: rgba(12, 10, 24, 0.72); color: #fff; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; pointer-events: none; }
+#ghost-delta.ahead, #res-mode .ahead b { color: #6df0a0; }
+#ghost-delta.behind, #res-mode .behind b { color: #ff7a8a; }
+#own-emote { position: fixed; left: 50%; top: 42%; transform: translateX(-50%); z-index: 7; color: #fff; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5)); pointer-events: none; }
+.icon { display: block; margin: auto; }
+#chips button .icon, #chips-toggle .icon, #reset .icon, #emotes button .icon, #emote-open .icon { width: 1.3em; height: 1.3em; }
+.emo .icon { width: 1.6em; height: 1.6em; }

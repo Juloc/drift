@@ -475,6 +475,35 @@ public class RaceHubTests
     }
 
     [Fact]
+    public void A_training_run_is_the_same_run_but_nothing_of_it_is_written()
+    {
+        var json = File.ReadAllText(Path.Combine(Repo.Root, "game", "data", "maps", "06-touge.json"));
+        var rig = new Rig(json, ["anna"]);
+        rig.Say("anna", """{"t":"race.start","map":0,"laps":1,"solo":true,"train":true}""");
+        rig.Pass(2);
+        Assert.Equal(RaceHub.Phase.Grid, rig.Hub.Current);
+        rig.Connect("anna");
+        rig.Pass(4);
+        Assert.Equal(RaceHub.Phase.Racing, rig.Hub.Current);
+        var track = RaceTrack.FromJson(json);
+        using var doc = JsonDocument.Parse(json);
+        var centre = doc.RootElement.GetProperty("centre").EnumerateArray().Select(p => (X: p[0].GetDouble(), Z: p[1].GetDouble())).ToList();
+        var spacing = track.LoopLength / centre.Count;
+        var way = new List<(double X, double Z)> { (track.Grid[0].X, track.Grid[0].Z) };
+        way.AddRange(centre.Where((p, i) => i >= Math.Ceiling(34 / spacing)));
+        var path = RaceTrackTests.Sample(way, 20.0 / 15);
+        foreach (var p in path) { rig.Pose("anna", p.X, p.Z, p.H, 20, 0.5, 2); rig.Time.Advance(1.0 / 15); rig.Hub.Tick(); }
+        rig.Pass(1);
+        Assert.NotNull(rig.Racing["anna"].Peer.Last("finish"));
+        rig.Pass(1);
+        var row = rig.Racing["anna"].Peer.Last("result")!.Value.GetProperty("rows").EnumerateArray().Single();
+        Assert.InRange(row.GetProperty("ms").GetInt32() / 1000.0, 80, 140);                      // the road at 20 m/s
+        Assert.True(row.GetProperty("drift").GetInt32() > 500, "a drifting run earns points");
+        Assert.True(row.GetProperty("creative").GetBoolean(), "a training run counts for nothing");
+        Assert.Empty(rig.Best.Written);
+    }
+
+    [Fact]
     public void The_feel_a_person_plays_with_travels_into_the_race_and_the_times_are_kept_under_it()
     {
         var rig = new Rig("anna", "ben");

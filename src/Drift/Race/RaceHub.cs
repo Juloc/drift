@@ -121,10 +121,12 @@ public sealed class RaceHub
                     track = r.TryGetProperty("map", out var mp) && mp.TryGetInt32(out var mi) && tracks.TryGetValue(mi, out var chosen) ? chosen : tracks[tracks.Keys.Min()];
                     laps = r.TryGetProperty("laps", out var l) && l.TryGetInt32(out var li) ? Math.Clamp(li, 1, 5) : track.Laps;
                     parts.Clear(); answered.Clear();
-                    parts.Add(new Part(me) { Feel = feels.GetValueOrDefault(person), Creative = creatives.Contains(person) });
-                    starter = person; phase = Phase.Invite; phaseStart = Now;
                     // a time trial is a race of one: nobody is invited, the grid opens at the next tick, the times count like any
                     var solo = r.TryGetProperty("solo", out var so) && so.ValueKind == JsonValueKind.True;
+                    // training (a time trial with the ghost of your best run): the same run, but nothing of it is written, as in the creative mode
+                    var train = solo && r.TryGetProperty("train", out var tn) && tn.ValueKind == JsonValueKind.True;
+                    parts.Add(new Part(me) { Feel = feels.GetValueOrDefault(person), Creative = creatives.Contains(person) || train });
+                    starter = person; phase = Phase.Invite; phaseStart = Now;
                     if (solo)
                     {
                         phaseStart = Now - InviteSeconds;

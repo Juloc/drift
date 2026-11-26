@@ -1,6 +1,7 @@
 // The other visitors' cars: near ones are clones of the look's car model in their colour (view/look/fleet.js), far ones (the world's interest areas) a light clay body without wheels or
 // smoke; shadow blobs through the shared pool, smoke and skid marks of the stage while they drift (on the road's drawn height), and an HTML name label above each (text only, nearest 8).
 import * as THREE from '../../vendor/three/three.module.js';
+import { icon } from './icons.js';
 import { buildCar } from './carmodel.js';
 import { makeClay } from '../core/materials.js';
 import { CAR_DIMS } from './look/fleet.js';
@@ -74,7 +75,8 @@ export class Remotes {
     const rc = this.cars.get(id);
     if (!rc || typeof symbol !== 'string') return;
     rc.label.querySelector('.emo')?.remove();
-    const span = Object.assign(document.createElement('span'), { className: 'emo', textContent: symbol });
+    const span = Object.assign(document.createElement('span'), { className: 'emo' });
+    span.append(icon(symbol, 1.6));   // `symbol` is the name of one of our own icons
     rc.label.append(span);
     setTimeout(() => span.remove(), 3000);
   }

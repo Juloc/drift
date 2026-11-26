@@ -90,6 +90,26 @@ for (const sz of SIZES) {
       if (p.floor === null) fail(sz.name, `${p.what} (${p.x}, ${p.z}): no ground drawn under the car`);
       else if (Math.abs(p.floor - p.car) > 0.05) fail(sz.name, `${p.what} (${p.x}, ${p.z}): the car stands at ${p.car}, the drawn ground is at ${p.floor} (${p.floor > p.car ? 'the car is under the ground' : 'the car floats'} by ${Math.abs(p.floor - p.car).toFixed(2)} m; drawn by ${p.by})`);
     }
+    // (b2) the whole road, every 5 m at the centre and near both edges (once, at the PC size): the car's height must be the drawn road's (under 5 cm), the height along the road must be smooth
+    //      (no step, no kink: the second difference over 5 m), and the road must not tilt sideways more than a car can lean (the owner: "the car floats in bends", "physics breaks at height changes")
+    if (sz.name === 'pc') {
+      const probe = JSON.parse(await b.ev('JSON.stringify(__drift.roadProbe(5))'));
+      let worstGap = 0, worstKink = 0, worstStep = 0, atGap = '', atKink = '', atStep = '';
+      for (const off of [0, 1, 2]) {
+        const col = probe.filter((_, i) => i % 3 === off);
+        col.forEach((p, i) => {
+          if (p.floor === null) { fail(sz.name, `road at ${p.s} m (offset ${p.off}): no ground drawn`); return; }
+          const gap = Math.abs(p.floor - p.car); if (gap > worstGap) { worstGap = gap; atGap = `${p.s} m, offset ${p.off}: car ${p.car}, drawn ${p.floor}`; }
+          if (i > 0 && col[i - 1].floor !== null) { const st = Math.abs(p.car - col[i - 1].car); if (st > worstStep) { worstStep = st; atStep = `${p.s} m`; } }
+          if (i > 0 && i < col.length - 1) { const k = Math.abs(col[i + 1].car - 2 * p.car + col[i - 1].car); if (k > worstKink) { worstKink = k; atKink = `${p.s} m`; } }
+        });
+      }
+      if (process.env.ROAD_DUMP) writeFileSync(process.env.ROAD_DUMP, JSON.stringify(probe));
+      rec.road = { samples: probe.length, worstGap: +worstGap.toFixed(3), worstStep: +worstStep.toFixed(2), worstKink: +worstKink.toFixed(3) };
+      if (worstGap > 0.05) fail(sz.name, `the car's height is off the drawn road by ${worstGap.toFixed(2)} m (${atGap})`);
+      if (worstStep > 1.1) fail(sz.name, `the road's height steps by ${worstStep.toFixed(2)} m in 5 m (${atStep}): too steep for a car`);
+      if (worstKink > 0.35) fail(sz.name, `the road's height kinks by ${worstKink.toFixed(2)} m over 5 m (${atKink}): the car would jump`);
+    }
     // (c) every key has a button by touch (on the touch sizes)
     if (sz.touch) {
       const ids = Object.values(KEYS).filter((v) => v.touch && !v.appOnly).map((v) => v.touch);   // (the garage arrow and the emotes belong to the app's page, which needs the server: the unit test checks them)
