@@ -2,6 +2,7 @@
  "name": "Touge at dusk",
  "note": "The mountain pass road at dusk (the owner's focus): blue-violet sky with the last orange low in the west, a rising moon, warm street lamps and stone lanterns, dark cedars, a calm crater lake far below, volcano silhouettes.",
  "sky": {
+  "stars": { "count": 800, "bright": 0.5, "minEl": 15 },
   "top": "#3a3e98",
   "mid": "#5e58aa",
   "horizon": "#ff9466",
@@ -12,38 +13,13 @@
   "glow": "#ff8040",
   "sunSize": 0.01,
   "glowStrength": 0.3,
-  "clouds": {
-   "lit": "#9c84c0",
-   "shade": "#46407e",
-   "amount": 0.45,
-   "layer": 0.75,
-   "bright": 1
-  },
+  "clouds": { "lit": "#ff9d7a", "shade": "#9a5f9e", "amount": 0.36, "layer": 0.8, "bright": 1.05 },
   "bands": [
-   {
-    "az": -8,
-    "el": 3.5,
-    "w": 40,
-    "h": 2.2
-   },
-   {
-    "az": 15,
-    "el": 6,
-    "w": 30,
-    "h": 1.8
-   },
-   {
-    "az": -30,
-    "el": 8,
-    "w": 34,
-    "h": 2
-   },
-   {
-    "az": 40,
-    "el": 4,
-    "w": 28,
-    "h": 1.6
-   }
+    { "az": -6, "el": 6.5, "w": 46, "h": 3.4 },
+    { "az": 22, "el": 9.5, "w": 38, "h": 3.0 },
+    { "az": -34, "el": 9.5, "w": 42, "h": 3.0 },
+    { "az": 8, "el": 12.5, "w": 50, "h": 3.2 },
+    { "az": 48, "el": 6, "w": 34, "h": 2.6 }
   ],
   "moon": {
    "dir": [
