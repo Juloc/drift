@@ -10,14 +10,14 @@ const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a)); return t * t *
 
 export function tyreLayers(slide, speed, throttle = 0) {
   const v = Math.abs(speed), s = clamp(slide), moving = smooth(1, 6, v), fast = clamp(v / 30);
-  const roll = 0.22 * fast ** 1.3;
+  const roll = 0.12 * fast ** 1.3 * moving;   // standing still: silent; quiet (a phone cannot play the rumble anyway)
   const hiss = 0.3 * moving * smooth(0.02, 0.15, s) * (1 - smooth(0.3, 0.55, s));
   const sq = smooth(0.22, 0.6, s), big = smooth(0.6, 0.95, s);
   const squeal = 0.85 * sq * moving * (0.65 + 0.35 * clamp(throttle)) * (1 - 0.45 * big);
   const scrub = 0.7 * big * moving;
   return {
     roll, rollF: 160 + 14 * v,   // a low-pass over the noise
-    hiss, hissF: 3200,
+    hiss, hissF: 2300,
     squeal, squealF: Math.max(500, Math.min(1500, 1250 - 520 * sq - 150 * big + 6 * v)),   // the tone sinks as the slip grows
     scrub, scrubF: 420 + 4 * v,
   };
