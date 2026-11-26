@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../../vendor/three/three.module.js';
+import { mergeGeometries } from '../../vendor/three/addons/utils/BufferGeometryUtils.js';
 import { prepareCar } from './carglb.js';
 import { SLOTS } from './carglb.js';
 import { dressCar, carFx, measure, splitPalette, treadTyres, WheelSet, leanBody } from './carfx.js';
@@ -188,4 +189,44 @@ test('a pop is a short sharp flame: 15 to 30 cm long, a flash of at most 22 cm, 
   const red = [...fx.brakeMats.values()].find((m) => m.emissive.g < 0.2);
   assert.ok(red, 'the red lamp is a pink-red'); const idle = red.emissiveIntensity;
   fx.update(1 / 60, { brake: 1 }); assert.ok(red.emissiveIntensity >= idle * 3.5 && red.emissiveIntensity * red.emissive.r > 2.8 * 1.5, 'braking: at least 3.5 times the light, over the bloom threshold');
+});
+
+test('tyres are dark grey rubber shaded by vertex colours (the tread darker than the sidewall shoulder, the rim side darkest); rims have depth: dark inside, light outer lip', () => {
+  const root = new THREE.Group();
+  for (const [n, x] of [['wheel_fl', 0.7], ['wheel_fr', -0.7]]) {
+    const spin = new THREE.Group(); spin.position.x = x; root.add(spin);
+    // a tyre: the tread and two side discs (rings from the rim radius 0.18 out to 0.3)
+    const tread = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16, 1, true).rotateZ(Math.PI / 2), side = (sx) => { const g = new THREE.RingGeometry(0.18, 0.3, 16).rotateY(Math.PI / 2).translate(sx * 0.1, 0, 0); return g; };
+    const geo = mergeGeometries([tread, side(1), side(-1)].map((g) => g.toNonIndexed()));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count * 2).map((_, i) => (i % 2 ? 0.875 : 0.625)), 2));
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ name: 'own_palette' })); m.name = n + '_own'; spin.add(m);
+    // a rim: a disc of spokes' stand-in, deeper in the middle, with a lip
+    const rimG = new THREE.CylinderGeometry(0.18, 0.18, 0.16, 12).rotateZ(Math.PI / 2);
+    rimG.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(rimG.attributes.position.count * 2).map((_, i) => (i % 2 ? 0.875 : 0.375)), 2));
+    const r = new THREE.Mesh(rimG, new THREE.MeshStandardMaterial({ name: 'own_palette' })); r.name = n + '_own'; spin.add(r);
+  }
+  root.updateMatrixWorld(true);
+  assert.ok(treadTyres(root, [0.625, 0.875]) >= 2);
+  const tyre = []; root.traverse((o) => { if (o.isMesh && o.material.name === 'fx_tyre') tyre.push(o); });
+  const c = tyre[0].geometry.attributes.color; assert.ok(c && tyre[0].material.vertexColors);
+  let mn = 9, mx = 0; for (let i = 0; i < c.count; i++) { mn = Math.min(mn, c.getX(i)); mx = Math.max(mx, c.getX(i)); }
+  assert.ok(mn < 0.6 && mx > 0.85 && mx <= 1.2, `sidewall from dark at the rim to light at the shoulder: ${mn} ${mx}`);
+  assert.ok(tyre[0].material.color.r > 0.02, 'not black: dark grey');
+  dressCar(root, { rimUv: [0.375, 0.875] });
+  const rims = []; root.traverse((o) => { if (o.isMesh && o.material.name === 'fx_rim') rims.push(o); });
+  assert.ok(rims.length >= 2 && rims[0].material.vertexColors);
+  const rc = rims[0].geometry.attributes.color; let rmin = 9, rmax = 0; for (let i = 0; i < rc.count; i++) { rmin = Math.min(rmin, rc.getX(i)); rmax = Math.max(rmax, rc.getX(i)); }
+  assert.ok(rmin < 0.35 && rmax > 0.8, `dark inside, light lip: ${rmin} ${rmax}`);
+});
+
+test('the tyres squat under load: braking presses the front, a roll the outer side; the body at rest leaves them whole', () => {
+  const car = fakeCar();
+  const fx = carFx(car, {}, { lite: true, listen: false });
+  const piv = (n) => car.group.getObjectByName(n + '_pivot') ?? car.group.getObjectByName(n);
+  fx.update(1 / 60, { brake: 0, dive: 0, lean: 0 });
+  for (const n of ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr']) assert.equal(piv(n).scale.y, 1);
+  fx.update(1 / 60, { brake: 1, dive: 0.05, lean: 0 });
+  assert.ok(piv('wheel_fl').scale.y < 0.99 && piv('wheel_fr').scale.y < 0.99 && piv('wheel_rl').scale.y === 1, 'front loaded under braking');
+  fx.update(1 / 60, { brake: 0, dive: 0, lean: -0.08 });   // the body leans to +x ... see the pose: lean > 0 raises the left (+x) side
+  assert.ok(piv('wheel_fl').scale.y < 1 && piv('wheel_fr').scale.y === 1, 'the left wheels are the loaded ones when the body leans negative');
 });
