@@ -25,7 +25,7 @@ Updated 2026-11-26 (evening) by the building session. Every session updates this
 - **Paint, tyres, rims against the dusk mockup (2026-11-26, high tier; the phone tier keeps its single-material wheels):** tyres are dark grey rubber (0x2e2f34, matt 0.92)
   shaded by vertex colours (sidewall darkest at the rim, a lighter shoulder with a thin lighter ring where the lettering would be, the tread a little darker); rims are
   light satin metal with depth by vertex colours (`shadeRims`: dark dish inside, front of the spokes lighter, the outer lip lightest; env 1.0, metal 0.75); the tyres
-  squat up to 4 % under braking and on the outer side of a bend (`update(dt, { dive, lean })`, on the wheel pivots). The garage white is `#f2eeec` (was the beige
+  squat up to 4 % under braking and on the outer side of a bend (`update(dt, { dive, lean })`, on the wheel pivots). The garage white is `#e6e4e4` (was the beige
   `#e6e1d8`) in the game, the lab, the 3D garage and the app page. The paint at dusk reads lilac-white like the mockup's pearl white but a little more violet: that
   comes from the dusk light (hemisphere and sun colours of `touge-dusk.json`, the look chat's), not from the paint (less env reflection and a neutral white
   changed little: tried). Frame: 58 draw calls and about 56 fps on the PC tier here, 23 draw calls on the phone tier. Pictures `docs/screenshots/cars/ae86-paint-dusk-*.png`,

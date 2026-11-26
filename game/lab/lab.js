@@ -6,7 +6,7 @@ import { ICON } from './icons.js';
 import { createGarage } from './garage3d.js';
 
 // ---------------------------------------------------------------- sample data (made up; the car is the game's own, from data/cars.json)
-const PAINTS = ['#f2eeec', '#18181d', '#b9bec8', '#d23a64', '#2f9a9a', '#8a7fd0'];
+const PAINTS = ['#e6e4e4', '#18181d', '#b9bec8', '#d23a64', '#2f9a9a', '#8a7fd0'];
 const SAMPLE = {
   player: { name: 'Mika', guest: true },
   car: { hp: 130, kg: 940, bars: { power: 58, handling: 81, drift: 88, grip: 64 } },

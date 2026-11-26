@@ -24,7 +24,7 @@ const CARS = [
 ];
 const STATS = ['power', 'top', 'grip', 'slide', 'agility'];
 const HUES = Array.from({ length: 24 }, (_, i) => i * 15);
-const PAINTS = [['white', '#f2eeec'], ['black', '#18181d'], ['silver', '#b9bec8']];   // paints 24 to 26
+const PAINTS = [['white', '#e6e4e4'], ['black', '#18181d'], ['silver', '#b9bec8']];   // paints 24 to 26
 
 // the first page for somebody who is not signed in: drive at once (no account) or sign in; an invitation or the sign-in itself skip it
 async function landing() {

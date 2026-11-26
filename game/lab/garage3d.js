@@ -28,7 +28,7 @@ function windowView() {
  * @param {HTMLCanvasElement} canvas
  * @param {{ tier: 'high'|'low', model: string, paint: string, spec: object }} o
  */
-export async function createGarage(canvas, { tier = 'high', model = 'ae86', paint = '#f2eeec', spec = {} } = {}) {
+export async function createGarage(canvas, { tier = 'high', model = 'ae86', paint = '#e6e4e4', spec = {} } = {}) {
   const high = tier === 'high';
   const t0 = performance.now();
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
