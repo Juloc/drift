@@ -454,3 +454,31 @@ lanterns (`lantern.bends`, `lamp.pool`); halos sized per head. Lighter rocks.
 Palette shot=tal: mean 63 (brightness 91 / 91, saturation 0.41 / 0.33). High 351k / 52, phone 133k / 25.
 Not done: the stone lanterns do not show in shot=tal or shot=kehre yet (placement); smoke lacks the mockup's shaded round shapes;
 scene.environment for the car (G1); the big boulder above the board in shot=tal; E1, E2, E5, F6.
+
+## Touge round 11 (2026-11-26)
+
+Done:
+- Sky: blue-violet at the top again. The warm side of the sky and the wide sun halo stay low (`sky.warmHeight`); the top colour is
+  reached lower (`sky.topHeight`); lilac instead of pink cloud streaks, fewer of them; saturation 0.85; a darker mauve road.
+- Paint (G1): the paint already took the dusk sky map; the two sparkling points at the roof edge were the direct sun in a very smooth
+  clear coat (seen by switching parts off). Now the shine comes from the sky map: clear coat 0.15, coat roughness 0.3, the direct
+  highlight damped (`car.gloss.specular`), bloom threshold 2.8. Result: a soft light edge, no points, the white not burnt out.
+- Hairpins (`scene.road.bendSets`): a set at every bend sharper than |turn| 1.
+  - On the outside, just after the apex (what the chase camera has on its left; further on lies the view into the valley): a wall of
+    soft stacked boulders with moss, a stone stair through a gap up to a red torii, two stone lanterns, a lantern on a post, cherry
+    bushes.
+  - On the inside: a kerb, mossy rocks, a stone lantern and a bush.
+  - Every light leaves a warm pool on the ground (`lightPools`) and a halo sized per head. Loose boulders are left out there.
+- Plaza (`plaza.slabs`, `edges`, `gateLights`): stone slabs with lighter joints; a bank of rocks, moss and bushes where the land rises;
+  stone lanterns with light where it falls; a lantern on each side of the torii; two more lamps on the north side; pools under the lamps.
+- Phone:
+  - The road ribbons take every second point on straight stretches.
+  - One rail beam, posts every 9 m.
+  - Coarser land and fewer trees.
+  - Result: 149k -> 116k triangles.
+
+Numbers:
+- High: 370k triangles / 51 calls. Phone: 116k / 33; the AE86 alone is about 21 of the phone's calls.
+- Palette on shot=tal: mean 62. The boxes `strasse` and `himmel_mitte` now hit the white car and the torii.
+
+Not done: the smoke has no shaded round shapes; the plaza floor is still dark in the distance.

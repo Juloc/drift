@@ -152,7 +152,7 @@ export function carMaker(stage) {
     if (look.car?.tail) materials.light_rear.color.set(look.car.tail).multiplyScalar(look.car.tailGlow ?? 1);
     // look.car.gloss: { env, roughness, coat }: how much of the sky the paint mirrors (dusk: less, so the roof shows its shape, not white)
     const gl = look.car?.gloss;
-    if (gl) { const p = materials.paint; if (gl.env !== undefined) p.envMapIntensity = gl.env; if (gl.roughness !== undefined) p.roughness = gl.roughness; if (gl.coat !== undefined && p.clearcoatRoughness !== undefined) p.clearcoatRoughness = gl.coat; if (gl.clearcoat !== undefined && p.clearcoat !== undefined) p.clearcoat = gl.clearcoat; }
+    if (gl) { const p = materials.paint; if (gl.env !== undefined) p.envMapIntensity = gl.env; if (gl.roughness !== undefined) p.roughness = gl.roughness; if (gl.coat !== undefined && p.clearcoatRoughness !== undefined) p.clearcoatRoughness = gl.coat; if (gl.clearcoat !== undefined && p.clearcoat !== undefined) p.clearcoat = gl.clearcoat; if (gl.specular !== undefined && p.specularIntensity !== undefined) p.specularIntensity = gl.specular; }   // gloss.specular: the direct lights' highlight (lower: no sparkling points, the shine comes from the sky map)
     const m = model ? await loadCarModel(model, { tier: carTier, materials }) : null;
     return m ? { ...m, materials } : buildS15({ paint: new THREE.Color(paint).getHex(), kit, tier: carTier, env });
   };

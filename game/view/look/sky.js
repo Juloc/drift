@@ -17,6 +17,8 @@ export function makeSky(look, radius = 1800) {
       uTop: { value: new THREE.Color(s.top) }, uMid: { value: new THREE.Color(s.mid) }, uHorizon: { value: new THREE.Color(s.horizon) },
       uBelow: { value: new THREE.Color(s.below) }, uSun: { value: new THREE.Color(s.sun).multiplyScalar(s.sunGlow ?? 1) }, uGlow: { value: new THREE.Color(s.glow) },
       uSunDir: { value: sunDirection(look) }, uSunCos: { value: Math.cos((s.sunSize * Math.PI) / 180) }, uMidH: { value: s.midHeight }, uStrength: { value: s.glowStrength },
+      // sky.warmHeight: how far above the sun the warm side of the sky reaches (default 0.35); sky.topHeight: where the top colour is reached (default 0.8)
+      uWarmH: { value: s.warmHeight ?? 0.35 }, uTopH: { value: s.topHeight ?? 0.8 },
       uCloudLit: { value: new THREE.Color(cl.lit) }, uCloudShade: { value: new THREE.Color(cl.shade) }, uClouds: { value: cl.amount },
       // a moon (look.sky.moon: dir in simulation axes, size in degrees, colour, glow): a disc with a soft halo, a little darker on the side away from the sun
       uMoonDir: { value: s.moon ? new THREE.Vector3(X(s.moon.dir[0]), s.moon.dir[1], s.moon.dir[2]).normalize() : new THREE.Vector3(0, -1, 0) },
@@ -27,7 +29,7 @@ export function makeSky(look, radius = 1800) {
       void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: /* glsl */ `
       uniform vec3 uTop, uMid, uHorizon, uBelow, uSun, uGlow, uSunDir, uCloudLit, uCloudShade;
-      uniform float uSunCos, uMidH, uStrength, uClouds, uMoonCos, uMoonGlow;
+      uniform float uSunCos, uMidH, uStrength, uClouds, uMoonCos, uMoonGlow, uWarmH, uTopH;
       uniform vec3 uMoonDir, uMoon;
       varying vec3 vDir;
       float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -38,11 +40,11 @@ export function makeSky(look, radius = 1800) {
         vec3 d = normalize(vDir);
         float e = d.y;
         vec3 col = e < 0.0 ? mix(uHorizon, uBelow, smoothstep(0.0, -0.2, e))
-                 : e < uMidH ? mix(uHorizon, uMid, smoothstep(0.0, uMidH, e)) : mix(uMid, uTop, smoothstep(uMidH, 0.8, e));
+                 : e < uMidH ? mix(uHorizon, uMid, smoothstep(0.0, uMidH, e)) : mix(uMid, uTop, smoothstep(uMidH, uTopH, e));
         float c = max(dot(d, uSunDir), 0.0);
-        float band = 1.0 - smoothstep(0.0, 0.35, abs(e - uSunDir.y));
+        float band = 1.0 - smoothstep(0.0, uWarmH, abs(e - uSunDir.y));
         col = mix(col, uGlow, pow(c, 3.0) * band * 0.5 * uStrength);           // the warm side of the sky
-        col += uGlow * (pow(c, 12.0) * 0.45 + pow(c, 80.0) * 0.9) * uStrength;  // the soft halo round the sun
+        col += uGlow * (pow(c, 12.0) * 0.45 * (1.0 - smoothstep(0.0, uWarmH * 1.5, e - uSunDir.y)) + pow(c, 80.0) * 0.9) * uStrength;  // the soft halo round the sun (the wide part stays low)
         // soft streaks of cloud above the horizon, lit from below on the sun's side
         // azimuth measured from the sun, so the seam of atan (at +-pi) lies behind the viewer when looking towards the sun side
         vec2 sh = normalize(uSunDir.xz + vec2(1e-4)); float az = atan(d.x * sh.y - d.z * sh.x, d.x * sh.x + d.z * sh.y);
