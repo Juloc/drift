@@ -18,13 +18,13 @@ try {
     const r = el('div', 'challenge');
     const head = el('b', '', e.name + (e.version ? ' ' + e.version : ''));
     const meta = el('span', 'muted');
-    meta.append(`${T.author} ${e.author} · ${T.licence}: `, e.licenceUrl ? link(e.licenceUrl, e.licence) : document.createTextNode(e.licence));
+    meta.append(`${T.author} `, e.authorUrl ? link(e.authorUrl, e.author) : document.createTextNode(e.author), ` · ${T.licence}: `, e.licenceUrl ? link(e.licenceUrl, e.licence) : document.createTextNode(e.licence));   // (the author's own page where one is given: some CC BY authors ask for that link)
     if (e.source) { meta.append(` · ${T.source}: `, link(e.source, e.source.replace(/^https:\/\//, ''))); }
     const use = el('span', 'muted', e.use?.[lang] ?? '');
     r.append(head, el('span'), meta, el('span'), use);
     return r;
   };
-  const outside = credits.entries.filter((e) => e.kind === 'model' || e.kind === 'picture' || e.kind === 'sound');
+  const outside = credits.entries.filter((e) => ['model', 'picture', 'sound', 'music'].includes(e.kind));
   $('list').append(...credits.entries.filter((e) => !outside.includes(e)).map(row));
   const h = el('h2', 'card-title', T.models); $('list').append(h);
   if (outside.length) $('list').append(...outside.map(row)); else $('list').append(el('p', 'muted', T.noModels));

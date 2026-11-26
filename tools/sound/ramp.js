@@ -8,8 +8,12 @@ const tyres = q.get('scene') === 'tyres';   // ?scene=tyres: the tyres alone (th
 const SECS = tyres ? 10 : 13;
 class Offline { constructor() { return new OfflineAudioContext(1, SR * SECS, SR); } }
 const store = { getItem: (k) => ({ 'drift.mute': '0', 'drift.volume': '1' })[k] ?? null, setItem() {} };
-const s = new SoundSystem({ AudioCtx: Offline, storage: store, keepAllLoops: q.has('all') });   // ?all=1: all ten loops play all the time (to compare the cost)
+// ?rec=1: the car's loops cut from a recording (game/assets/sound/<name>-engine.json, as the game plays them), else the made ones
+const cars = (await (await fetch('../../game/data/cars.json')).json()).cars, recName = cars.find((c) => c.id === car)?.sound;
+const s = new SoundSystem({ AudioCtx: Offline, storage: store, keepAllLoops: q.has('all'), recorded: q.has('rec') && recName ? { [car]: `../../game/assets/sound/${recName}-engine.json` } : {} });   // ?all=1: all ten loops play all the time (to compare the cost)
 s.unlock();
+await s.recordedReady;
+if (q.has('rec') && !s.recordedFor(car)) throw new Error('the recorded loops did not load');
 const ctx = s.ctx;
 if (tyres) s.own.lowCut.disconnect();   // the engine's loops out of the mix: only the tyres are heard
 // the drive: [time, speed m/s, throttle]

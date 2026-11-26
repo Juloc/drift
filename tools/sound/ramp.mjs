@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 
 const [car = '1', name = 'ae86', extra = ''] = process.argv.slice(2);   // extra: '&all=1' to compare the cost with all loops playing
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.ogg': 'audio/ogg' };
 const server = http.createServer((req, res) => { const p = path.join(root, decodeURIComponent(new URL(req.url, 'http://x').pathname)); if (!p.startsWith(root) || !fs.existsSync(p)) { res.writeHead(404); res.end(); return; } res.writeHead(200, { 'content-type': types[path.extname(p)] ?? 'application/octet-stream' }); res.end(fs.readFileSync(p)); });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const url = `http://127.0.0.1:${server.address().port}/tools/sound/ramp.html?car=${car}${extra}`;

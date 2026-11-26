@@ -1,8 +1,9 @@
-// The sound of the game, made in the browser (WebAudio, no files). Your own engine plays loops at fixed revs in two layers, on and off load
-// (sim/enginesynth.js makes them until recordings are allowed), crossfaded by the revs, the pitch following them, a dip at each upshift and a
+// The sound of the game in the browser (WebAudio). Your own engine plays loops at fixed revs in two layers, on and off load (cut from a recording where the
+// car has one: game/assets/sound/, tools/sound/work.js; else made by sim/enginesynth.js), crossfaded by the revs, the pitch following them, a dip at each upshift and a
 // flutter at the limiter; the other cars' engines are cheaper (two oscillators, a low-pass filter); the revs come from a virtual gearbox (sim/engine.js); tyre squeal
 // (filtered noise from the slide), an optional turbo whistle, and the nearest four other cars with a volume by distance and a pan by side. Nothing starts before a click or a key
-// (browsers forbid it, and a page that makes noise by itself is rude); mute is kept on the device; music is only a switch for now (a placeholder, no sound behind it).
+// (browsers forbid it, and a page that makes noise by itself is rude); mute is kept on the device; music (game/view/music.js) has its own switch and volume, off by default.
+import { MusicPlayer } from './music.js';
 import { ENGINES, revs, firing, engineGain, squeal, turboWhistle, nearest } from '../sim/engine.js';
 import { loopRpms, renderLoop, loopWeights, layerLevels, limiterDepth } from '../sim/enginesynth.js';
 import { tyreLayers } from '../sim/tyresound.js';
@@ -134,12 +135,16 @@ class LoopVoice extends Voice {
 
 export class SoundSystem {
   /** @param {{AudioCtx?: any, storage?: Storage|null}} o (both injected in tests) */
-  constructor({ AudioCtx = globalThis.AudioContext ?? globalThis.webkitAudioContext, storage = globalThis.localStorage ?? null, keepAllLoops = false } = {}) {
+  constructor({ AudioCtx = globalThis.AudioContext ?? globalThis.webkitAudioContext, storage = globalThis.localStorage ?? null, keepAllLoops = false, recorded = {}, music = null } = {}) {
     this.AudioCtx = AudioCtx; this.storage = storage; this.keepAllLoops = keepAllLoops; this.ctx = null; this.own = null; this.others = new Map(); this.pool = [];
+    this.recorded = recorded;   // car index -> the manifest of its recorded loops (assets/sound/<name>-engine.json); until they are loaded (or where they cannot be) the made loops play
+    this.recordedReady = Promise.resolve();
     const get = (k, d) => { try { return storage?.getItem(k) ?? d; } catch { return d; } };
     this.muted = get('drift.mute', '1') === '1';   // off until the player switches it on (the generated sound was far too loud)
     this.volume = Math.max(0, Math.min(1, +get('drift.volume', '0.3')));
-    this.music = get('drift.music', '0') === '1';   // a placeholder: the switch is kept, there is no music behind it yet
+    this.music = get('drift.music', '0') === '1';   // music: off until the player switches it on
+    this.musicVolume = Math.max(0, Math.min(1, +get('drift.musicVolume', '0.5')));
+    this.musicSpec = music;   // { tracks, first, onTrack } (game/data/music.json); null: no music
   }
   get unlocked() { return this.ctx !== null; }
   /** Called from a click, a key or a touch: the first call makes the audio context (before that nothing exists, so nothing can sound). */
@@ -167,13 +172,42 @@ export class SoundSystem {
       };
       this.own = new LoopVoice(this.ctx, this.master, noise, loopsFor, this.keepAllLoops);
       for (let i = 0; i < MAX_OTHERS; i++) this.pool.push(new LoopVoice(this.ctx, this.master, noise, loopsFor, false, { cheap: true }));   // the other drivers: the same engine, one layer
+      this.recordedReady = this.loadRecorded();
+      // the music: its own way to the speakers (not through the engine's limiter, which would pump with it), silenced with everything else by the sound switch
+      if (this.musicSpec && typeof Audio !== 'undefined' && this.ctx.createMediaElementSource) {
+        this.musicOut = this.ctx.createGain(); this.musicOut.gain.value = this.muted ? 0 : 1; this.musicOut.connect(this.ctx.destination);
+        this.player = new MusicPlayer({ ctx: this.ctx, out: this.musicOut, ...this.musicSpec });
+        this.player.setVolume(this.musicVolume * 0.6);
+        if (this.music) this.player.setOn(true);
+      }
       return true;
     } catch { this.ctx = null; return false; }   // no audio here: the game goes on without it
   }
+  /**
+   * The recorded loops (tools/sound/work.js, job engine): one Ogg Opus file per car with every loop three times in a row, the manifest says where the middle copy
+   * of each starts. Decoded once, sliced into the loops, then every voice of that car takes them. Any failure (no Opus decoder, no file) keeps the made loops.
+   */
+  async loadRecorded() {
+    const jobs = Object.entries(this.recorded ?? {}).map(async ([car, url]) => {
+      try {
+        if (!this.ctx?.decodeAudioData || typeof fetch !== 'function') return;
+        const m = await (await fetch(url)).json(), bytes = await (await fetch(url.replace(/\.json$/, '.ogg'))).arrayBuffer();
+        const buf = await this.ctx.decodeAudioData(bytes), d = buf.getChannelData(0), sr = buf.sampleRate;
+        const slice = (l) => { const a = Math.round(l.start * sr), n = Math.round(l.seconds * sr); return { data: d.slice(a, a + n), rpm: l.rpm }; };
+        const rpms = m.rpms, on = rpms.map((r) => slice(m.loops.find((l) => l.layer === 'on' && l.rpm === r))), off = rpms.map((r) => slice(m.loops.find((l) => l.layer === 'off' && l.rpm === r)));
+        this.loopCache.set(+car, { rpms, on, off, recorded: true });
+        for (const v of [this.own, ...this.pool]) if (v && v.car === +car) v.setEngine(+car);   // the voices of this car take the recorded loops now
+      } catch { /* the made loops stay */ }
+    });
+    await Promise.all(jobs);
+  }
+  /** Whether a car plays recorded loops (false while they load, or where they could not be). */
+  recordedFor(car) { return !!this.loopCache?.get(car)?.recorded; }
   setMuted(m) {
     this.muted = !!m;
     try { this.storage?.setItem('drift.mute', this.muted ? '1' : '0'); } catch { /* not kept */ }
     this.master?.gain.setTargetAtTime(this.muted ? 0 : this.volume * 0.5, this.ctx.currentTime, 0.35);   // fades in and out, no click
+    this.musicOut?.gain.setTargetAtTime(this.muted ? 0 : 1, this.ctx.currentTime, 0.35);
   }
   /** The volume 0..1 (kept on the device); the master gain is at most half of it, behind the limiter. */
   setVolume(v) {
@@ -181,7 +215,9 @@ export class SoundSystem {
     try { this.storage?.setItem('drift.volume', String(this.volume)); } catch { /* not kept */ }
     this.master?.gain.setTargetAtTime(this.muted ? 0 : this.volume * 0.5, this.ctx.currentTime, 0.1);
   }
-  setMusic(on) { this.music = !!on; try { this.storage?.setItem('drift.music', this.music ? '1' : '0'); } catch { /* not kept */ } }
+  setMusic(on) { this.music = !!on; try { this.storage?.setItem('drift.music', this.music ? '1' : '0'); } catch { /* not kept */ } this.player?.setOn(this.music); }
+  /** The music's own volume 0..1 (kept on the device). */
+  setMusicVolume(v) { this.musicVolume = Math.max(0, Math.min(1, +v || 0)); try { this.storage?.setItem('drift.musicVolume', String(this.musicVolume)); } catch { /* not kept */ } this.player?.setVolume(this.musicVolume * 0.6); }
   /** A hit: a short burst of low noise, louder with the hit (at most one every 120 ms). */
   bump(approach, now = performance.now()) {
     if (!this.ctx || this.muted || approach < 2 || now - (this.lastBump ?? -1e9) < 120) return;

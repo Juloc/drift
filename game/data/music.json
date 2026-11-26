@@ -1,0 +1,9 @@
+{
+ "note": "The music of the game (game/view/music.js plays it, shuffled, faded into each other). Files made by tools/sound/work.js (job music) from the sources in docs/ASSETS.md; every track is also in data/credits.json.",
+ "tracks": [
+  { "id": "nightdrive", "file": "nightdrive.ogg", "seconds": 199.34, "title": "Chillwave Nightdrive", "author": "Bogart VGM", "licence": "CC BY 3.0" },
+  { "id": "chill-lofi", "file": "chill-lofi.ogg", "seconds": 125.15, "title": "Chill lofi inspired", "author": "omfgdude", "licence": "CC0" },
+  { "id": "lofi-again", "file": "lofi-again.ogg", "seconds": 87.81, "title": "Lofi again", "author": "omfgdude", "licence": "CC0" },
+  { "id": "snow-wave", "file": "snow-wave.ogg", "seconds": 172.5, "title": "Lost in the Snow Wave", "author": "hatmix", "licence": "CC0", "maps": ["winter"] }
+ ]
+}
