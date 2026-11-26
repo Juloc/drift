@@ -113,7 +113,7 @@ let mine = fleet.spawn(ownColour);
 // the road's surface in the simulation's axes ((x, z, out) -> out.y, gx, gz): the track's own when the map brings one (sim/track.js), else the drawn height field's.
 // The car's pose, the tyre marks and the smoke ask here, the other drivers' cars too (sim/carpose.js puts the car on its four wheel points)
 const fieldSurface = heightSurface((x, z) => stage.field.groundY(x, z));
-const roadSurface = (x, z, o = {}) => (map?.track ? trackSurface(map.track, x, z, o) : fieldSurface(x, z, o));
+const roadSurface = (x, z, o = {}) => (map?.surface ? trackSurface(map.surface, x, z, o) : fieldSurface(x, z, o));   // map.surface: the baked track (sim/map.js prepareMap)
 const minePose = makePose(), ghostPose = makePose(), botPose = makePose(), _ws = { y: 0, gx: 0, gz: 0 };
 const fxFor = (c) => (fleet.file ? carFx(c, cars[carIndex]?.fx, { lite }) : null);   // brake lights, exhaust flames (on the event car.pop that the throttle code below fires), underglow on the road
 let mineFx = fxFor(mine);

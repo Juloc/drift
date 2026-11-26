@@ -8,6 +8,15 @@ Updated 2026-11-26 (evening) by the building session. Every session updates this
 - **Car 1 is the AE86** (was Pip): its own materials, glowing lamps, underbody, contact shadow, headlight pool, brake lights,
   exhaust flames with the event `car.pop`, underglow on the road (`docs/CAR-PIPELINE.md`). Not on a real phone; glass and rims wait
   for the GPU PC; the C# tests were not run for the renamed car (`scripts/test.sh` needs Docker).
+- **Practice ground (map 5, 2026-11-26):** `tools/make-practice.mjs` writes `game/data/maps/07-practice.json` and a stand-in scene `scenes/practice.json`
+  (the look's own scene comes from the look chat). A level pad of 220 x 140 m (free corner, drift circles of 15 and 25 m, a figure eight, slalom lanes with
+  cones 15 and 22 m apart; `cones` are soft data, not walls: drawing them and a points penalty are still to do) and a 691 m course out of the pad and back
+  (gentle 6 % climb, long bend, a right-left change, a hairpin, gentle descent; clipping points in all five bends). Track sheet green
+  (`docs/screenshots/trackcheck/practice.png`); bot drive `node tools/mapdrive.mjs game/data/maps/07-practice.json`: AE86 clean with the touge's bot numbers,
+  45 s, 32 to 41 degrees in every bend (Bruno touches walls here as on the touge). Pictures `docs/screenshots/maps/practice-*.png`.
+- **Circuits in the track system:** `buildTrack({ closed: true, ... })`, `bakeTrack`, `surfaceAt`, `frameAt`, `checkTrack`, `packTrack`/`loadTrack` go round
+  (the last sample is the first; the seam is smooth in height, slope and tilt); open roads unchanged (the touge regenerates byte for byte). Tests
+  `game/sim/trackloop.test.mjs`. The map tests (Node and C#) count the maps from `maps.json` instead of five.
 - **Slice 4, the car on the surface (2026-11-26):** `game/sim/carpose.js` (pure): the chassis stands on its four wheel points (`fleet.dims.wheels`, the
   model's own tyres), pitch and roll from the surface under them (follow 30/s, at most 34 degrees per second), the height puts the wheels on it; the body's
   dive and lean from the forces are apart, on a group of their own (`carfx.js leanBody`: the wheels stay on the road when the body rolls; flames and halos

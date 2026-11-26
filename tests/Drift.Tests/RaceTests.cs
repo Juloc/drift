@@ -607,6 +607,7 @@ public class RaceHubTests
 public class MapFileTests
 {
     static readonly string Dir = Path.Combine(Repo.Root, "game", "data");
+    public static int MapCount => Maps().Count();
     static IEnumerable<(int Id, string File, string Name, string Json)> Maps()
     {
         using var list = JsonDocument.Parse(File.ReadAllText(Path.Combine(Dir, "maps.json")));
@@ -614,11 +615,12 @@ public class MapFileTests
     }
 
     [Fact]
-    public void There_are_five_maps_with_their_own_ids_and_every_one_is_a_track()
+    public void Every_map_has_its_own_id_and_name_and_every_one_is_a_track()
     {
         var maps = Maps().ToList();
-        Assert.Equal([0, 1, 2, 3, 4], maps.Select(m => m.Id));
-        Assert.Equal(5, maps.Select(m => m.Name).Distinct().Count());
+        Assert.True(maps.Count >= 5);
+        Assert.Equal(Enumerable.Range(0, maps.Count), maps.Select(m => m.Id));   // the ids count up from 0 in the list
+        Assert.Equal(maps.Count, maps.Select(m => m.Name).Distinct().Count());
         foreach (var m in maps)
         {
             var t = RaceTrack.FromJson(m.Json);
@@ -839,7 +841,7 @@ public class BoardTests
         var r = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/times?map=0", admin)));
         Assert.Equal(10, r.GetProperty("lap").GetProperty("top").GetArrayLength());
         Assert.Equal(13, r.GetProperty("lap").GetProperty("mine").GetProperty("place").GetInt32());   // not among the ten, but told its place
-        Assert.Equal(5, r.GetProperty("maps").GetArrayLength());
+        Assert.Equal(MapFileTests.MapCount, r.GetProperty("maps").GetArrayLength());   // one board per map of maps.json
         Assert.Equal(0, r.GetProperty("drift").GetProperty("top").GetArrayLength());
         var guest = await TestApp.GuestCookieAsync(await app.JoinAsync(c, await app.GuestLinkAsync(c, admin), "Ann"));
         var g = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/guest/times?map=0", guest)));
