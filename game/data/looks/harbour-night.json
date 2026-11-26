@@ -2,6 +2,7 @@
  "name": "Harbour at night (wet quay, lamps, deep blue)",
  "note": "Colours, light, mood and density of a look; the shapes come from the scene. Another look (night harbour, desert, winter, car park) is another file like this one. Colours are before tone mapping (ACES), which softens and warms them.",
  "sky": {
+  "stars": { "count": 800, "bright": 1, "minEl": 15 },
   "top": "#050a1e",
   "mid": "#142456",
   "horizon": "#34478a",

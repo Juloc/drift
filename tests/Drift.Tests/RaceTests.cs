@@ -796,6 +796,35 @@ public class BoardTests
     }
 
     [Fact]
+    public async Task Every_map_has_its_own_board_and_the_maps_of_the_track_system_keep_their_boards_apart_from_the_flat_ones()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        await app.SignedInAsync(app.Http());
+        var store = new RaceStore(db.Data);
+        var a = Guid.NewGuid(); await Person(db, a, "a");
+        var dir = Path.Combine(Repo.Root, "game", "data");
+        using var list = JsonDocument.Parse(File.ReadAllText(Path.Combine(dir, "maps.json")));   // the maps the game offers (the car park of the first milestones is not one of them)
+        var maps = list.RootElement.GetProperty("maps").EnumerateArray().Select(m => RaceTrack.FromJson(File.ReadAllText(Path.Combine(dir, "maps", m.GetProperty("file").GetString()!)))).OrderBy(t => t.MapId).ToList();
+        Assert.True(maps.Count >= 7, "the touge, the harbour, the pass, the desert, the winter pass, the practice ground and the autumn course");
+        Assert.Equal(maps.Count, maps.Select(t => t.MapId).Distinct().Count());
+        // one time on each map, each different: every board shows only its own
+        foreach (var t in maps) Assert.True(await store.RecordAsync(a, t.MapId, RaceStore.Lap, 50_000 + t.MapId * 1_000, 1, t.Board(0, false)), t.Name);
+        foreach (var t in maps)
+        {
+            var top = await store.TopAsync(t.MapId, RaceStore.Lap, 10, a, t.Board(0, false), CancellationToken.None);
+            Assert.Equal(new[] { 50_000 + t.MapId * 1_000 }, top.Select(r => r.Ms));
+        }
+        // a map of the track system has the flat board and the hills board apart; a map without a road of it has one board for both
+        foreach (var t in maps)
+        {
+            if (t.RoadVersion >= 2) Assert.NotEqual(t.Board(0, false), t.Board(0, true));
+            else Assert.Equal(t.Board(0, false), t.Board(0, true));
+        }
+        Assert.True(maps.Single(t => t.Name.StartsWith("Winter")).RoadVersion >= 2, "the new winter pass is a road of the track system, so its board is not the old winter track's");
+    }
+
+    [Fact]
     public async Task Bests_on_the_old_road_the_new_road_and_the_new_road_with_hills_are_three_boards_and_old_rows_stay()
     {
         await using var db = await TestDb.CreateAsync();

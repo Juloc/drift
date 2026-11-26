@@ -2,6 +2,7 @@
  "name": "Winter track at the blue hour (snow, ice, cold light)",
  "note": "Colours, light, mood and density of a look; the shapes come from the scene. Another look (night harbour, desert, winter, car park) is another file like this one. Colours are before tone mapping (ACES), which softens and warms them.",
  "sky": {
+  "stars": { "count": 800, "bright": 0.8, "minEl": 15 },
   "top": "#222f66",
   "mid": "#7288c6",
   "horizon": "#f2c8d2",

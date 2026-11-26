@@ -29,6 +29,7 @@ import { SoundSystem } from './view/sound.js';
 import { newRun, runStep, resultOf } from './sim/challenge.js';
 import { TandemHud } from './view/tandemhud.js';
 import { icon, setIcon, EMOTE_ICONS } from './view/icons.js';
+import { newCones, coneStep, CONE_R, PENALTY } from './sim/cones.js';
 import { GhostRecorder, GhostPlayer } from './sim/ghost.js';
 import { PracticeBot, TandemPractice, MEETING_PRACTICE_START } from './sim/practice.js';
 import { angDiff } from './core/rng.js';
@@ -42,12 +43,12 @@ const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
-    online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', reset: 'Restart', tunedMark: 'tuned', paint: 'Paint', practiceGround: 'Practice ground', mapWinter: 'Winter pass', mapAutumn: 'Autumn drift course', toLobby: 'Back to the lobby', physNew: 'Hills: on', physOld: 'Hills: off', physKey: 'Physics that feels slopes (new) or the flat one (tap to switch)', camPreset_near: 'View: close', camPreset_follow: 'View: behind', camPreset_far: 'View: far', camPreset_top: 'View: from above', camFollowOn: 'Camera comes back by itself', camFollowOff: 'Camera stays where you put it', camDrag: 'Drag to turn the view, wheel to zoom', ctlTouch: 'Controls: touch (tap for keyboard)', ctlPc: 'Controls: keyboard (tap for touch)', modeTraining: 'Training', ghostBest: 'Ghost (your best run)', ghostDiff: 'Difference', newGhost: 'New ghost saved', ghostNone: 'No ghost yet: this run becomes it', modeTandem: 'Tandem', tandemNone: 'Nobody near you: drive up to another car first', tandemSent: 'Invitation sent to {to}', tandemInvite: '{by} asks you for a tandem in two runs', tandemNo_gone: 'That driver is not here any more', tandemNo_busy: 'That driver is busy', tandemNo_declined: 'Declined', tandemNo_timeout: 'No answer', tandemEnd_left: 'Your partner left', tandemEnd_cancelled: 'Tandem ended', tandemSoon: 'Tandem starts in {s}', tandemRound: 'Round {r} of 2', tandemLead: 'You lead', tandemChase: 'You chase', tandemSwap: 'Swap! Next round: {role}', tandemPts: '{n} points', tandemPair: 'Pair', tandemWith: 'With {name}', tandemYou: 'you', tandemThem: 'partner', deviceBest: 'Best on this device', withAccount: 'With an account you get on the board.', nameAsk: 'Your name (shown as "Name (Guest)")', modeDrift: 'Drift attack', modeTime: 'Time attack', again: 'Again', board: 'Best runs', privateSession: 'Private session', run: 'Run finished', sumTime: 'Time', sumPoints: 'Points', sumClips: 'Clipping points', sumBest: 'Best drift', clip: 'CLIP', zone: 'Zone', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
+    online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', reset: 'Restart', tunedMark: 'tuned', paint: 'Paint', cones: 'Cones', practiceGround: 'Practice ground', mapWinter: 'Winter pass', mapAutumn: 'Autumn drift course', toLobby: 'Back to the lobby', physNew: 'Hills: on', physOld: 'Hills: off', physKey: 'Physics that feels slopes (new) or the flat one (tap to switch)', camPreset_near: 'View: close', camPreset_follow: 'View: behind', camPreset_far: 'View: far', camPreset_top: 'View: from above', camFollowOn: 'Camera comes back by itself', camFollowOff: 'Camera stays where you put it', camDrag: 'Drag to turn the view, wheel to zoom', ctlTouch: 'Controls: touch (tap for keyboard)', ctlPc: 'Controls: keyboard (tap for touch)', modeTraining: 'Training', ghostBest: 'Ghost (your best run)', ghostDiff: 'Difference', newGhost: 'New ghost saved', ghostNone: 'No ghost yet: this run becomes it', modeTandem: 'Tandem', tandemNone: 'Nobody near you: drive up to another car first', tandemSent: 'Invitation sent to {to}', tandemInvite: '{by} asks you for a tandem in two runs', tandemNo_gone: 'That driver is not here any more', tandemNo_busy: 'That driver is busy', tandemNo_declined: 'Declined', tandemNo_timeout: 'No answer', tandemEnd_left: 'Your partner left', tandemEnd_cancelled: 'Tandem ended', tandemSoon: 'Tandem starts in {s}', tandemRound: 'Round {r} of 2', tandemLead: 'You lead', tandemChase: 'You chase', tandemSwap: 'Swap! Next round: {role}', tandemPts: '{n} points', tandemPair: 'Pair', tandemWith: 'With {name}', tandemYou: 'you', tandemThem: 'partner', deviceBest: 'Best on this device', withAccount: 'With an account you get on the board.', nameAsk: 'Your name (shown as "Name (Guest)")', modeDrift: 'Drift attack', modeTime: 'Time attack', again: 'Again', board: 'Best runs', privateSession: 'Private session', run: 'Run finished', sumTime: 'Time', sumPoints: 'Points', sumClips: 'Clipping points', sumBest: 'Best drift', clip: 'CLIP', zone: 'Zone', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
     keysSoft: 'Keyboard: soft (gas and steering build up)', keysDirect: 'Keyboard: direct (all or nothing)', leverOn: 'Mouse throttle lever on (L): wheel or drag up and down; the brake resets it', leverOff: 'Mouse throttle lever off (L)', volume: 'Volume', musicVolume: 'Music volume', nowPlaying: 'Music: {t} by {a} ({l})', quality: 'Graphics', camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', creativeOn: 'Creative mode on (K): no scores count, no damage', creativeOff: 'Creative mode off (K)', creativeBanner: 'CREATIVE: scores do not count', creativeChip: 'Creative', damageLabel: 'Damage', damageOn: 'Damage on (V)', damageOff: 'Damage off (V)', soundOn: 'Sound on (M)', soundOff: 'Sound off (M)', musicOff: 'Music: off', musicOn: 'Music: on', chLap: 'Set a clean lap in a race or time trial', chDone: 'Challenge finished', chConfirmed: 'confirmed', chFailed: 'ended by a hit', chTitle: 'Challenge',
     feelArcade: 'Arcade', feelPro: 'Pro (fewer aids)', feelKey: 'Feel of driving (X)', tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
-    online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', reset: 'Neu starten', tunedMark: 'getunt', paint: 'Lack', practiceGround: 'Übungsplatz', mapWinter: 'Winterpass', mapAutumn: 'Herbst-Driftkurs', toLobby: 'Zur Lobby', physNew: 'Gefälle: an', physOld: 'Gefälle: aus', physKey: 'Physik, die Gefälle spürt (neu), oder die flache (tippen zum Wechseln)', camPreset_near: 'Ansicht: nah', camPreset_follow: 'Ansicht: hinten', camPreset_far: 'Ansicht: weit', camPreset_top: 'Ansicht: von oben', camFollowOn: 'Kamera kehrt von selbst zurück', camFollowOff: 'Kamera bleibt, wo du sie hinstellst', camDrag: 'Ziehen dreht die Ansicht, Rad zoomt', ctlTouch: 'Steuerung: Touch (tippen für Tastatur)', ctlPc: 'Steuerung: Tastatur (tippen für Touch)', modeTraining: 'Training', ghostBest: 'Geist (deine beste Fahrt)', ghostDiff: 'Unterschied', newGhost: 'Neuer Geist gespeichert', ghostNone: 'Noch kein Geist: diese Fahrt wird er', modeTandem: 'Tandem', tandemNone: 'Niemand in der Nähe: fahr erst zu einem anderen Auto', tandemSent: 'Einladung an {to} geschickt', tandemInvite: '{by} lädt dich zum Tandem in zwei Durchgängen ein', tandemNo_gone: 'Der Fahrer ist nicht mehr da', tandemNo_busy: 'Der Fahrer ist beschäftigt', tandemNo_declined: 'Abgelehnt', tandemNo_timeout: 'Keine Antwort', tandemEnd_left: 'Dein Partner ist gegangen', tandemEnd_cancelled: 'Tandem beendet', tandemSoon: 'Tandem startet in {s}', tandemRound: 'Runde {r} von 2', tandemLead: 'Du fährst vorn', tandemChase: 'Du folgst', tandemSwap: 'Tausch! Nächste Runde: {role}', tandemPts: '{n} Punkte', tandemPair: 'Paar', tandemWith: 'Mit {name}', tandemYou: 'du', tandemThem: 'Partner', deviceBest: 'Bestwert auf diesem Gerät', withAccount: 'Mit Konto kommst du auf die Bestenliste.', nameAsk: 'Dein Name (wird als "Name (Gast)" gezeigt)', modeDrift: 'Drift-Attacke', modeTime: 'Zeitjagd', again: 'Nochmal', board: 'Beste Läufe', privateSession: 'Private Runde', run: 'Lauf beendet', sumTime: 'Zeit', sumPoints: 'Punkte', sumClips: 'Clipping-Punkte', sumBest: 'Bester Drift', clip: 'CLIP', zone: 'Zone', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
+    online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', reset: 'Neu starten', tunedMark: 'getunt', paint: 'Lack', cones: 'Kegel', practiceGround: 'Übungsplatz', mapWinter: 'Winterpass', mapAutumn: 'Herbst-Driftkurs', toLobby: 'Zur Lobby', physNew: 'Gefälle: an', physOld: 'Gefälle: aus', physKey: 'Physik, die Gefälle spürt (neu), oder die flache (tippen zum Wechseln)', camPreset_near: 'Ansicht: nah', camPreset_follow: 'Ansicht: hinten', camPreset_far: 'Ansicht: weit', camPreset_top: 'Ansicht: von oben', camFollowOn: 'Kamera kehrt von selbst zurück', camFollowOff: 'Kamera bleibt, wo du sie hinstellst', camDrag: 'Ziehen dreht die Ansicht, Rad zoomt', ctlTouch: 'Steuerung: Touch (tippen für Tastatur)', ctlPc: 'Steuerung: Tastatur (tippen für Touch)', modeTraining: 'Training', ghostBest: 'Geist (deine beste Fahrt)', ghostDiff: 'Unterschied', newGhost: 'Neuer Geist gespeichert', ghostNone: 'Noch kein Geist: diese Fahrt wird er', modeTandem: 'Tandem', tandemNone: 'Niemand in der Nähe: fahr erst zu einem anderen Auto', tandemSent: 'Einladung an {to} geschickt', tandemInvite: '{by} lädt dich zum Tandem in zwei Durchgängen ein', tandemNo_gone: 'Der Fahrer ist nicht mehr da', tandemNo_busy: 'Der Fahrer ist beschäftigt', tandemNo_declined: 'Abgelehnt', tandemNo_timeout: 'Keine Antwort', tandemEnd_left: 'Dein Partner ist gegangen', tandemEnd_cancelled: 'Tandem beendet', tandemSoon: 'Tandem startet in {s}', tandemRound: 'Runde {r} von 2', tandemLead: 'Du fährst vorn', tandemChase: 'Du folgst', tandemSwap: 'Tausch! Nächste Runde: {role}', tandemPts: '{n} Punkte', tandemPair: 'Paar', tandemWith: 'Mit {name}', tandemYou: 'du', tandemThem: 'Partner', deviceBest: 'Bestwert auf diesem Gerät', withAccount: 'Mit Konto kommst du auf die Bestenliste.', nameAsk: 'Dein Name (wird als "Name (Gast)" gezeigt)', modeDrift: 'Drift-Attacke', modeTime: 'Zeitjagd', again: 'Nochmal', board: 'Beste Läufe', privateSession: 'Private Runde', run: 'Lauf beendet', sumTime: 'Zeit', sumPoints: 'Punkte', sumClips: 'Clipping-Punkte', sumBest: 'Bester Drift', clip: 'CLIP', zone: 'Zone', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
     keysSoft: 'Tastatur: weich (Gas und Lenken bauen sich auf)', keysDirect: 'Tastatur: direkt (alles oder nichts)', leverOn: 'Maus-Gashebel an (L): Rad oder Ziehen nach oben und unten; die Bremse setzt ihn zur\u00fcck', leverOff: 'Maus-Gashebel aus (L)', volume: 'Lautstärke', musicVolume: 'Musik-Lautstärke', nowPlaying: 'Musik: {t} von {a} ({l})', quality: 'Grafik', camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', creativeOn: 'Kreativ-Modus an (K): keine Wertung, kein Schaden', creativeOff: 'Kreativ-Modus aus (K)', creativeBanner: 'KREATIV: nichts davon z\u00e4hlt', creativeChip: 'Kreativ', damageLabel: 'Schaden', damageOn: 'Schaden an (V)', damageOff: 'Schaden aus (V)', soundOn: 'Ton an (M)', soundOff: 'Ton aus (M)', musicOff: 'Musik: aus', musicOn: 'Musik: an', chLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde', chDone: 'Herausforderung beendet', chConfirmed: 'bestätigt', chFailed: 'durch einen Treffer beendet', chTitle: 'Herausforderung',
     feelArcade: 'Arcade', feelPro: 'Pro (weniger Hilfen)', feelKey: 'Fahrgef\u00fchl (X)', tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
@@ -133,6 +134,7 @@ const pool = new WheelPool(16);   // (only its shadow blobs are used: the cars b
 scene.add(carGroup, pool.blobs);
 const groundAt = (x, z) => stage.field.groundY(x, z);
 const cam = new CameraRig(camera, { look: look.camera, ground: groundAt });
+cam.setCover((x, z) => stage.field.height(x, z));   // the camera sees over the land, not only over the road
 if (['chase', 'bonnet', 'cockpit'].includes(params.get('cam'))) cam.set(params.get('cam'));   // ?cam=bonnet|cockpit for pictures; the key C cycles
 const input = new Input($('touch'));
 // the HUD (view/probehud.js): free driving in the lobby, laps and position in a race; the minimap shows the road of the map
@@ -194,6 +196,7 @@ async function ensureMap(id) {
     const newLook = a.look !== look;
     carGroup.remove(mine.group);
     stage.load(a.look, a.scene);   // takes the old world down and builds the new one (the renderer and the camera stay)
+    conesBuild();
     look = a.look;
     if (newLook || true) {   // the cars are made for the look they are seen in (the sun's strength is in the painted style)
       fleet.dispose();
@@ -204,7 +207,7 @@ async function ensureMap(id) {
       if (practice) togglePractice(false);
     }
     carGroup.add(mine.group);
-    cam.setLook(look.camera); cam.setGround(groundAt);
+    cam.setLook(look.camera); cam.setGround(groundAt); cam.setCover((x, z) => stage.field.height(x, z));
     hud.setMap(shapesOf(a));
     stage.skids.clear();
   })();
@@ -642,7 +645,62 @@ function showSummary({ ms, points, clips, of, best }) {
   summaryEl.replaceChildren(h, row(T.sumTime, fmt(ms)), row(T.sumPoints, points.toLocaleString(de ? 'de-DE' : 'en-GB')), ...(of ? [row(T.sumClips, `${clips} / ${of}`)] : []), row(T.sumBest, best.toLocaleString(de ? 'de-DE' : 'en-GB')));
   summaryEl.hidden = false;
 }
+// ----- soft cones (a map's `cones`, the practice ground): drawn as little cones, knocked over when the car touches them, each costs points; the count shows beside the score
+let coneMesh = null, coneState = null, coneEl = null;
+const coneDummy = new THREE.Object3D();
+// ----- low things to practise on (a map's `obstacles` with a `what: 'tyre'`, and its walls of style 'barrier': tyres to drift round, concrete barriers): the physics knows them as obstacles and walls, this draws them
+let propMeshes = [];
+function propsBuild() {
+  for (const m of propMeshes) { scene.remove(m); m.geometry.dispose(); m.material.dispose(); } propMeshes = [];
+  const tyres = (map.obstacles ?? []).filter((o) => o.what === 'tyre'), barriers = (map.walls ?? []).filter((w) => w.style === 'barrier');
+  if (tyres.length) {
+    const m = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.55, 0.55, 0.5, 14), new THREE.MeshStandardMaterial({ color: '#25252c', roughness: 0.9 }), tyres.length), d = new THREE.Object3D();
+    tyres.forEach((o, i) => { d.position.set(X(o.x), stage.field.groundY(o.x, o.z) + 0.25, o.z); d.updateMatrix(); m.setMatrixAt(i, d.matrix); });
+    scene.add(m); propMeshes.push(m);
+  }
+  for (const w of barriers) for (let i = 0; i < w.pts.length - 1; i++) {
+    const [x0, z0] = w.pts[i], [x1, z1] = w.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0), y = stage.field.groundY((x0 + x1) / 2, (z0 + z1) / 2);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.9, len), new THREE.MeshStandardMaterial({ color: '#8d8a86', roughness: 0.95 }));
+    m.position.set(X((x0 + x1) / 2), y + 0.45, (z0 + z1) / 2); m.rotation.y = -Math.atan2(x1 - x0, z1 - z0) + 0; scene.add(m); propMeshes.push(m);
+  }
+}
+function conesBuild() {
+  propsBuild();
+  if (coneMesh) { scene.remove(coneMesh); coneMesh.geometry.dispose(); coneMesh.material.dispose(); coneMesh = null; }
+  coneState = null; if (coneEl) coneEl.hidden = true;
+  const list = map?.cones ?? []; if (!list.length) return;
+  coneMesh = new THREE.InstancedMesh(new THREE.ConeGeometry(CONE_R, 0.75, 10), new THREE.MeshStandardMaterial({ color: '#ff7a1a', roughness: 0.7, emissive: '#331100' }), list.length);
+  scene.add(coneMesh); conesReset();
+}
+function conesPlace(i, down) {
+  const c = map.cones[i], y = stage.field.groundY(c.x, c.z);
+  if (!down) { coneDummy.position.set(X(c.x), y + 0.375, c.z); coneDummy.rotation.set(0, 0, 0); }
+  else { const d = coneState.down[i], run = 1 + 3 * d.v; coneDummy.position.set(X(c.x + d.dx * run), y + CONE_R * 0.6, c.z + d.dz * run); coneDummy.rotation.set(Math.PI / 2, Math.atan2(-d.dx, d.dz), 0, 'YXZ'); }
+  coneDummy.updateMatrix(); coneMesh.setMatrixAt(i, coneDummy.matrix);
+}
+function conesReset() {
+  if (!coneMesh) return;
+  coneState = newCones(map.cones);
+  for (let i = 0; i < map.cones.length; i++) conesPlace(i, false);
+  coneMesh.instanceMatrix.needsUpdate = true; conesShow();
+}
+function conesShow() {
+  if (!coneEl) { coneEl = Object.assign(document.createElement('div'), { id: 'cones', role: 'status' }); ($('hud') ?? document.body).append(coneEl); }
+  coneEl.hidden = !coneMesh || !map.practice;   // (the counter only where the cones cost points: the practice ground; on the plaza they are just there)
+  coneEl.textContent = `${T.cones} ${coneState?.hits ?? 0}` + (coneState?.hits ? ` (\u2212${coneState.hits * PENALTY})` : '');
+}
+function conesStep() {
+  if (!coneState) return;
+  const next = coneStep(coneState, map.cones, cur.x, cur.z, cur.vx, cur.vz);
+  if (next === coneState) return;
+  coneState = next;
+  for (const i of next.event) conesPlace(i, true);
+  // the practice ground only (a map with cones): each cone costs its points from the drift in progress, and from what is banked when nothing is pending (never under zero)
+  if (!creative && map.practice) { let cut = next.event.length * PENALTY; const fromPending = Math.min(score.pending, cut); cut -= fromPending; const fromBank = Math.min(score.banked, cut); score = { ...score, pending: score.pending - fromPending, banked: score.banked - fromBank }; }
+  coneMesh.instanceMatrix.needsUpdate = true; conesShow(); sound.bump?.(1.5);
+}
 function reset() {
+  conesReset();
   summaryEl.hidden = true;
   if (net && !racing) net.sendRespawn();   // the relay knows this jump (back to the plaza)
   const s = map.lobbySpawn ?? map.grid[0];
@@ -665,7 +723,7 @@ if (shotDef) { const s = shotDef.start; cur = prev = { ...makeCar(s.x, s.z, s.h)
 if (params.has('pose')) { const [px, pz, ph, pslip, pkmh] = params.get('pose').split(',').map(Number), v = pkmh / 3.6, dir = ph - (pslip * Math.PI) / 180; cur = prev = { ...makeCar(px, pz, ph), vx: Math.sin(dir) * v, vz: Math.cos(dir) * v }; cam.snap(cur); if (params.has('t')) lineDriver = lineBot(stage.field.road, { closed: map.closed !== false, speed: 30, corner: 11, kick: 0.25, look: 14, hold: 0.55 }); }
 const demo = params.get('demo') === 'orbit', demoLine = params.get('demo') === 'line';   // ?demo=orbit|line: a bot drives (a circle, or the map's loop) for pictures
 const freecam = params.has('freecam') ? params.get('freecam').split(',').map(Number) : null;
-if (demoLine) { const o = map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); lineDriver = phys25 && map.surface ? trackBot(map.surface, { car }) : lineBot(stage.field.road, map.closed === false ? { closed: false, speed: 30, corner: 11, kick: 0.25, look: 14, hold: 0.55 } : { closed: true, speed: 22, corner: 15 }); }   // (the touge numbers: a clean run of about 118 s with 30 to 40 degree drifts in the hairpins, no wall touched)
+if (demoLine) { const o = map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); lineDriver = phys25 && map.surface ? trackBot(map.surface, { car, mu: surfaceAt(map, cur.x, cur.z).mu }) : lineBot(stage.field.road, map.closed === false ? { closed: false, speed: 30, corner: 11, kick: 0.25, look: 14, hold: 0.55 } : { closed: true, speed: 22, corner: 15 }); }   // (the touge numbers: a clean run of about 118 s with 30 to 40 degree drifts in the hairpins, no wall touched)
 if (demo) { const o = mapId === 0 ? { x: -30, z: 8, h: Math.PI / 2 } : map.grid[0]; cur = prev = makeCar(o.x, o.z, o.h); cam.snap(cur); }
 
 // ----- the practice partner (?bot=1 or the key B): a bot drives a drift circle next to you; the tandem bonus is judged here, nothing is sent
@@ -687,6 +745,7 @@ function simStep(i) {
   const inp = locked ? { steer: 0, throttle: 0, brake: 0, handbrake: 1 } : demo ? orbitBot(i * DT, cur, { start: 1.5 }) : lineDriver ? lineDriver(i * DT, cur) : input.read();
   lastInp = inp;
   const mu = surfaceAt(map, cur.x, cur.z).mu;
+  conesStep();
   cur = collideBody(map, step(cur, inp, carNow, mu, DT, phys25 && map.surface ? roadSurface : null));   // the walls and poles (?phys=1: on the road's surface, the slope pulls and loads the wheels)
   for (const o of remoteBodies) {   // the other cars
     const r = collideCars(cur, o, { applyB: false, ma: myMass, mb: o.m });
@@ -718,14 +777,14 @@ function simStep(i) {
     if (st.event) tandemHud.bank(st.event.points);
   }
   // smoke from the rear wheels, 40 times a second, as in the probe: it drifts off to the left of the way the car goes (not into the camera behind it) and starts a little outside the wheel
-  if (simSteps % 3 === 0 && !paused) {
+  if (simSteps % (look.smoke.every ?? 2) === 0 && !paused) {
     const slid = (Math.abs(bodySlip(cur)) > 0.2 || inp.handbrake > 0) && speedOf(cur) > 3, S = look.smoke, t = Math.atan2(cur.vx, cur.vz), push = S.drift ?? 0, out = S.offset ?? 0;
     const W = wheelPoints(fleet.dims), sh = Math.sin(cur.h), ch = Math.cos(cur.h);
     for (const sx of [-1, 1]) {
       // at the model's own rear tyre (right: sx -1), on the road's surface under that tyre; the mark lies in the surface's plane (its gradient, in drawing axes)
-      const [lx, lz] = W[sx < 0 ? 3 : 2], px = cur.x + lz * sh - lx * ch, wz = cur.z + lz * ch + lx * sh, wx = X(px), sf = drawnSurface(px, wz, _ws), wy = sf.y;
+      const [lx, lz0] = W[sx < 0 ? 3 : 2], lz = lz0 - (S.behind ?? 0), px = cur.x + lz * sh - lx * ch, wz = cur.z + lz * ch + lx * sh, wx = X(px), sf = drawnSurface(px, wz, _ws), wy = sf.y;
       stage.skids.mark(sx < 0 ? 0 : 1, wx, wz, 0, 0, slid && speedOf(cur) > 3, wy, -sf.gx, sf.gz);
-      if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + wy, wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
+      if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, (S.height ?? 0.12) + wy, wz + Math.sin(t) * out, X(cur.vx * (S.throw ?? -0.12) - Math.cos(t) * push), cur.vz * (S.throw ?? -0.12) + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));   // from the tyre's contact point, thrown back (look.smoke: height, behind, throw)
     }
   }
   if (map.kind === 'descent' && !locked && !racing) {
@@ -957,5 +1016,6 @@ function roadProbe(step = 5) {
   }
   return out;
 }
-window.__drift = { roadProbe, get ghost() { return ghostCar; }, floorAt, startSpots, showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return mine.group; }, get sound() { return sound; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; }, get pose() { return minePose; }, roadSurface };
+conesBuild();   // (the map the page starts on; ensureMap does it for the others)
+window.__drift = { roadProbe, get ghost() { return ghostCar; }, floorAt, startSpots, showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return mine.group; }, get sound() { return sound; }, get cones() { return coneState; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; }, get pose() { return minePose; }, roadSurface };
 requestAnimationFrame(frame);

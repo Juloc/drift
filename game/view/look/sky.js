@@ -108,6 +108,34 @@ export function makeSkyEnvironment(renderer, look, size = 128) {
 }
 
 /**
+ * Stars: ONE Points draw (look.sky.stars: { count, bright, minEl }), on the inside of the dome and following the camera like it. None below `minEl` degrees of elevation (default 15:
+ * the haze and the mountains hide them there), fading in to full at 45; weaker the nearer they are to the sun (where the sky is still bright), and weaker over the warm horizon
+ * side. Each star has its own brightness and a size of 1.5 to 2.5 px (`sizeAttenuation: false`: they stay points however far the field of view). The same sky every time
+ * (a fixed seed), so a picture is the same twice. `count` is halved on the low tier by the caller.
+ */
+export function makeStars(look, count = look.sky.stars?.count ?? 800, radius = 1900) {
+  const S = look.sky.stars ?? {}, bright = S.bright ?? 1, minEl = ((S.minEl ?? 15) * Math.PI) / 180, fullEl = Math.max(minEl + 0.1, (45 * Math.PI) / 180), sun = sunDirection(look);
+  let seed = 90210; const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const pos = [], col = [], size = [];
+  for (let n = 0, tries = 0; n < count && tries < count * 20; tries++) {
+    const y = Math.sin(minEl) + rnd() * (1 - Math.sin(minEl)), r = Math.sqrt(1 - y * y), a = rnd() * Math.PI * 2, d = new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r);   // even over the area of the cap
+    const el = Math.asin(y), byEl = THREE.MathUtils.smoothstep(el, minEl, fullEl);
+    const away = THREE.MathUtils.smoothstep(1 - Math.max(0, d.dot(sun)), 0.25, 0.95);   // 1 far from the sun, 0 right at it
+    const v = bright * byEl * (0.25 + 0.75 * away) * (0.4 + 0.6 * rnd());
+    if (v < 0.04) continue;
+    pos.push(d.x * radius, d.y * radius, d.z * radius); col.push(0.85 + 0.15 * rnd(), 0.88 + 0.1 * rnd(), 1, Math.min(1, v)); size.push(1.5 + rnd());
+    n++;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+  const mat = new THREE.PointsMaterial({ size: 2, sizeAttenuation: false, vertexColors: true, transparent: true, depthWrite: false, fog: false, toneMapped: false });
+  const pts = new THREE.Points(g, mat);
+  pts.frustumCulled = false; pts.renderOrder = -0.7;   // after the dome, before the cloud bands (a cloud covers a star)
+  pts.onBeforeRender = (r, sc, cam) => { pts.position.copy(cam.position); pts.updateMatrixWorld(); };
+  return pts;
+}
+
+/**
  * A layer of cloud bands of its own (in front of the sky dome, so the bloom does not wash them out): soft, long quads at the sky's
  * distance, following the camera like the dome. `bands`: [{ az, el, w, h }] in degrees from the sun's direction (az to the right) and
  * above the horizon, width and height in degrees. Lit warm on the sun's side and underneath, rosy-violet away from it.

@@ -2,6 +2,7 @@
  "name": "Touge at dusk",
  "note": "The mountain pass road at dusk (the owner's focus): blue-violet sky with the last orange low in the west, a rising moon, warm street lamps and stone lanterns, dark cedars, a calm crater lake far below, volcano silhouettes.",
  "sky": {
+  "stars": { "count": 800, "bright": 0.5, "minEl": 15 },
   "top": "#3a3e98",
   "mid": "#5e58aa",
   "horizon": "#ff9466",
@@ -12,38 +13,13 @@
   "glow": "#ff8040",
   "sunSize": 0.01,
   "glowStrength": 0.3,
-  "clouds": {
-   "lit": "#9c84c0",
-   "shade": "#46407e",
-   "amount": 0.45,
-   "layer": 0.75,
-   "bright": 1
-  },
+  "clouds": { "lit": "#ff9d7a", "shade": "#9a5f9e", "amount": 0.36, "layer": 0.8, "bright": 1.05 },
   "bands": [
-   {
-    "az": -8,
-    "el": 3.5,
-    "w": 40,
-    "h": 2.2
-   },
-   {
-    "az": 15,
-    "el": 6,
-    "w": 30,
-    "h": 1.8
-   },
-   {
-    "az": -30,
-    "el": 8,
-    "w": 34,
-    "h": 2
-   },
-   {
-    "az": 40,
-    "el": 4,
-    "w": 28,
-    "h": 1.6
-   }
+    { "az": -6, "el": 6.5, "w": 46, "h": 3.4 },
+    { "az": 22, "el": 9.5, "w": 38, "h": 3.0 },
+    { "az": -34, "el": 9.5, "w": 42, "h": 3.0 },
+    { "az": 8, "el": 12.5, "w": 50, "h": 3.2 },
+    { "az": 48, "el": 6, "w": 34, "h": 2.6 }
   ],
   "moon": {
    "dir": [
@@ -190,8 +166,9 @@
   "height": 7,
   "halo": 0.7,
   "haloSize": 2,
-  "pool": 7,
-  "poolGlow": 0.9
+  "pool": 4.5,
+  "poolGlow": 0.4,
+  "haloPost": 0.4
  },
  "smoke": {
   "style": "billows",
@@ -199,14 +176,13 @@
   "shade": "#a682aa",
   "bright": 1.05,
   "tint": "#ffffff",
-  "opacity": 0.85,
-  "near": 0.2,
-  "drift": 0.8,
-  "offset": 0.4,
-  "clear": 0,
+  "opacity": 0.92,
+  "near": 1.2,
+  "drift": 0.2,
+  "offset": 0,
   "size": 1,
-  "start": 1.2,
-  "spread": 4.5,
+  "start": 0.35,
+  "spread": 6,
   "life": 1,
   "lifeGrow": 0.9,
   "burst": 1.7,
@@ -214,10 +190,16 @@
   "fade": 0.55,
   "glow": 0.95,
   "texture": "soft",
-  "maxRise": 1.3,
-  "maxSize": 4.2,
+  "maxRise": 1.8,
+  "maxSize": 3.6,
   "screenTop": -0.15,
-  "carRadius": 1.9
+  "nearWidth": 2,
+  "flat": 1,
+  "rise": 0,
+  "height": 0.12,
+  "behind": 0.25,
+  "every": 2,
+  "carDim": 0.35
  },
  "skid": {
   "colour": "#0e0c14",
@@ -262,7 +244,7 @@
     "poles": 0
    },
    "carpet": 2000,
-   "billows": 90,
+   "billows": 140,
    "carpetNear": 30
   },
   "medium": {
@@ -291,7 +273,7 @@
     "poles": 0
    },
    "carpet": 1300,
-   "billows": 70,
+   "billows": 100,
    "carpetNear": 30
   },
   "low": {
@@ -320,7 +302,7 @@
     "poles": 0
    },
    "carpet": 240,
-   "billows": 45,
+   "billows": 70,
    "carpetNear": 30
   }
  },
@@ -346,7 +328,7 @@
   "gate": "#d0402e",
   "bends": true,
   "size": 1.1,
-  "pool": 5,
+  "pool": 3.5,
   "glow": 3
  },
  "surface": {

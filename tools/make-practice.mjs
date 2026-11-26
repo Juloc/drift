@@ -21,11 +21,11 @@ F(30); F(90, 'top');           // out of the pad, then a gentle climb (about 6 %
 A(50, -90, 'long');             // the long bend (left), on the climb's crest
 F(30);
 A(28, 50, 's1'); A(28, -50, 's2');   // the change of direction: right, then left
-F(40);
+F(72);
 A(21, -180, 'pin');            // the hairpin (left)
 F(75); A(40, 90, 'turn');      // down again (long enough for the hairpin's tilt to turn round), a right-hand bend onto the way back
 F(120, 'back');                // the gentle descent home, level at the end
-A(25, -90, 'home'); F(15);     // into the pad from the north, straight over its edge
+A(25, -90, 'home'); F(47);     // into the pad from the north, straight over its edge
 
 const ctrl = line.map(([px, pz]) => ({ x: round(px), z: round(pz), hw: HW }));   // a little wider than the touge: room to learn
 const nearestCtrl = ([px, pz]) => { let b = 0, bd = Infinity; ctrl.forEach((c, i) => { const d = (c.x - px) ** 2 + (c.z - pz) ** 2; if (d < bd) { bd = d; b = i; } }); return b; };
@@ -92,7 +92,7 @@ const map = {
   zones: [{ kind: 'asphalt', x0: PAD.x0, z0: PAD.z0, x1: PAD.x1, z1: PAD.z1 }],
   road: { kind: 'asphalt', halfWidth: HW }, centre, halfWidth: HW, loopLength: round(T.len), gates, grid, clips, lobbySpawn: { x: 40, z: 0, h: round(Math.PI / 2) }, props: [],
   cones, paint, practice: { pad: padPts, exercises: ['free', 'circle-15', 'circle-25', 'eight', 'slalom-15', 'slalom-22', 'course'] },
-  track: { ...packTrack(T), ctrl: spec.ctrl, bends },
+  track: { ...packTrack(T), ctrl: spec.ctrl, bends, rev: 1 },   // rev 1: the course of 755 m (it was 691 m): bests set on the shorter one are another board (RaceTrack.Rev)
 };
 // ---- checks: the slots and the spawn are clear of the walls and on the pad, the cones are on the pad and clear of each other's lines, the gates lie on the road
 const segs = [];

@@ -106,12 +106,20 @@ export class LookChase {
     const ty = this.yaw + (((C.turn ?? 0) + (C.turnDrift ?? 0) * this.td) * Math.PI) / 180;
     const swingTo = (C.swing ?? 0) * angDiff(travel, s.h);
     this.sw = (this.sw ?? swingTo) + (swingTo - (this.sw ?? swingTo)) * (1 - Math.exp(-2 * dt));
-    const side = C.side + this.sw, dist = P.dist * U.zoom, up = (P.up + U.lift) * U.zoom;
-    const cx = this.x - fx * dist + rx * side, cz = this.z - fz * dist + rz * side;
-    let cy = this.gy + up;
+    const side = C.side + this.sw, up0 = (P.up + U.lift) * U.zoom, dist0 = P.dist * U.zoom, cover = this.cover ?? g, eyeY = this.gy + 1.0;
+    // the line of sight: the camera must see the car. The land between them (the inside of a hairpin, the cut on the uphill side, a free orbit into the hill) is sampled at 6
+    // points; where the land (+0.6 m) is above the line, the camera is raised by what is needed (a raise of h lifts the line at a point t of the way by h * (1 - t)); needing
+    // more than 4 m, it is pulled closer to the car instead (at most to 0.6 of its distance). Fast up, slow down, like the extra height below.
+    const place = (k) => { const d = dist0 * k, u = up0 * k, px = this.x - fx * d + rx * side, pz = this.z - fz * d + rz * side; return [px, pz, this.gy + u]; };
+    const raiseFor = (px, pz, py) => { let r = 0; for (let i = 0; i < 6; i++) { const t = 0.15 + (0.75 * i) / 5, x = px + (this.x - px) * t, z = pz + (this.z - pz) * t, y = py + (eyeY - py) * t; r = Math.max(r, (cover(x, z) + 0.6 - y) / (1 - t)); } return Math.max(0, r); };
+    let k = 1, [cx, cz, cy] = place(1), r = raiseFor(cx, cz, cy + this.ex);
+    while (r > 4 && k > 0.6) { k = Math.max(0.6, k - 0.1); [cx, cz, cy] = place(k); r = raiseFor(cx, cz, cy + this.ex); }
+    this.pull = this.pull === undefined || dt === 0 ? k : k < this.pull ? damp(this.pull, k, 8, dt) : damp(this.pull, k, 1.5, dt);
+    if (Math.abs(this.pull - k) > 0.005) { [cx, cz, cy] = place(this.pull); r = raiseFor(cx, cz, cy + this.ex); }
+    const up = up0 * this.pull;
     // never under the road beside it (a hairpin below, a crest in front): the extra height comes quickly and goes slowly, so it never jerks
-    const need = Math.max(0, g(cx, cz) + 1.1 - cy);
-    this.ex = need > this.ex ? damp(this.ex, need, 10, dt) : damp(this.ex, need, 2, dt);
+    const need = Math.max(0, g(cx, cz) + 1.1 - cy, this.ex + r);
+    this.ex = dt === 0 ? need : need > this.ex ? damp(this.ex, need, 7, dt) : damp(this.ex, need, 2, dt);
     cy += this.ex;
     const lx = this.x + Math.sin(ty) * C.look, lz = this.z + Math.cos(ty) * C.look;
     this.camera.position.set(X(cx), cy, cz);
@@ -131,6 +139,8 @@ export class CameraRig {
   }
   /** The road's drawn height at a point, for every camera (it changes with the map). */
   setGround(ground) { for (const c of Object.values(this.cams)) c.ground = ground; }
+  /** The height of the land the camera must see over (the drawn terrain: view/look/field.js `height`); without it the road's height is used. */
+  setCover(cover) { for (const c of Object.values(this.cams)) c.cover = cover; }
   /** The chase camera of another look (another map). */
   setLook(C) { if (this.cams.chase instanceof LookChase) this.cams.chase.C = C; }
   get hidesCar() { return this.cams[this.mode].hides === true; }
