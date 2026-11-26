@@ -436,7 +436,14 @@ A static page with sample data, no server logic, no inline script; every text th
   phone a bar at the bottom. Views not built yet show a short notice.
 - `#modi`, the choice of game mode: free roam, drift attack, time attack, tandem, training, each a card with a picture from the game, a short
   text, the best value and Start (to the game page with `mode=`; the build chat gives the modes their rules).
-- Numbers: PC 52k triangles / 52 calls; phone 14k / 35, with the car on the low model.
+- `#strecken`, the track list: the touge is open, five more tracks (made-up names) marked as coming soon; filters, search and favourites.
+- `#strecke`, the track details: length 1.96 km, height 106 m, 17 bends and 8 hairpins, a small map drawn from the game's own centre line,
+  best values, Start (to the mode choice) and Free roam.
+- `#ergebnis`, the result after a run: place, points with a new-best badge, best chain, largest angle, time, clipping points, a leaderboard;
+  Again and Next.
+- Round 2: the garage is warmer and brighter, with a plant, shelves and light from above; the floor no longer shines. The player shows as
+  "Name (Guest)", with no levels. A menu next to the language switch reaches every view.
+- Numbers: PC 54k triangles / 73 calls; phone 14k / 35, with the car on the low model.
 - Pictures: docs/screenshots/lab-*.png. Not checked: a real phone, turning by finger on a real touch screen.
 
 ## 0.6.2 block: names, modes without an account, lab served, play check on the road

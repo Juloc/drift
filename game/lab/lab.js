@@ -8,7 +8,7 @@ import { createGarage } from './garage3d.js';
 // ---------------------------------------------------------------- sample data (made up; the car is the game's own, from data/cars.json)
 const PAINTS = ['#e6e1d8', '#18181d', '#b9bec8', '#d23a64', '#2f9a9a', '#8a7fd0'];
 const SAMPLE = {
-  player: { level: 12, xp: 0.62 },
+  player: { name: 'Mika', guest: true },
   car: { hp: 130, kg: 940, bars: { power: 58, handling: 81, drift: 88, grip: 64 } },
   tasks: [{ key: 'task1', done: true }, { key: 'task2', done: true }, { key: 'task3', done: false, progress: 0.42 }],
   bests: [{ key: 'attack', value: () => num(18420) }, { key: 'timeAttack', value: () => '2:41.380' }],
@@ -36,7 +36,7 @@ const icon = (name, cls = 'ic') => h('span', { class: cls, html: ICON[name] });
 // ---------------------------------------------------------------- navigation: the PC has it on top, the phone at the bottom (CSS); gone while driving
 const NAV = [
   { key: 'navGarage', icon: 'garage', view: 'garage' },
-  { key: 'navWorld', icon: 'world', view: 'welt' },
+  { key: 'navWorld', icon: 'world', view: 'strecken' },
   { key: 'navEvents', icon: 'events', view: 'modi' },
   { key: 'navWorkshop', icon: 'workshop', view: 'werkstatt' },
   { key: 'navSettings', icon: 'settings', view: 'einstellungen' },
@@ -51,7 +51,8 @@ function nav(current) {
       : h('a', { class: `nav-item${n.view === current ? ' on' : ''}`, href: `#${n.view}`, 'aria-current': n.view === current ? 'page' : null }, icon(n.icon), h('span', { class: 'nav-label' }, t(n.key))))),
     h('div', { class: 'nav-side' },
       h('button', { class: 'lang', type: 'button', onclick: () => { setLang(lang === 'de' ? 'en' : 'de'); show(); } }, lang === 'de' ? 'EN' : 'DE'),
-      h('div', { class: 'player' }, h('span', { class: 'player-dot' }), h('div', {}, h('b', {}, t('guest')), h('small', {}, `${t('level')} ${SAMPLE.player.level}`), h('span', { class: 'xp' }, h('i', { class: 'xp-fill' }))))));
+      // a guest's own name with "(Guest)"; a signed-in player shows the account's user name (no levels until there is progress)
+      h('div', { class: 'player' }, h('span', { class: 'player-dot' }), h('b', {}, SAMPLE.player.guest ? `${SAMPLE.player.name} (${t('guest')})` : SAMPLE.player.name))));
 }
 
 // ---------------------------------------------------------------- the garage as home (sheet 1)
@@ -113,12 +114,97 @@ function modesView() {
   return h('main', { class: 'view modes' }, nav('modi'), h('header', { class: 'page-head' }, h('h1', {}, t('modesTitle')), h('p', {}, t('modesSub'))), h('div', { class: 'mode-row' }, cards), bottomBar(false));
 }
 
+// ---------------------------------------------------------------- the track list (sheets 2 to 4, "world map, simple view"): only the touge is open
+const TRACKS = [
+  { key: 'touge', region: 'regionMountain', km: 1.96, open: true, img: 'img/mode-attack.jpg', fav: true },
+  { key: 'snowPass', region: 'regionSnow', km: 2.4, icon: 'snow', hue: 250 },
+  { key: 'harbour', region: 'regionCoast', km: 1.6, icon: 'wave', hue: 215 },
+  { key: 'coast', region: 'regionCoast', km: 3.1, icon: 'wave', hue: 190 },
+  { key: 'nightCity', region: 'regionCity', km: 2.2, icon: 'city', hue: 300 },
+  { key: 'desert', region: 'regionDesert', km: 2.8, icon: 'dune', hue: 30 },
+];
+const TRACK_LINE = 'M8 70 C 30 70, 30 30, 52 30 S 70 62, 92 56 S 120 18, 140 24 S 150 60, 172 62';
+function tracksView() {
+  const filters = ['filterAll', 'filterFav', 'filterMountain', 'filterCity', 'filterCoast'];
+  const card = (tr) => h(tr.open ? 'a' : 'article', { class: `card course${tr.open ? ' open' : ' soon'}`, href: tr.open ? '#strecke' : null },
+    tr.open ? h('div', { class: 'track-img', 'data-img': tr.img })
+      : h('div', { class: 'track-img art', 'data-hue': tr.hue }, h('span', { class: 'track-line', html: `<svg viewBox="0 0 180 90" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="${TRACK_LINE}"/></svg>` }), icon(tr.icon, 'ic big')),
+    h('div', { class: 'track-body' },
+      h('div', { class: 'track-head' }, h('h2', {}, t(tr.key)), h('span', { class: 'fav' }, icon(tr.fav ? 'heartFull' : 'heart', 'ic tiny'))),
+      h('div', { class: 'track-meta' }, h('span', {}, t(tr.region)), h('b', { class: 'num' }, `${num(tr.km, 2)} ${t('km')}`),
+        h('span', { class: `tag${tr.open ? ' hot' : ''}` }, tr.open ? t('open') : t('soon')))));
+  return h('main', { class: 'view tracks' }, nav('strecken'),
+    h('header', { class: 'page-head' }, h('h1', {}, t('tracksTitle')), h('p', {}, t('tracksSub'))),
+    h('div', { class: 'filters' }, filters.map((f, i) => h('button', { class: `chip${i === 0 ? ' on' : ''}`, type: 'button', onclick: (e) => { for (const c of e.currentTarget.parentNode.querySelectorAll('.chip')) c.classList.toggle('on', c === e.currentTarget); } }, t(f))),
+      h('label', { class: 'search' }, icon('search', 'ic tiny'), h('input', { type: 'search', placeholder: t('search'), 'aria-label': t('search') }))),
+    h('div', { class: 'track-grid' }, TRACKS.map(card)), bottomBar(false));
+}
+
+// ---------------------------------------------------------------- track details: length, bends, height, best values, start and free roam
+let trackLine = null;   // the touge's centre line from the game's map file, drawn as a small map
+function trackView() {
+  const stat = (ic, label, value) => h('div', { class: 'stat' }, icon(ic, 'ic tiny'), h('small', {}, t(label)), h('b', { class: 'num' }, value));
+  return h('main', { class: 'view track-detail' }, nav('strecken'),
+    h('section', { class: 'card hero', 'data-img': 'img/hero-tal.jpg' },
+      h('div', { class: 'mini-map', html: trackLine ?? '' }),
+      h('span', { class: 'tag hot hero-tag' }, t('open'))),
+    h('section', { class: 'card detail' },
+      h('small', { class: 'over' }, t('regionMountain')),
+      h('div', { class: 'detail-head' }, h('h1', {}, t('touge')), h('button', { class: 'round', type: 'button', 'aria-label': t('fav') }, icon('heartFull', 'ic tiny'))),
+      h('p', { class: 'sub' }, t('trackSub')),
+      h('p', { class: 'text' }, t('trackText')),
+      h('div', { class: 'stat-grid' },
+        stat('track', 'length', `${num(1.96, 2)} ${t('km')}`), stat('height', 'climb', `${num(106)} ${t('m')}`),
+        stat('chevrons', 'bends', '17'), stat('back', 'hairpins', '8')),
+      h('div', { class: 'diff' }, h('small', {}, t('difficulty')), h('span', { class: 'pips' }, [1, 1, 1, 0, 0].map((on) => h('i', { class: on ? 'on' : '' }))), h('b', {}, t('medium'))),
+      h('dl', { class: 'bests' }, h('dt', {}, t('bestTime')), h('dd', { class: 'num' }, '2:41.380'), h('dt', {}, t('bestScore')), h('dd', { class: 'num' }, num(18420))),
+      h('div', { class: 'conditions small' },
+        h('span', {}, icon('sunset', 'ic tiny'), h('small', {}, t('timeOfDay')), h('b', {}, t('dusk'))),
+        h('span', {}, icon('cloud', 'ic tiny'), h('small', {}, t('weather')), h('b', {}, t('clear')))),
+      h('div', { class: 'detail-actions' },
+        h('a', { class: 'go small', href: '#modi' }, icon('play', 'ic go-play'), h('span', {}, t('start'))),
+        h('a', { class: 'chip-btn', href: '../index.html?map=touge' }, icon('world', 'ic tiny'), t('free')))),
+    h('div', { class: 'bottom' }, h('div', { class: 'small-buttons' }, h('a', { class: 'chip-btn', href: '#strecken' }, icon('back', 'ic tiny'), t('back')))));
+}
+
+// ---------------------------------------------------------------- the result after a run (no navigation: the run just ended)
+const BOARD = [
+  { name: 'Ren', points: 21730 }, { name: 'Mika', guest: true, you: true, points: 18420 }, { name: 'Taro', points: 17110 },
+  { name: 'Juno', guest: true, points: 15980 }, { name: 'Lio', guest: true, points: 12040 },
+];
+function resultView() {
+  const who = (b) => (b.guest ? `${b.name} (${t('guest')})` : b.name);
+  const fact = (label, value) => h('div', { class: 'fact' }, h('small', {}, t(label)), h('b', { class: 'num' }, value));
+  return h('main', { class: 'view result' },
+    h('section', { class: 'card result-card' },
+      h('small', { class: 'over' }, t('resultMode')),
+      h('h1', {}, t('resultTitle')),
+      h('div', { class: 'result-main' },
+        h('div', { class: 'place' }, h('small', {}, t('place')), h('b', { class: 'num' }, '2.'), h('span', {}, '/ 5')),
+        h('div', { class: 'score' }, h('small', {}, t('points')), h('b', { class: 'num' }, num(18420)), h('span', { class: 'tag hot' }, icon('star', 'ic tiny'), t('newBest')))),
+      h('div', { class: 'facts' }, fact('combo', `×${num(5, 1)}`), fact('angle', '52°'), fact('time', '2:41.380'), fact('clips', '7 / 8'))),
+    h('section', { class: 'card board' },
+      h('header', {}, icon('trophy'), h('b', {}, t('board'))),
+      h('ol', {}, BOARD.map((b, i) => h('li', { class: b.you ? 'you' : '' }, h('span', { class: 'rank num' }, `${i + 1}`), h('span', { class: 'who' }, b.you ? `${who(b)} · ${t('you')}` : who(b)), h('b', { class: 'num' }, num(b.points)))))),
+    h('div', { class: 'bottom result-actions' },
+      h('a', { class: 'chip-btn big', href: '../index.html?map=touge&mode=attack' }, icon('retry', 'ic tiny'), t('retry')),
+      h('a', { class: 'go small', href: '#garage' }, h('span', {}, t('next')), icon('chevrons', 'ic go-chev'))));
+}
+
+// ---------------------------------------------------------------- the lab's own menu: every view one tap away (for the owner on the phone)
+const LAB_VIEWS = [['garage', 'viewGarage'], ['welt', 'viewNav'], ['modi', 'viewModes'], ['strecken', 'viewTracks'], ['strecke', 'viewTrack'], ['ergebnis', 'viewResult']];
+function labMenu() {
+  const list = h('div', { class: 'card lab-list', hidden: true }, LAB_VIEWS.map(([v, k], i) => h('a', { href: `#${v}`, class: current === v ? 'on' : '' }, h('span', { class: 'num' }, `${i + 1}`), t(k))));
+  return h('div', { class: 'lab-menu' }, h('button', { class: 'lang', type: 'button', 'aria-label': t('screens'), onclick: () => { list.hidden = !list.hidden; } }, icon('menu', 'ic tiny')), list);
+}
+
 function laterView(view) {
   return h('main', { class: 'view later' }, nav(view), h('section', { class: 'card later-card' }, icon('workshop', 'ic big'), h('p', {}, t('later')), h('a', { class: 'chip-btn', href: '#garage' }, icon('back', 'ic tiny'), t('navGarage'))));
 }
 
 // ---------------------------------------------------------------- views and the 3D garage behind them
-const VIEWS = { garage: garageView, modi: modesView };
+const BACKGROUND = { strecken: 'img/hero-kehre.jpg', strecke: 'img/hero-tal.jpg', ergebnis: 'img/hero-kehre.jpg' };
+const VIEWS = { garage: garageView, modi: modesView, strecken: tracksView, strecke: trackView, ergebnis: resultView };
 const root = document.getElementById('ui'), canvas = document.getElementById('scene');
 let garage = null, carName = 'AE86', current = '';
 function show() {
@@ -130,9 +216,16 @@ function show() {
   // widths and pictures from data attributes (no inline styles: the content policy)
   for (const f of root.querySelectorAll('.fill[data-v]')) f.style.width = `${f.dataset.v}%`;
   for (const d of root.querySelectorAll('.dot[data-paint]')) d.style.background = d.dataset.paint;
-  for (const m of root.querySelectorAll('.mode-img[data-img]')) m.style.backgroundImage = `url("${m.dataset.img}")`;
-  if (garage) garage.spin = view === 'garage';
+  for (const m of root.querySelectorAll('[data-img]')) m.style.backgroundImage = `url("${m.dataset.img}")`;
+  for (const m of root.querySelectorAll('[data-hue]')) m.style.setProperty('--hue', m.dataset.hue);
+  const side = root.querySelector('.nav-side'), menu = labMenu();
+  if (side) side.prepend(menu); else root.append(Object.assign(menu, { className: 'lab-menu alone' }));
+  // the 3D garage is behind the garage and (dimmed) behind the views of the menu; the track and result views have a picture of the game
+  const bg = BACKGROUND[view];
+  document.getElementById('bg').style.backgroundImage = bg ? `url("${bg}")` : '';
+  if (garage) { garage.spin = view === 'garage'; garage.paused = !!bg; }
   canvas.classList.toggle('dim', view !== 'garage');
+  canvas.hidden = !!bg;
 }
 addEventListener('hashchange', show);
 
@@ -143,6 +236,15 @@ setLang(lang);
 const cars = await fetch('../data/cars.json').then((r) => r.json()).catch(() => ({ cars: [] }));
 const spec = cars.cars.find((c) => c.model === 'ae86');
 carName = spec?.name ?? carName;
+// the touge's centre line (the game's own map file) as a small map: every 6th point, fitted into a 200 x 120 box
+const map = await fetch('../data/maps/06-touge.json').then((r) => r.json()).catch(() => null);
+if (map?.centre) {
+  const pts = map.centre.filter((_, i) => i % 6 === 0), xs = pts.map((p) => p[0]), zs = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs), z0 = Math.min(...zs), w = Math.max(...xs) - x0 || 1, hgt = Math.max(...zs) - z0 || 1, k = Math.min(180 / w, 100 / hgt);
+  const ox = (200 - w * k) / 2, oy = (120 + hgt * k) / 2;   // centred in the box
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${(ox + (p[0] - x0) * k).toFixed(1)} ${(oy - (p[1] - z0) * k).toFixed(1)}`).join(' ');
+  trackLine = `<svg viewBox="0 0 200 120" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="${d}" stroke="rgba(255,255,255,0.35)" stroke-width="7"/><path d="${d}" stroke="currentColor" stroke-width="3"/></svg>`;
+}
 show();
 garage = await createGarage(canvas, { tier: phone ? 'low' : 'high', model: 'ae86', paint: PAINTS[0], spec: spec?.fx ?? {} });
 // the car sits in the free middle of the screen; on the phone a little higher (the bottom bar)
