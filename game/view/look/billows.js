@@ -48,10 +48,10 @@ export class Billows {
     this.car = { value: new THREE.Vector3(0, -999, 0) };
     const S = look.smoke;
     this.material = new THREE.ShaderMaterial({
-      uniforms: { tMap: { value: S.texture === 'wisp' ? wispTexture(S.colour, S.shade) : billowTexture(S.colour, S.shade) }, uCar: this.car, uCarView: { value: new THREE.Vector4(0, 0, 0, 0) }, uClear: { value: S.clear ?? 0 }, uNear: { value: S.near ?? 3 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
+      uniforms: { tMap: { value: S.texture === 'wisp' ? wispTexture(S.colour, S.shade) : billowTexture(S.colour, S.shade) }, uCar: this.car, uCarView: { value: new THREE.Vector4(0, 0, 0, 0) }, uTop: { value: S.screenTop ?? 1.2 }, uClear: { value: S.clear ?? 0 }, uNear: { value: S.near ?? 3 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
       vertexShader: /* glsl */ `
         attribute vec4 aData; attribute vec2 aAlpha;
-        uniform vec4 uCarView;   // the car in view space (xyz) and its radius on screen (w, in view units at its depth)
+        uniform vec4 uCarView; uniform float uTop;   // the car in view space (xyz) and its radius on screen (w, in view units at its depth)
         varying vec2 vUv; varying float vA; varying vec3 vW; varying float vDist;
         void main() {
           vUv = uv; vA = aAlpha.x; vW = aData.xyz;
@@ -62,6 +62,8 @@ export class Billows {
           if (uCarView.w > 0.0 && -mv.z < -uCarView.z - 0.5) { vec2 onCar = mv.xy * (-uCarView.z / -mv.z) - uCarView.xy; float r = uCarView.w + aData.w * 0.25 * (-uCarView.z / -mv.z); vA *= smoothstep(r * 0.6, r * 1.0, length(onCar)); }
           mv.xy += p; vDist = -mv.z;
           gl_Position = projectionMatrix * mv;
+          // never in the upper part of the picture (look.smoke.screenTop, in -1..1 of the screen height): no smoke behind the HUD cards or over the view
+          vA *= smoothstep(uTop + 0.25, uTop, gl_Position.y / gl_Position.w);
         }`,
       fragmentShader: /* glsl */ `
         uniform sampler2D tMap; uniform vec3 uCar, uTint; uniform float uClear, uNear;
@@ -119,7 +121,7 @@ export class Billows {
       const k = this.age[i] / this.life[i];
       d[i * 4] = this.pos[i * 3]; d[i * 4 + 1] = this.pos[i * 3 + 1]; d[i * 4 + 2] = this.pos[i * 3 + 2];
       d[i * 4 + 3] = k >= 1 ? 0 : Math.min(this.maxSize, (this.grow0 + k * this.growK) * this.grow[i] * this.scale);
-      al[i * 2] = k >= 1 ? 0 : this.opacity * Math.pow(1 - k, 1 / this.fade) * Math.min(1, k * 5);   // fade < 1: thins out sooner al[i * 2 + 1] = this.spin[i] + k * 0.6;
+      al[i * 2] = k >= 1 ? 0 : this.opacity * Math.pow(1 - k, 1 / this.fade) * Math.min(1, k * 20);   // fade < 1: thins out sooner al[i * 2 + 1] = this.spin[i] + k * 0.6;
     }
     this.data.needsUpdate = true; this.alpha.needsUpdate = true;
   }
