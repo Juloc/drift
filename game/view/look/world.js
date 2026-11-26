@@ -368,8 +368,9 @@ function zones(S, f, scene, look) {
 // ---------------------------------------------------------------- the meeting place: surface, bays, kerb, a rail on the valley side, lamps, benches, its own trees
 function plaza(S, G, f, scene, look, lite, lampHeads, pools = []) {
   const P = scene.plaza, R = look.road, pts = P.pts, rnd = mulberry32(41);
-  // the plaza is flat at the height of the road where it starts (on a hillside that is not 0): everything of it is drawn on that level
-  const gp = f.plazaLevel ?? f.groundY(pts[0][0], pts[0][1]);
+  // the plaza is flat at the height of the road where it starts (on a hillside that is not 0): everything of it is drawn on that level.
+  // (The road's first point, not the height under a corner of the plaza: near a hairpin that is the road's lower leg, 14 m further down.)
+  const gp = f.roadYs[0];
   S.push(trs(0, gp, 0, 0, 0, 0)); G.push(trs(0, gp, 0, 0, 0, 0));
   // scene.plaza.slabs (metres): the floor in stone slabs, each a little lighter or darker, with lighter joints between them (the joints are the floor below)
   if (P.slabs && P.surface !== false) {
@@ -417,7 +418,7 @@ function plaza(S, G, f, scene, look, lite, lampHeads, pools = []) {
           if (rnd() < 0.35) bush(S, look, x - nx * out * 1.4, 0, z - nz * out * 1.4, 0.8 + rnd() * 0.3, rnd, lite);
         } else {
           const x = bx - nx * out * 0.9, z = bz - nz * out * 0.9;
-          stoneLantern(S, G, look, x, 0, z, ry, 0.95); lampHeads.push([X(x), 1.75, z, 1.5]); pools.push([X(x), 0, z, 4.5]);
+          stoneLantern(S, G, look, x, 0, z, ry, 0.95); lampHeads.push([X(x), gp + 1.75, z, 1.5]); pools.push([X(x), gp, z, 4.5]);   // halos and pools are in world space
         }
       }
     }
@@ -425,15 +426,15 @@ function plaza(S, G, f, scene, look, lite, lampHeads, pools = []) {
   // scene.plaza.gateLights: a stone lantern on each side of the torii where the road leaves, lighting its pillars from below
   for (const m of P.gateLights ? scene.marks ?? [] : []) if (m.type === 'gate') for (const sd of [-1, 1]) {
     const w = (m.width ?? 2.6) / 2 + 1.4, ry = m.ry ?? 0, x = m.x + Math.cos(ry) * sd * w, z = m.z - Math.sin(ry) * sd * w;
-    stoneLantern(S, G, look, x, f.height(x, z), z, ry, 1.1); lampHeads.push([X(x), f.height(x, z) + 2.0, z, 1.8]); pools.push([X(x), f.height(x, z), z, 6]);
+    const gy = f.height(x, z); stoneLantern(S, G, look, x, gy - gp, z, ry, 1.1); lampHeads.push([X(x), gy + 2.0, z, 1.8]); pools.push([X(x), gy, z, 6]);   // inside the plaza's lift
   }
   const L = look.lamp;
   for (const [x, z] of P.lamps ?? []) {
     S.cyl(0.11, 0.16, 6.2, X(x), 3.1, z, C(L.pole), { seg: 6 });
     S.box(0.18, 0.18, 1.6, X(x), 6.2, z - 0.7, C(L.pole), { r: 0 });
     G.box(0.5, 0.06, 0.32, X(x), 6.08, z - 1.35, glow(L.light, 2.2), { r: 0 });
-    lampHeads.push([X(x), 6.0, z - 1.35]);
-    if (L.pool) pools.push([X(x), 0, z - 1.35, L.pool * 1.2]);
+    lampHeads.push([X(x), gp + 6.0, z - 1.35]);
+    if (L.pool) pools.push([X(x), gp, z - 1.35, L.pool * 1.2]);
   }
   for (const [x, z, h] of P.benches ?? []) {
     S.box(2.0, 0.08, 0.5, X(x), 0.48, z, C('#8a6a5e'), { r: 0, ry: -h });

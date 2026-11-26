@@ -426,3 +426,15 @@ All five milestones of SCOPE are built. Waits for the owner: design and details,
 - **The play check** (`node tools/playcheck.mjs`, a few minutes, own static server and headless Chromium, writes `docs/screenshots/playcheck/` with a picture per size, `overview.png` and `report.txt`, exit 1 on any problem): (a) buffer, camera and canvas have the shape of the window (phone upright, phone sideways, small phone sideways, tablet, PC; resizes in a game: smaller, upright, back), (b) the car stands on the drawn ground (under 5 cm) at the restart, 18 spawns and the 8 mode slots, (c) every touch button of the key map is on screen or in the menu, (d) no HUD part is cut off or overlaps another. (b) and (c) are also normal tests in the suite (`mapscene.test.mjs`, `touchmap.test.mjs`). Run it before every release.
 - Merged on the chief's word: cars branch to dcec5b3 (phone tier: car 10 parts, scene 22 draw calls, instanced wheels), look round 11 (9a69e6e: torii, stone lanterns, cherry bushes, a rock at each hairpin, a stone-slab plaza); the plaza code of round 11 and the plaza level were put together by hand (one conflict).
 - Not checked: a real phone (the lock and full screen need a real gesture there), iOS Safari, a real GPU.
+
+## Interface lab, first three views (game/lab/)
+A static page with sample data, no server logic, no inline script; every text through `t()` (game/lab/i18n.js, German and English, switch in the bar).
+- `#garage`, the garage as home: the real AE86 (game/assets/cars, loaded as in the game) in a small 3D garage at dusk. Drag to turn; it turns
+  slowly by itself when untouched; six paints to pick under it. Left the car and its values, right the daily tasks and bests, below six
+  tiles, then back, settings, track, time of day, weather and the big Drive button (to `#modi`).
+- Navigation: Garage, World, Events, Workshop, Settings; Dealer, Career and Community are locked. On the PC it is a slim bar on top, on the
+  phone a bar at the bottom. Views not built yet show a short notice.
+- `#modi`, the choice of game mode: free roam, drift attack, time attack, tandem, training, each a card with a picture from the game, a short
+  text, the best value and Start (to the game page with `mode=`; the build chat gives the modes their rules).
+- Numbers: PC 52k triangles / 52 calls; phone 14k / 35, with the car on the low model.
+- Pictures: docs/screenshots/lab-*.png. Not checked: a real phone, turning by finger on a real touch screen.
