@@ -12,7 +12,7 @@ function fakeAudio() {
     createGain() { made.gain++; return { gain: param(1), connect() {} }; }
     createOscillator() { made.osc++; return { type: '', frequency: param(), connect() {}, start() {} }; }
     createBiquadFilter() { return { type: '', frequency: param(), Q: param(), connect() {} }; }
-    createBufferSource() { made.src++; return { buffer: null, loop: false, connect() {}, start() {} }; }
+    createBufferSource() { made.src++; return { buffer: null, loop: false, playbackRate: param(1), connect() {}, start() {} }; }
     createBuffer(c, n) { return { getChannelData: () => new Float32Array(n) }; }
     createStereoPanner() { return { pan: param(), connect() {} }; }
   }
@@ -69,9 +69,18 @@ test('without WebAudio or with a failing context the game goes on silently', () 
 test('the own engine follows the speed: higher speed in a gear, a different car, a different pitch', () => {
   const { Ctx } = fakeAudio();
   const s = new SoundSystem({ AudioCtx: Ctx, storage: store() }); s.unlock();
-  const pitch = (speed, car) => { s.update({ ...own, speed, car }, [], { x: 0, z: 0 }); return s.own.a.frequency.value; };
-  assert.ok(pitch(12, 0) > pitch(2, 0));
-  assert.notEqual(pitch(15, 1), pitch(15, 2));
+  const rpm = (speed, car) => { s.update({ ...own, speed, car }, [], { x: 0, z: 0 }); return s.own.rpm; };
+  assert.ok(rpm(12, 0) > rpm(2, 0));
+  assert.notEqual(rpm(15, 1), rpm(15, 2));
+  // the loops: two layers x five revs points; the playing ones are the revs' neighbours, at a rate of revs / loop revs
+  s.update({ ...own, speed: 15, car: 1, throttle: 1 }, [], { x: 0, z: 0 });
+  assert.equal(s.own.bank.length, 10);
+  const loud = s.own.bank.filter((b) => b.gain.gain.value > 0.01);
+  assert.ok(loud.length >= 1 && loud.length <= 2 && loud.every((b) => b.layer === 'on'), 'full throttle: the on-load layer only');
+  for (const b of loud) assert.ok(b.src && Math.abs(b.src.playbackRate.value - s.own.rpm / b.rpm) < 1e-9);
+  assert.ok(s.own.playing <= 4, `only the heard loops play (${s.own.playing})`);
+  s.update({ ...own, speed: 15, car: 1, throttle: 0 }, [], { x: 0, z: 0 });
+  assert.ok(s.own.bank.filter((b) => b.gain.gain.value > 0.01).every((b) => b.layer === 'off'), 'throttle shut: the off-load layer');
   assert.ok(s.own.tyreGain.gain.value > 0, 'a slide of 0.7 at 18 m/s squeals');
 });
 

@@ -1,7 +1,10 @@
-// The sound of the game, made in the browser (WebAudio, no files): an engine per car (two oscillators, a low-pass filter, the revs from a virtual gearbox, sim/engine.js), tyre squeal
+// The sound of the game, made in the browser (WebAudio, no files). Your own engine plays loops at fixed revs in two layers, on and off load
+// (sim/enginesynth.js makes them until recordings are allowed), crossfaded by the revs, the pitch following them, a dip at each upshift and a
+// flutter at the limiter; the other cars' engines are cheaper (two oscillators, a low-pass filter); the revs come from a virtual gearbox (sim/engine.js); tyre squeal
 // (filtered noise from the slide), an optional turbo whistle, and the nearest four other cars with a volume by distance and a pan by side. Nothing starts before a click or a key
 // (browsers forbid it, and a page that makes noise by itself is rude); mute is kept on the device; music is only a switch for now (a placeholder, no sound behind it).
 import { ENGINES, revs, firing, engineGain, squeal, turboWhistle, nearest } from '../sim/engine.js';
+import { loopRpms, renderLoop, loopWeights, layerLevels, limiterDepth } from '../sim/enginesynth.js';
 
 export const MAX_OTHERS = 4;
 
@@ -49,10 +52,73 @@ class Voice {
   silence() { const t = this.ctx.currentTime; this.gain.gain.setTargetAtTime(0, t, 0.05); this.tyreGain.gain.setTargetAtTime(0, t, 0.05); this.whistleGain.gain.setTargetAtTime(0, t, 0.05); this.active = false; }
 }
 
+/**
+ * Your own engine: a bank of loops (two layers x five revs points), each with its gain; only the loops that are heard play (at most four:
+ * two revs neighbours in two layers), a loop that has been silent for 0.15 s is stopped (`keepAll` keeps all ten playing, for a comparison);
+ * per frame the weights follow the revs and the throttle, the playback rate follows the revs. `dip` takes the upshift's 70 ms cut and the
+ * limiter's flutter (a 13 Hz square wave added to its gain). The tyres and the turbo stay as in Voice.
+ */
+class LoopVoice extends Voice {
+  constructor(ctx, out, noise, loopsFor, keepAll = false) {
+    super(ctx, out, noise);
+    this.loopsFor = loopsFor; this.keepAll = keepAll; this.playing = 0; this.maxPlaying = 0;
+    try { this.a.disconnect?.(); this.bGain.disconnect?.(); } catch { /* the fake context in tests */ }
+    this.dip = ctx.createGain(); this.dip.gain.value = 1;
+    // a low cut after the pitch follows the revs (the loops' own cut moves down when they play slower): nothing under 80 Hz reaches a phone's speaker
+    this.lowCut = ctx.createBiquadFilter(); this.lowCut.type = 'highpass'; this.lowCut.frequency.value = 80; this.lowCut.Q.value = 0.7;
+    this.dip.connect(this.lowCut); this.lowCut.connect(this.filter);
+    this.flutter = ctx.createOscillator(); this.flutter.type = 'square'; this.flutter.frequency.value = 13;
+    this.flutterDepth = ctx.createGain(); this.flutterDepth.gain.value = 0;
+    this.flutter.connect(this.flutterDepth); this.flutterDepth.connect(this.dip.gain); this.flutter.start();
+    this.bank = [];
+  }
+  setEngine(car) {
+    super.setEngine(car);
+    for (const b of this.bank) this.stopLoop(b);
+    const loops = this.loopsFor(car);   // { rpms, on: [{data, rpm}], off: [...] }
+    this.rpms = loops.rpms;
+    this.bank = [];
+    for (const layer of ['on', 'off']) loops[layer].forEach((l, i) => {
+      const buf = this.ctx.createBuffer(1, l.data.length, this.ctx.sampleRate); buf.getChannelData(0).set(l.data);
+      const gain = this.ctx.createGain(); gain.gain.value = 0; gain.connect(this.dip);
+      const b = { layer, i, rpm: l.rpm, buf, gain, src: null, quietSince: 0 };
+      this.bank.push(b);
+      if (this.keepAll) this.startLoop(b);
+    });
+    this.filter.frequency.value = 9000; this.filter.Q.value = 0.5;   // the loops are already shaped: the filter only takes the hiss off
+  }
+  startLoop(b) {
+    const src = this.ctx.createBufferSource(); src.buffer = b.buf; src.loop = true; src.connect(b.gain); src.start();
+    b.src = src; this.playing++; this.maxPlaying = Math.max(this.maxPlaying, this.playing);
+  }
+  stopLoop(b) {
+    if (!b.src) return;
+    try { b.src.stop?.(); b.src.disconnect?.(); } catch { /* gone */ }
+    b.src = null; this.playing--;
+  }
+  set(o, level, pan) {
+    const gearBefore = this.gear;
+    super.set(o, level, pan);   // tyres, turbo, pan, the gear and the overall gain
+    const t = this.ctx.currentTime, eng = this.eng, r = revs(o.speed, o.top, eng, gearBefore);
+    this.rpm = r.rpm;
+    const w = loopWeights(r.rpm, this.rpms), lv = layerLevels(o.throttle, r.rpm, eng);
+    for (const b of this.bank) {
+      const want = w[b.i] * lv[b.layer];
+      if (want > 0.002) { if (!b.src) this.startLoop(b); b.quietSince = t; }
+      else if (b.src && !this.keepAll && t - b.quietSince > 0.15) this.stopLoop(b);   // faded out by now: stop it
+      b.gain.gain.setTargetAtTime(want, t, 0.03);
+      if (b.src) { if (b.src.playbackRate?.setTargetAtTime) b.src.playbackRate.setTargetAtTime(r.rpm / b.rpm, t, 0.03); }
+    }
+    if (r.gear > gearBefore && o.throttle > 0.3) { this.dip.gain.setTargetAtTime?.(0.25, t, 0.008); this.dip.gain.setTargetAtTime?.(1, t + 0.05, 0.03); }   // the clutch: a short cut at the upshift, soft edges (no click)
+    this.flutterDepth.gain.setTargetAtTime(limiterDepth(r.rpm, eng, o.throttle) * 0.5, t, 0.01);   // the gain swings 1 +- 0.43: clearly cut, never silent
+    this.gain.gain.setTargetAtTime((0.55 + 0.25 * o.throttle) * level * 0.3, t, 0.05);   // the loops carry the character; the level only moves a little with the throttle
+  }
+}
+
 export class SoundSystem {
   /** @param {{AudioCtx?: any, storage?: Storage|null}} o (both injected in tests) */
-  constructor({ AudioCtx = globalThis.AudioContext ?? globalThis.webkitAudioContext, storage = globalThis.localStorage ?? null } = {}) {
-    this.AudioCtx = AudioCtx; this.storage = storage; this.ctx = null; this.own = null; this.others = new Map(); this.pool = [];
+  constructor({ AudioCtx = globalThis.AudioContext ?? globalThis.webkitAudioContext, storage = globalThis.localStorage ?? null, keepAllLoops = false } = {}) {
+    this.AudioCtx = AudioCtx; this.storage = storage; this.keepAllLoops = keepAllLoops; this.ctx = null; this.own = null; this.others = new Map(); this.pool = [];
     const get = (k, d) => { try { return storage?.getItem(k) ?? d; } catch { return d; } };
     this.muted = get('drift.mute', '1') === '1';   // off until the player switches it on (the generated sound was far too loud)
     this.volume = Math.max(0, Math.min(1, +get('drift.volume', '0.3')));
@@ -64,7 +130,7 @@ export class SoundSystem {
     if (this.ctx || !this.AudioCtx) return this.ctx !== null;
     try {
       this.ctx = new this.AudioCtx();
-      this.ctx.resume?.();
+      if (!this.ctx.startRendering) this.ctx.resume?.()?.catch?.(() => {});   // (an offline context, as in tools/sound/ramp.js, cannot be resumed before it renders)
       this.master = this.ctx.createGain(); this.master.gain.value = 0;
       // a hard limit at the output (no peaks, whatever the voices add up to), then a soft fade in
       this.limiter = this.ctx.createDynamicsCompressor?.();
@@ -74,7 +140,15 @@ export class SoundSystem {
       const n = this.ctx.sampleRate * 2, noise = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = noise.getChannelData(0);
       let seed = 1; for (let i = 0; i < n; i++) { seed = (seed * 1664525 + 1013904223) >>> 0; d[i] = seed / 2147483648 - 1; }   // white noise, the same every time
       this.noise = noise;
-      this.own = new Voice(this.ctx, this.master, noise);
+      this.loopCache = new Map();
+      const loopsFor = (car) => {   // made once per car and kept (about 20 ms for ten loops)
+        if (!this.loopCache.has(car)) {
+          const eng = ENGINES[car] ?? ENGINES[0], rpms = loopRpms(eng), sr = this.ctx.sampleRate;
+          this.loopCache.set(car, { rpms, on: rpms.map((r) => renderLoop(eng, r, 'on', sr)), off: rpms.map((r) => renderLoop(eng, r, 'off', sr)) });
+        }
+        return this.loopCache.get(car);
+      };
+      this.own = new LoopVoice(this.ctx, this.master, noise, loopsFor, this.keepAllLoops);
       for (let i = 0; i < MAX_OTHERS; i++) this.pool.push(new Voice(this.ctx, this.master, noise));
       return true;
     } catch { this.ctx = null; return false; }   // no audio here: the game goes on without it

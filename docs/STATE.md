@@ -158,6 +158,18 @@ A switch **of the session** (key **K**, the violet chip, `?mode=creative`): ever
 
 ## Sound (step 7, built 2026-11-26)
 
+- **Own engine from loops (2026-11-26, the car session):** your own car plays loops at five fixed revs in two layers (on load, off load), as racing
+  games play recordings: crossfaded by the revs (equal power), the pitch following them (playback rate), the layers mixed by the throttle, a
+  70 ms cut at each upshift, a 13 Hz flutter at the limiter. Until recordings are allowed the loops are made by `game/sim/enginesynth.js`:
+  one pressure pulse per firing (each cylinder a little different), the exhaust valve's ring, three pipe resonances, a silencer, a soft overdrive
+  on load, intake noise in time with the firings; off load weak, late firings and crackle. The other cars keep the cheaper two oscillators.
+  Car 1 (AE86) is now a high-revving four (900 to 7800 rpm). Proof without a loudspeaker: `node tools/sound/ramp.mjs 1 ae86` renders the
+  game's own sound code in an OfflineAudioContext through idle, full throttle through the gears, the limiter and a lift, and writes
+  `docs/sound/ae86-ramp.png` (spectrogram) and `docs/sound/ae86-ramp.wav` (13 s, listen to it). **Never listened to here.**
+  Round 2: the intake noise about 10 dB down, two resonances on the 5th and 8th order of the firing (the scream between 600 Hz and
+  2.5 kHz), each cylinder its own strength and delay (half orders), 24 dB per octave under 80 Hz in the loops and a high-pass after
+  the pitch (0.6 % of the energy under 100 Hz at full throttle); only the heard loops play (at most 4 instead of 10).
+
 - **No files:** everything is made in the browser with WebAudio (`game/view/sound.js`), the numbers come from `game/sim/engine.js` (pure, tested). **Engine:** two oscillators (a sawtooth and a square one octave lower) through a low-pass filter; the revs come from a **virtual gearbox** (gears per car, the revs rise in a gear and fall at the shift, a little hysteresis), the pitch is the firing frequency (cylinders / 2 per revolution); the volume follows throttle and revs. **Each car sounds different** (`ENGINES`: Dart a lively four, Pip a small buzzy three, Bruno a low V8, Marlin a smooth six, Ox a heavy turbo diesel with a whistle when the throttle is lifted at high revs). **Tyres:** looped noise through a band-pass, louder and higher the further the rear slides (silent under a slide of 0.25 or at a crawl).
 - **Others:** only the **four nearest** other cars get a voice (a pool of four, reused), the volume falls with distance (nothing past 70 m), the pan follows the side they are on; their throttle and slide are guessed from the pose flags.
 - **Rules of the browser:** no audio context exists before the first click or key (`unlock()`), mute (key **M**, the speaker chip) is kept on the device and starts the next page muted, **music is only a switch** (the note chip, kept, no music behind it yet). Without WebAudio, or if the context fails, the game goes on silently.

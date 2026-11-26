@@ -102,25 +102,73 @@ const tag = (o) => { o.userData.fx = true; o.traverse((c) => { c.userData.fx = t
  * the AE86's windows share the palette material with the black trim, and glass must reflect much less than trim.
  * @returns the new mesh, or null when no face lies on that field
  */
-export function splitPalette(group, uvAt, material, tol = 0.06) {
-  let made = null;
-  group.traverse((o) => {
-    if (made || !o.isMesh || !/palette/i.test(o.material?.name ?? '') || !o.geometry.attributes.uv) return;
+export function splitPalette(group, uvAt, material, tol = 0.06, { all = false, only = null } = {}) {
+  let made = null; const list = [];
+  group.traverse((o) => { if (o.isMesh) list.push(o); });
+  for (const o of list) {
+    if ((made && !all) || (only && !only.test(o.name)) || !o.isMesh || !/palette/i.test(o.material?.name ?? '') || !o.geometry.attributes.uv) continue;
     const g = o.geometry, uv = g.attributes.uv, idx = g.index ? g.index.array : [...Array(g.attributes.position.count).keys()];
     const on = (i) => Math.abs(uv.getX(i) - uvAt[0]) < tol && Math.abs(uv.getY(i) - uvAt[1]) < tol;
     const keep = [], take = [];
     for (let t = 0; t < idx.length; t += 3) (on(idx[t]) && on(idx[t + 1]) && on(idx[t + 2]) ? take : keep).push(idx[t], idx[t + 1], idx[t + 2]);
-    if (!take.length) return;
+    if (!take.length) continue;
     const g2 = g.clone(); g2.setIndex(take); g.setIndex(keep);
-    made = new THREE.Mesh(g2, material); made.name = o.name + '_glass';
+    made = new THREE.Mesh(g2, material); made.name = o.name + '_' + (material.name ?? 'part');
     made.position.copy(o.position); made.quaternion.copy(o.quaternion); made.scale.copy(o.scale);
     o.parent.add(made);
-  });
+  }
   return made;
+}
+
+/** A tread for a normal map, drawn: angled blocks between two grooves round the tyre, smooth shoulders (null in Node). */
+const treadTexture = () => {
+  if (typeof document === 'undefined') return null;
+  const W = 256, H = 128, h = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const v = y / H, u = x / W;
+    const shoulder = Math.min(1, Math.min(v, 1 - v) / 0.12);   // the edges stay smooth (the rounded shoulder is in the model)
+    const groove = Math.abs(v - 0.36) < 0.025 || Math.abs(v - 0.64) < 0.025 ? -1 : 0;   // two grooves round the tyre
+    const slant = ((u * 8 + (v < 0.5 ? v : 1 - v) * 1.2) % 1) < 0.12 ? -1 : 0;   // angled sipes between the blocks
+    h[y * W + x] = shoulder * (groove || slant);
+  }
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'), img = x.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x2 = 0; x2 < W; x2++) {
+    const at = (a, b) => h[((b + H) % H) * W + ((a + W) % W)];
+    const dx = (at(x2 + 1, y) - at(x2 - 1, y)) * 1.5, dy = (at(x2, y + 1) - at(x2, y - 1)) * 1.5, l = Math.hypot(dx, dy, 1), k = (y * W + x2) * 4;
+    img.data[k] = 128 - (dx / l) * 127; img.data[k + 1] = 128 - (dy / l) * 127; img.data[k + 2] = 128 + (1 / l) * 127; img.data[k + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 1); t.anisotropy = 4;
+  return t;
+};
+
+/**
+ * Tyres with a tread: the faces of the tyre's palette field come out of each wheel into their own mesh, get UVs (u round the axle,
+ * v across the tyre; no seam: each triangle's u is kept together) and a matt rubber with the tread as a normal map.
+ */
+export function treadTyres(group, uvAt, colour = 0x1b1b1d) {
+  const mat = new THREE.MeshStandardMaterial({ name: 'fx_tyre', color: colour, roughness: 0.9, metalness: 0, normalMap: treadTexture(), normalScale: new THREE.Vector2(0.9, 0.9) });
+  let n = 0;
+  splitPalette(group, uvAt, mat, 0.06, { all: true, only: /^wheel_.._own$/ });
+  group.traverse((o) => {
+    if (!o.isMesh || o.material !== mat) return;
+    const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry;
+    const p = g.attributes.position, uv = new Float32Array(p.count * 2);
+    let xmin = Infinity, xmax = -Infinity; for (let i = 0; i < p.count; i++) { xmin = Math.min(xmin, p.getX(i)); xmax = Math.max(xmax, p.getX(i)); }
+    for (let t = 0; t < p.count; t += 3) {
+      const us = [0, 1, 2].map((k) => (Math.atan2(p.getY(t + k), p.getZ(t + k)) / (2 * Math.PI) + 1) % 1);
+      const lo = Math.min(...us); for (let k = 0; k < 3; k++) { if (us[k] - lo > 0.5) us[k] -= 1; uv[(t + k) * 2] = us[k]; uv[(t + k) * 2 + 1] = (p.getX(t + k) - xmin) / Math.max(1e-6, xmax - xmin); }
+    }
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    o.geometry = g; n++;
+  });
+  return n;
 }
 
 export function dressCar(group, spec = {}, { lite = false } = {}) {
   // windows: their own dark tinted glass, a weak reflection of the sky (the palette's glass reflected it fully: a pale plate)
+  if (spec.tyreUv) treadTyres(group, spec.tyreUv);
   if (spec.glassUv) {
     let env = null; group.traverse((o) => { if (o.isMesh && !env) env = o.material?.envMap ?? null; });
     splitPalette(group, spec.glassUv, new THREE.MeshStandardMaterial({ name: 'fx_glass', color: 0x05070b, metalness: 0, roughness: 0.06, envMap: env, envMapIntensity: 0.32 }));
