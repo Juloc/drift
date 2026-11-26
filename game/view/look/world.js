@@ -363,6 +363,9 @@ function zones(S, f, scene, look) {
 // ---------------------------------------------------------------- the meeting place: surface, bays, kerb, a rail on the valley side, lamps, benches, its own trees
 function plaza(S, G, f, scene, look, lite, lampHeads) {
   const P = scene.plaza, R = look.road, pts = P.pts;
+  // the plaza is flat at the height of the road where it starts (on a hillside that is not 0): everything of it is drawn on that level
+  const gp = f.groundY(pts[0][0], pts[0][1]);
+  S.push(trs(0, gp, 0, 0, 0, 0)); G.push(trs(0, gp, 0, 0, 0, 0));
   if (P.surface !== false) {
   const tris = THREE.ShapeUtils.triangulateShape(pts.map(([x, z]) => new THREE.Vector2(x, z)), []);
   const pos = [], col = [], base = C(R.plaza), k = new THREE.Color();
@@ -400,6 +403,7 @@ function plaza(S, G, f, scene, look, lite, lampHeads) {
     S.box(2.0, 0.42, 0.07, X(x), 0.75, z + Math.cos(h) * -0.24, C('#8a6a5e'), { r: 0, ry: -h });
     for (const s of [-0.8, 0.8]) S.box(0.08, 0.46, 0.45, X(x + s), 0.23, z, C(look.rail.post), { r: 0, ry: -h });
   }
+  S.pop(); G.pop();
   for (const [x, z, kind] of P.trees ?? []) (kind === 'pine' ? pine : cherry)(S, look, x, f.height(x, z), z, 9 + (x % 3), mulberry32(Math.abs(x * 31 + z)), lite);
 }
 

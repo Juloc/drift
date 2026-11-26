@@ -36,4 +36,6 @@ for (const [name, ks] of [['kehre', [1, 3]], ['tal', [2, 4]]]) {
   if (!best) throw new Error(`no run found for ${name}`);
   out[name] = best; console.log(name, JSON.stringify({ k: best.k, t: best.t, deg: best.deg, kmh: best.kmh, bot: best.bot }));
 }
+// the view when somebody arrives on the plaza: the car stands at the lobby spawn, its nose a little towards the valley side (sky, lake, volcano and the torii in the picture, not the slope)
+out.platz = { start: { x: json.lobbySpawn.x, z: json.lobbySpawn.z, h: json.lobbySpawn.h, v: 0 }, bot: out.tal.bot, t: 0 };
 writeFileSync(new URL('../game/data/shots.json', import.meta.url), JSON.stringify(out) + '\n');

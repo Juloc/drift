@@ -62,7 +62,7 @@ const xs = centre.map((p) => p[0]), zs = centre.map((p) => p[1]);
 const bounds = [[-70, Math.max(...zs) + 40], [Math.max(...xs) + 40, Math.max(...zs) + 40], [Math.max(...xs) + 40, Math.min(...zs) - 40], [-70, Math.min(...zs) - 40]];
 const map = {
   id: 0, name: 'Touge', lobby: true, kind: 'descent', closed: false, laps: 1, ground: 'grass', bounds, walls, obstacles: [], zones: [{ kind: 'asphalt', x0: -44, z0: -6, x1: 30, z1: 30 }],
-  road: { kind: 'asphalt', halfWidth: HW }, centre, halfWidth: HW, loopLength: round(length), gates, grid, clips, lobbySpawn: { x: -8, z: 12, h: round(Math.PI / 2) }, props: [],
+  road: { kind: 'asphalt', halfWidth: HW }, centre, halfWidth: HW, loopLength: round(length), gates, grid, clips, lobbySpawn: { x: -8, z: 12, h: round(Math.PI / 2 - 0.45) }, props: [],
 };
 // ---- checks: the grid and the spawn are clear of the walls
 const segs = [];
