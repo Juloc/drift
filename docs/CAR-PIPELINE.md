@@ -129,6 +129,11 @@ possible without remodelling). In the game: `?model=ae86` (the car is not in `ca
 
 ### Round for the touge acceptance list (G1 to G8), 2026-11-26
 
+- Done at load from `cars.json` `fx` while the GPU PC is off (no new export needed): `glassUv` (the windows out of the palette into
+  dark tinted glass), `tyreUv` (the tyres out of each wheel, with UVs and a tread normal map), `paintParts` (the AE86's bonnet and
+  nose: up-facing faces of the black trim field in a box take the garage paint, as on the real car; a dark bonnet can become an
+  option later).
+
 - Headlight pool (G6): a flat 5 x 11 m sheet (2 x 6 segments) with a fan texture (hard near edge, fading far ahead), laid on
   the road every frame (each point 1.5 cm over `field.groundY`), warm white, additive, no depth writes.
 - Lamps (G3): rear lamps glow at 3.2 (brake 2.5 times that), a soft camera-facing halo of 35 to 40 cm at each lamp (depth tested,

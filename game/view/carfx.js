@@ -102,7 +102,7 @@ const tag = (o) => { o.userData.fx = true; o.traverse((c) => { c.userData.fx = t
  * the AE86's windows share the palette material with the black trim, and glass must reflect much less than trim.
  * @returns the new mesh, or null when no face lies on that field
  */
-export function splitPalette(group, uvAt, material, tol = 0.06, { all = false, only = null } = {}) {
+export function splitPalette(group, uvAt, material, tol = 0.06, { all = false, only = null, where = null } = {}) {
   let made = null; const list = [];
   group.traverse((o) => { if (o.isMesh) list.push(o); });
   for (const o of list) {
@@ -110,7 +110,14 @@ export function splitPalette(group, uvAt, material, tol = 0.06, { all = false, o
     const g = o.geometry, uv = g.attributes.uv, idx = g.index ? g.index.array : [...Array(g.attributes.position.count).keys()];
     const on = (i) => Math.abs(uv.getX(i) - uvAt[0]) < tol && Math.abs(uv.getY(i) - uvAt[1]) < tol;
     const keep = [], take = [];
-    for (let t = 0; t < idx.length; t += 3) (on(idx[t]) && on(idx[t + 1]) && on(idx[t + 2]) ? take : keep).push(idx[t], idx[t + 1], idx[t + 2]);
+    const pos = g.attributes.position, A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), N = new THREE.Vector3();
+    const inPlace = (t) => {   // `where(centre, normal)`: only faces in a place (car axes), e.g. the bonnet's top
+      if (!where) return true;
+      A.fromBufferAttribute(pos, idx[t]); B.fromBufferAttribute(pos, idx[t + 1]); C.fromBufferAttribute(pos, idx[t + 2]);
+      N.subVectors(C, B).cross(_v.subVectors(A, B)).normalize();
+      return where(A.add(B).add(C).multiplyScalar(1 / 3), N);
+    };
+    for (let t = 0; t < idx.length; t += 3) (on(idx[t]) && on(idx[t + 1]) && on(idx[t + 2]) && inPlace(t) ? take : keep).push(idx[t], idx[t + 1], idx[t + 2]);
     if (!take.length) continue;
     const g2 = g.clone(); g2.setIndex(take); g.setIndex(keep);
     made = new THREE.Mesh(g2, material); made.name = o.name + '_' + (material.name ?? 'part');
@@ -169,6 +176,14 @@ export function treadTyres(group, uvAt, colour = 0x1b1b1d) {
 export function dressCar(group, spec = {}, { lite = false } = {}) {
   // windows: their own dark tinted glass, a weak reflection of the sky (the palette's glass reflected it fully: a pale plate)
   if (spec.tyreUv) treadTyres(group, spec.tyreUv);
+  // parts of the model's own dark trim that are body panels (the AE86's bonnet): they take the garage paint like the rest of the body
+  const paintMesh = group.getObjectByName('body_paint');
+  for (const part of spec.paintParts ?? []) {
+    if (!paintMesh) break;
+    const [lo, hi] = [new THREE.Vector3(...part.lo), new THREE.Vector3(...part.hi)];
+    const n = splitPalette(group, part.uv, paintMesh.material, 0.06, { only: /^body_/, where: (c, nrm) => c.x >= lo.x && c.x <= hi.x && c.y >= lo.y && c.y <= hi.y && c.z >= lo.z && c.z <= hi.z && nrm.y >= (part.up ?? -1) });
+    if (n) n.name = 'body_paint_' + (part.name ?? 'part');
+  }
   if (spec.glassUv) {
     let env = null; group.traverse((o) => { if (o.isMesh && !env) env = o.material?.envMap ?? null; });
     splitPalette(group, spec.glassUv, new THREE.MeshStandardMaterial({ name: 'fx_glass', color: 0x05070b, metalness: 0, roughness: 0.06, envMap: env, envMapIntensity: 0.32 }));
