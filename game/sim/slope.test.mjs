@@ -75,12 +75,24 @@ test('slope 4 and 5: over a crest of 120 m radius at 25 m/s the car is light (0.
   assert.equal(s.nLoad, 0.25, 'a sharp crest makes the car light, it never lifts off');
 });
 
-test('slope 6: a bend tilted to its inside holds the car on a tighter circle, one that hangs outwards lets it run wide', () => {
-  // a round bowl: the height rises (or falls) with the distance from the middle; the car circles the middle to the right with the same wheel and the same gas
+test('slope 6: a bend tilted to its inside holds the car at a higher speed, one that hangs outwards lets go earlier', () => {
+  // a round bowl: the height rises (or falls) with the distance from the middle. A driver circles the middle at 30 m (steering to keep the distance) and goes slowly
+  // faster and faster; the speed at which the car runs wide by 4 m is what the bend holds
   const bowl = (b) => (x, z, o = {}) => { const r = Math.hypot(x, z) || 1; o.y = b * r; o.gx = (b * x) / r; o.gz = (b * z) / r; return o; };
-  const radius = (b) => { let s = { ...makeCar(-40, 0, 0), vz: 14 }, sum = 0, n = 0; for (let i = 0; i < 12 / DT; i++) { s = step(s, { steer: 0.5, throttle: 0.35, brake: 0, handbrake: 0 }, dart, 1, DT, bowl(b)); if (i > 6 / DT) { sum += Math.hypot(s.x, s.z); n++; } } return sum / n; };
-  const flat = radius(0), banked = radius(0.06), hanging = radius(-0.04);
-  assert.ok(banked < flat - 0.3 && hanging > flat + 0.2, `distance from the middle: ${banked.toFixed(1)} m tilted in by 6 %, ${flat.toFixed(1)} m level, ${hanging.toFixed(1)} m hanging out by 4 %`);
+  const holds = (b) => {
+    let s = { ...makeCar(-30, 0, 0), vz: 10 };
+    for (let i = 0; i < 60 / DT; i++) {
+      const r = Math.hypot(s.x, s.z), want = 10 + i * DT * 0.4, v = speedOf(s);
+      if (r > 34) return v;
+      // towards the tangent of the circle, and inwards when too far out
+      let err = Math.atan2(s.z, -s.x) - s.h + (r - 30) * 0.08; while (err > Math.PI) err -= 2 * Math.PI; while (err < -Math.PI) err += 2 * Math.PI;
+      s = step(s, { steer: Math.max(-1, Math.min(1, err * 2.5 + 0.25)), throttle: v < want ? 1 : 0.1, brake: 0, handbrake: 0 }, dart, 1, DT, bowl(b));
+    }
+    return speedOf(s);
+  };
+  const flat = holds(0), banked = holds(0.06), hanging = holds(-0.04);
+  assert.ok(flat > 14 && flat < 22, `on level ground the bend holds ${flat.toFixed(1)} m/s`);
+  assert.ok(banked > flat + 0.25 && hanging < flat - 0.15, `the bend holds ${banked.toFixed(2)} m/s tilted in by 6 %, ${flat.toFixed(2)} level, ${hanging.toFixed(2)} hanging out by 4 %`);
 });
 
 const touge = prepareMap(JSON.parse(readFileSync(new URL('../data/maps/06-touge.json', import.meta.url), 'utf8')));

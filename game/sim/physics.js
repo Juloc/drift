@@ -77,6 +77,7 @@ const _s0 = {}, _s1 = {}, _s2 = {}, _s3 = {};
  * height, always the surface's) and `nLoad` (the wheel load in g: 1 on level ground). `car.hold === false` lets a car roll on a hill with no pedal (for measuring).
  */
 export function step(s, input, car, mu = 1, dt = DT, surf = null) {
+  if (surf) return stepSurface(s, input, car, mu, dt, surf);
   const { a, b } = K;
   const sn = Math.sin(s.h), cs = Math.cos(s.h);
   const vf = s.vx * sn + s.vz * cs;
@@ -176,6 +177,131 @@ export function step(s, input, car, mu = 1, dt = DT, surf = null) {
   const sl = clamp((Math.abs(alphaR) / K.alphaPeak - 0.6) / 1.4, 0, 1) * (speed > 3 ? 1 : 0);
   if (surf) return { x, z, h, vx, vz, w, steer, slide: sl, ax: axLong, hit: 0, y: surf(x, z, _s3).y, nLoad: N / G };
   return { x, z, h, vx, vz, w, steer, slide: sl, ax: axLong, hit: 0 };
+}
+
+// ---------------------------------------------------------------- the model on a surface (design: DESIGN-PHYSIK-STRECKE.md, sections 2.3 to 2.6)
+// What is different from the flat model above, and why it drifts better:
+//  - one tyre force for both directions (combined slip): the rear tyre's force points where the tyre slips. More gas turns it forwards and takes side force away, so the
+//    angle grows; less gas and the rear catches. Gas is a dial for the angle, not a switch.
+//  - the rear wheels have a slip of their own (`sr`: 0 rolls, 1 spins hard, -1 locked) that the engine and the brakes work against the tyre. The handbrake locks them: the
+//    force then points against the way the rear slides, and the tail steps out cleanly.
+//  - the weight moves with time (`tl` to the rear, `tq` to the right, filtered over about a tenth of a second): braking loads the front, lifting off makes the tail light,
+//    a change of direction has a rhythm.
+//  - a tyre's side force builds up over a short distance (`sigma`), so a nearly standing car does not pivot, and every tyre force works across the WHEEL (the front one
+//    across the steered wheel): a tyre can only take energy out, never put it in.
+export const K2 = {
+  srPeak: 0.12, // rear wheel slip of the most grip along the car
+  kSpin: 0.55, // how fast the wheel slip follows the engine and the brakes, per m/s^2 of push the tyre does not take (times the car's `spinScale`)
+  relax: 1.2, // spinning wheels beyond the peak slow down again, 1/s (lower: more wheel spin for the same gas, a wider range of angles on the pedal)
+  longGrip: 1.35, // a tyre pulls and brakes a little harder than it corners
+  vLock: 2, // below this speed a locked or braked wheel's slip shrinks with the speed, m/s
+  hbRate: 18, // the handbrake locks the rear wheels this fast, 1/s
+  sigma: 0.4, // a tyre's side force follows its slip over this distance, m
+  settle: 3, // and with time when the car hardly moves, 1/s
+  tauL: 0.12, tauQ: 0.10, // the weight moves along and across over these times, s
+  track: 1.5, // track width, m (how much of the weight a g of cornering moves across: hcg / track)
+  kLoad: 0.9, // side grip lost per unit of (weight moved across)^2
+  minShare: 0.15, // an axle never carries less than this share of the weight
+  inertia: 1.1, yawDamp: 1.2, // the turn: yaw inertia = inertia * a * b / agility, and its damping, 1/s (more swing than the flat model: a change of direction carries through)
+  steerPeak: 1.5, // the wheel may pass the front tyre's best slip angle by this factor (Arcade); see the steering in stepSurface
+  spinArcade: 1, // the wheel slip's speed in Arcade; Pro sets `spinScale` 1.2 (sim/feel.js): the wheels spin up quicker. (Tried 0.6 for Arcade, the design's first guess:
+  // the rear then hooks up in a change of direction and the lighter cars do not carry the slide over, so Arcade keeps the full speed.)
+};
+
+function stepSurface(s, input, car, mu, dt, surf) {
+  const { a, b } = K, L = a + b;
+  const sn = Math.sin(s.h), cs = Math.cos(s.h);
+  const vf = s.vx * sn + s.vz * cs, vr = s.vx * cs - s.vz * sn;
+  const av = Math.abs(vf), dir = vf >= 0 ? 1 : -1, speed = Math.hypot(s.vx, s.vz);
+  const lowK = clamp(speed / K.lowSpeed, 0, 1);
+
+  // --- the surface: the pull of the slope, the wheel load, the grade along the car (as in the flat model's notes)
+  const S = surf(s.x, s.z, _s0), gx = S.gx, gz = S.gz, g2 = gx * gx + gz * gz;
+  const slopeX = (-G * gx) / (1 + g2), slopeZ = (-G * gz) / (1 + g2), gradeAlong = gx * sn + gz * cs;
+  const dx = speed > 0.5 ? s.vx / speed : sn, dz = speed > 0.5 ? s.vz / speed : cs;
+  const A = surf(s.x + dx * K.probe, s.z + dz * K.probe, _s1), B = surf(s.x - dx * K.probe, s.z - dz * K.probe, _s2);
+  const kv = (A.gx * dx + A.gz * dz - (B.gx * dx + B.gz * dz)) / (2 * K.probe);
+  const N = clamp(G / Math.sqrt(1 + g2) + speed * speed * kv, K.loadMin * G, K.loadMax * G);
+
+  // --- the steering wheel (the same wheel and the same counter-steer aid as the flat model)
+  const lock = (K.lockMax * (car.lockScale ?? 1) * Math.min(1.25, car.agility)) / (1 + (av / K.lockSpeed) ** 2);
+  const beta = vf > 0.5 ? Math.atan2(vr, vf) : 0;
+  const over = Math.max(0, Math.abs(beta) - K.assistDead);
+  const assistOn = smooth((av - 3) / 5);
+  const into = clamp(input.steer * Math.sign(s.w || beta), 0, 1);
+  const assist = (Math.sign(beta) * over * K.assist - smooth(over / 0.1) * K.assistW * s.w) * assistOn * (1 - K.assistYield * into) * (car.assistScale ?? 1);
+  let target = clamp(clamp(input.steer, -1, 1) * lock + assist, -K.lockHard, K.lockHard);
+  // the wheel is not turned far past the angle where the front tyre grips best (a key or a thumb gives all or nothing: without this, full lock just ploughs straight on).
+  // The limit follows the way the front axle travels, so in a slide there is always room to counter-steer; Pro leaves more of the wheel to the driver
+  if (vf > 0.5) {
+    const travel = Math.atan2(vr + a * s.w, Math.max(vf, 3)), room = K.alphaPeak * (K2.steerPeak + 3 * (1 - (car.assistScale ?? 1))), k = assistOn * (1 - smooth(over / 0.15));   // (only while the car grips: in a slide the whole wheel is the driver's)
+    target = clamp(target, travel - room - (1 - k) * K.lockHard, travel + room + (1 - k) * K.lockHard);
+  }
+  const rate = (Math.abs(target) > Math.abs(s.steer) && Math.sign(target) * Math.sign(s.steer) >= 0 ? K.steerOn : K.steerOff) * K.lockHard * 0.8;
+  const steer = clamp(target, s.steer - rate * dt, s.steer + rate * dt);
+
+  // --- engine and brakes: what they ask of the wheels
+  const throttle = clamp(input.throttle, 0, 1), brake = clamp(input.brake, 0, 1), hb = input.handbrake ? 1 : 0;
+  const drive = throttle > 0 ? throttle * car.power * Math.max(0, 1 - (speed / car.top) ** 2) : 0;
+  const forward = clamp(vf / 0.5, 0, 1);
+  const reverse = brake > 0.05 && throttle === 0 ? -brake * (1 - forward) * K.reverse * car.power * Math.max(0, 1 - (Math.min(0, vf) / -K.reverseTop) ** 2) : 0;
+  const brakeTotal = brake * K.brake * forward, stopCap = av / dt;
+
+  // --- the weight: it follows the car's own acceleration with a little delay, and leans downhill
+  const tl = (s.tl ?? 0) + ((K.hcg / L) * ((s.ax ?? 0) / G) - (s.tl ?? 0)) * Math.min(1, dt / K2.tauL);
+  const tq = (s.tq ?? 0) + ((K.hcg / K2.track) * ((s.ay ?? 0) / G) - (s.tq ?? 0)) * Math.min(1, dt / K2.tauQ);
+  const shareR = clamp(b / L + tl + (K.hcg / L) * gradeAlong, K2.minShare, 1 - K2.minShare), sens = Math.max(0.5, 1 - K2.kLoad * tq * tq);
+  const bal = car.balance ?? 0, slideEff = Math.min(1, car.slide + (1 - car.slide) * (1 - mu) * 1.2);
+  const gripF = car.grip * (1 + bal) * mu * N * (1 - shareR) * sens, gripR = car.grip * (1 - bal) * mu * N * shareR * sens;
+  const tanPeak = Math.tan(K.alphaPeak), follow = Math.min(1, (speed * dt) / K2.sigma + K2.settle * dt);
+
+  // --- the front tyre: its slip is measured across the steered wheel, its force works across the steered wheel; braking takes side grip away
+  const cd = Math.cos(steer), sd = Math.sin(steer), vla = vr + a * s.w;
+  const vAlong = vf * cd + vla * sd, vAcross = -vf * sd + vla * cd;
+  const alphaF = Math.atan2(vAcross, Math.max(Math.abs(vAlong), 2));
+  const brakeFront = Math.min(brakeTotal * K.brakeFront, stopCap * 0.5, gripF);
+  const leftF = Math.sqrt(Math.max(0.04, 1 - (brakeFront / Math.max(1e-6, gripF)) ** 2));
+  const fyFWant = -Math.sign(alphaF) * gripF * leftF * tyreCurve(Math.abs(Math.tan(clamp(alphaF, -1.4, 1.4))) / tanPeak, slideEff);
+  let fyF = (s.fyF ?? 0) + (fyFWant - (s.fyF ?? 0)) * follow;
+  if (fyF * vAcross > 0) fyF = fyFWant * follow;   // (see the rear tyre: never a push along the slip)
+
+  // --- the rear tyre: slip along (the wheel against the road) and across (the slip angle) give ONE force, pointing where the tyre slips
+  let sr = s.sr ?? 0;
+  if (drive === 0 && reverse === 0 && sr * dir > 0) sr = 0;   // without the engine a wheel never turns faster than the road (a slip left over from before the car turned round)
+  const alphaR = Math.atan2(vr - b * s.w, Math.max(av, 2));
+  // a wheel that turns slower than the road (braking, locked) slips at most as fast as the car moves: its pull fades to nothing as the car stops, it never pushes it back
+  const slower = sr * dir < 0 && drive === 0 && reverse === 0 ? clamp(av / K2.vLock, 0, 1) : 1;   // (with the engine pushing, the wheel may well turn against the way the car rolls: a start up a hill)
+  const sxR = (sr * slower) / K2.srPeak, syR = Math.tan(clamp(alphaR, -1.4, 1.4)) / tanPeak, u = Math.hypot(sxR, syR);
+  const FR = u > 1e-9 ? gripR * tyreCurve(u, slideEff) : 0;
+  const fxR = u > 1e-9 ? (FR * K2.longGrip * sxR) / u : 0;
+  const fyRWant = u > 1e-9 ? (-FR * syR) / u : 0;
+  let fyR = (s.fyR ?? 0) + (fyRWant - (s.fyR ?? 0)) * follow;
+  if (fyR * (vr - b * s.w) > 0) fyR = fyRWant * follow;   // a force that still points the old way after the slip turned round (a knock, a wall) is dropped: a tyre never pushes
+  // the wheel's own slip: the engine and the brake work against what the tyre gives; the handbrake locks the wheels
+  const brakeRear = brakeTotal * (1 - K.brakeFront);
+  if (hb) sr += (-dir * clamp(1.25 * (1 - (car.hbGrip ?? K.hbGrip)), 0.3, 1) - sr) * Math.min(1, K2.hbRate * dt);
+  else sr += ((drive + reverse - dir * brakeRear - fxR) * K2.kSpin * (car.spinScale ?? K2.spinArcade) - Math.sign(sr) * Math.max(0, Math.abs(sr) - K2.srPeak) * K2.relax) * dt;
+  sr = clamp(sr, -1, 1.6);
+  if (speed < 0.3 && throttle === 0 && reverse === 0) sr *= 1 - Math.min(1, 10 * dt);   // at rest with no pedal the wheels stand
+
+  // --- the car: along (drive, brakes, the front tyre's drag when it is turned, rolling), across, and the turn
+  const axLong = fxR - dir * brakeFront * cd - fyF * sd - K.rolling * vf;
+  const ay = fyF * cd + fyR - dir * brakeFront * sd - vr * 4 * (1 - lowK) * (1 - follow);
+  const inertia = (K2.inertia * a * b) / car.agility;
+  const wDot = (a * (fyF * cd - dir * brakeFront * sd) - b * fyR) / inertia - s.w * (K2.yawDamp * (car.yawDampScale ?? 1) + 2 * (1 - lowK));
+  let vx = s.vx + (sn * axLong + cs * ay + slopeX) * dt, vz = s.vz + (cs * axLong - sn * ay + slopeZ) * dt, w = s.w + wDot * dt;
+  // held on the hill: nearly stopped, and no pedal (or the handbrake without gas): the tyres hold against the slope, up to what they can grip
+  let held = false;
+  const sp = Math.hypot(vx, vz);
+  if (car.hold !== false && speed < K.holdSpeed && sp < K.holdSpeed && throttle === 0 && (brake === 0 || hb)) {
+    const can = car.grip * mu * N * dt;
+    if (sp <= can) { vx = 0; vz = 0; w = Math.abs(w) < 0.5 ? 0 : w; held = true; } else { vx -= (vx / sp) * can; vz -= (vz / sp) * can; }
+  }
+  const h = s.h + w * dt, x = s.x + vx * dt, z = s.z + vz * dt;
+  // how far the rear is sliding, 0..1 (smoke, sound, score): sideways, or spinning its wheels
+  const sl = Math.max(clamp((Math.abs(alphaR) / K.alphaPeak - 0.6) / 1.4, 0, 1), clamp((Math.abs(sr) - 0.2) / 0.5, 0, 1)) * (speed > 3 ? 1 : 0);
+  return { x, z, h, vx, vz, w, steer, slide: sl, ax: axLong, hit: 0, y: surf(x, z, _s3).y, nLoad: N / G,
+    ay: held ? 0 : ay, tl, tq, sr: held ? 0 : sr, fyF: held ? 0 : fyF, fyR: held ? 0 : fyR };
 }
 
 /** Angle between the nose and the direction of travel, 0..PI, also when going backwards (a spin shows as > 1.9). */

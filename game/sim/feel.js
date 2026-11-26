@@ -7,7 +7,7 @@ export const ASSIST_PRO = 0.35, DAMP_PRO = 0.6;
 
 /** The car's numbers for a feel (a new object; arcade changes nothing). */
 export function applyFeel(car, feel = ARCADE) {
-  return feel === PRO ? { ...car, assistScale: (car.assistScale ?? 1) * ASSIST_PRO, yawDampScale: (car.yawDampScale ?? 1) * DAMP_PRO } : car;
+  return feel === PRO ? { ...car, assistScale: (car.assistScale ?? 1) * ASSIST_PRO, yawDampScale: (car.yawDampScale ?? 1) * DAMP_PRO, spinScale: 1.2 } : car;   // (spinScale: on a surface the rear wheels spin up quicker in Pro, physics.js K2)
 }
 
 /** 0 or 1 from a setting (a name, a number or nothing: arcade). */
