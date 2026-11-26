@@ -77,7 +77,8 @@ test('the own engine follows the speed: higher speed in a gear, a different car,
   assert.equal(s.own.bank.length, 10);
   const loud = s.own.bank.filter((b) => b.gain.gain.value > 0.01);
   assert.ok(loud.length >= 1 && loud.length <= 2 && loud.every((b) => b.layer === 'on'), 'full throttle: the on-load layer only');
-  for (const b of loud) assert.ok(Math.abs(b.src.playbackRate.value - s.own.rpm / b.rpm) < 1e-9);
+  for (const b of loud) assert.ok(b.src && Math.abs(b.src.playbackRate.value - s.own.rpm / b.rpm) < 1e-9);
+  assert.ok(s.own.playing <= 4, `only the heard loops play (${s.own.playing})`);
   s.update({ ...own, speed: 15, car: 1, throttle: 0 }, [], { x: 0, z: 0 });
   assert.ok(s.own.bank.filter((b) => b.gain.gain.value > 0.01).every((b) => b.layer === 'off'), 'throttle shut: the off-load layer');
   assert.ok(s.own.tyreGain.gain.value > 0, 'a slide of 0.7 at 18 m/s squeals');

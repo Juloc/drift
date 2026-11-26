@@ -6,7 +6,7 @@ import { SoundSystem } from '../../game/view/sound.js';
 const q = new URLSearchParams(location.search), car = +(q.get('car') ?? 1), SR = +(q.get('sr') ?? 22050), SECS = 13, top = 33;
 class Offline { constructor() { return new OfflineAudioContext(1, SR * SECS, SR); } }
 const store = { getItem: (k) => ({ 'drift.mute': '0', 'drift.volume': '1' })[k] ?? null, setItem() {} };
-const s = new SoundSystem({ AudioCtx: Offline, storage: store });
+const s = new SoundSystem({ AudioCtx: Offline, storage: store, keepAllLoops: q.has('all') });   // ?all=1: all ten loops play all the time (to compare the cost)
 s.unlock();
 const ctx = s.ctx;
 // the drive: [time, speed m/s, throttle]
@@ -29,7 +29,7 @@ for (let t = 0; t < SECS - step; t += step) {
     ctx.resume();
   });
 }
-const buf = await ctx.startRendering(), d = buf.getChannelData(0);
+const tr0 = performance.now(), buf = await ctx.startRendering(), renderMs = performance.now() - tr0, d = buf.getChannelData(0);
 
 // ---- spectrogram: 2048-point FFT, hop 256, log frequency 40..6000 Hz, dB
 const N = 2048, hop = 256, frames = Math.floor((d.length - N) / hop), W = 1400, H = 520, top0 = 20;
@@ -48,10 +48,12 @@ function fft(re, im) {
 const c = document.getElementById('c'), x = c.getContext('2d'), img = x.createImageData(W, H);
 const fLo = 40, fHi = 6000, rowBin = Array.from({ length: H }, (_, y) => Math.round((fLo * (fHi / fLo) ** (1 - y / (H - 1))) / (SR / N)));
 const col = (v) => { const t = Math.max(0, Math.min(1, v)); return [Math.round(255 * Math.min(1, t * 1.6)), Math.round(255 * Math.max(0, t * 1.6 - 0.45)), Math.round(255 * Math.max(0, (t - 0.7) * 3.3) + 60 * (1 - t))]; };
+let eLow = 0, eAll = 0;   // energy under 100 Hz and in all, over the full-throttle part (1 to 9.5 s)
 for (let px = 0; px < W; px++) {
   const f = Math.floor((px / W) * frames), re = new Float64Array(N), im = new Float64Array(N);
   for (let i = 0; i < N; i++) re[i] = d[f * hop + i] * win[i];
   fft(re, im);
+  const tSec = (f * hop) / SR; if (tSec > 1 && tSec < 9.5) for (let b = 1; b < N / 2; b++) { const e = re[b] * re[b] + im[b] * im[b]; eAll += e; if (b * SR / N < 100) eLow += e; }
   for (let y = 0; y < H; y++) {
     const b = rowBin[y], mag = Math.hypot(re[b], im[b]) + 1e-9, db = 20 * Math.log10(mag);
     const [r, g, bl] = col((db + 30) / 70), k = (y * W + px) * 4;
@@ -72,4 +74,4 @@ pcm.setUint32(24, SR, true); pcm.setUint32(28, SR * 2, true); pcm.setUint16(32, 
 let peak = 1e-9; for (const v of d) peak = Math.max(peak, Math.abs(v));
 for (let i = 0; i < d.length; i++) pcm.setInt16(44 + i * 2, Math.round((d[i] / peak) * 0.89 * 32767), true);
 const b64 = (u8) => { let s2 = ''; for (let i = 0; i < u8.length; i += 0x8000) s2 += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s2); };
-window.__ramp = { png: c.toDataURL('image/png').split(',')[1], wav: b64(new Uint8Array(pcm.buffer)), peak };
+window.__ramp = { png: c.toDataURL('image/png').split(',')[1], wav: b64(new Uint8Array(pcm.buffer)), peak, lowShare: eLow / eAll, renderMs: Math.round(renderMs), seconds: SECS, maxPlaying: s.own.maxPlaying };

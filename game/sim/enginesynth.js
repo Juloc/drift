@@ -14,11 +14,11 @@ export const loopRpms = (eng) => { const n = 5; return Array.from({ length: n },
 /** A small seeded random generator (the same loop every time). */
 function rng(seed) { let s = seed >>> 0 || 1; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
-/** An RBJ biquad (cookbook): 'lowpass' or 'bandpass' (constant 0 dB peak); returns a function that filters one sample. */
+/** An RBJ biquad (cookbook): 'lowpass', 'highpass' or 'bandpass' (constant 0 dB peak); returns a function that filters one sample. */
 export function biquad(type, f, q, sr) {
   const w = (2 * Math.PI * Math.min(f, sr * 0.45)) / sr, c = Math.cos(w), al = Math.sin(w) / (2 * q);
   let b0, b1, b2;
-  if (type === 'lowpass') { b0 = (1 - c) / 2; b1 = 1 - c; b2 = (1 - c) / 2; } else { b0 = al; b1 = 0; b2 = -al; }
+  if (type === 'lowpass') { b0 = (1 - c) / 2; b1 = 1 - c; b2 = (1 - c) / 2; } else if (type === 'highpass') { b0 = (1 + c) / 2; b1 = -(1 + c); b2 = (1 + c) / 2; } else { b0 = al; b1 = 0; b2 = -al; }
   const a0 = 1 + al, a1 = -2 * c, a2 = 1 - al;
   const B0 = b0 / a0, B1 = b1 / a0, B2 = b2 / a0, A1 = a1 / a0, A2 = a2 / a0;
   let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
@@ -34,13 +34,15 @@ export function renderLoop(eng, rpm, layer, sr, want = 0.45) {
   const cycles = Math.max(2, Math.round(want / cycle)), len = Math.round(cycles * cycle * sr);
   const fires = cycles * eng.cyl, gap = len / fires;
   const r = rng(eng.idle * 7 + eng.cyl * 13 + (on ? 1 : 2));
-  // each cylinder its own strength and a tiny delay (no engine is perfectly even); off load some firings are weak or late
-  const cylAmp = Array.from({ length: eng.cyl }, () => 1 + (r() - 0.5) * (0.1 + 0.2 * eng.grit));
+  // each cylinder its own strength and its own small delay, the same every cycle (uneven cylinders and header lengths): this puts
+  // the half orders (0.5 and 1.5 times the firing frequency) into the sound, the rough character; off load some firings are weak or late
+  const cylAmp = Array.from({ length: eng.cyl }, () => 1 + (r() - 0.5) * (0.3 + 0.35 * eng.grit));
+  const cylLate = Array.from({ length: eng.cyl }, () => (r() - 0.5) * (0.05 + 0.05 * eng.grit));
   const fireAmp = Array.from({ length: fires }, (_, k) => cylAmp[k % eng.cyl] * (on ? 1 : 0.3 + 0.7 * r() ** 2));
-  const fireLate = Array.from({ length: fires }, () => (on ? (r() - 0.5) * 0.02 : (r() - 0.5) * 0.12) * gap);
+  const fireLate = Array.from({ length: fires }, (_, k) => (cylLate[k % eng.cyl] + (on ? (r() - 0.5) * 0.004 : (r() - 0.5) * 0.1)) * gap);
   const crackle = Array.from({ length: fires }, () => (!on && r() < 0.18 ? 0.5 + r() : 0));
   const noise = Float32Array.from({ length: len }, () => r() * 2 - 1);
-  const tau = (on ? 0.00055 : 0.0011) * (1 + 0.6 * (1 - (rpm - eng.idle) / (eng.max - eng.idle)));   // sharper pulses at high revs
+  const tau = (on ? 0.0007 : 0.0011) * (1 + 0.6 * (1 - (rpm - eng.idle) / (eng.max - eng.idle)));   // sharper pulses at high revs
   const ringF = 1500 + 900 * eng.grit, ringT = 0.0018;
   // the pulse train of one loop
   const dry = new Float32Array(len);
@@ -54,9 +56,13 @@ export function renderLoop(eng, rpm, layer, sr, want = 0.45) {
     }
   }
   // the exhaust: three pipe modes, the silencer; the intake: noise in time with the firings (on load)
-  const f1 = 95 + rpm / 60, sr2 = sr;
-  const modes = [[biquad('bandpass', f1, 2.2, sr2), 1.0], [biquad('bandpass', f1 * 3.1, 3, sr2), 0.55], [biquad('bandpass', 1050 + 300 * eng.grit, 2.5, sr2), 0.35]];
-  const silencer = biquad('lowpass', on ? 1900 + 800 * eng.grit : 1000, 0.7, sr2);
+  const f1 = 95 + rpm / 60, sr2 = sr, fire = (rpm / 60) * (eng.cyl / 2);
+  // the scream of a high-revving four lives between 600 Hz and 2.5 kHz, the 4th to 10th orders of the firing: two resonances that
+  // follow them (on load), one fixed pipe mode
+  const modes = [[biquad('bandpass', f1, 2.2, sr2), 1.0], [biquad('bandpass', f1 * 3.1, 3, sr2), 0.5], [biquad('bandpass', 1250 + 300 * eng.grit, 3, sr2), 0.4],
+    ...(on ? [[biquad('bandpass', Math.min(2400, fire * 5), 4, sr2), 0.9], [biquad('bandpass', Math.min(2500, fire * 8), 5, sr2), 0.6]] : [])];
+  const silencer = biquad('lowpass', on ? 2600 + 600 * eng.grit : 1000, 0.7, sr2);
+  const lowCut1 = biquad('highpass', 80, 0.7, sr2), lowCut2 = biquad('highpass', 80, 0.7, sr2), lowCut = (v) => lowCut2(lowCut1(v));   // 24 dB per octave   // nothing under 70 Hz: a phone's speaker only distorts it, and it eats the limiter's room
   const intake = biquad('bandpass', 2200, 1.4, sr2), env = biquad('lowpass', 40, 0.7, sr2);
   const out = new Float32Array(len);
   for (let rep = 0; rep < 4; rep++) {
@@ -66,8 +72,9 @@ export function renderLoop(eng, rpm, layer, sr, want = 0.45) {
       for (const [f, g] of modes) y += g * f(x);
       y = silencer(y);
       const pulseEnv = Math.max(0, env(Math.abs(x)));
-      if (on) y += 0.4 * intake(noise[i]) * Math.min(1, pulseEnv * 4);
-      if (rep === 3) out[i] = on ? Math.tanh(y * (1.2 + eng.grit)) : y;
+      if (on) y += 0.12 * intake(noise[i]) * Math.min(1, pulseEnv * 4);   // the intake, about 10 dB under the first version (it hissed)
+      y = lowCut(on ? Math.tanh(y * (0.8 + 0.5 * eng.grit)) : y);
+      if (rep === 3) out[i] = y;
     }
   }
   // the same loudness for every loop (the player sets the levels): peak at 0.9 after taking the mean out
