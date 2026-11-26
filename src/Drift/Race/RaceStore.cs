@@ -19,7 +19,7 @@ public interface IBestTimes
 public sealed class RaceStore(NpgsqlDataSource db) : IBestTimes
 {
     /// <summary>Lap and race: milliseconds, less is better. Drift and tandem: points of the best chain, more is better.</summary>
-    public const int Lap = 0, Race = 1, Drift = 2, Tandem = 3, TandemRun = 4;
+    public const int Lap = 0, Race = 1, Drift = 2, Tandem = 3, TandemRun = 4, Attack = 5;   // Attack: the points of one whole run (the mode Drift attack)
 
     /// <returns>true when this is a new best for the person</returns>
     public async Task<bool> RecordAsync(Guid userId, int map, int kind, int ms, int car, int feel = 0, CancellationToken ct = default) =>

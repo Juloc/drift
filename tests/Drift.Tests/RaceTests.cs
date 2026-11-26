@@ -73,6 +73,28 @@ public class RaceTrackTests
     }
 
     [Fact]
+    public void A_run_down_the_touge_ends_at_the_last_gate_and_a_loop_is_not_expected()
+    {
+        var json = File.ReadAllText(Path.Combine(Repo.Root, "game", "data", "maps", "06-touge.json"));
+        var track = RaceTrack.FromJson(json);
+        Assert.True(track.Open);
+        using var doc = JsonDocument.Parse(json);
+        var centre = doc.RootElement.GetProperty("centre").EnumerateArray().Select(p => (X: p[0].GetDouble(), Z: p[1].GetDouble())).ToList();
+        var spacing = track.LoopLength / centre.Count;
+        var from = track.Grid[0];
+        var way = new List<(double X, double Z)> { (from.X, from.Z) };
+        way.AddRange(centre.Where((p, i) => i >= Math.Ceiling(34 / spacing)));
+        var path = RaceTrackTests.Sample(way, 20.0 / 15);
+        var run = new RaceRun(track, 1); var r = new Runner(Guid.NewGuid(), "A", 1, 0, 33); run.Runners.Add(r); run.Start(0);
+        var events = new List<RaceEvent>();
+        for (var i = 0; i < path.Count; i++) events.AddRange(run.Pose(r, path[i].X, path[i].Z, 20, 0, 0, i / 15.0));
+        Assert.True(r.Finished, "the last gate ends the run");
+        Assert.Single(events, e => e.Kind == "finish");
+        Assert.InRange(r.FinishMs!.Value / 1000, (track.LoopLength - 200) / 20, (track.LoopLength + 40) / 20);   // about the length of the road at 20 m/s
+        Assert.Equal(7, r.GatesPassed);                                                                          // gates 1 to 7 (the grid stands after gate 0)
+    }
+
+    [Fact]
     public void A_gate_is_crossed_only_across_it_and_with_the_direction_of_travel()
     {
         var t = Track(); var g = t.Gates[2];
@@ -213,11 +235,14 @@ public class RaceHubTests
         public double[] Tops = [35, 31, 39, 36, 28];
         int seq;
 
-        public Rig(params string[] names)
+        readonly string json;
+        public Rig(params string[] names) : this(RaceTrackTests.MapJson, names) { }
+        public Rig(string mapJson, string[] names)
         {
+            json = mapJson;
             Lobby = new WorldRelay(Time, new RelayOptions { MaxPerAddress = 99, JoinsPerMinutePerAddress = 99 }, new Random(1));
             RaceWorld = new WorldRelay(Time, new RelayOptions { MaxPerWorld = 8, MaxWorlds = 1, MaxPerAddress = 99, JoinsPerMinutePerAddress = 99 }, new Random(2));
-            Hub = new RaceHub(Time, RaceTrack.FromJson(RaceTrackTests.MapJson), Best, RaceWorld, Tops);
+            Hub = new RaceHub(Time, RaceTrack.FromJson(json), Best, RaceWorld, Tops);
             foreach (var n in names) Arrive(n);
         }
 
@@ -404,7 +429,7 @@ public class RaceHubTests
         Assert.True(rows[0].GetProperty("drift").GetInt32() > 100, "a drifting car earns points");
         Assert.True(rows.All(r => r.GetProperty("clean").GetBoolean()));
         // the best times were written, for each finished person: a best lap and a best race
-        Assert.Equal(6, rig.Best.Written.Count);                                         // for each of the two: a best lap, a best race and a best drift
+        Assert.Equal(8, rig.Best.Written.Count);                                         // for each of the two: a best lap, a best race, a best drift and the points of the run (attack)
         Assert.Equal(2, rig.Best.Written.Count(w => w.Kind == RaceStore.Race));
         Assert.Equal(2, rig.Best.Written.Count(w => w.Kind == RaceStore.Drift));
         // after the result time everybody is sent back, and the pause starts
@@ -417,6 +442,36 @@ public class RaceHubTests
         rig.Pass(21);
         rig.Say("anna", """{"t":"race.start"}""");
         Assert.Equal(RaceHub.Phase.Invite, rig.Hub.Current);
+    }
+
+    [Fact]
+    public void A_mode_run_down_the_touge_is_a_race_of_one_with_a_time_the_points_of_the_run_and_the_boards()
+    {
+        var json = File.ReadAllText(Path.Combine(Repo.Root, "game", "data", "maps", "06-touge.json"));
+        var rig = new Rig(json, ["anna"]);
+        rig.Say("anna", """{"t":"race.start","map":0,"laps":1,"solo":true}""");
+        rig.Pass(2);
+        Assert.Equal(RaceHub.Phase.Grid, rig.Hub.Current);
+        rig.Connect("anna");
+        rig.Pass(4);
+        Assert.Equal(RaceHub.Phase.Racing, rig.Hub.Current);
+        var track = RaceTrack.FromJson(json);
+        using var doc = JsonDocument.Parse(json);
+        var centre = doc.RootElement.GetProperty("centre").EnumerateArray().Select(p => (X: p[0].GetDouble(), Z: p[1].GetDouble())).ToList();
+        var spacing = track.LoopLength / centre.Count;
+        var way = new List<(double X, double Z)> { (track.Grid[0].X, track.Grid[0].Z) };
+        way.AddRange(centre.Where((p, i) => i >= Math.Ceiling(34 / spacing)));
+        var path = RaceTrackTests.Sample(way, 20.0 / 15);
+        foreach (var p in path) { rig.Pose("anna", p.X, p.Z, p.H, 20, 0.5, 2); rig.Time.Advance(1.0 / 15); rig.Hub.Tick(); }
+        rig.Pass(1);
+        Assert.NotNull(rig.Racing["anna"].Peer.Last("finish"));
+        rig.Pass(1);
+        var row = rig.Racing["anna"].Peer.Last("result")!.Value.GetProperty("rows").EnumerateArray().Single();
+        Assert.InRange(row.GetProperty("ms").GetInt32() / 1000.0, 80, 140);                      // the road at 20 m/s
+        Assert.True(row.GetProperty("drift").GetInt32() > 500, "a drifting run earns points");
+        Assert.True(row.GetProperty("newAttack").GetBoolean() && row.GetProperty("newLap").GetBoolean());
+        Assert.Contains(rig.Best.Written, w => w.Kind == RaceStore.Attack);                    // the points of the whole run are on the board of the mode
+        Assert.Contains(rig.Best.Written, w => w.Kind == RaceStore.Lap);                       // and the time on the board of the other
     }
 
     [Fact]
@@ -464,7 +519,7 @@ public class RaceHubTests
         Assert.False(rows[0].GetProperty("dnf").GetBoolean());
         Assert.True(rows[1].GetProperty("dnf").GetBoolean());
         Assert.Equal(0.0, rows[1].GetProperty("points").GetDouble(), 1);
-        Assert.Equal(3, rig.Best.Written.Count);                                         // anna's lap, race and drift; ben did not drift
+        Assert.Equal(4, rig.Best.Written.Count);                                         // anna's lap, race, drift and attack points; ben did not drift
     }
 
     [Fact]
@@ -691,6 +746,23 @@ public class BoardTests
         await using (var u = db.Data.CreateCommand("insert into users (id, name, password_hash, totp_secret, roles) values ($1, $2, 'x', 'x', '{member}')")) { u.Parameters.AddWithValue(id); u.Parameters.AddWithValue(name); await u.ExecuteNonQueryAsync(); }
         await using var p = db.Data.CreateCommand("insert into drift_profile (user_id, car_id, colour, nick) values ($1, 0, $2, $3)");
         p.Parameters.AddWithValue(id); p.Parameters.AddWithValue((short)colour); p.Parameters.AddWithValue((object?)nick ?? DBNull.Value); await p.ExecuteNonQueryAsync();
+    }
+
+    [Fact]
+    public async Task The_attack_board_keeps_the_points_of_the_best_whole_run_and_orders_it_downwards()
+    {
+        await using var db = await TestDb.CreateAsync();
+        await using var app = new TestApp(db);
+        await app.SignedInAsync(app.Http());                                  // runs the migrations
+        var store = new RaceStore(db.Data);
+        var a = Guid.NewGuid(); var b = Guid.NewGuid();
+        await Person(db, a, "a"); await Person(db, b, "b");
+        Assert.True(await store.RecordAsync(a, 0, RaceStore.Attack, 4000, 1));
+        Assert.False(await store.RecordAsync(a, 0, RaceStore.Attack, 3000, 1));     // a worse run changes nothing
+        Assert.True(await store.RecordAsync(a, 0, RaceStore.Attack, 6000, 1));
+        Assert.True(await store.RecordAsync(b, 0, RaceStore.Attack, 5000, 1));
+        var top = await store.TopAsync(0, RaceStore.Attack, 10, null, 0, CancellationToken.None);
+        Assert.Equal([6000, 5000], top.Select(r => r.Ms));                          // the higher points first
     }
 
     [Fact]

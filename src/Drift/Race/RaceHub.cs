@@ -327,13 +327,14 @@ public sealed class RaceHub
     async Task Finish(List<Runner> order, RaceRun finishedRun)
     {
         // the best times, in the database (outside the lock); then the result goes out
-        var flags = new Dictionary<Guid, (bool Lap, bool Race, bool Drift)>();
+        var flags = new Dictionary<Guid, (bool Lap, bool Race, bool Drift, bool Attack)>();
         foreach (var r in order)
         {
-            bool lap = false, race = false, drift = false;
+            bool lap = false, race = false, drift = false, attack = false;
             try
             {
                 var bestDrift = Math.Max(r.Drift.Best, r.Drift.Pending);   // the chain still running at the end counts
+                if (r.Finished && r.CleanLaps && !r.Guest && !r.Creative && r.Drift.Total >= 1) attack = await store.RecordAsync(r.Person, track.MapId, RaceStore.Attack, (int)r.Drift.Total, r.Car, r.Feel);   // a whole run's points (a clean, finished run)
                 if (r.CleanLaps && !r.Guest && !r.Creative && bestDrift >= 1) drift = await store.RecordAsync(r.Person, track.MapId, RaceStore.Drift, (int)bestDrift, r.Car, r.Feel);
                 if (r.Finished && r.CleanLaps && !r.Guest && !r.Creative)   // a guest's time is shown in the result, never stored
                 {
@@ -345,7 +346,7 @@ public sealed class RaceHub
             // the counters: a finished race counts for a person (not for a guest); a win needs somebody to beat, a podium three racers
             try { if (r.Finished && !r.Guest && !r.Creative && stats is not null) { var pos = order.IndexOf(r) + 1; await stats.RaceDoneAsync(r.Person, pos == 1 && order.Count >= 2, pos <= 3 && order.Count >= 3); } }
             catch (Exception) { /* the result must still reach the racers */ }
-            flags[r.Person] = (lap, race, drift);
+            flags[r.Person] = (lap, race, drift, attack);
         }
         lock (gate)
         {
@@ -357,7 +358,7 @@ public sealed class RaceHub
                 drift = (int)r.Drift.Total, bestDrift = (int)Math.Max(r.Drift.Best, r.Drift.Pending), newDrift = flags[r.Person].Drift,
                 points = Math.Round((r.Finished && i < PositionPoints.Length ? PositionPoints[i] : 0) + r.Drift.Total / 100, 1),
                 dnf = r.Dnf, clean = r.CleanLaps, tuned = r.Tuned, creative = r.Creative,
-                newLap = flags[r.Person].Lap, newRace = flags[r.Person].Race,
+                newLap = flags[r.Person].Lap, newRace = flags[r.Person].Race, newAttack = flags[r.Person].Attack,
             }).ToArray();
             Broadcast(new { t = "result", rows, laps = finishedRun.Laps });
             phase = Phase.Result; phaseStart = Now; resulting = false;

@@ -36,12 +36,12 @@ const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
-    online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', tunedMark: 'tuned', paint: 'Paint', privateSession: 'Private session', run: 'Run finished', sumTime: 'Time', sumPoints: 'Points', sumClips: 'Clipping points', sumBest: 'Best drift', clip: 'CLIP', zone: 'Zone', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
+    online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', tunedMark: 'tuned', paint: 'Paint', modeDrift: 'Drift attack', modeTime: 'Time attack', again: 'Again', board: 'Best runs', privateSession: 'Private session', run: 'Run finished', sumTime: 'Time', sumPoints: 'Points', sumClips: 'Clipping points', sumBest: 'Best drift', clip: 'CLIP', zone: 'Zone', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
     keysSoft: 'Keyboard: soft (gas and steering build up)', keysDirect: 'Keyboard: direct (all or nothing)', leverOn: 'Mouse throttle lever on (L): wheel or drag up and down; the brake resets it', leverOff: 'Mouse throttle lever off (L)', volume: 'Volume', quality: 'Graphics', camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', creativeOn: 'Creative mode on (K): no scores count, no damage', creativeOff: 'Creative mode off (K)', creativeBanner: 'CREATIVE: scores do not count', creativeChip: 'Creative', damageLabel: 'Damage', damageOn: 'Damage on (V)', damageOff: 'Damage off (V)', soundOn: 'Sound on (M)', soundOff: 'Sound off (M)', musicOff: 'Music: off (placeholder)', musicOn: 'Music: on (placeholder, no music yet)', chLap: 'Set a clean lap in a race or time trial', chDone: 'Challenge finished', chConfirmed: 'confirmed', chFailed: 'ended by a hit', chTitle: 'Challenge',
     feelArcade: 'Arcade', feelPro: 'Pro (fewer aids)', feelKey: 'Feel of driving (X)', tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
-    online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', tunedMark: 'getunt', paint: 'Lack', privateSession: 'Private Runde', run: 'Lauf beendet', sumTime: 'Zeit', sumPoints: 'Punkte', sumClips: 'Clipping-Punkte', sumBest: 'Bester Drift', clip: 'CLIP', zone: 'Zone', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
+    online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', tunedMark: 'getunt', paint: 'Lack', modeDrift: 'Drift-Attacke', modeTime: 'Zeitjagd', again: 'Nochmal', board: 'Beste Läufe', privateSession: 'Private Runde', run: 'Lauf beendet', sumTime: 'Zeit', sumPoints: 'Punkte', sumClips: 'Clipping-Punkte', sumBest: 'Bester Drift', clip: 'CLIP', zone: 'Zone', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
     keysSoft: 'Tastatur: weich (Gas und Lenken bauen sich auf)', keysDirect: 'Tastatur: direkt (alles oder nichts)', leverOn: 'Maus-Gashebel an (L): Rad oder Ziehen nach oben und unten; die Bremse setzt ihn zur\u00fcck', leverOff: 'Maus-Gashebel aus (L)', volume: 'Lautstärke', quality: 'Grafik', camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', creativeOn: 'Kreativ-Modus an (K): keine Wertung, kein Schaden', creativeOff: 'Kreativ-Modus aus (K)', creativeBanner: 'KREATIV: nichts davon z\u00e4hlt', creativeChip: 'Kreativ', damageLabel: 'Schaden', damageOn: 'Schaden an (V)', damageOff: 'Schaden aus (V)', soundOn: 'Ton an (M)', soundOff: 'Ton aus (M)', musicOff: 'Musik: aus (Platzhalter)', musicOn: 'Musik: an (Platzhalter, noch keine Musik)', chLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde', chDone: 'Herausforderung beendet', chConfirmed: 'bestätigt', chFailed: 'durch einen Treffer beendet', chTitle: 'Herausforderung',
     feelArcade: 'Arcade', feelPro: 'Pro (weniger Hilfen)', feelKey: 'Fahrgef\u00fchl (X)', tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
@@ -136,7 +136,10 @@ let onlineCount = 0, meName = '', ownHueIdx = -1, bestDrift = 0, bestLap = 0, la
 const raceInfo = { lap: 1, laps: 1, ms: 0, pos: 1, of: 1 };   // what the server says in a race (the HUD's cards)
 // races, time trials, invitations and challenges are paused (docs/FOCUS.md): the code stays, the UI is hidden unless the address has ?races=1
 const isPrivate = online && (params.has('world') || document.documentElement.dataset.guest === '1');   // a private world (a guest link): the HUD says so
-const raceMode = online && document.documentElement.dataset.race === '1' && params.get('races') === '1';   // the signed-in app: races (the public demo has none)
+// the modes (Drift attack, Time attack) run as a race of one on the server (a descent: from the grid to the last gate); the race bar of the old races stays hidden unless ?races=1
+const raceMode = online && document.documentElement.dataset.race === '1' && params.get('open') !== '1';
+if (params.get('races') === '1') document.body.classList.add('races');
+let runMode = null, pendingMode = null;   // 'drift' | 'time' | null: the mode of the run that is on or about to start   // the signed-in app: races (the public demo has none)
 const lobbyUrl = params.get('ws') || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?car=${carIndex}${glowHue !== null ? '&glow=' + glowHue : ''}`;
 const fmt = (ms) => { const t = Math.max(0, Math.round(ms)); return `${Math.floor(t / 60000)}:${String(Math.floor(t / 1000) % 60).padStart(2, '0')}.${String(Math.floor((t % 1000) / 10)).padStart(2, '0')}`; };
 const show = (id, on) => { const el = $(id); if (el) el.hidden = !on; };
@@ -209,7 +212,7 @@ function openNet(url, inRace) {
     },
     onFix(f) { cur = prev = { ...cur, x: f.x, z: f.z, h: f.h, vx: 0, vz: 0, w: 0 }; },
     onBye(reason) { if (n === net && !racing) { droppedBtn.textContent = reason === 5 ? T.full : T.dropped; droppedBtn.hidden = false; } },
-    onState(st) { if (st === 'open' && !inRace) { n.sendJson({ t: 'feel', v: feel }); if (creative) n.sendJson({ t: 'mode', v: 'creative' }); if (chStarted && chRun && !chRun.done) n.sendJson({ t: 'challenge.start', id: chDef.id }); } if (st === 'closed' && n === net && !racing) { $('online-n').textContent = onlineCount = 0; meName = ''; spawned = false; } },
+    onState(st) { if (st === 'open' && !inRace && pendingMode) { const m = pendingMode; pendingMode = null; setTimeout(() => startMode(m), 800); } if (st === 'open' && !inRace) { n.sendJson({ t: 'feel', v: feel }); if (creative) n.sendJson({ t: 'mode', v: 'creative' }); if (chStarted && chRun && !chRun.done) n.sendJson({ t: 'challenge.start', id: chDef.id }); } if (st === 'closed' && n === net && !racing) { $('online-n').textContent = onlineCount = 0; meName = ''; spawned = false; } },
     onJson: (j) => (inRace ? raceMessage(j) : lobbyMessage(j)),
   });
   n.connect();
@@ -287,7 +290,38 @@ function raceMessage(j) {
   else if (j.t === 'result') showResult(j);
   else if (j.t === 'back') endRace();
 }
+/** Starts a mode on the touge: a run of one on the server (the same machinery as a race: grid, countdown, gates, the result and the boards). */
+function startMode(kind) {
+  if (!raceMode || racing || !net || !net.connected) return;
+  runMode = kind;
+  net.sendJson({ t: 'race.start', map: 0, laps: 1, solo: true });
+}
+/** The result of a mode: the numbers of the run and the board of this mode (best run times, or the points of a whole run). */
+async function showModeResult(j, kind = runMode) {
+  const me = net?.roster.get(net.me?.id)?.name, mine = j.rows.find((r) => r.name === me) ?? j.rows[0];
+  const time = kind === 'time';
+  $('res-title').textContent = time ? T.modeTime : T.modeDrift;
+  $('res-table').hidden = true;
+  let box = $('res-mode'); if (!box) { box = Object.assign(document.createElement('div'), { id: 'res-mode' }); $('res-table').after(box); }
+  const row = (k, v, cls) => { const r = document.createElement('div'); r.className = cls ?? ''; const a = document.createElement('span'), b = document.createElement('b'); a.textContent = k; b.textContent = v; r.append(a, b); return r; };
+  const nf = (n) => Number(n).toLocaleString(de ? 'de-DE' : 'en-GB');
+  const isNew = time ? mine.newLap || mine.newRace : mine.newAttack;
+  box.replaceChildren(row(T.sumTime, mine.ms == null ? T.dnf : fmt(mine.ms), time ? 'main' : ''), row(T.sumPoints, nf(mine.drift), time ? '' : 'main'), row(T.sumBest, nf(mine.bestDrift)));
+  if (isNew) box.append(Object.assign(document.createElement('p'), { className: 'new-best', textContent: T.newBest }));
+  show('count', false); show('racehud', false); show('result', true);
+  try {   // the board of this mode: the five best, and your line
+    const b = await fetch(document.documentElement.dataset.guest === '1' ? '/api/guest/times?map=0' : '/api/times?map=0').then((r) => r.json());
+    const one = time ? b.lap : b.attack, list = Object.assign(document.createElement('ol'), { className: 'board' });
+    for (const [i, r] of (one?.top ?? []).slice(0, 5).entries()) { const li = document.createElement('li'); if (r.mine) li.className = 'mine'; li.textContent = `${i + 1}. ${r.name} \u00b7 ${time ? fmt(r.value) : nf(r.value)}`; list.append(li); }
+    if (one?.mine && !(one.top ?? []).slice(0, 5).some((r) => r.mine)) { const li = Object.assign(document.createElement('li'), { className: 'mine', textContent: `${one.mine.place}. ${T.you.replace(/ ?$/, '')} \u00b7 ${time ? fmt(one.mine.value) : nf(one.mine.value)}` }); list.append(li); }
+    if (list.children.length) box.append(Object.assign(document.createElement('h4'), { textContent: T.board }), list);
+  } catch { /* no board: the numbers above are the result */ }
+  let again = $('res-again'); if (!again) { again = Object.assign(document.createElement('button'), { id: 'res-again', type: 'button' }); $('res-back').before(again); again.addEventListener('click', () => { pendingMode = runMode; endRace(); }); }
+  again.textContent = T.again; again.hidden = false;
+}
 function showResult(j) {
+  if (runMode) { showModeResult(j); return; }
+  $('res-table').hidden = false; if ($('res-again')) $('res-again').hidden = true; if ($('res-mode')) $('res-mode').replaceChildren();
   $('res-title').textContent = T.result;
   const body = $('res-table').querySelector('tbody');
   body.replaceChildren();
@@ -302,6 +336,7 @@ function showResult(j) {
 }
 function endRace() {
   if (!racing) return;
+  if (!pendingMode) runMode = null;
   racing = false; locked = false;
   net.close(); remotes.clear();
   show('result', false); show('racehud', false); show('count', false);
@@ -317,6 +352,8 @@ if (online) {
   $('dropped').addEventListener('click', () => { $('dropped').hidden = true; net.connect(); });
   if (raceMode) {
     show('racebar', true);
+    for (const [kind, label] of [['drift', T.modeDrift], ['time', T.modeTime]]) { const b = Object.assign(document.createElement('button'), { id: 'mode-' + kind, type: 'button', textContent: label, title: label }); b.addEventListener('click', () => startMode(kind)); chips.append(b); }
+    if (['drift', 'time'].includes(params.get('mode'))) pendingMode = params.get('mode');   // ?mode=drift|time starts that mode as soon as the lobby socket is open
     mapList ??= (await fetch('data/maps.json').then((r) => r.json())).maps;
     const sel = $('mapSel');
     for (const m of mapList) sel.append(Object.assign(document.createElement('option'), { value: m.id, textContent: m.name }));
@@ -518,7 +555,7 @@ function simStep(i) {
       if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + stage.field.groundY(cur.x, cur.z), wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
     }
   }
-  if (map.kind === 'descent' && !locked) {
+  if (map.kind === 'descent' && !locked && !racing) {
     const g0 = map.gates[0], end = map.centre.at(-1);
     if (dRunStart < 0 && Math.hypot(cur.x - (g0.a[0] + g0.b[0]) / 2, cur.z - (g0.a[1] + g0.b[1]) / 2) < 10 && speedOf(cur) > 2) dRunStart = simSteps;
     if (dRunStart >= 0 && !runDone && Math.hypot(cur.x - end[0], cur.z - end[1]) < 14) { runDone = simSteps; showSummary({ ms: (simSteps - dRunStart) * DT * 1000, points: Math.round(score.banked + score.pending), clips: zones ? zones.paid.filter(Boolean).length : 0, of: map.clips?.length ?? 0, best: Math.round(Math.max(bestDrift, score.pending)) }); setTimeout(() => { if (runDone) reset(); }, 6000); }
@@ -691,5 +728,5 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
-window.__drift = { showSummary, get carGroup() { return carGroup; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; } };
+window.__drift = { showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return carGroup; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; } };
 requestAnimationFrame(frame);

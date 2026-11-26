@@ -30,6 +30,8 @@ public sealed class RaceTrack
     public string Name { get; }
     /// <summary>The place where people are put back on the lobby map (`lobbySpawn`), if the map has one.</summary>
     public (double X, double Z)? Spawn { get; init; }
+    /// <summary>A descent (the map says `closed: false`, the touge): not a loop, a run from the grid to the last gate; the lap is done when the last gate is crossed.</summary>
+    public bool Open { get; init; }
     /// <summary>Length of the way from the centre of gate i to the next one.</summary>
     public IReadOnlyList<double> Legs { get; }
 
@@ -55,6 +57,7 @@ public sealed class RaceTrack
         {
             HalfX = b.Max(p => Math.Abs(p.X)) + 3, HalfZ = b.Max(p => Math.Abs(p.Z)) + 3,
             Segments = Segs(r),
+            Open = r.TryGetProperty("closed", out var cl) && cl.ValueKind == JsonValueKind.False,
             Spawn = r.TryGetProperty("lobbySpawn", out var sp) && sp.ValueKind == JsonValueKind.Object ? (N(sp.GetProperty("x")), N(sp.GetProperty("z"))) : null,
             Obstacles = r.TryGetProperty("obstacles", out var ob) ? [.. ob.EnumerateArray().Select(o => (N(o.GetProperty("x")), N(o.GetProperty("z")), N(o.GetProperty("r"))))] : [],
         };

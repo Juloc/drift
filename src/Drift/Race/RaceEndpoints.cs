@@ -59,7 +59,7 @@ public static class RaceEndpoints
             return Results.Ok(new
             {
                 map = track.Name, mapId = track.MapId, feel = fl, laps = track.Laps, maps = tracks.Values.OrderBy(x => x.MapId).Select(x => new { id = x.MapId, name = x.Name }),
-                lap = await One(RaceStore.Lap), race = await One(RaceStore.Race), drift = await One(RaceStore.Drift), tandem = await One(RaceStore.Tandem), tandemRun = await One(RaceStore.TandemRun),
+                lap = await One(RaceStore.Lap), race = await One(RaceStore.Race), drift = await One(RaceStore.Drift), tandem = await One(RaceStore.Tandem), tandemRun = await One(RaceStore.TandemRun), attack = await One(RaceStore.Attack),
             });
         }
         app.MapGet("/api/times", Board);

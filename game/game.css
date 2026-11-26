@@ -39,9 +39,10 @@ body.touch #chips > #feel { width: auto; }
 #back { background: var(--glass) !important; color: var(--white) !important; border-color: var(--glass-edge) !important; backdrop-filter: var(--blur); }
 #fs { background: var(--glass); color: var(--white); border-color: var(--glass-edge); }
 .tag { background: var(--glass); color: var(--white); border: 1px solid var(--glass-edge); font-family: var(--font); }
-#dropped, #note, #result { font-family: var(--font); }
+#dropped, #note, body #result { font-family: var(--font); }
 #note { background: oklch(0.28 0.04 330 / 0.88); bottom: 150px; }
-#result { background: oklch(0.28 0.04 330 / 0.92); color: var(--white); border: 1px solid var(--glass-edge); backdrop-filter: var(--blur); }
+body #result { background: oklch(0.28 0.04 330 / 0.92); color: var(--white); border: 1px solid var(--glass-edge); backdrop-filter: var(--blur); }
+body #result td { color: var(--white); }
 #count { color: #fff; text-shadow: 0 4px 0 oklch(0.3 0.08 330 / 0.6), 0 0 30px oklch(0.68 0.2 var(--accent-hue) / 0.5); font-family: var(--font); }
 #credits-link { color: var(--white); }
 #debug { top: 8px; left: auto; right: 8px; }
@@ -74,3 +75,16 @@ body.touch #summary { font-size: 13px; min-width: 200px; padding: 8px 16px; top:
 body.touch #summary h3 { font-size: 16px; }
 #back { top: 240px !important; bottom: auto !important; width: 40px; height: 40px; font-size: 18px; }
 #chips > #paint { border-radius: 50%; border: 2px solid #fff; }
+#racebar { display: none; }
+body.races #racebar:not([hidden]) { display: flex; }
+#hud #racebar { display: none; }
+body.races #hud #racebar:not([hidden]) { display: flex; }
+#chips > #mode-drift, #chips > #mode-time { width: auto; padding: 0 10px !important; font-size: 11px; }
+#res-mode { display: grid; gap: 6px; margin: 0 0 12px; font: 600 16px var(--font); }
+#res-mode > div { display: flex; justify-content: space-between; gap: 24px; }
+#res-mode > div.main b { font-size: 26px; color: var(--accent); }
+#res-mode .new-best { margin: 2px 0; color: oklch(0.86 0.16 85); font-weight: 800; }
+#res-mode h4 { margin: 8px 0 2px; font-size: 13px; opacity: 0.8; }
+#res-mode .board { margin: 0; padding-left: 22px; font-size: 14px; }
+#res-mode .board .mine { color: var(--accent); font-weight: 800; }
+#res-again { min-height: 44px; margin-right: 8px; padding: 0 16px; border: 1px solid var(--glass-edge); border-radius: 14px; background: var(--accent); color: #fff; font: 700 14px var(--font); }
