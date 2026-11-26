@@ -180,8 +180,10 @@ const treadTexture = () => {
  * Tyres with a tread: the faces of the tyre's palette field come out of each wheel into their own mesh, get UVs (u round the axle,
  * v across the tyre; no seam: each triangle's u is kept together) and a matt rubber with the tread as a normal map.
  */
-export function treadTyres(group, uvAt, colour = 0x1b1b1d) {
-  const mat = new THREE.MeshStandardMaterial({ name: 'fx_tyre', color: colour, roughness: 0.9, metalness: 0, normalMap: treadTexture(), normalScale: new THREE.Vector2(1.6, 1.6) });
+export function treadTyres(group, uvAt, colour = 0x2e2f34) {
+  // dark grey rubber (not black: black has no shape in the dusk), matt, shaded by vertex colours: the sidewall darkest at the rim, lighter at the shoulder with a thin lighter ring
+  // where the lettering would be, the tread a little darker; the tread's normal map as before
+  const mat = new THREE.MeshStandardMaterial({ name: 'fx_tyre', color: colour, roughness: 0.92, metalness: 0, vertexColors: true, normalMap: treadTexture(), normalScale: new THREE.Vector2(1.6, 1.6) });
   let n = 0;
   splitPalette(group, uvAt, mat, 0.06, { all: true, only: /^wheel_.._own$/ });
   group.traverse((o) => {
@@ -194,6 +196,19 @@ export function treadTyres(group, uvAt, colour = 0x1b1b1d) {
       const lo = Math.min(...us); for (let k = 0; k < 3; k++) { if (us[k] - lo > 0.5) us[k] -= 1; uv[(t + k) * 2] = us[k]; uv[(t + k) * 2 + 1] = (p.getX(t + k) - xmin) / Math.max(1e-6, xmax - xmin); }
     }
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    // the shade of each vertex (the axle is x: a side face has its normal along x, its radius is hypot(y, z))
+    let rmin = Infinity, rmax = 0; for (let i = 0; i < p.count; i++) { const r = Math.hypot(p.getY(i), p.getZ(i)); rmin = Math.min(rmin, r); rmax = Math.max(rmax, r); }
+    const col = new Float32Array(p.count * 3), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), nrm = new THREE.Vector3(), sm = (t) => t * t * (3 - 2 * t);
+    for (let t = 0; t < p.count; t += 3) {
+      a.fromBufferAttribute(p, t); b.fromBufferAttribute(p, t + 1); c.fromBufferAttribute(p, t + 2); nrm.crossVectors(b.sub(a), c.sub(a)).normalize();
+      const side = Math.abs(nrm.x) > 0.6;
+      for (let k = 0; k < 3; k++) {
+        let v = 0.78;   // the tread
+        if (side) { const r = (Math.hypot(p.getY(t + k), p.getZ(t + k)) - rmin) / Math.max(1e-6, rmax - rmin); v = 0.5 + 0.5 * sm(Math.min(1, r)) + 0.16 * Math.exp(-(((r - 0.7) / 0.07) ** 2)); }
+        col.set([v, v, v], (t + k) * 3);
+      }
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     o.geometry = g; n++;
   });
   return n;
@@ -214,6 +229,35 @@ export function mergeInto(into, from) {
   into.geometry = g;
   from.parent?.remove(from);
   return true;
+}
+
+/**
+ * Depth for the rims: every rim vertex is shaded by how far in it lies (the car's x, nearer its middle = deeper = darker: the dark dish between the spokes) and by its radius
+ * (the outer lip lighter, the light edge of the rim), so the spokes stand in front of a dark inside. The material's colour is the light metal; vertex colours darken it.
+ */
+export function shadeRims(group, mat) {
+  group.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(group.matrixWorld).invert(), v = new THREE.Vector3(), cen = new THREE.Vector3();
+  group.traverse((o) => {
+    if (!o.isMesh || o.material !== mat) return;
+    const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry, p = g.attributes.position, m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+    // the wheel's middle in the car's axes (the centre of the mesh's bounding box), the axle direction x, the radius in y and z
+    g.computeBoundingBox(); cen.copy(g.boundingBox.getCenter(new THREE.Vector3())).applyMatrix4(m);
+    const out = Math.sign(cen.x) || 1, depth = [], rad = []; let dmin = Infinity, dmax = -Infinity, rmax = 0;
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i).applyMatrix4(m);
+      const d = (v.x - cen.x) * out, r = Math.hypot(v.y - cen.y, v.z - cen.z);   // d: how far outward of the rim's middle plane
+      depth.push(d); rad.push(r); dmin = Math.min(dmin, d); dmax = Math.max(dmax, d); rmax = Math.max(rmax, r);
+    }
+    const col = new Float32Array(p.count * 3), sm = (t) => t * t * (3 - 2 * t);
+    for (let i = 0; i < p.count; i++) {
+      const t = (depth[i] - dmin) / Math.max(1e-6, dmax - dmin), r = rad[i] / Math.max(1e-6, rmax);
+      const k = 0.22 + 0.5 * sm(t) + 0.3 * sm(Math.max(0, (r - 0.82) / 0.18));   // inside dark, the front of the spokes lighter, the outer lip lightest
+      col.set([k, k, k * 1.03], i * 3);
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3)); o.geometry = g;
+  });
+  mat.vertexColors = true; mat.needsUpdate = true;
 }
 
 /**
@@ -254,8 +298,9 @@ export function dressCar(group, spec = {}, { lite = false } = {}) {
   if (spec.rimUv && !lite) {
     let env = null; group.traverse((o) => { if (o.isMesh && !env) env = o.material?.envMap ?? null; });
     const r = spec.rim ?? {};
-    const rim = new THREE.MeshStandardMaterial({ name: 'fx_rim', color: new THREE.Color().setRGB(...(r.color ?? [0.16, 0.165, 0.175])), metalness: r.metal ?? 0.55, roughness: r.rough ?? 0.35, envMap: env, envMapIntensity: r.env ?? 0.7 });
+    const rim = new THREE.MeshStandardMaterial({ name: 'fx_rim', color: new THREE.Color().setRGB(...(r.color ?? [0.7, 0.72, 0.76])), metalness: r.metal ?? 0.55, roughness: r.rough ?? 0.35, envMap: env, envMapIntensity: r.env ?? 0.7 });
     splitPalette(group, spec.rimUv, rim, 0.06, { all: true, only: /^wheel_.._own$/ });
+    shadeRims(group, rim);
   }
   // parts of the model's own dark trim that are body panels (the AE86's bonnet): they take the garage paint like the rest of the body
   const paintMesh = group.getObjectByName('body_paint');
@@ -358,6 +403,9 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     };
     o.material = Array.isArray(o.material) ? o.material.map(own) : own(o.material);
   });
+  // the wheels' pivots, for the squat (`side` +1 = left = +x, as the model's axes: older files name their sides the wrong way round, so the sign comes from the place)
+  const wheelNodes = ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr'].map((n) => car.group.getObjectByName(n + '_pivot') ?? car.group.getObjectByName(n)).filter(Boolean)
+    .map((node) => ({ node, front: node.position.z > 0, side: Math.sign(node.position.x) || 1 }));
   // flames: two crossed planes along the pipe (backwards), plus a round flash at the tip; a point light on the high tier
   const tips = (spec.exhaust ?? [[0.4, 0.3, box.min.z + 0.08]]).map((p) => new THREE.Vector3(...p));
   const flameMat = new THREE.MeshBasicMaterial({ name: 'fx_flame', map: flameTexture(), color: new THREE.Color(1, 1, 1).multiplyScalar(2.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
@@ -448,6 +496,12 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     },
     update(dt, s) {
       const braking = s.brake > 0.1;
+      // the tyres squat a little under load: braking and the outer wheels of a bend (s.dive, s.lean: the body's own dive and lean from the pose; the tyre loses up to 4 %
+      // of its height and bulges a little along the road). The wheel pivots carry it, so the phone's instanced wheels follow it too.
+      if (s.dive !== undefined) for (const w of wheelNodes) {
+        const load = Math.max(0, w.front ? s.dive / 0.05 : -s.dive / 0.05) * 0.45 + Math.max(0, -w.side * (s.lean ?? 0) / 0.08);
+        const k = 0.045 * Math.min(1, load); w.node.scale.set(1, 1 - k, 1 + k * 0.5);
+      }
       for (const mat of brakeMats.values()) mat.emissiveIntensity = mat.userData.base * (braking ? mat.userData.boost : 1);
       rearOpacity = braking ? 1 : 0.55; haloK = s.post ? 0.5 : 1;
       for (const h of halos) if (h.userData.rear) h.scale.setScalar(h.userData.base * (braking ? 1.6 : 1));   // braking: the glow jumps in size and strength

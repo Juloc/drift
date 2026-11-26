@@ -6,9 +6,23 @@
 import { MusicPlayer } from './music.js';
 import { ENGINES, revs, firing, engineGain, squeal, turboWhistle, nearest } from '../sim/engine.js';
 import { loopRpms, renderLoop, loopWeights, layerLevels, limiterDepth } from '../sim/enginesynth.js';
-import { tyreLayers } from '../sim/tyresound.js';
+import { tyreLayers, surfaceMix, looseLevel } from '../sim/tyresound.js';
 
 export const MAX_OTHERS = 4;
+
+/** Loose stuff under the tyres (gravel, grass, snow): sparse clicks of random strength, each a few milliseconds of decaying noise; two seconds, looped (one per context). */
+const crunchCache = new WeakMap();
+function crunchBuffer(ctx) {
+  if (crunchCache.has(ctx)) return crunchCache.get(ctx);
+  const sr = ctx.sampleRate, n = Math.round(sr * 2), buf = ctx.createBuffer(1, n, sr), d = buf.getChannelData(0);
+  let seed = 7; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  for (let at = 0; at < n; at += Math.max(1, Math.round(sr / (90 + 260 * rnd())))) {   // 90 to 350 clicks a second
+    const amp = 0.25 + 0.75 * rnd() ** 2, len = Math.round(sr * (0.002 + 0.004 * rnd()));
+    for (let i = 0; i < len && at + i < n; i++) d[at + i] += amp * (rnd() * 2 - 1) * Math.exp(-(i / len) * 4);
+  }
+  crunchCache.set(ctx, buf);
+  return buf;
+}
 
 class Voice {
   constructor(ctx, out, noise) {
@@ -38,35 +52,61 @@ class Voice {
     this.wobble.connect(this.wobbleDepth); this.wobbleDepth.connect(this.squealA.fl.frequency); this.wobble.start();
     this.tyreFilter = this.squealA.fl;   // (the name the first tests used)
     this.tyre.start();
+    // loose stuff (gravel, grass, snow): clicks through a band-pass, only on those grounds
+    this.crunchSrc = ctx.createBufferSource(); this.crunchSrc.buffer = crunchBuffer(ctx); this.crunchSrc.loop = true;
+    const lf = ctx.createBiquadFilter(); lf.type = 'bandpass'; lf.frequency.value = 1500; lf.Q.value = 0.8; this.crunchG = ctx.createGain(); this.crunchG.gain.value = 0;
+    this.crunchSrc.connect(lf); lf.connect(this.crunchG); this.crunchG.connect(this.tyreGain); this.crunchSrc.start();
+    this.sq = null; this.sqPrev = 0;   // the recorded squeal (useSqueal), for your own car
     // the turbo's whistle
     this.whistle = ctx.createOscillator(); this.whistle.type = 'sine'; this.whistle.frequency.value = 2600;
     this.whistleGain = ctx.createGain(); this.whistleGain.gain.value = 0;
     this.whistle.connect(this.whistleGain); this.whistleGain.connect(this.gain); this.whistle.start();
     this.car = -1; this.active = false;
   }
+  /**
+   * A recorded squeal loop (assets/sound/squeal.ogg, tools/sound/work.js): it plays over the made one, faster for a higher pitch; at the start of a squeal a short chirp
+   * (the pitch glides down from a third higher, the level overshoots), then it holds, and at the end it sags in pitch while it fades.
+   */
+  useSqueal(buf, baseHz) {
+    if (this.sq || !buf) return;
+    const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const g = this.ctx.createGain(); g.gain.value = 0; src.connect(g); g.connect(this.tyreGain); src.start();
+    this.sq = { src, g, baseHz };
+  }
   setEngine(car) { this.eng = ENGINES[car] ?? ENGINES[0]; this.car = car; this.gear = 1; this.filter.frequency.value = this.eng.tone; this.bGain.gain.value = this.eng.sub; }
   /** Sets the voice for a car: speed (m/s), throttle 0..1, the slide 0..1, the car's top speed; `level` scales everything (the distance), `pan` is -1..1. */
-  set({ speed, throttle, slide, top }, level, pan, now) {
+  set({ speed, throttle, slide, top, surface }, level, pan, now) {
     const t = this.ctx.currentTime, eng = this.eng;
     const r = revs(speed, top, eng, this.gear); this.gear = r.gear;
     const f = Math.min(900, Math.max(20, firing(r.rpm, eng)));
     this.a.frequency.setTargetAtTime(f, t, 0.04); this.b.frequency.setTargetAtTime(f / 2, t, 0.04);
     this.filter.frequency.setTargetAtTime(eng.tone + 2200 * throttle + 1200 * ((r.rpm - eng.idle) / (eng.max - eng.idle)), t, 0.06);
     this.gain.gain.setTargetAtTime(engineGain(throttle, r.rpm, eng) * level * 0.3, t, 0.05);
-    const ty = tyreLayers(slide, speed, throttle);
+    const ty = tyreLayers(slide, speed, throttle), mix = surfaceMix(surface);
     this.tyreGain.gain.setTargetAtTime(level * 0.35, t, 0.05);
-    this.roll.g.gain.setTargetAtTime(ty.roll, t, 0.08); this.roll.fl.frequency.setTargetAtTime(ty.rollF, t, 0.08);
-    this.hiss.g.gain.setTargetAtTime(ty.hiss, t, 0.18);   // in and out softly
-    this.squealA.g.gain.setTargetAtTime(ty.squeal * 2.2, t, 0.04); this.squealA.fl.frequency.setTargetAtTime(ty.squealF, t, 0.06);   // (a narrow band lets little through: louder)
-    this.squealB.g.gain.setTargetAtTime(ty.squeal * 1.1, t, 0.04); this.squealB.fl.frequency.setTargetAtTime(ty.squealF * 1.52, t, 0.06);
+    this.roll.g.gain.setTargetAtTime(ty.roll * mix.roll, t, 0.08); this.roll.fl.frequency.setTargetAtTime(ty.rollF * (mix.roll > 1.5 ? 0.8 : 1), t, 0.08);
+    this.hiss.g.gain.setTargetAtTime(ty.hiss * mix.hiss, t, 0.18);   // in and out softly
+    const synthK = this.sq ? 0.3 : 1;   // with the recorded squeal the made one only adds body
+    this.squealA.g.gain.setTargetAtTime(ty.squeal * 2.2 * mix.squeal * synthK, t, 0.04); this.squealA.fl.frequency.setTargetAtTime(ty.squealF, t, 0.06);   // (a narrow band lets little through: louder)
+    this.squealB.g.gain.setTargetAtTime(ty.squeal * 1.1 * mix.squeal * synthK, t, 0.04); this.squealB.fl.frequency.setTargetAtTime(ty.squealF * 1.52, t, 0.06);
     this.wobbleDepth.gain.setTargetAtTime(ty.squealF * 0.025, t, 0.1);
-    this.scrub.g.gain.setTargetAtTime(ty.scrub, t, 0.05); this.scrub.fl.frequency.setTargetAtTime(ty.scrubF, t, 0.08);
+    this.scrub.g.gain.setTargetAtTime(ty.scrub * mix.scrub, t, 0.05); this.scrub.fl.frequency.setTargetAtTime(ty.scrubF, t, 0.08);
+    this.crunchG.gain.setTargetAtTime(looseLevel(surface, speed) * 1.4, t, 0.1);
+    if (this.sq) {
+      const sqv = ty.squeal * mix.squeal, rate = Math.max(0.5, Math.min(2, ty.squealF / this.sq.baseHz)) * (0.86 + 0.14 * Math.min(1, sqv * 3)), p = this.sq;
+      p.g.gain.cancelScheduledValues?.(t); p.src.playbackRate.cancelScheduledValues?.(t);
+      if (this.sqPrev < 0.08 && sqv >= 0.08) {   // the chirp: the pitch glides down from a third above, the level overshoots and settles
+        p.src.playbackRate.setValueAtTime(rate * 1.33, t); p.src.playbackRate.exponentialRampToValueAtTime?.(rate, t + 0.16);
+        p.g.gain.setValueAtTime(sqv * 2.6, t); p.g.gain.setTargetAtTime(sqv * 1.5, t + 0.04, 0.09);
+      } else { p.src.playbackRate.setTargetAtTime(rate, t, 0.05); p.g.gain.setTargetAtTime(sqv * 1.5, t, sqv < this.sqPrev ? 0.12 : 0.04); }   // held; a slower fade-out
+      this.sqPrev = sqv;
+    }
     this.whistleGain.gain.setTargetAtTime(turboWhistle(throttle, this.prevThrottle, r.rpm, eng) * level * 0.03, t, 0.03);
     this.prevThrottle = throttle;
     if (this.pan) this.pan.pan.setTargetAtTime(pan, t, 0.1);
     this.active = true;
   }
-  silence() { const t = this.ctx.currentTime; this.gain.gain.setTargetAtTime(0, t, 0.05); this.tyreGain.gain.setTargetAtTime(0, t, 0.05); for (const l of [this.roll, this.hiss, this.squealA, this.squealB, this.scrub]) l.g.gain.setTargetAtTime(0, t, 0.05); this.whistleGain.gain.setTargetAtTime(0, t, 0.05); this.active = false; }
+  silence() { const t = this.ctx.currentTime; this.gain.gain.setTargetAtTime(0, t, 0.05); this.tyreGain.gain.setTargetAtTime(0, t, 0.05); for (const l of [this.roll, this.hiss, this.squealA, this.squealB, this.scrub]) l.g.gain.setTargetAtTime(0, t, 0.05); this.crunchG.gain.setTargetAtTime(0, t, 0.05); if (this.sq) { this.sq.g.gain.cancelScheduledValues?.(t); this.sq.g.gain.setTargetAtTime(0, t, 0.05); this.sqPrev = 0; } this.whistleGain.gain.setTargetAtTime(0, t, 0.05); this.active = false; }
 }
 
 /**
@@ -135,10 +175,11 @@ class LoopVoice extends Voice {
 
 export class SoundSystem {
   /** @param {{AudioCtx?: any, storage?: Storage|null}} o (both injected in tests) */
-  constructor({ AudioCtx = globalThis.AudioContext ?? globalThis.webkitAudioContext, storage = globalThis.localStorage ?? null, keepAllLoops = false, recorded = {}, music = null, pops = null } = {}) {
+  constructor({ AudioCtx = globalThis.AudioContext ?? globalThis.webkitAudioContext, storage = globalThis.localStorage ?? null, keepAllLoops = false, recorded = {}, music = null, pops = null, squeal = null } = {}) {
     this.AudioCtx = AudioCtx; this.storage = storage; this.keepAllLoops = keepAllLoops; this.ctx = null; this.own = null; this.others = new Map(); this.pool = [];
     this.recorded = recorded;   // car index -> the manifest of its recorded loops (assets/sound/<name>-engine.json); until they are loaded (or where they cannot be) the made loops play
     this.recordedReady = Promise.resolve();
+    this.squealUrl = squeal;   // the manifest of the recorded squeal loop (assets/sound/squeal.json); the made squeal stays when it is not there
     this.popsUrl = pops;   // the manifest of recorded exhaust pops (assets/sound/pops.json, tools/sound/work.js job pops); the made crack stays the fallback
     this.popBuffers = null;
     const get = (k, d) => { try { return storage?.getItem(k) ?? d; } catch { return d; } };
@@ -202,7 +243,17 @@ export class SoundSystem {
       } catch { /* the made loops stay */ }
     });
     await Promise.all(jobs);
-    await this.loadPops();
+    await this.loadPops(); await this.loadSqueal();
+  }
+  /** The recorded squeal loop for your own car (three copies in the file, the middle one is the loop). */
+  async loadSqueal() {
+    if (!this.squealUrl || !this.ctx?.decodeAudioData || typeof fetch !== 'function') return;
+    try {
+      const m = await (await fetch(this.squealUrl)).json(), bytes = await (await fetch(this.squealUrl.replace(/\.json$/, '.ogg'))).arrayBuffer();
+      const buf = await this.ctx.decodeAudioData(bytes), sr = buf.sampleRate, a = Math.round(m.start * sr), n = Math.round(m.seconds * sr), loop = this.ctx.createBuffer(1, n, sr);
+      loop.getChannelData(0).set(buf.getChannelData(0).subarray(a, a + n));
+      this.own?.useSqueal(loop, m.baseHz); this.recordedSqueal = true;
+    } catch { /* the made squeal stays */ }
   }
   /** The recorded exhaust pops: one Ogg file, the manifest says where each pop starts and how long it is. */
   async loadPops() {
@@ -235,12 +286,26 @@ export class SoundSystem {
     if (!this.ctx || this.muted || approach < 2 || now - (this.lastBump ?? -1e9) < 120) return;
     this.lastBump = now;
     const t = this.ctx.currentTime, level = Math.min(1, approach / 25);
+    // a dull body (low-passed noise) and a low thump under it: a sine falling from 150 to 65 Hz in a sixth of a second (a phone's speaker has nothing under about 100 Hz), stronger with the hit; a hard hit also rattles (a band of
+    // noise around 1.8 kHz, short)
     const src = this.ctx.createBufferSource(); src.buffer = this.noise;
     const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 300 + 900 * level;
-    const g = this.ctx.createGain(); g.gain.value = 0.5 * level;
+    const g = this.ctx.createGain(); g.gain.value = 0.42 * level;
     g.gain.setTargetAtTime?.(0, t + 0.02, 0.07 + 0.08 * level);   // dies away in a fraction of a second
     src.connect(f); f.connect(g); g.connect(this.master);
     src.start(); src.stop?.(t + 0.6);
+    if (this.ctx.createOscillator) {
+      const o = this.ctx.createOscillator(), og = this.ctx.createGain(); o.type = 'sine';
+      o.frequency.value = 150; o.frequency.exponentialRampToValueAtTime?.(65, t + 0.16);
+      og.gain.value = 0.55 * level; og.gain.setTargetAtTime?.(0, t + 0.03, 0.06 + 0.05 * level);
+      o.connect(og); og.connect(this.master); o.start(t); o.stop?.(t + 0.5);
+    }
+    if (approach > 9) {
+      const r = this.ctx.createBufferSource(); r.buffer = this.noise;
+      const rf = this.ctx.createBiquadFilter(); rf.type = 'bandpass'; rf.frequency.value = 1800; rf.Q.value = 1.1;
+      const rg = this.ctx.createGain(); rg.gain.value = 0.2 * level; rg.gain.setTargetAtTime?.(0, t + 0.005, 0.03);
+      r.connect(rf); rf.connect(rg); rg.connect(this.master); r.start(); r.stop?.(t + 0.3);
+    }
   }
   /** An exhaust pop (lifting off the throttle at speed, a gear change): one to three short, dry cracks, a little exaggerated, not loud (behind the limiter like everything else). */
   pop(strength = 1, now = performance.now()) {
@@ -279,7 +344,7 @@ export class SoundSystem {
   update(own, others, listener) {
     if (!this.ctx || this.muted) { if (this.ctx) { this.own.silence(); for (const v of this.pool) v.silence(); } return; }
     if (this.own.car !== own.car) this.own.setEngine(own.car);
-    this.own.set(own, 1, 0);
+    this.own.set(own, 1, 0);   // (own.surface: the ground kind under the car)
     const near = nearest(listener, others, MAX_OTHERS);
     const keep = new Set(near.map((n) => n.car.id));
     for (const [id, v] of this.others) if (!keep.has(id)) { v.silence(); v.car = -1; this.others.delete(id); }

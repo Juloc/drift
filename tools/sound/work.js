@@ -208,6 +208,27 @@ const jobs = {
     return { files: [{ path: `game/assets/sound/${name}.ogg`, b64: b64(ogg) }, { path: `game/assets/sound/${name}.json`, b64: btoa(JSON.stringify({ note: `Exhaust pops cut by tools/sound/work.js (job pops) from ${q.get('credit') ?? file}`, rate: SR, pops }, null, 1) + '\n') }, { path: `docs/sound/${name}-listen.wav`, b64: b64(wav(listen)) }],
       pops, candidates: cand.length, oggKB: Math.round(ogg.length / 1024) };
   },
+  /**
+   * A tyre squeal loop from a recording (`file`, `name`): mono, the dominant pitch measured (the game plays it faster or slower to follow the slip), the seam checked and
+   * closed with a short equal-power crossfade, levelled; stored three times in a row (the middle copy is the loop) as mono Opus; a manifest with the pitch.
+   */
+  async squeal() {
+    const file = q.get('file'), name = q.get('name') ?? 'squeal', rec = await decode('/src/' + file), d0 = mono(rec.ch), n = d0.length;
+    // the pitch: the strongest line of the average spectrum between 300 and 4000 Hz
+    const S = spectra(d0, 8192, 0.1), avg = new Float64Array(S.frames[0].length); for (const m of S.frames) for (let b = 0; b < m.length; b++) avg[b] += Math.exp(m[b]);
+    let best = 0, bb = 0; for (let b = Math.floor(300 / S.bin); b < Math.floor(4000 / S.bin); b++) { const v = avg[b - 1] + avg[b] + avg[b + 1]; if (v > best) { best = v; bb = b; } }
+    const baseHz = +(bb * S.bin).toFixed(1);
+    // the seam: a crossfade of 40 ms at the end into the start (the loop is then n - fade long)
+    const fade = Math.round(0.04 * SR), N = n - fade, loop = new Float32Array(N);
+    for (let i = 0; i < N; i++) loop[i] = d0[i];
+    for (let i = 0; i < fade; i++) { const a = (i / fade) * (Math.PI / 2); loop[i] = d0[N + i] * Math.cos(a) + d0[i] * Math.sin(a); }
+    let m = 0; for (const v of loop) m += v; m /= N; let e = 0, pk = 1e-9; for (let i = 0; i < N; i++) { loop[i] -= m; e += loop[i] * loop[i]; pk = Math.max(pk, Math.abs(loop[i])); }
+    const g = Math.min(0.2 / Math.sqrt(e / N), 0.95 / pk); for (let i = 0; i < N; i++) loop[i] *= g;
+    const all = new Float32Array(N * 3); for (let k = 0; k < 3; k++) all.set(loop, k * N);
+    const ogg = await encodeOggOpus([all], { bitrate: 40000 });
+    const json = { note: `A tyre squeal loop cut by tools/sound/work.js (job squeal) from ${q.get('credit') ?? file}; stored three times, the middle copy is the loop`, rate: SR, baseHz, start: +(N / SR).toFixed(6), seconds: +(N / SR).toFixed(6), rms: 0.2 };
+    return { files: [{ path: `game/assets/sound/${name}.ogg`, b64: b64(ogg) }, { path: `game/assets/sound/${name}.json`, b64: btoa(JSON.stringify(json, null, 1) + '\n') }], baseHz, seconds: json.seconds, oggKB: Math.round(ogg.length / 1024), sourceSeconds: +(n / SR).toFixed(2) };
+  },
   async engine() {
     const file = q.get('file'), name = q.get('name'), rec = await decode('/src/' + file), d = mono(rec.ch), S = spectra(d), track = smoothTrack(firingTrack(S));
     const targets = q.get('rpms').split(',').map(Number), loops = cutLoops(d, track, S.hop, targets);

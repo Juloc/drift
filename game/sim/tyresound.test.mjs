@@ -21,3 +21,15 @@ test('a little slip hisses, a drift squeals in 500..1500 Hz (lower at a bigger a
   assert.ok(wide.scrub > 0.5 && drift.scrub < wide.scrub);
   assert.ok(tyreLayers(0.55, 20, 1).squeal > tyreLayers(0.55, 20, 0).squeal, 'louder under load');
 });
+
+import { surfaceMix, looseLevel, SURFACE_MIX } from './tyresound.js';
+
+test('tyre sound by ground: asphalt is the reference, grass and sand do not squeal but rumble and crackle with the speed, snow swishes, nothing crackles standing still, an unknown ground is asphalt', () => {
+  assert.deepEqual(surfaceMix('asphalt'), { squeal: 1, roll: 1, hiss: 1, scrub: 1, loose: 0 });
+  assert.deepEqual(surfaceMix('lava'), surfaceMix('asphalt'));
+  for (const k of ['grass', 'sand']) { const m = surfaceMix(k); assert.ok(m.squeal < 0.1 && m.roll > 1.5 && m.scrub > 1.2 && m.loose > 0.4, k); }
+  assert.ok(surfaceMix('snow').hiss > 1.5 && surfaceMix('snow').squeal < 0.3 && surfaceMix('ice').roll < 0.5);
+  assert.equal(looseLevel('grass', 0), 0); assert.equal(looseLevel('grass', 1.5), 0);
+  assert.ok(looseLevel('grass', 12) > 0 && looseLevel('grass', 30) === SURFACE_MIX.grass.loose && looseLevel('asphalt', 30) === 0);
+  assert.ok(looseLevel('sand', 20) > looseLevel('sand', 8), 'grows with the speed');
+});
