@@ -8,6 +8,17 @@ Updated 2026-11-26 (evening) by the building session. Every session updates this
 - **Car 1 is the AE86** (was Pip): its own materials, glowing lamps, underbody, contact shadow, headlight pool, brake lights,
   exhaust flames with the event `car.pop`, underglow on the road (`docs/CAR-PIPELINE.md`). Not on a real phone; glass and rims wait
   for the GPU PC; the C# tests were not run for the renamed car (`scripts/test.sh` needs Docker).
+- **Slice 4, the car on the surface (2026-11-26):** `game/sim/carpose.js` (pure): the chassis stands on its four wheel points (`fleet.dims.wheels`, the
+  model's own tyres), pitch and roll from the surface under them (follow 30/s, at most 34 degrees per second), the height puts the wheels on it; the body's
+  dive and lean from the forces are apart, on a group of their own (`carfx.js leanBody`: the wheels stay on the road when the body rolls; flames and halos
+  go with the body). Used for your car, the other drivers' cars (with their own pose each), the ghost and the practice bot (`Fleet.place`). The surface is
+  `map.track` through `track.js surfaceAt` when the map brings one (slice 2), else the drawn height field with its gradient by differences. Tyre marks and
+  smoke start at each rear wheel's point on the surface; the mark's quad lies in the surface's plane (`skids.mark(..., y, gx, gz)`). Test drive
+  `node tools/posecheck.mjs [car] [fps]` on a sample road from `track.js` (615 m, two hairpins, 30 m down, banked, drifting): AE86 wheels within 0.51 cm of
+  the surface, pitch rate 5.8 and roll rate 3.0 degrees per second, no height step; all five cars inside the limits (3 cm, 40 degrees per second; Bruno
+  leaves the road at every bot speed and still keeps them). Pictures `docs/screenshots/cars/ae86-pose-slope-phone.png` (40 % on today's touge),
+  `ae86-pose-hairpin-phone.png` (drifting in a hairpin). Not checked: on the new touge (slice 2 not there yet), on a real phone, the other drivers'
+  cars in a live lobby (only by code and test).
 - **0.6.2 feedback C1/C2 (2026-11-26):** the underglow is one soft pad of light lying on the road under each of its points (no
   strips: the lit strip was a hard line under the door; the flat pad cut into the road where the slope changed and flickered);
   the contact shadow lies on the road the same way; each copy bends its own sheet (they shared the template's). The other drivers'

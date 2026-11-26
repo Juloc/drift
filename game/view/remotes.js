@@ -4,7 +4,8 @@ import * as THREE from '../../vendor/three/three.module.js';
 import { icon } from './icons.js';
 import { buildCar } from './carmodel.js';
 import { makeClay } from '../core/materials.js';
-import { rearWheel } from './look/fleet.js';
+import { Fleet } from './look/fleet.js';
+import { makePose, settle, wheelPoints, heightSurface } from '../sim/carpose.js';
 import { X, HEAD } from './space.js';
 
 const WHEEL_R = 0.358, BLOB = [1.15, 2.3];
@@ -17,8 +18,11 @@ export const hueColour = (hue) => PAINTS[hue] ? new THREE.Color(PAINTS[hue]) : n
 
 export class Remotes {
   /** @param {{ stage, fleet, pool, camera, tagsEl, glowPool, glowOf, glowBoost, maxNear? }} o  (`fleet` may be swapped after another look was loaded) */
-  constructor({ scene, stage, fleet, pool, camera, tagsEl, glowPool, glowOf, glowBoost, maxNear = 6 }) {
+  constructor({ scene, stage, fleet, pool, camera, tagsEl, glowPool, glowOf, glowBoost, maxNear = 6, surface = null }) {
     Object.assign(this, { scene, stage, fleet, pool, camera, tagsEl, glowPool, glowOf, glowBoost, maxNear });
+    // the road's surface (sim axes: (x, z, out) -> out.y, gx, gz); the game passes the track's when the map has one, else the drawn height field's
+    this.surface = surface ?? heightSurface((x, z) => this.stage.field.groundY(x, z));
+    this.s = { y: 0, gx: 0, gz: 0 };
     this.cars = new Map();
     this.clay = makeClay();
     this.frame = 0;
@@ -27,7 +31,7 @@ export class Remotes {
   /** Draw the cars in `list` (from WorldClient.sample); `roster` is Map(id -> { name, car, hue }). Call between pool.begin() and pool.end(). */
   update(list, roster, dt) {
     this.frame++;
-    const seen = new Set(), { field, smoke, skids } = this.stage;
+    const seen = new Set(), { smoke, skids } = this.stage;
     let near = 0;
     for (const o of list) {
       const info = roster.get(o.id);
@@ -44,27 +48,24 @@ export class Remotes {
         const label = rc?.label ?? Object.assign(document.createElement('div'), { className: 'tag' });
         if (!rc) this.tagsEl.append(label);
         label.textContent = info.name;
-        rc = { group, car, label, hue: info.hue, model: info.car, spin: rc?.spin ?? 0, far, fleet: this.fleet };
+        rc = { group, car, label, hue: info.hue, model: info.car, spin: rc?.spin ?? 0, far, fleet: this.fleet, pose: rc?.pose ?? makePose() };
         this.cars.set(o.id, rc);
       }
-      const g = rc.group, gy = field.groundY(o.x, o.z), sh = Math.sin(o.h), ch = Math.cos(o.h);
-      const grade = (field.groundY(o.x + sh * 1.3, o.z + ch * 1.3) - field.groundY(o.x - sh * 1.3, o.z - ch * 1.3)) / 2.6;
-      const roll = Math.max(-0.08, Math.min(0.08, -(o.vf * o.vf * Math.tan(o.steer) * 0.0035) / 40));
-      g.position.set(X(o.x), gy, o.z);
-      g.rotation.set(-Math.atan(grade), HEAD(o.h), roll, 'YXZ');
-      g.updateMatrix();
+      // on its four wheel points on the road (sim/carpose.js), the body leaning in the bend as far as its speed and steering say (the frame has no acceleration)
+      const g = rc.group, W = wheelPoints(this.fleet?.dims), p = settle(rc.pose, this.surface, o.x, o.z, o.h, W, dt, { side: (o.vf * o.vf * Math.tan(o.steer)) / 40 }), gy = p.y;
+      Fleet.place(rc.car ?? g, p);
       rc.pos = [X(o.x), o.z, gy];
       this.pool.blob(X(o.x), o.z, BLOB[0], BLOB[1], HEAD(o.h), gy);
       if (far) continue;
       rc.spin += (o.vf * dt) / WHEEL_R;
       rc.car.setWheels(o.steer, rc.spin);
       const gl = this.glowOf?.(o.id);
-      if (gl !== undefined && gl >= 0) this.glowPool.add(X(o.x), o.z, HEAD(o.h), gl, this.glowBoost?.() ?? 1, gy, -Math.atan(grade));   // on the road's height and slope (it lay at height 0: under a hill or floating)
+      if (gl !== undefined && gl >= 0) this.glowPool.add(X(o.x), o.z, HEAD(o.h), gl, this.glowBoost?.() ?? 1, gy, -p.pitch);   // on the road's height and slope (it lay at height 0: under a hill or floating)
       const drifting = (o.flags & 2) !== 0 || (o.flags & 1) !== 0;
-      for (let i = 0; i < 2; i++) {
-        const rw = rearWheel(this.fleet?.dims, i ? 1 : -1), wp = this.v.set(rw.x, 0, rw.z).applyMatrix4(g.matrix);
-        if (drifting && this.frame % 3 === 0) smoke.emit(wp.x, 0.35 + gy, wp.z, 0, 0, 0.5);
-        skids.mark(2 + o.id * 2 + i, wp.x, wp.z, 0, 0, drifting, gy);
+      for (let i = 0; i < 2; i++) {   // the rear wheels as settled: right (i 0), left (i 1); each on the surface under it
+        const w = p.wheels[i ? 2 : 3], wx = X(w.x);
+        if (drifting && this.frame % 3 === 0) smoke.emit(wx, 0.35 + w.y, w.z, 0, 0, 0.5);
+        skids.mark(2 + o.id * 2 + i, wx, w.z, 0, 0, drifting, w.y, -w.gx, w.gz);
       }
     }
     for (const [id, rc] of this.cars) if (!seen.has(id)) { this.scene.remove(rc.group); rc.label.remove(); this.cars.delete(id); for (let i = 0; i < 2; i++) skids.mark(2 + id * 2 + i, 0, 0, 0, 0, false); }

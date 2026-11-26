@@ -305,6 +305,21 @@ export function dressCar(group, spec = {}, { lite = false } = {}) {
 }
 
 /**
+ * The body apart from the wheels (call on the template, after dressCar): every part of the model except the wheels goes into `body_lean`, a group that turns
+ * about a point 35 cm above the road (about where a car rolls and pitches about), so the game can dive and lean the body while the chassis and its wheels stay
+ * on the road (sim/carpose.js). The copies of the car get it with the rest. Returns the group (null when the model has no wheels).
+ */
+export function leanBody(group) {
+  const pivot = group.getObjectByName('wheel_fl_pivot') ?? group.getObjectByName('wheel_fl'), holder = pivot?.parent;
+  if (!holder || group.getObjectByName('body_lean')) return group.getObjectByName('body_lean') ?? null;
+  const lean = new THREE.Group(), inner = new THREE.Group(), centre = 0.35;
+  lean.name = 'body_lean'; inner.name = 'body_lean_in'; lean.position.y = centre; inner.position.y = -centre; lean.add(inner);
+  for (const c of [...holder.children]) if (!/^wheel_/.test(c.name) && !c.isInstancedMesh) inner.add(c);
+  holder.add(lean);
+  return lean;
+}
+
+/**
  * The parts and the behaviour of one car (call for each spawned copy): brake lights, flames and flash, underglow on the road.
  * `listen` (default: when there is a window): the flames follow the window event `car.pop`; dispose() stops listening.
  * @returns {{ update(dt, s): void, pop(strength, hold?): void, setGlow(hue|null): void, dispose(): void }} s = { brake 0..1 }
@@ -395,7 +410,7 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     };
   }
   const fxg = new THREE.Group(); fxg.name = 'fx_live'; fxg.add(...flames, ...flames.map((f) => f.userData.ground), ...lights, ...halos, ...(haloCloud ? [haloCloud] : []), glow);
-  car.group.add(tag(fxg));
+  (car.group.getObjectByName('body_lean_in') ?? car.group).add(tag(fxg));   // with the body: the flames stay at the pipe and the halos at the lamps when it dives
 
   const poolMesh = car.group.getObjectByName('fx_pool'), shadowMesh = car.group.getObjectByName('fx_shadow');
   // pops: one burst per event, its strength sets the size and one or two smaller after-bangs

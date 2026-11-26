@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import * as THREE from '../../vendor/three/three.module.js';
 import { prepareCar } from './carglb.js';
 import { SLOTS } from './carglb.js';
-import { dressCar, carFx, measure, splitPalette, treadTyres, WheelSet } from './carfx.js';
+import { dressCar, carFx, measure, splitPalette, treadTyres, WheelSet, leanBody } from './carfx.js';
 
 function fakeCar() {
   const mats = Object.fromEntries(SLOTS.map((s) => [s, new THREE.MeshStandardMaterial({ name: 'game_' + s })]));
@@ -156,4 +156,21 @@ test('measure gives the rear tyres as drawn: right one first, contact point on t
   assert.ok(Math.abs(r.contact.x + 0.76) < 1e-3 && Math.abs(l.contact.x - 0.76) < 1e-3, `${r.contact.x} ${l.contact.x}`);
   assert.ok(Math.abs(r.contact.z + 1.25) < 1e-3 && Math.abs(r.contact.y) < 1e-3);
   assert.ok(Math.abs(r.width - 0.2) < 1e-3 && Math.abs(r.radius - 0.3) < 0.01);
+});
+
+test('leanBody: the body turns on its own group, the wheels stay where they are; a copy has it too; the effects go with the body', () => {
+  const car = fakeCar();
+  dressCar(car.group, {});
+  const lean = leanBody(car.group);
+  assert.ok(lean && lean.getObjectByName('body_lean_in'));
+  const wheel = car.group.getObjectByName('wheel_rl_pivot') ?? car.group.getObjectByName('wheel_rl');
+  let up = wheel; while (up && up !== lean) up = up.parent; assert.equal(up, null, 'the wheels are not in the lean group');
+  let bodyIn = false; lean.traverse((o) => { if (o.material?.name === 'paint' || o.material?.name === 'game_paint') bodyIn = true; }); assert.ok(bodyIn, 'the body is');
+  const before = new THREE.Vector3(); car.group.updateMatrixWorld(true); wheel.getWorldPosition(before);
+  lean.rotation.set(0.05, 0, 0.08); car.group.updateMatrixWorld(true);
+  assert.ok(wheel.getWorldPosition(new THREE.Vector3()).distanceTo(before) < 1e-9, 'leaning the body does not move a wheel');
+  assert.equal(leanBody(car.group), lean, 'a second call finds it');
+  assert.ok(car.group.clone(true).getObjectByName('body_lean'));
+  const fx = carFx(car, {}, { lite: true, listen: false });
+  let p = fx.flames[0]; while (p && p.name !== 'body_lean_in') p = p.parent; assert.ok(p, 'the flames are with the body');
 });

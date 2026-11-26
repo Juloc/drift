@@ -32,7 +32,8 @@ import { angDiff } from './core/rng.js';
 import { X, HEAD } from './view/space.js';
 import { WorldClient } from './net/world.js';
 import { Remotes, hueColour } from './view/remotes.js';
-import { rearWheel } from './view/look/fleet.js';
+import { makePose, settle, wheelPoints, heightSurface } from './sim/carpose.js';
+import { surfaceAt as trackSurface } from './sim/track.js';
 import { GlowPool } from './view/wheels.js';
 
 const params = new URLSearchParams(location.search);
@@ -109,6 +110,11 @@ let ownColour = new THREE.Color().setHSL(ownHue, 0.62, 0.42);
 if (params.has('paint')) ownColour = hueColour(+params.get('paint') || 0);   // ?paint=0..26 for pictures (24 white, 25 black, 26 silver)
 if (/^[0-9a-f]{6}$/i.test(params.get('paint') ?? '')) ownColour = new THREE.Color('#' + params.get('paint'));   // ?paint=ffffff: any colour for pictures
 let mine = fleet.spawn(ownColour);
+// the road's surface in the simulation's axes ((x, z, out) -> out.y, gx, gz): the track's own when the map brings one (sim/track.js), else the drawn height field's.
+// The car's pose, the tyre marks and the smoke ask here, the other drivers' cars too (sim/carpose.js puts the car on its four wheel points)
+const fieldSurface = heightSurface((x, z) => stage.field.groundY(x, z));
+const roadSurface = (x, z, o = {}) => (map?.track ? trackSurface(map.track, x, z, o) : fieldSurface(x, z, o));
+const minePose = makePose(), ghostPose = makePose(), botPose = makePose(), _ws = { y: 0, gx: 0, gz: 0 };
 const fxFor = (c) => (fleet.file ? carFx(c, cars[carIndex]?.fx, { lite }) : null);   // brake lights, exhaust flames (on the event car.pop that the throttle code below fires), underglow on the road
 let mineFx = fxFor(mine);
 const carGroup = new THREE.Group();
@@ -130,7 +136,7 @@ const glowHue = params.has('glow') && +params.get('glow') >= 0 && +params.get('g
 const glowPool = new GlowPool(16);
 scene.add(glowPool.mesh);
 const glowBoost = () => (look.lamp?.glowBoost ?? 1);
-const remotes = online ? new Remotes({ scene, stage, fleet, pool, camera, tagsEl: $('tags'), glowPool, glowOf: (id) => net?.glow.get(id), glowBoost, maxNear: lite ? 3 : 6 }) : null;
+const remotes = online ? new Remotes({ scene, stage, fleet, pool, camera, tagsEl: $('tags'), glowPool, glowOf: (id) => net?.glow.get(id), glowBoost, maxNear: lite ? 3 : 6, surface: roadSurface }) : null;
 // the state, declared before anything can call back (a socket may welcome us while the module still waits for a file)
 let cur, prev, score, spin = 0, simSteps = 0, paused = false;
 let lastInp = { steer: 0, throttle: 0, brake: 0, handbrake: 0 };   // what the car was told in the last step (for the HUD)
@@ -685,10 +691,11 @@ function simStep(i) {
   // smoke from the rear wheels, 40 times a second, as in the probe: it drifts off to the left of the way the car goes (not into the camera behind it) and starts a little outside the wheel
   if (simSteps % 3 === 0 && !paused) {
     const slid = (Math.abs(bodySlip(cur)) > 0.2 || inp.handbrake > 0) && speedOf(cur) > 3, S = look.smoke, t = Math.atan2(cur.vx, cur.vz), push = S.drift ?? 0, out = S.offset ?? 0;
+    const W = wheelPoints(fleet.dims), sh = Math.sin(cur.h), ch = Math.cos(cur.h);
     for (const sx of [-1, 1]) {
-      // at the model's own rear tyre (fleet.js rearWheel), on the road's height under that tyre (not under the car's middle: on a slope they differ)
-      const ry = HEAD(cur.h), c = Math.cos(ry), sn = Math.sin(ry), { x: lx, z: lz } = rearWheel(fleet.dims, sx), wx = X(cur.x) + lx * c + lz * sn, wz = cur.z - lx * sn + lz * c, wy = stage.field.groundY(X(wx), wz);
-      stage.skids.mark(sx < 0 ? 0 : 1, wx, wz, 0, 0, slid && speedOf(cur) > 3, wy);
+      // at the model's own rear tyre (right: sx -1), on the road's surface under that tyre; the mark lies in the surface's plane (its gradient, in drawing axes)
+      const [lx, lz] = W[sx < 0 ? 3 : 2], px = cur.x + lz * sh - lx * ch, wz = cur.z + lz * ch + lx * sh, wx = X(px), sf = roadSurface(px, wz, _ws), wy = sf.y;
+      stage.skids.mark(sx < 0 ? 0 : 1, wx, wz, 0, 0, slid && speedOf(cur) > 3, wy, -sf.gx, sf.gz);
       if (slid) stage.smoke.emit(wx + X(-Math.cos(t)) * out, 0.35 + wy, wz + Math.sin(t) * out, X(cur.vx * 0.06 - Math.cos(t) * push), cur.vz * 0.06 + Math.sin(t) * push, Math.min(1, Math.abs(bodySlip(cur)) + 0.2));
     }
   }
@@ -790,22 +797,19 @@ function frame(now) {
   const { vf } = bodyVelocity(cur);
   const kmh = speedOf(cur) * 3.6;
 
-  // body pose: yaw, a little roll and pitch from the forces; the car stands on the road's drawn height and leans with its slope (only drawn: the physics is flat)
   if (innerWidth !== fitW || innerHeight !== fitH) { fitW = innerWidth; fitH = innerHeight; stage.resize(); checkRotate(); }
-  const field = stage.field, gy = field.groundY(drawn.x, drawn.z), sh = Math.sin(drawn.h), ch = Math.cos(drawn.h);
-  const slope = (field.groundY(drawn.x + sh * 1.3, drawn.z + ch * 1.3) - field.groundY(drawn.x - sh * 1.3, drawn.z - ch * 1.3)) / 2.6;
-  const roll = Math.max(-0.08, Math.min(0.08, -cur.w * vf * 0.0035));
-  const pitch = Math.max(-0.05, Math.min(0.05, -cur.ax * 0.004)) - Math.atan(slope);
+  // the chassis on its four wheel points on the road's surface (sim/carpose.js: pitch and roll from the surface, softly), the body's dive and lean from the forces on
+  // its own group (the wheels stay on the road); only drawn: the physics is flat
+  settle(minePose, roadSurface, drawn.x, drawn.z, drawn.h, wheelPoints(fleet.dims), paused ? 0 : dt, { ax: cur.ax, side: cur.w * vf });
+  const gy = minePose.y;
   carGroup.visible = !cam.hidesCar;   // in the cockpit the body is not drawn
-  carGroup.position.set(X(drawn.x), gy, drawn.z);
-  carGroup.rotation.set(pitch, HEAD(drawn.h), roll, 'YXZ');
-  carGroup.updateMatrix();
+  Fleet.place(mine, minePose);
   mine.uniforms.uBase.value = gy;
   stage.smoke.car.value.set(X(drawn.x), gy, drawn.z);
   spin += (vf * dt) / WHEEL_R;
   glowPool.begin();
-  if (mineFx) { mineFx.setGlow(glowHue); mineFx.update(paused ? 0 : dt, { brake: lastInp.brake, groundAt: (wx, wz) => stage.field.groundY(X(wx), wz) }); }   // a model car: its own underglow lying on the road (X: the view's x is the physics' x mirrored)
-  else if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy, -Math.atan(slope));
+  if (mineFx) { mineFx.setGlow(glowHue); mineFx.update(paused ? 0 : dt, { brake: lastInp.brake, groundAt: (wx, wz) => roadSurface(X(wx), wz, _ws).y }); }   // a model car: its own underglow lying on the road (X: the view's x is the physics' x mirrored)
+  else if (glowHue !== null) glowPool.add(X(drawn.x), drawn.z, HEAD(drawn.h), glowHue, (0.85 + 0.15 * Math.sin(now / 400)) * glowBoost(), gy, -minePose.pitch);
   pool.begin();
   mine.setWheels(cur.steer, spin);
   if (!fleet.file) pool.blob(X(drawn.x), drawn.z, BLOB[0], BLOB[1], HEAD(drawn.h), gy);   // a model car brings its own contact shadow
@@ -817,8 +821,8 @@ function frame(now) {
     remoteBodies = list.filter((o) => !o.far).map((o) => ({ ...bodyOf(o), m: massOf(net.roster.get(o.id)?.car ?? 0) }));
   }
   if (ghostCar && ghostPlay) {   // the ghost of your best run, and how far ahead or behind it you are
-    const g = ghostPlay.at(ghostT), gg = field.groundY(g.x, g.z);
-    ghostCar.group.position.set(X(g.x), gg, g.z); ghostCar.group.rotation.set(0, HEAD(g.h), 0, 'YXZ');
+    const g = ghostPlay.at(ghostT);
+    Fleet.place(ghostCar, settle(ghostPose, roadSurface, g.x, g.z, g.h, wheelPoints(fleet.dims), paused ? 0 : dt));   // on its four wheels on the road like every car
     if (ghostRun) {
       let el = $('ghost-delta'); if (!el) { el = Object.assign(document.createElement('div'), { id: 'ghost-delta' }); ($('hud') ?? document.body).append(el); }
       const d = ghostPlay.delta(ghostT, cur.x, cur.z), txt = (d >= 0 ? '+' : '\u2212') + Math.abs(d).toFixed(1).replace('.', de ? ',' : '.') + ' s';
@@ -827,8 +831,9 @@ function frame(now) {
     }
   }
   if (practice && botCar) {   // the practice bot, drawn like the other cars, and the chip from the local judgement
-    const b = practice.bot.state, { vf: bvf } = bodyVelocity(b), bg = field.groundY(b.x, b.z);
-    botCar.group.position.set(X(b.x), bg, b.z); botCar.group.rotation.set(0, HEAD(b.h), 0, 'YXZ');
+    const b = practice.bot.state, { vf: bvf } = bodyVelocity(b);
+    Fleet.place(botCar, settle(botPose, roadSurface, b.x, b.z, b.h, wheelPoints(fleet.dims), paused ? 0 : dt, { ax: b.ax, side: b.w * bvf }));
+    const bg = botPose.y;
     practice.spin += (bvf * dt) / WHEEL_R;
     botCar.setWheels(b.steer, practice.spin);
     pool.blob(X(b.x), b.z, BLOB[0], BLOB[1], HEAD(b.h), bg);
@@ -921,5 +926,5 @@ function roadProbe(step = 5) {
   }
   return out;
 }
-window.__drift = { roadProbe, get ghost() { return ghostCar; }, floorAt, startSpots, showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return carGroup; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; } };
+window.__drift = { roadProbe, get ghost() { return ghostCar; }, floorAt, startSpots, showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return carGroup; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; }, get pose() { return minePose; }, roadSurface };
 requestAnimationFrame(frame);

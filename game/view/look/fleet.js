@@ -1,11 +1,12 @@
 // The cars of the game in the look of the stage: one RX-7 model (docs/CAR-MODELS.md) is loaded once per look, patched with the painted car style (paint.js), and every car on the road
 // (yours, the other visitors', the practice bot) is a clone that shares the geometry and the materials and has only its own paint. When the model file cannot be used the code S15 is built
 // instead (and again for every car: it is cheap). Nothing here knows about the network or the rules.
-import { dressCar } from '../carfx.js';
+import { dressCar, leanBody } from '../carfx.js';
 import * as THREE from '../../../vendor/three/three.module.js';
 import { carMaker } from './stage.js';
 import { paintCar } from './paint.js';
 import { buildS15 } from '../s15.js';
+import { X, HEAD } from '../space.js';
 
 const MAGIC = 0x123456;   // the colour the template is made in, so that the paint material (or a copy a file's texture made of it) is found by its colour
 export const CAR_DIMS = { wheelX: 0.8, wheelZ: 1.27 };   // the model's wheels (the S15's numbers, which the RX-7 file follows)
@@ -22,11 +23,17 @@ export class Fleet {
     this.file = !!this.tpl.url; this.url = this.tpl.url ?? null;
     // underbody, contact shadow, headlight pool: every copy has them. dims: where smoke and skid marks start, in the car's axes
     // (x left, z forwards, the road at y 0): `rear` the two rear tyres' contact points as drawn, the right one (-x) first, each with
-    // its width and radius; wheelX / wheelZ the older two numbers (the pivots), kept for the code car and older callers
+    // its width and radius; `wheels` all four contact points; wheelX / wheelZ the older two numbers (the pivots), kept for the code car and older callers
     if (this.file) {
       const m = dressCar(this.tpl.group, this.fx, { lite: stage.carTier !== 'high' });
       const rear = m.rearTyres.length === 2 ? m.rearTyres.map((t) => ({ x: t.contact.x, z: t.contact.z, width: t.width, radius: t.radius })) : null;
-      this.dims = { wheelX: m.halfTrack, wheelZ: -m.rear, ...(rear ? { rear } : {}) };
+      // all four contact points, by their place: front-left, front-right, rear-left, rear-right (sim/carpose.js stands the car on them)
+      const mid = m.tyres.reduce((a, t) => a + t.at.z, 0) / Math.max(1, m.tyres.length);
+      const pick = (front, left) => m.tyres.find((t) => (t.at.z > mid) === front && (t.at.x > 0) === left);
+      const four = [pick(true, true), pick(true, false), pick(false, true), pick(false, false)];
+      const wheels = four.every(Boolean) ? four.map((t) => ({ x: t.contact.x, z: t.contact.z })) : null;
+      this.dims = { wheelX: m.halfTrack, wheelZ: -m.rear, ...(rear ? { rear } : {}), ...(wheels ? { wheels } : {}) };
+      leanBody(this.tpl.group);   // the body apart from the wheels, so it can dive and lean while the wheels stay on the road
     }
     this.uniforms = paintCar(this.tpl.group, stage.sun, stage.look.car);
     this.paintMat = this.tpl.materials?.paint ?? null;
@@ -52,6 +59,17 @@ export class Fleet {
     const wheels = ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr'].map((n) => group.getObjectByName(n + '_pivot')).filter(Boolean).map((pivot, i) => ({ pivot, spin: pivot.children[0], front: i < 2 }));
     const setWheels = (steer, spin) => { for (const w of wheels) { w.pivot.rotation.y = w.front ? -steer : 0; w.spin.rotation.x = spin; } };
     return { group, setWheels, paintMaterials: [...mine.values()], uniforms: this.uniforms };
+  }
+  /**
+   * Puts a spawned car where its pose says (sim/carpose.js settle): the chassis with its wheels on the road, the body's dive and lean on its own group
+   * (carfx.js leanBody); the code car and the far clay bodies have none, so it goes onto the whole car there.
+   */
+  static place(car, p) {
+    const g = car.group ?? car, lean = car.lean ?? (car.lean = g.getObjectByName?.('body_lean') ?? false);
+    g.position.set(X(p.x), p.y, p.z);
+    if (lean) { g.rotation.set(-p.pitch, HEAD(p.h), p.roll, 'YXZ'); lean.rotation.set(p.dive, 0, p.lean); }
+    else g.rotation.set(-p.pitch + p.dive, HEAD(p.h), p.roll + p.lean, 'YXZ');
+    g.updateMatrix();
   }
   /** Sets the paint of a spawned car (a colour as a number, string or THREE.Color), darkened by `dirt` 0..1 (damage). */
   static colour(car, colour, dark = 0) { for (const p of car.paintMaterials) p.color.set(colour).multiplyScalar(1 - 0.5 * dark); }
