@@ -94,8 +94,9 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
       const patches = (newScene.mist ?? []).slice(0, tier.mist).map(([x, z, w, d, y]) => [x, z, w, d, y ?? stage.field.groundY(x, z) + newLook.mist.y]);   // a patch may give its own absolute height
       stage.mist = patches.length ? makeMist(newLook, patches) : new THREE.Group();
       scene.add(stage.mist);
-      stage.halos = new Halos(Math.max(64, stage.world.lampHeads.length));
-      for (const [x, y, z, size] of stage.world.lampHeads) stage.halos.add(x, y, z, new THREE.Color(newLook.lamp.light).multiplyScalar(newLook.lamp.halo ?? 0.55), size ?? newLook.lamp.haloSize ?? 2.6);   // a head may give its own halo size (a stone lantern's is smaller)
+      // with the after-pass on, the bloom already makes every lamp head glow: the halo is a smaller, fainter second glow (look.lamp.haloPost), at most 90 px, and fades within 8 m of the camera
+      stage.halos = new Halos(Math.max(64, stage.world.lampHeads.length), { maxPx: tier.post ? 90 : 180, nearFade: 8 });
+      for (const [x, y, z, size] of stage.world.lampHeads) stage.halos.add(x, y, z, new THREE.Color(newLook.lamp.light).multiplyScalar((newLook.lamp.halo ?? 0.55) * (tier.post ? newLook.lamp.haloPost ?? 0.4 : 1)), size ?? newLook.lamp.haloSize ?? 2.6);   // a head may give its own halo size (a stone lantern's is smaller)
       scene.add(stage.halos.points);
       stage.env = makeSkyEnvironment(renderer, newLook, tier.env);
       stage.world.road.material.envMap = stage.env;   // the road shines in the low sun

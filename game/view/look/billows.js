@@ -69,10 +69,10 @@ export class Billows {
     this.car = { value: new THREE.Vector3(0, -999, 0) };
     const S = look.smoke;
     this.material = new THREE.ShaderMaterial({
-      uniforms: { tMap: { value: (S.texture === 'wisp' ? wispTexture : S.texture === 'soft' ? softTexture : billowTexture)(S.colour, S.shade) }, uTop: { value: S.screenTop ?? 1.2 }, uNear: { value: S.near ?? 3 }, uNearW: { value: S.nearWidth ?? 2.5 }, uFlat: { value: S.flat ?? 1 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
+      uniforms: { tMap: { value: (S.texture === 'wisp' ? wispTexture : S.texture === 'soft' ? softTexture : billowTexture)(S.colour, S.shade) }, uTop: { value: S.screenTop ?? 1.2 }, uCarNdc: { value: new THREE.Vector4(0, 0, 0, 0) }, uCarZ: { value: 0 }, uDim: { value: S.carDim ?? 0.35 }, uNear: { value: S.near ?? 3 }, uNearW: { value: S.nearWidth ?? 2.5 }, uFlat: { value: S.flat ?? 1 }, uTint: { value: new THREE.Color(S.tint ?? '#ffffff').multiplyScalar(S.bright ?? 1) } },   // brighter than white: lit by the low sun
       vertexShader: /* glsl */ `
         attribute vec4 aData; attribute vec2 aAlpha;
-        uniform float uTop, uFlat;
+        uniform float uTop, uFlat, uCarZ, uDim; uniform vec4 uCarNdc;
         varying vec2 vUv; varying float vA; varying float vDist;
         void main() {
           vUv = uv; vA = aAlpha.x;
@@ -80,6 +80,10 @@ export class Billows {
           // a low, wide cloud (look.smoke.flat < 1 squashes it on the screen): smoke that hugs the road and never stands up in front of the car's body
           vec2 p = vec2(position.x * c - position.y * s, (position.x * s + position.y * c) * uFlat) * aData.w;
           vec4 mv = modelViewMatrix * vec4(aData.xyz, 1.0);
+          // a puff between the camera and the car, over the car's place on the screen, is dimmed as a whole (look.smoke.carDim: how much of it stays), softly and per puff:
+          // there is no cut-out, no hole, no edge; smoke beside and behind the car is untouched
+          if (uCarNdc.z > 0.0 && -mv.z < uCarZ - 0.3) { vec4 cc = projectionMatrix * mv; float dd = length((cc.xy / cc.w - uCarNdc.xy) / uCarNdc.zw); vA *= mix(uDim, 1.0, smoothstep(0.8, 1.7, dd)); }
+          mv.z += min(aData.w * 0.45, 1.3);   // a puff stands a little towards the camera: a big puff that starts at the road would otherwise be cut flat where its quad goes under the road
           mv.xy += p; vDist = -mv.z;
           gl_Position = projectionMatrix * mv;
           // never in the upper part of the picture (look.smoke.screenTop, in -1..1 of the screen height): no smoke behind the HUD cards or over the view
@@ -111,8 +115,14 @@ export class Billows {
     // never a wall: the puffs rise at most `maxRise` m over where they started and grow to at most `maxSize` m
     this.maxRise = S.maxRise ?? 99; this.maxSize = S.maxSize ?? 99; this.base = new Float32Array(this.cap);
   }
-  /** (kept for the stage: there is no cut-out round the car any more, the smoke is kept low and flat instead) */
-  aim() {}
+  /** The car's place on the screen for the soft dimming of the puffs in front of it (see the vertex shader). */
+  aim(camera, radius = 1.4) {
+    const u = this.material.uniforms, p = this.car.value.clone().add(new THREE.Vector3(0, 0.6, 0)).applyMatrix4(camera.matrixWorldInverse), d = -p.z;
+    u.uCarZ.value = d;
+    if (d < 0.5) { u.uCarNdc.value.set(0, 0, 0, 0); return; }
+    const P = camera.projectionMatrix.elements;
+    u.uCarNdc.value.set((P[0] * p.x + P[8] * p.z) / d, (P[5] * p.y + P[9] * p.z) / d, (P[0] * radius) / d, (P[5] * radius * 0.6) / d);
+  }
   rnd() { this.seed = (this.seed * 16807) % 2147483647; return this.seed / 2147483647; }
   emit(x, y, z, vx, vz, strength) {
     const i = this.next; this.next = (this.next + 1) % this.cap;

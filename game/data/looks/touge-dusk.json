@@ -190,8 +190,9 @@
   "height": 7,
   "halo": 0.7,
   "haloSize": 2,
-  "pool": 5.5,
-  "poolGlow": 0.95
+  "pool": 4.5,
+  "poolGlow": 0.4,
+  "haloPost": 0.4
  },
  "smoke": {
   "style": "billows",
@@ -201,24 +202,28 @@
   "tint": "#ffffff",
   "opacity": 0.92,
   "near": 1.2,
-  "drift": 0.8,
-  "offset": 0.4,
-  "size": 1.1,
-  "start": 0.9,
-  "spread": 4.6,
-  "life": 1.1,
+  "drift": 0.2,
+  "offset": 0,
+  "size": 1,
+  "start": 0.35,
+  "spread": 6,
+  "life": 1,
   "lifeGrow": 0.9,
   "burst": 1.7,
   "burstTime": 0.6,
   "fade": 0.55,
   "glow": 0.95,
   "texture": "soft",
-  "maxRise": 0.35,
-  "maxSize": 4.8,
+  "maxRise": 1.8,
+  "maxSize": 3.6,
   "screenTop": -0.15,
   "nearWidth": 2,
-  "flat": 0.62,
-  "rise": -0.1
+  "flat": 1,
+  "rise": 0,
+  "height": 0.12,
+  "behind": 0.25,
+  "every": 2,
+  "carDim": 0.35
  },
  "skid": {
   "colour": "#0e0c14",
@@ -263,7 +268,7 @@
     "poles": 0
    },
    "carpet": 2000,
-   "billows": 90,
+   "billows": 140,
    "carpetNear": 30
   },
   "medium": {
@@ -292,7 +297,7 @@
     "poles": 0
    },
    "carpet": 1300,
-   "billows": 70,
+   "billows": 100,
    "carpetNear": 30
   },
   "low": {
@@ -321,7 +326,7 @@
     "poles": 0
    },
    "carpet": 240,
-   "billows": 45,
+   "billows": 70,
    "carpetNear": 30
   }
  },
@@ -347,7 +352,7 @@
   "gate": "#d0402e",
   "bends": true,
   "size": 1.1,
-  "pool": 4,
+  "pool": 3.5,
   "glow": 3
  },
  "surface": {

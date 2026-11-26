@@ -452,7 +452,7 @@ function plaza(S, G, f, scene, look, lite, lampHeads, pools = []) {
     S.box(0.18, 0.18, 1.6, X(x), 6.2, z - 0.7, C(L.pole), { r: 0 });
     G.box(0.5, 0.06, 0.32, X(x), 6.08, z - 1.35, glow(L.light, 2.2), { r: 0 });
     lampHeads.push([X(x), gp + 6.0, z - 1.35]);
-    if (L.pool) pools.push([X(x), gp, z - 1.35, L.pool * 1.2]);
+    if (L.pool) pools.push([X(x), gp, z - 1.35, L.pool]);
   }
   for (const [x, z, h] of P.benches ?? []) {
     S.box(2.0, 0.08, 0.5, X(x), 0.48, z, C('#8a6a5e'), { r: 0, ry: -h });
@@ -884,25 +884,30 @@ function roadLamps(S, G, f, scene, look, sideInfo, lampHeads, pools = []) {
 
 /** The warm pools of light on the ground (one mesh of flat quads with a soft round glow, added on top; nothing is lit for real). */
 function lightPools(pools, look, f) {
-  // lights that are close together do not add up to one bright blotch: of two pools that would overlap more than a little only the bigger stays
-  // (its lamp or lantern keeps its glow box and its halo; this is only the warm light on the ground)
+  // lights that are close together do not add up to one bright blotch: two pools closer than 0.7 times the bigger radius become one round pool (the centre between them,
+  // the bigger radius plus half the distance), never a rectangle
   const kept = [];
-  for (const q of [...pools].sort((a, b) => b[3] - a[3])) if (kept.every((k) => Math.hypot(k[0] - q[0], k[2] - q[2]) >= (k[3] + q[3]) * 0.55)) kept.push(q);
+  for (const q of [...pools].sort((a, b) => b[3] - a[3])) {
+    const hit = kept.find((k) => Math.hypot(k[0] - q[0], k[2] - q[2]) < 0.7 * k[3]);
+    if (!hit) { kept.push([...q]); continue; }
+    const d = Math.hypot(hit[0] - q[0], hit[2] - q[2]);
+    hit[0] = (hit[0] + q[0]) / 2; hit[2] = (hit[2] + q[2]) / 2; hit[3] += d / 2;
+  }
   if (!kept.length) return null;
   // each pool is a small net laid on the ground (the road is banked and climbs: a flat square would float over it or sink into it)
-  const N = 6, pos = [], uv = [], idx = [];
+  const N = 8, pos = [], uv = [], idx = [];
   kept.forEach(([x, y, z, r], n) => {
     const base = pos.length / 3;
     for (let b = 0; b <= N; b++) for (let a = 0; a <= N; a++) {
       const u = (a / N) * 2 - 1, v = (b / N) * 2 - 1, px = x + u * r, pz = z + v * r, h = f ? f.height(X(px), pz) : y;
-      pos.push(px, (Math.abs(h - y) < 3 ? h : y) + 0.06, pz); uv.push((u + 1) / 2, (v + 1) / 2);
+      pos.push(px, (Math.abs(h - y) < 3 ? h : y) + 0.04, pz); uv.push((u + 1) / 2, (v + 1) / 2);
     }
     for (let b = 0; b < N; b++) for (let a = 0; a < N; a++) { const i0 = base + b * (N + 1) + a, i1 = i0 + 1, i2 = i0 + N + 1, i3 = i2 + 1; idx.push(i0, i2, i1, i1, i2, i3); }
   });
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const x2 = c.getContext('2d'), gr = x2.createRadialGradient(32, 32, 0, 32, 32, 32);
-  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,255,255,0.45)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.1)'); gr.addColorStop(0.9, 'rgba(255,255,255,0)');   // nothing is left at the net's edge: no square
   x2.fillStyle = gr; x2.fillRect(0, 0, 64, 64);
   const m = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: C(look.lamp.light).multiplyScalar(look.lamp.poolGlow ?? 0.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const mesh = new THREE.Mesh(g, m); mesh.renderOrder = 2;
