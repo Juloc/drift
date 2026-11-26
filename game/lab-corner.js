@@ -140,12 +140,17 @@ const car = (await loader.loadAsync('assets/cars/ae86-hi.glb')).scene;
 car.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 const carYaw = q('carYaw', 3.5); car.position.set(q('carX', 0), 0, q('carZ', 0)); car.rotation.y = carYaw; root.add(car);
 const puffTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'), g = x.createRadialGradient(64, 60, 4, 64, 64, 62); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.55, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+// a cloud of smoke as a picture: several round lobes, lit from the upper right (where the sun is in the frame), shaded mauve underneath
+const cloudTex = (() => { const n = 256, c = document.createElement('canvas'); c.width = c.height = n; const x = c.getContext('2d'), img = x.createImageData(n, n), lobes = [[0.5, 0.56, 0.3], [0.3, 0.6, 0.2], [0.7, 0.6, 0.22], [0.42, 0.36, 0.2], [0.62, 0.38, 0.19], [0.5, 0.74, 0.2]];
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const u = i / n, v = j / n; let d = 0, lit = 0; for (const [cx, cy, r] of lobes) { const q2 = ((u - cx) ** 2 + (v - cy) ** 2) / (r * r); if (q2 < 1) { const h = Math.sqrt(1 - q2); d = Math.max(d, h); lit = Math.max(lit, h * (0.55 + 0.45 * Math.max(0, (cx - u) * -1.2 / r + (cy - v) * 1.4 / r + h))); } }
+    const a = Math.min(1, d * 1.6) ** 1.3, k = (j * n + i) * 4, t = Math.min(1, lit); img.data[k] = 150 + 105 * t; img.data[k + 1] = 120 + 125 * t; img.data[k + 2] = 150 + 95 * t; img.data[k + 3] = 255 * a; }
+  x.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 const travel = q('travel', 2.72), trail = new THREE.Vector3(-Math.sin(travel), 0, -Math.cos(travel)), across = new THREE.Vector3(Math.cos(carYaw), 0, -Math.sin(carYaw)), rear = new THREE.Vector3(-Math.sin(carYaw), 0, -Math.cos(carYaw));
-for (let i = 0; i < q('smoke', 70); i++) {
-  // thick and small at the two rear tyres, rolling up and thinning along the way the car came
-  const t = (i / 70) ** 1.3, d = t * 17, sc = 0.7 + t * 5 + rnd() * 0.6, wheel = i % 2 ? 0.72 : -0.72;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: new THREE.Color().setRGB(1.0, 0.8 + 0.08 * rnd(), 0.76 + 0.1 * rnd()), opacity: 0.62 * (1 - t) ** 0.8 + 0.06, depthWrite: false, fog: true }));
-  sp.position.copy(car.position).addScaledVector(rear, 1.25).addScaledVector(across, wheel * (1 - t * 0.5) + (rnd() - 0.5) * t * 4).addScaledVector(trail, d); sp.position.y = 0.3 + t * 1.9 + rnd() * 0.4 * t; sp.scale.setScalar(sc); root.add(sp);
+for (let i = 0; i < q('smoke', 34); i++) {
+  // small and tight at the two rear tyres, then fewer, bigger clouds that rise along the way the car came
+  const t = (i / 34) ** 1.5, d = t * 15, sc = 0.9 + t * 4.6 + rnd() * 0.5, wheel = i % 2 ? 0.72 : -0.72;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, color: new THREE.Color().setRGB(1.0, 0.9, 0.88), opacity: 0.9 - 0.55 * t, rotation: (rnd() - 0.5) * 0.9, depthWrite: false, fog: true }));
+  sp.position.copy(car.position).addScaledVector(rear, 1.2).addScaledVector(across, wheel * (1 - t * 0.6) + (rnd() - 0.5) * t * 3.2).addScaledVector(trail, d); sp.position.y = 0.35 + t * 1.5 + rnd() * 0.3 * t; sp.scale.setScalar(sc); root.add(sp);
 }
 // lamps that glow: a soft warm disc at every mast's head (the bloom takes it from there)
 for (const [x, z] of masts) { const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: new THREE.Color(1, 0.82, 0.55).multiplyScalar(q('lamp', 5)), blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); g.position.set(x, 9.6, z); g.scale.setScalar(3.2); root.add(g); }
@@ -157,7 +162,11 @@ camera.position.copy(camAt); camera.lookAt(lookAt);
 sun.target.position.copy(toWorld(0, 0, -10)); sun.position.copy(sun.target.position).addScaledVector(sunLift, 110);
 const composer = new EffectComposer(renderer); composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
-if (q('ao', 1)) { const ao = new GTAOPass(scene, camera, innerWidth, innerHeight); ao.updateGtaoMaterial({ radius: q('aoR', 0.9), distanceExponent: 1.4, thickness: 1.2, scale: q('aoS', 1.25), samples: 16 }); ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 }); composer.addPass(ao); }
+if (q('ao', 1)) { const ao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+  // smoke and lamp glows are flat pictures facing the camera: they must not take part in the pass that reads the scene's shapes (it went black with them)
+  const flats = []; root.traverse((o) => { if (o.isSprite) flats.push(o); });
+  const hide = ao._overrideVisibility.bind(ao), show = ao._restoreVisibility.bind(ao);
+  ao._overrideVisibility = () => { hide(); for (const o of flats) o.visible = false; }; ao._restoreVisibility = () => { show(); for (const o of flats) o.visible = true; }; ao.updateGtaoMaterial({ radius: q('aoR', 0.9), distanceExponent: 1.4, thickness: 1.2, scale: q('aoS', 1.25), samples: 16 }); ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 }); composer.addPass(ao); }
 composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), q('bloom', 0.18), 0.5, q('bloomT', 1.6)));
 composer.addPass(new OutputPass());
 composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null }, uSat: { value: q('sat', 1.12) }, uCon: { value: q('con', 1.06) }, uVig: { value: q('vig', 0.32) } },
