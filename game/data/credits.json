@@ -347,7 +347,8 @@
       "kind": "sound",
       "name": "Car tire squeal skid loop",
       "file": [
-        "game/assets/sound/squeal.ogg"
+        "game/assets/sound/squeal.ogg",
+        "game/assets/sound/squeal.json"
       ],
       "author": "Tom Haigh (audible-edge)",
       "authorUrl": "https://opengameart.org/content/car-tire-squeal-skid-loop",

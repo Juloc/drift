@@ -120,3 +120,31 @@ body.touch #reset { display: block; }
 #chips button .icon, #chips-toggle .icon, #reset .icon, #emotes button .icon, #emote-open .icon { width: 1.3em; height: 1.3em; }
 .emo .icon { width: 1.6em; height: 1.6em; }
 #cones { padding: 4px 12px; border-radius: 12px; background: rgba(12, 10, 24, 0.72); color: #ffb070; font-size: 14px; font-weight: 700; pointer-events: none; }
+
+/* the choice of the game mode (view/modepicker.js): a window over the game with one card per mode; on a phone the cards scroll sideways */
+#modes { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(8, 6, 20, 0.62); backdrop-filter: blur(6px); padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+#modes[hidden] { display: none; }
+#modes .modes-box { position: relative; width: min(1100px, 100%); max-height: 100%; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 20px; border: 1px solid var(--glass-edge); background: var(--glass); color: var(--white); box-shadow: var(--shadow); }
+#modes header h2 { margin: 0; font: 700 22px var(--font); }
+#modes header p { margin: 2px 0 0; font-size: 13px; opacity: 0.8; }
+#modes .modes-close { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--glass-edge); background: transparent; color: inherit; pointer-events: auto; cursor: pointer; }
+#modes .modes-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; overflow: auto; padding-bottom: 4px; }
+#modes .modes-card { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 8px; border-radius: 16px; border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, 0.05); }
+#modes .modes-card.main { border-color: var(--accent, #e0409a); }
+#modes .modes-pic { position: relative; aspect-ratio: 4 / 3; border-radius: 12px; background: #2a2340 center / cover no-repeat; display: grid; place-items: end start; padding: 8px; color: #fff; }
+#modes .modes-pic .icon { filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.6)); }
+#modes h3 { margin: 2px 0 0; font: 700 16px var(--font); }
+#modes .modes-text { margin: 0; font-size: 12.5px; line-height: 1.35; opacity: 0.85; flex: 1; }
+#modes .modes-meta { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; opacity: 0.9; }
+#modes .modes-meta b { color: var(--accent-soft, #ffb0d4); }
+#modes .modes-go { min-height: 44px; border-radius: 12px; border: 0; background: var(--accent, #e0409a); color: #fff; font: 700 15px var(--font); pointer-events: auto; cursor: pointer; }
+#modes .modes-card.main .modes-go { background: transparent; border: 1px solid var(--glass-edge); }
+body.touch #modes .modes-row { display: flex; scroll-snap-type: x mandatory; }
+body.touch #modes .modes-card { flex: 0 0 min(42vw, 200px); scroll-snap-align: start; }
+body.touch #modes .modes-box { padding: 10px; gap: 6px; }
+body.touch #modes header h2 { font-size: 17px; }
+body.touch #modes header p { display: none; }
+body.touch #modes .modes-pic { aspect-ratio: 16 / 9; padding: 6px; }
+body.touch #modes .modes-text { font-size: 11.5px; }
+#modes-open { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 14px; border: 1px solid var(--glass-edge); background: var(--glass); color: var(--white); box-shadow: var(--shadow); pointer-events: auto; cursor: pointer; }
+#modes-open .icon { width: 1.3em; height: 1.3em; }

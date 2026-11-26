@@ -19,6 +19,14 @@ export const GLYPHS = {
   monitor: '<rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 21h8M12 16.5V21"/>',
   phone: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
   paint: '<path d="M12 3s6 6.2 6 10.5a6 6 0 0 1-12 0C6 9.2 12 3 12 3z"/>',
+  // the game modes (the same drawings as the lab's, game/lab/icons.js)
+  pin: '<path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/>',
+  trophy: '<path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M12 13v4M8 21h8"/>',
+  timer: '<circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6"/>',
+  ghost: '<path d="M5 20V11a7 7 0 0 1 14 0v9l-2.5-2-2.5 2-2-2-2 2-2.5-2z"/><circle cx="9.5" cy="11" r="1"/><circle cx="14.5" cy="11" r="1"/>',
+  tandem: '<path d="M3 15l2-4h6l2 4"/><path d="M11 11l2-3h6l2 4v3"/><path d="M3 15h18"/>',
+  grid: '<path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
   // the ten emotes
   thumb: '<path d="M7 11v9H4v-9zM7 11l4-7a2 2 0 0 1 2 2v4h5.5a2 2 0 0 1 2 2.3l-1.2 6a2 2 0 0 1-2 1.7H7"/>',
   smile: '<circle cx="12" cy="12" r="9"/><path d="M8 14a4.5 4.5 0 0 0 8 0"/><circle' + D + ' cx="9" cy="9.5" r="1"/><circle' + D + ' cx="15" cy="9.5" r="1"/>',
