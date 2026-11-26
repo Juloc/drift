@@ -127,7 +127,7 @@ test('track: every map file that brings a road of the track system is inside the
     for (const w of json.walls.filter((x) => x.style === 'rail')) for (const p of w.pts) { const q = surfaceAt(T, p[0], p[1]); if (q.kind !== 'plaza') assert.ok(Math.abs(Math.abs(q.lat) - (json.halfWidth + T.limits.shoulder)) < 0.06, `${f}: rail point ${p} at ${q.lat.toFixed(2)} m`); }
     // the centre line the server reads lies on the road's centre, and the heights fall the whole way down
     for (const p of json.centre) { const q = surfaceAt(T, p[0], p[1]); assert.ok(q.kind === 'plaza' || Math.abs(q.lat) < 0.05, `${f}: centre point ${p}`); }
-    assert.ok(T.y[0] - T.y[T.n - 1] > 90, 'the touge goes down about a hundred metres');
+    if (json.lobby) assert.ok(T.y[0] - T.y[T.n - 1] > 90, 'the touge goes down about a hundred metres');
   }
   assert.ok(seen >= 1, 'the touge has track data');
 });

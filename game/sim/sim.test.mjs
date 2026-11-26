@@ -254,10 +254,11 @@ test('the five cars: sane numbers, and different from each other', () => {
 const MAPS = read('../data/maps.json').maps.map((m) => ({ ...m, json: read('../data/maps/' + m.file) }));
 const distToSegs = (segs, x, z) => { let best = Infinity; for (let i = 0; i < segs.length; i += 4) { const dx = segs[i + 2] - segs[i], dz = segs[i + 3] - segs[i + 1], l2 = dx * dx + dz * dz; const t = l2 ? Math.max(0, Math.min(1, ((x - segs[i]) * dx + (z - segs[i + 1]) * dz) / l2)) : 0; best = Math.min(best, Math.hypot(x - (segs[i] + dx * t), z - (segs[i + 1] + dz * t))); } return best; };
 
-test('maps: five maps, the touge first and the lobby, each with its own name and a real loop (the touge a descent)', () => {
-  assert.deepEqual(MAPS.map((m) => m.id), [0, 1, 2, 3, 4]);
+test('maps: ids counting up from 0, the touge first and the lobby, each with its own name and a real loop (the touge a descent)', () => {
+  assert.ok(MAPS.length >= 5);
+  assert.deepEqual(MAPS.map((m) => m.id), MAPS.map((_, i) => i));
   assert.equal(MAPS[0].lobby, true);
-  assert.equal(new Set(MAPS.map((m) => m.name)).size, 5);
+  assert.equal(new Set(MAPS.map((m) => m.name)).size, MAPS.length);
   for (const m of MAPS) {
     const j = m.json;
     assert.equal(j.id, m.id); assert.equal(j.gates.length, 8); assert.equal(j.grid.length, 8);
@@ -299,7 +300,7 @@ test('maps: a steady driver can go round the whole loop on every map without hit
   const dart = CARS[0];
   for (const m of MAPS) {
     const pm = prepareMap(m.json), c = m.json.centre, g = m.json.grid[0];
-    const open = m.json.closed === false, target = m.name === 'Winter track' ? 9 : m.name === 'Mountain pass' ? 11 : m.name === 'Touge' ? 11 : 15;
+    const open = m.json.closed === false, target = m.name === 'Winter track' ? 9 : ['Mountain pass', 'Touge', 'Practice ground'].includes(m.name) ? 11 : 15;   // (hairpins: slower)
     let s = makeCar(g.x, g.z, g.h), hits = 0, passed = 0, idx = 0;
     // start at the centre point nearest the grid slot and count how many points of the loop the car passes in order
     let best = Infinity; for (let i = 0; i < (open ? 30 : c.length); i++) { const d = Math.hypot(c[i][0] - g.x, c[i][1] - g.z); if (d < best) { best = d; idx = i; } }

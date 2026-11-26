@@ -5,6 +5,7 @@
 //   surfaceAt(track, x, z)  { y, gx, gz, s, lat, kind }: height and gradient of the surface under a point
 //   frameAt(track, s, lat)  the road frame: point, direction along, direction across, normal
 //   checkTrack(track)       every limit of the design at every sample: { ok, problems, worst }
+// A road is open (from a start, usually a plaza's mouth, to an end) or closed (a circuit: `closed: true`; its last sample is its first again, and everything wraps round).
 // Axes are the simulation's: x and z on the plan, heading grows to the right, forward = (sin h, cos h), right = (cos h, -sin h). `lat` is metres to the right of the
 // centre line, `bank` is height per metre to the right, curvature `k` is positive in a right-hand bend.
 
@@ -43,10 +44,10 @@ export function resample(pts, ds) {
 }
 
 /** Catmull-Rom (centripetal) through the control points, as a dense polyline. */
-function spline(ctrl) {
-  const P = ctrl.map((c) => [c.x, c.z]), out = [];
-  const at = (i) => P[clamp(i, 0, P.length - 1)];
-  for (let i = 0; i < P.length - 1; i++) {
+function spline(ctrl, closed = false) {
+  const P = ctrl.map((c) => [c.x, c.z]), out = [], m = P.length;
+  const at = (i) => (closed ? P[((i % m) + m) % m] : P[clamp(i, 0, m - 1)]);
+  for (let i = 0; i < (closed ? m : m - 1); i++) {
     const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
     const d = (a, b) => Math.max(1e-6, Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])));
     const t0 = 0, t1 = t0 + d(p0, p1), t2 = t1 + d(p1, p2), t3 = t2 + d(p2, p3);
@@ -62,20 +63,27 @@ function spline(ctrl) {
       out.push(q);
     }
   }
-  out.push(P[P.length - 1].slice());
+  out.push(closed ? P[0].slice() : P[P.length - 1].slice());
   return out;
 }
 
-const headings = (pts, n) => { const h = new Float64Array(n); for (let i = 0; i < n; i++) { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)]; h[i] = Math.atan2(b[0] - a[0], b[1] - a[1]); } return h; };
-const curvature = (head, n, ds) => { const k = new Float64Array(n); for (let i = 0; i < n; i++) { const a = Math.max(0, i - 1), b = Math.min(n - 1, i + 1); k[i] = b > a ? wrap(head[b] - head[a]) / ((b - a) * ds) : 0; } return k; };
+// the neighbour `d` steps from sample i: on a closed road the samples go round (the last one is the first again), on an open one they stop at the ends
+const cyc = (i, n) => ((i % (n - 1)) + (n - 1)) % (n - 1);
+const nb = (i, d, n, closed) => (closed ? cyc(i + d, n) : clamp(i + d, 0, n - 1));
+const headings = (pts, n, closed = false) => { const h = new Float64Array(n); for (let i = 0; i < n; i++) { const a = pts[nb(i, -1, n, closed)], b = pts[nb(i, 1, n, closed)]; h[i] = Math.atan2(b[0] - a[0], b[1] - a[1]); } return h; };
+const curvature = (head, n, ds, closed = false) => { const k = new Float64Array(n); for (let i = 0; i < n; i++) { const a = nb(i, -1, n, closed), b = nb(i, 1, n, closed), span = closed ? 2 : b - a; k[i] = span > 0 ? wrap(head[b] - head[a]) / (span * ds) : 0; } return k; };
 
 /** The reference speed along the road: the bend's limit, then a pass forwards (accelerating) and one backwards (braking), times `vScale`. */
-function refSpeed(k, n, ds, L) {
+function refSpeed(k, n, ds, L, closed = false) {
   const v = new Float64Array(n);
   for (let i = 0; i < n; i++) v[i] = Math.min(L.vTop, Math.sqrt(L.aLat / Math.max(1e-6, Math.abs(k[i]))));
-  v[0] = Math.min(v[0], 8);   // from the plaza: a rolling start
-  for (let i = 1; i < n; i++) v[i] = Math.min(v[i], Math.sqrt(v[i - 1] ** 2 + 2 * L.aAcc * ds));
-  for (let i = n - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] ** 2 + 2 * L.aBrake * ds));
+  if (!closed) v[0] = Math.min(v[0], 8);   // from the plaza: a rolling start (a circuit is driven round and round: no start)
+  for (let lap = 0; lap < (closed ? 2 : 1); lap++) {   // (a circuit: twice round, so the braking before the seam reaches over it)
+    for (let i = 1; i < n; i++) v[i] = Math.min(v[i], Math.sqrt(v[i - 1] ** 2 + 2 * L.aAcc * ds));
+    if (closed) v[0] = v[n - 1] = Math.min(v[0], v[n - 1]);
+    for (let i = n - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] ** 2 + 2 * L.aBrake * ds));
+    if (closed) v[n - 1] = v[0] = Math.min(v[0], v[n - 1]);
+  }
   for (let i = 0; i < n; i++) v[i] *= L.vScale;
   return v;
 }
@@ -85,7 +93,7 @@ function refSpeed(k, n, ds, L) {
  * Nothing is solved or limited here. Also builds the grid that finds the nearest piece of the centre line.
  */
 export function bakeTrack(S, limits = LIMITS) {
-  const n = S.pts.length, ds = S.ds;
+  const n = S.pts.length, ds = S.ds, closed = !!S.closed;
   const arr = (v, d) => { const a = new Float64Array(n); for (let i = 0; i < n; i++) a[i] = Array.isArray(v) || ArrayBuffer.isView(v) ? v[i] : (v ?? d); return a; };
   const x = new Float64Array(n), z = new Float64Array(n);
   for (let i = 0; i < n; i++) { x[i] = S.pts[i][0]; z[i] = S.pts[i][1]; }
@@ -93,13 +101,13 @@ export function bakeTrack(S, limits = LIMITS) {
   // direction and curvature of the smooth centre line at the samples (the spline's first and second derivative there)
   const head = new Float64Array(n), k = new Float64Array(n);
   for (let i = 0; i < n; i++) {
-    const tx = (smp(x, i + 1, n) - smp(x, i - 1, n)) / 2, tz = (smp(z, i + 1, n) - smp(z, i - 1, n)) / 2, ax = smp(x, i + 1, n) - 2 * x[i] + smp(x, i - 1, n), az = smp(z, i + 1, n) - 2 * z[i] + smp(z, i - 1, n);
+    const tx = (smp(x, i + 1, n, closed) - smp(x, i - 1, n, closed)) / 2, tz = (smp(z, i + 1, n, closed) - smp(z, i - 1, n, closed)) / 2, ax = smp(x, i + 1, n, closed) - 2 * x[i] + smp(x, i - 1, n, closed), az = smp(z, i + 1, n, closed) - 2 * z[i] + smp(z, i - 1, n, closed);
     head[i] = Math.atan2(tx, tz); k[i] = (ax * tz - az * tx) / Math.max(1e-9, Math.hypot(tx, tz) ** 3);
   }
-  const diff = (a) => { const d = new Float64Array(n); for (let i = 0; i < n; i++) { const p = Math.max(0, i - 1), q = Math.min(n - 1, i + 1); d[i] = (a[q] - a[p]) / ((q - p) * ds); } return d; };
+  const diff = (a) => { const d = new Float64Array(n); for (let i = 0; i < n; i++) { const p = nb(i, -1, n, closed), q = nb(i, 1, n, closed); d[i] = (a[q] - a[p]) / ((closed ? 2 : q - p) * ds); } return d; };
   const grade = diff(y), dbank = diff(bank), kv = new Float64Array(n);
-  for (let i = 1; i < n - 1; i++) kv[i] = (y[i + 1] - 2 * y[i] + y[i - 1]) / (ds * ds);
-  const track = { version: 2, ds, n, len: (n - 1) * ds, closed: false, x, z, y, bank, dbank, hwL, hwR, head, k, grade, kv, vRef: refSpeed(k, n, ds, limits), plaza: S.plaza ?? null, limits };
+  for (let i = closed ? 0 : 1; i < (closed ? n : n - 1); i++) kv[i] = (y[nb(i, 1, n, closed)] - 2 * y[i] + y[nb(i, -1, n, closed)]) / (ds * ds);
+  const track = { version: 2, ds, n, len: (n - 1) * ds, closed, x, z, y, bank, dbank, hwL, hwR, head, k, grade, kv, vRef: refSpeed(k, n, ds, limits, closed), plaza: S.plaza ?? null, limits };
   // the grid: cells of 8 m, each with the pieces (sample i to i + 1) that start in it
   const cell = 8, grid = new Map();
   for (let i = 0; i < n - 1; i++) { const key = Math.floor(x[i] / cell) * 65536 + Math.floor(z[i] / cell); let g = grid.get(key); if (!g) grid.set(key, (g = [])); g.push(i); }
@@ -111,18 +119,19 @@ export function bakeTrack(S, limits = LIMITS) {
 //      (direction and curvature are continuous), so the surface is smooth in height AND in slope, and the grade and curvature channels are exactly its derivatives at the samples.
 //      It passes within millimetres of the samples (a sixth of the second difference), which is what "the samples" mean from here on.
 const B = [0, 0, 0, 0], D = [0, 0, 0, 0];
+const along = (T, s) => (T.closed ? ((s % T.len) + T.len) % T.len : s);   // a distance along the road; on a circuit it goes round
 function basis(T, s) {
-  const f = clamp(s / T.ds, 0, T.n - 1), i = Math.min(T.n - 2, Math.floor(f)), u = f - i, v = 1 - u;
+  const f = clamp(along(T, s) / T.ds, 0, T.n - 1), i = Math.min(T.n - 2, Math.floor(f)), u = f - i, v = 1 - u;
   B[0] = (v * v * v) / 6; B[1] = (3 * u * u * u - 6 * u * u + 4) / 6; B[2] = (-3 * u * u * u + 3 * u * u + 3 * u + 1) / 6; B[3] = (u * u * u) / 6;
   D[0] = (-v * v) / 2; D[1] = (3 * u * u - 4 * u) / 2; D[2] = (-3 * u * u + 2 * u + 1) / 2; D[3] = (u * u) / 2;
   return i;
 }
-// a sample by index; one step beyond either end the line goes on straight
-const smp = (a, j, n) => (j < 0 ? 2 * a[0] - a[1] : j >= n ? 2 * a[n - 1] - a[n - 2] : a[j]);
+// a sample by index; one step beyond either end the line goes on straight (on a circuit it goes round)
+const smp = (a, j, n, closed = false) => (closed ? a[cyc(j, n)] : j < 0 ? 2 * a[0] - a[1] : j >= n ? 2 * a[n - 1] - a[n - 2] : a[j]);
 const _c = { px: 0, pz: 0, tx: 0, tz: 0 };
 function centre(T, s) {
   const i = basis(T, s), n = T.n; let px = 0, pz = 0, dx = 0, dz = 0;
-  for (let c = 0; c < 4; c++) { const x = smp(T.x, i - 1 + c, n), z = smp(T.z, i - 1 + c, n); px += B[c] * x; pz += B[c] * z; dx += D[c] * x; dz += D[c] * z; }
+  for (let c = 0; c < 4; c++) { const x = smp(T.x, i - 1 + c, n, T.closed), z = smp(T.z, i - 1 + c, n, T.closed); px += B[c] * x; pz += B[c] * z; dx += D[c] * x; dz += D[c] * z; }
   const l = Math.hypot(dx, dz) || 1;
   _c.px = px; _c.pz = pz; _c.tx = dx / l; _c.tz = dz / l;
   return _c;
@@ -130,11 +139,11 @@ function centre(T, s) {
 /** A channel at `s` with its derivative along the road, written into `out`: [value, derivative]. */
 function chan(T, a, s, out) {
   const i = basis(T, s), n = T.n; let v = 0, d = 0;
-  for (let c = 0; c < 4; c++) { const q = smp(a, i - 1 + c, n); v += B[c] * q; d += D[c] * q; }
+  for (let c = 0; c < 4; c++) { const q = smp(a, i - 1 + c, n, T.closed); v += B[c] * q; d += D[c] * q; }
   out[0] = v; out[1] = d / T.ds;
   return out;
 }
-const lin = (T, a, s) => { const f = clamp(s / T.ds, 0, T.n - 1), i = Math.min(T.n - 2, Math.floor(f)); return a[i] + (a[i + 1] - a[i]) * (f - i); };
+const lin = (T, a, s) => { const f = clamp(along(T, s) / T.ds, 0, T.n - 1), i = Math.min(T.n - 2, Math.floor(f)); return a[i] + (a[i + 1] - a[i]) * (f - i); };
 
 function inPoly(pts, x, z) {
   let inside = false;
@@ -173,9 +182,9 @@ export function surfaceAt(T, px, pz, out = {}) {
   // from the chord to the smooth centre line: a few steps along it until the point lies exactly beside it
   for (let it = 0; it < 4; it++) {
     lat = (px - c.px) * c.tz - (pz - c.pz) * c.tx; k = lin(T, T.k, s);
-    const along = (px - c.px) * c.tx + (pz - c.pz) * c.tz;
-    if (Math.abs(along) < 1e-7) break;
-    s = clamp(s + along / Math.max(0.3, 1 - lat * k), 0, T.len); c = centre(T, s);
+    const ahead = (px - c.px) * c.tx + (pz - c.pz) * c.tz;
+    if (Math.abs(ahead) < 1e-7) break;
+    s = T.closed ? along(T, s + ahead / Math.max(0.3, 1 - lat * k)) : clamp(s + ahead / Math.max(0.3, 1 - lat * k), 0, T.len); c = centre(T, s);
   }
   lat = (px - c.px) * c.tz - (pz - c.pz) * c.tx; k = lin(T, T.k, s);
   const hwL = lin(T, T.hwL, s), hwR = lin(T, T.hwR, s), sh = T.limits.shoulder;
@@ -204,33 +213,35 @@ export function frameAt(T, s, lat = 0) {
  * hit the control heights as far as the limits on grade and on crests and dips allow (where they do not, `checkTrack` says where and by how much).
  */
 export function buildTrack(spec, limits = LIMITS) {
-  const L = limits, ctrl = spec.ctrl;
-  // 1. the line: the spline, then relaxed until no bend is tighter than the limit and no bend begins too suddenly
-  let { pts, ds } = resample(spline(ctrl), L.ds);
+  const L = limits, ctrl = spec.ctrl, closed = !!spec.closed;
+  // 1. the line: the spline, then relaxed until no bend is tighter than the limit and no bend begins too suddenly (a circuit: round and round, its seam like any other place)
+  let { pts, ds } = resample(spline(ctrl, closed), L.ds);
+  const first = closed ? 0 : 1, shut = (a) => { if (closed) a[a.length - 1] = Array.isArray(a[0]) ? a[0].slice() : a[0]; return a; };   // the samples to move; the last one is the first again
   const kMax = (1 / L.rMin) * 0.97, dkMax = (1 / L.rMin / L.transition) * 0.95;
   const flatN = spec.plaza ? Math.ceil(L.plazaFlat / ds) + 1 : 0;   // the mouth of the plaza stays as the control points put it (straight)
   for (let it = 0; it < 6000; it++) {
-    const n = pts.length, k = curvature(headings(pts, n), n, ds);
+    const n = pts.length, k = curvature(headings(pts, n, closed), n, ds, closed);
     const bad = new Uint8Array(n); let any = false;
-    for (let i = 1; i < n - 1; i++) if (Math.abs(k[i]) > kMax || Math.abs(k[i + 1] - k[i]) / ds > dkMax) { any = true; for (let j = Math.max(1, i - 3); j <= Math.min(n - 2, i + 4); j++) bad[j] = 1; }
+    for (let i = first; i < n - 1; i++) if (Math.abs(k[i]) > kMax || Math.abs(k[nb(i, 1, n, closed)] - k[i]) / ds > dkMax) { any = true; for (let d = -3; d <= 4; d++) { const j = closed ? cyc(i + d, n) : clamp(i + d, 1, n - 2); bad[j] = 1; } }
     if (!any) break;
     const next = pts.map((p) => p.slice());
-    for (let i = Math.max(1, flatN); i < n - 1; i++) if (bad[i]) { next[i][0] = pts[i][0] + 0.5 * ((pts[i - 1][0] + pts[i + 1][0]) / 2 - pts[i][0]); next[i][1] = pts[i][1] + 0.5 * ((pts[i - 1][1] + pts[i + 1][1]) / 2 - pts[i][1]); }
-    pts = next;
+    for (let i = Math.max(first, flatN); i < n - 1; i++) if (bad[i]) { const a = pts[nb(i, -1, n, closed)], b = pts[nb(i, 1, n, closed)]; next[i][0] = pts[i][0] + 0.5 * ((a[0] + b[0]) / 2 - pts[i][0]); next[i][1] = pts[i][1] + 0.5 * ((a[1] + b[1]) / 2 - pts[i][1]); }
+    pts = shut(next);
     if (it % 10 === 9) ({ pts, ds } = resample(pts, L.ds));
   }
   ({ pts, ds } = resample(pts, L.ds));
   // a few light passes over the whole line: the curvature is then free of the noise of the sampling (the bends get a little wider, never tighter)
   for (let r = 0; r < 3; r++) {
-    for (let pass = 0; pass < 4; pass++) { const next = pts.map((p) => p.slice()); for (let i = Math.max(1, flatN); i < pts.length - 1; i++) { next[i][0] = (pts[i - 1][0] + 2 * pts[i][0] + pts[i + 1][0]) / 4; next[i][1] = (pts[i - 1][1] + 2 * pts[i][1] + pts[i + 1][1]) / 4; } pts = next; }
+    for (let pass = 0; pass < 4; pass++) { const m = pts.length, next = pts.map((p) => p.slice()); for (let i = Math.max(first, flatN); i < m - 1; i++) { const a = pts[nb(i, -1, m, closed)], b = pts[nb(i, 1, m, closed)]; next[i][0] = (a[0] + 2 * pts[i][0] + b[0]) / 4; next[i][1] = (a[1] + 2 * pts[i][1] + b[1]) / 4; } pts = shut(next); }
     ({ pts, ds } = resample(pts, L.ds));
   }
-  const n = pts.length, head = headings(pts, n), k = curvature(head, n, ds);
+  const n = pts.length, head = headings(pts, n, closed), k = curvature(head, n, ds, closed);
   // where each control point is along the line now
   const at = ctrl.map((c) => { let b = 0, bd = Infinity; for (let i = 0; i < n; i++) { const d = (pts[i][0] - c.x) ** 2 + (pts[i][1] - c.z) ** 2; if (d < bd) { bd = d; b = i; } } return b; });
-  at[0] = 0; at[at.length - 1] = n - 1;
-  const interp = (key, dflt) => {   // a channel given at some control points: straight between them, the default where nobody said anything
+  at[0] = 0; if (!closed) at[at.length - 1] = n - 1;
+  const interp = (key, dflt) => {   // a channel given at some control points: straight between them, the default where nobody said anything (a circuit: back to the first)
     const a = new Float64Array(n).fill(dflt), given = ctrl.map((c, j) => [at[j], c[key]]).filter((g) => g[1] !== undefined);
+    if (closed && given.length && given[0][0] === 0) given.push([n - 1, given[0][1]]);
     if (!given.length) return a;
     for (let i = 0; i < n; i++) { let p = given[0], q = given[given.length - 1]; for (const g of given) { if (g[0] <= i) p = g; if (g[0] >= i) { q = g; break; } } a[i] = q[0] === p[0] ? p[1] : p[1] + ((q[1] - p[1]) * (i - p[0])) / (q[0] - p[0]); }
     return a;
@@ -238,32 +249,47 @@ export function buildTrack(spec, limits = LIMITS) {
   // 2. the width
   const hw = interp('hw', L.hwDefault);
   for (let i = 0; i < n; i++) hw[i] = clamp(hw[i], L.hwMin, L.hwMax);
-  for (let i = 1; i < n; i++) hw[i] = clamp(hw[i], hw[i - 1] - L.hwChange * ds, hw[i - 1] + L.hwChange * ds);
-  for (let i = n - 2; i >= 0; i--) hw[i] = clamp(hw[i], hw[i + 1] - L.hwChange * ds, hw[i + 1] + L.hwChange * ds);
+  for (let lap = 0; lap < (closed ? 2 : 1); lap++) {
+    for (let i = 1; i < n; i++) hw[i] = clamp(hw[i], hw[i - 1] - L.hwChange * ds, hw[i - 1] + L.hwChange * ds);
+    if (closed) hw[0] = hw[n - 1] = Math.min(hw[0], hw[n - 1]);
+    for (let i = n - 2; i >= 0; i--) hw[i] = clamp(hw[i], hw[i + 1] - L.hwChange * ds, hw[i + 1] + L.hwChange * ds);
+    if (closed) hw[n - 1] = hw[0] = Math.min(hw[0], hw[n - 1]);
+  }
   // 3. the side tilt: towards the inside of the bend, more the tighter it is; level at the plaza; it may change only slowly along the road
   const bank = new Float64Array(n), want = (i) => (i < flatN ? 0 : -Math.sign(k[i]) * Math.min(L.bankIn * 0.9, Math.abs(k[i]) * 1.4));
   const fixed = ctrl.map((c, j) => [at[j], c.bank]).filter((g) => g[1] !== undefined);
   for (let i = 0; i < n; i++) bank[i] = want(i);
   for (const [i, b] of fixed) for (let j = Math.max(0, i - 5); j <= Math.min(n - 1, i + 5); j++) bank[j] = b;
-  const slew = (a, lo, hi) => { for (let r = 0; r < 4; r++) { for (let i = 1; i < n; i++) a[i] = clamp(a[i], a[i - 1] + lo(i) * ds, a[i - 1] + hi(i) * ds); for (let i = n - 2; i >= 0; i--) a[i] = clamp(a[i], a[i + 1] - hi(i) * ds, a[i + 1] - lo(i) * ds); } };
+  // how fast a channel may change along the road (a circuit: also over its seam, so the passes go round twice)
+  const slew = (a, lo, hi) => {
+    for (let r = 0; r < 4; r++) {
+      for (let lap = 0; lap < (closed ? 2 : 1); lap++) { for (let i = 1; i < n; i++) a[i] = clamp(a[i], a[i - 1] + lo(i) * ds, a[i - 1] + hi(i) * ds); if (closed) a[0] = a[n - 1]; }
+      for (let lap = 0; lap < (closed ? 2 : 1); lap++) { for (let i = n - 2; i >= 0; i--) a[i] = clamp(a[i], a[i + 1] - hi(i) * ds, a[i + 1] - lo(i) * ds); if (closed) a[n - 1] = a[0]; }
+    }
+  };
   const tw = L.twist * 0.9;
-  for (let r = 0; r < 60; r++) { for (let i = 1; i < n - 1; i++) if (Math.abs(bank[i + 1] - bank[i]) > tw * ds || Math.abs(bank[i] - bank[i - 1]) > tw * ds) bank[i] = i < flatN ? 0 : (bank[i - 1] + 2 * bank[i] + bank[i + 1]) / 4; }
+  for (let r = 0; r < 60; r++) { for (let i = first; i < n - 1; i++) { const a = bank[nb(i, -1, n, closed)], b = bank[nb(i, 1, n, closed)]; if (Math.abs(b - bank[i]) > tw * ds || Math.abs(bank[i] - a) > tw * ds) bank[i] = i < flatN ? 0 : (a + 2 * bank[i] + b) / 4; } shut(bank); }
   slew(bank, () => -tw, () => tw);
   for (let i = 0; i < flatN; i++) bank[i] = 0;
   slew(bank, () => -tw, () => tw);
   // 4. the heights: the grade is solved, then added up. Limits per sample: the grade (lower in a bend, and so low that the inner edge and the tilt together stay inside
   //    the surface's limit), and how fast the grade may change (a crest, a dip: by radius and by the reference speed)
-  const vRef = refSpeed(k, n, ds, L), gMax = new Float64Array(n), kvLo = new Float64Array(n), kvHi = new Float64Array(n);
+  const vRef = refSpeed(k, n, ds, L, closed), gMax = new Float64Array(n), kvLo = new Float64Array(n), kvHi = new Float64Array(n);
   for (let i = 0; i < n; i++) {
-    const inner = 1 - hw[i] * Math.abs(k[i]), db = Math.abs(i > 0 && i < n - 1 ? (bank[i + 1] - bank[i - 1]) / (2 * ds) : 0) * hw[i];
+    const inner = 1 - hw[i] * Math.abs(k[i]), db = Math.abs(closed || (i > 0 && i < n - 1) ? (bank[nb(i, 1, n, closed)] - bank[nb(i, -1, n, closed)]) / (2 * ds) : 0) * hw[i];
     gMax[i] = Math.max(0, 0.96 * Math.min(Math.abs(k[i]) > L.hairpinK ? L.gradeHairpin : L.grade, L.slope * inner - db, Math.sqrt(Math.max(0, L.slopeBoth ** 2 - bank[i] ** 2)) * inner - db));
     kvLo[i] = -0.9 * Math.min(1 / L.crestR, (L.crestG * L.G) / vRef[i] ** 2); kvHi[i] = 0.9 * Math.min(1 / L.sagR, (L.sagG * L.G) / vRef[i] ** 2);
   }
   // the grade's limit must itself be reachable: it may not fall faster along the road than the grade is allowed to change (else the grade could not follow it into a bend)
-  for (let i = 1; i < n; i++) gMax[i] = Math.min(gMax[i], gMax[i - 1] + Math.min(-kvLo[i], kvHi[i]) * ds);
-  for (let i = n - 2; i >= 0; i--) gMax[i] = Math.min(gMax[i], gMax[i + 1] + Math.min(-kvLo[i], kvHi[i]) * ds);
+  for (let lap = 0; lap < (closed ? 2 : 1); lap++) {
+    for (let i = 1; i < n; i++) gMax[i] = Math.min(gMax[i], gMax[i - 1] + Math.min(-kvLo[i], kvHi[i]) * ds);
+    if (closed) gMax[0] = gMax[n - 1] = Math.min(gMax[0], gMax[n - 1]);
+    for (let i = n - 2; i >= 0; i--) gMax[i] = Math.min(gMax[i], gMax[i + 1] + Math.min(-kvLo[i], kvHi[i]) * ds);
+    if (closed) gMax[n - 1] = gMax[0] = Math.min(gMax[0], gMax[n - 1]);
+  }
   const anchors = ctrl.map((c, j) => [at[j], c.y]).filter((a) => a[1] !== undefined);
   if (!anchors.length || anchors[0][0] !== 0) anchors.unshift([0, anchors[0]?.[1] ?? 0]);
+  if (closed) { anchors.sort((a, b) => a[0] - b[0]); if (anchors.at(-1)[0] !== n - 1) anchors.push([n - 1, anchors[0][1]]); }   // a circuit ends where it began
   const y0 = anchors[0][1], g = new Float64Array(n), y = new Float64Array(n);
   for (let a = 0; a < anchors.length - 1; a++) { const [i0, ya] = anchors[a], [i1, yb] = anchors[a + 1], m = (yb - ya) / ((i1 - i0) * ds); for (let i = i0; i < i1; i++) g[i] = m; }
   const limit = () => {
@@ -286,7 +312,8 @@ export function buildTrack(spec, limits = LIMITS) {
     if (worst < 0.005) break;
   }
   limit(); add();
-  const T = bakeTrack({ pts, ds, y, bank, hw, plaza: spec.plaza ? { pts: spec.plaza.pts, y: y0 } : null }, L);
+  if (closed) { const miss = y[n - 1] - y[0]; for (let i = 0; i < n; i++) y[i] -= (miss * i) / (n - 1); y[n - 1] = y[0]; bank[n - 1] = bank[0]; }   // the solve's last millimetres spread round the circuit, not left as a step at the seam
+  const T = bakeTrack({ pts, ds, y, bank, hw, closed, plaza: spec.plaza ? { pts: spec.plaza.pts, y: y0 } : null }, L);
   T.anchors = anchors.map(([i, ya]) => ({ s: i * ds, want: ya, got: y[i] }));
   return T;
 }
@@ -294,9 +321,9 @@ export function buildTrack(spec, limits = LIMITS) {
 /** The road as plain data for a map file (millimetres; everything else is worked out again on loading), and back. */
 export function packTrack(T) {
   const r = (a, q) => Array.from(a, (v) => Math.round(v * q) / q);
-  return { version: 2, ds: +T.ds.toFixed(6), x: r(T.x, 1000), z: r(T.z, 1000), y: r(T.y, 1000), bank: r(T.bank, 100000), hwL: r(T.hwL, 1000), hwR: r(T.hwR, 1000), plaza: T.plaza };
+  return { version: 2, ds: +T.ds.toFixed(6), x: r(T.x, 1000), z: r(T.z, 1000), y: r(T.y, 1000), bank: r(T.bank, 100000), hwL: r(T.hwL, 1000), hwR: r(T.hwR, 1000), plaza: T.plaza, ...(T.closed ? { closed: true } : {}) };
 }
-export function loadTrack(P, limits = LIMITS) { return bakeTrack({ pts: P.x.map((x, i) => [x, P.z[i]]), ds: P.ds, y: P.y, bank: P.bank, hwL: P.hwL, hwR: P.hwR, plaza: P.plaza }, limits); }
+export function loadTrack(P, limits = LIMITS) { return bakeTrack({ pts: P.x.map((x, i) => [x, P.z[i]]), ds: P.ds, y: P.y, bank: P.bank, hwL: P.hwL, hwR: P.hwR, plaza: P.plaza, closed: P.closed }, limits); }
 
 // ---------------------------------------------------------------- checking
 /**
@@ -335,7 +362,7 @@ export function checkTrack(T, limits = T.limits ?? LIMITS) {
     hi('bounds', s, Math.max(Math.abs(T.x[i]), Math.abs(T.z[i])), L.bound);
     if (T.plaza && s <= L.plazaFlat) { hi('plaza-level', s, Math.abs(T.y[i] - T.plaza.y), L.plazaStep); hi('plaza-grade', s, Math.max(Math.abs(T.grade[i]), Math.abs(T.bank[i])), 0.001, pct); }
     // four wheel points on the surface, on the centre line and near both edges: how far the fourth is from the plane of the other three
-    if (i > 0 && i < n - 1) for (const lat of [-T.hwL[i] + 1, 0, T.hwR[i] - 1]) {
+    if (T.closed || (i > 0 && i < n - 1)) for (const lat of [-T.hwL[i] + 1, 0, T.hwR[i] - 1]) {
       const a = frameAt(T, s - 1.3, lat - 0.8).y, b = frameAt(T, s - 1.3, lat + 0.8).y, c = frameAt(T, s + 1.3, lat - 0.8).y, d = frameAt(T, s + 1.3, lat + 0.8).y;
       hi('wheel-plane', s, Math.abs(a - b - c + d) / 2, L.wheelPlane);
     }
@@ -348,7 +375,8 @@ export function checkTrack(T, limits = T.limits ?? LIMITS) {
   }
   // two branches of the road too close on the plan
   const gap = Math.ceil(L.branchArc / ds);
-  for (let i = 0; i < n; i++) { let bd = Infinity; for (let j = i + gap; j < n; j++) { const d = (T.x[i] - T.x[j]) ** 2 + (T.z[i] - T.z[j]) ** 2; if (d < bd) bd = d; } if (bd < Infinity) lo('branch', i * ds, Math.sqrt(bd), L.branch); }
+  const nU = T.closed ? n - 1 : n;   // (a circuit's last sample is its first)
+  for (let i = 0; i < nU; i++) { let bd = Infinity; for (let j = i + gap; j < nU; j++) { if (T.closed && nU - (j - i) < gap) continue; const d = (T.x[i] - T.x[j]) ** 2 + (T.z[i] - T.z[j]) ** 2; if (d < bd) bd = d; } if (bd < Infinity) lo('branch', i * ds, Math.sqrt(bd), L.branch); }
   for (const a of T.anchors ?? []) hi('height', a.s, Math.abs(a.got - a.want), 0.05);
   const TEXT = { width: 'the road is too narrow', 'width-max': 'the road is too wide', 'width-change': 'the width changes too fast', radius: 'the bend is too tight', 'radius-inner': 'the inner edge of the bend is too tight',
     'radius-rail': 'the rail inside the bend is too tight', transition: 'the bend begins too suddenly', grade: 'the road is too steep', 'grade-bend': 'the road is too steep in the bend', slope: 'the surface is too steep (at an edge)',
