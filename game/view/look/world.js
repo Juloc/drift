@@ -11,6 +11,7 @@ import { mulberry32, noise2, smoothstep } from '../../core/rng.js';
 import { X } from '../space.js';
 import { makeField, bends, pointAt, insidePoly, distToPoly } from './field.js';
 import { sunDirection } from './sky.js';
+import { makeFoliage } from './foliage.js';
 
 const C = (hex) => new THREE.Color(hex);
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3();
@@ -122,6 +123,8 @@ export function buildWorld(scene, look, tierName = 'high') {
       diffuseColor.rgb *= ${(1 - (look.road.grain ?? 0.32) * 0.7).toFixed(3)} + grain * ${(look.road.grain ?? 0.32).toFixed(3)};`);   // look.road.grain: how strong
   };
   group.add(solid, lights, roadMesh);
+  const foliage = makeFoliage(f, scene, look, tier, mulberry32(61));   // grass and low plants beside the road (view/look/foliage.js; none on the phone)
+  if (foliage) group.add(foliage);
   const poolMesh = lightPools(pools, look, f);
   if (poolMesh) group.add(poolMesh);
   if (water) group.add(water);

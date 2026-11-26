@@ -223,9 +223,9 @@
    "far": 20,
    "pines": 260,
    "cherries": 0,
-   "nearPines": 160,
+   "nearPines": 130,
    "nearCherries": 0,
-   "rocks": 14,
+   "rocks": 8,
    "ridge": 140,
    "mist": 7,
    "railPost": 3,
@@ -243,9 +243,11 @@
     "petals": 70,
     "poles": 0
    },
-   "carpet": 900,
+   "carpet": 400,
    "billows": 140,
-   "carpetNear": 30
+   "carpetNear": 30,
+   "grass": 4000,
+   "plants": 70
   },
   "medium": {
    "cell": 8,
@@ -274,7 +276,9 @@
    },
    "carpet": 1300,
    "billows": 100,
-   "carpetNear": 30
+   "carpetNear": 30,
+   "grass": 3000,
+   "plants": 80
   },
   "low": {
    "cell": 14,
@@ -362,5 +366,8 @@
     "moss": "#6a8a58"
    }
   }
+ },
+ "foliage": {
+  "reach": 12
  }
 }
