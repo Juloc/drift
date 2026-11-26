@@ -7,7 +7,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { basename } from 'node:path';
 import { step, makeCar, speedOf, bodySlip, bodyVelocity, DT } from '../game/sim/physics.js';
-import { prepareMap } from '../game/sim/map.js';
+import { prepareMap, surfaceAt as groundAt, SURFACES } from '../game/sim/map.js';
 import { collideBody } from '../game/sim/collision.js';
 import { surfaceAt } from '../game/sim/track.js';
 import { trackBot, hairpinsOf } from '../game/sim/trackbot.js';
@@ -19,7 +19,7 @@ const deg = (r) => (r * 180) / Math.PI;
 
 /** One drive: `drift` or clean, one car. Returns the worst numbers. */
 export function drive(map, car, { drift = true, fps = 60, look = null } = {}) {
-  const T = map.surface, surf = (x, z, o) => surfaceAt(T, x, z, o), pins = hairpinsOf(T), bot = trackBot(T, { drift, car }), g = map.grid[0];
+  const T = map.surface, surf = (x, z, o) => surfaceAt(T, x, z, o), pins = hairpinsOf(T), bot = trackBot(T, { drift, car, mu: SURFACES[map.road?.kind]?.mu ?? 1 }), g = map.grid[0];
   const W = wheelPoints({ wheelX: 0.70, wheelZ: 1.19, wheelZF: 1.21 }), pose = makePose(), q = {};
   // the chase camera with a camera that only keeps numbers (three.js is not needed to know where it is and where it looks)
   const cam = { position: { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } }, at: [0, 0, 0], lookAt(x, y, z) { this.at = [x, y, z]; }, fov: 52, updateProjectionMatrix() {} };
@@ -27,11 +27,11 @@ export function drive(map, car, { drift = true, fps = 60, look = null } = {}) {
   let s = makeCar(g.x, g.z, g.h), t = 0, hits = 0, lastHit = -9, frames = 0;
   const per = Math.round(1 / fps / DT), dt = per * DT, pin = pins.map(() => 0);
   const w = { load: [9, 0], step: 0, gap: 0, pitchRate: 0, rollRate: 0, camAccel: 0, camPitchRate: 0, camClear: 9, maxKmh: 0 };
-  let prev = null, camY = [], camPitch = null;
+  let prev = null, camY = [], camPitch = null, far = 0;
   chase.snap(s);
   while (t < 400) {
     for (let k = 0; k < per; k++) {
-      const before = s; s = collideBody(map, step(s, bot(t, s), car, 1, DT, surf)); t += DT;
+      const before = s; s = collideBody(map, step(s, bot(t, s), car, groundAt(map, s.x, s.z).mu, DT, surf)); t += DT;
       if (s.hit > 1 && t - lastHit > 0.5) { hits++; lastHit = t; }
       w.load[0] = Math.min(w.load[0], s.nLoad); w.load[1] = Math.max(w.load[1], s.nLoad);
       if (before.y !== undefined) w.step = Math.max(w.step, Math.abs(surf(s.x, s.z, {}).y - before.y) - (0.13 * Math.hypot(s.x - before.x, s.z - before.z) + 0.001));
@@ -52,9 +52,10 @@ export function drive(map, car, { drift = true, fps = 60, look = null } = {}) {
     if (camPitch !== null && frames > 60) w.camPitchRate = Math.max(w.camPitchRate, Math.abs(pitch - camPitch) / dt);
     camPitch = pitch;
     w.camClear = Math.min(w.camClear, c.y - surf(-c.x, c.z, {}).y);   // (the view's x is the simulation's mirrored: view/space.js)
-    if (q.s > T.len - 12) break;
+    far = Math.max(far, q.s);
+    if (q.s > T.len - 12 || (q.kind === 'plaza' && far > T.len - 60)) break;   // (a road that comes home into its plaza ends at the plaza's edge: inside it there is no distance along the road)
   }
-  return { car: car.name, driver: drift ? 'drift' : 'clean', seconds: +t.toFixed(1), finished: q.s > T.len - 12, hits, maxKmh: Math.round(w.maxKmh), pins: pin.map((p) => Math.round(p)), load: w.load.map((v) => +v.toFixed(2)),
+  return { car: car.name, driver: drift ? 'drift' : 'clean', seconds: +t.toFixed(1), finished: q.s > T.len - 12 || (q.kind === 'plaza' && far > T.len - 60), hits, maxKmh: Math.round(w.maxKmh), pins: pin.map((p) => Math.round(p)), load: w.load.map((v) => +v.toFixed(2)),
     heightStepMm: +(Math.max(0, w.step) * 1000).toFixed(1), wheelGapCm: +(w.gap * 100).toFixed(2), pitchRate: +deg(w.pitchRate).toFixed(1), rollRate: +deg(w.rollRate).toFixed(1),
     camAccel: +w.camAccel.toFixed(2), camPitchRate: +deg(w.camPitchRate).toFixed(1), camClear: +w.camClear.toFixed(2) };
 }

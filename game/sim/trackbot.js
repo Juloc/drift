@@ -28,8 +28,17 @@ const heavy = (car) => (car?.agility ?? 1) < 0.9;
  * Returns `(t, state, dt) => controls` for the road `T`. Options: `drift` (throw the tail out in hairpins), `speed` on the runs and `entry` into a hairpin (m/s),
  * `angle` the slip angle to hold (rad), `kick` seconds of handbrake, `clean` the speed a clean driver takes a hairpin with, `car` the car's numbers (a heavy one gets a longer kick).
  */
-export function trackBot(T, { car = null, drift = true, speed = 26, entry = 15, angle = 0.6, kick = heavy(car) ? 0.35 : 0.2, kickSteer = heavy(car) ? 0.8 : 0.6, inSteer = 0.5, wideSteer = 0.14, early = 4, aimIn = 1.5, slideSpeed = 11.5, fastBy = 1.2, speedGain = 0.25, clean = 9.5, look = 11 } = {}) {
+export function trackBot(T, { car = null, drift = true, speed = 26, entry = 15, angle = 0.6, kick = heavy(car) ? 0.35 : 0.2, kickSteer = heavy(car) ? 0.8 : 0.6, inSteer = 0.5, wideSteer = 0.14, early = 4, aimIn = 1.5, slideSpeed = 11.5, fastBy = 1.2, speedGain = 0.25, clean = 9.5, look = 11, mu = 1, corner = 0.7, decel = 7 } = {}) {
   const pins = hairpinsOf(T), q = {};
+  // on a ground with less grip every speed of a hairpin shrinks like the speed a bend takes: with the root of the grip
+  const slow = Math.sqrt(mu); entry *= slow; slideSpeed *= slow; clean *= slow;
+  // the speed every place of the road takes with grip: what the bend allows (`corner` of the tyres' grip on this ground: car.grip * mu * g), never more than `speed`, and
+  // reached by braking in time (a pass backwards with the bot's braking). The hairpins keep their own speeds (`entry`, `clean`: the phases below), so they are left out here.
+  const n = T.n, vT = new Float64Array(n), aLat = corner * (car?.grip ?? 1) * mu * 9.81, aBrake = decel * mu;
+  for (let i = 0; i < n; i++) vT[i] = Math.min(speed, Math.sqrt(aLat / Math.max(1e-6, Math.abs(T.k[i]))));
+  for (const p of pins) for (let i = Math.max(0, Math.floor(p.from / T.ds)); i <= Math.min(n - 1, Math.ceil(p.to / T.ds)); i++) vT[i] = speed;
+  for (let lap = 0; lap < (T.closed ? 2 : 1); lap++) { for (let i = n - 2; i >= 0; i--) vT[i] = Math.min(vT[i], Math.sqrt(vT[i + 1] ** 2 + 2 * aBrake * T.ds)); if (T.closed) vT[n - 1] = vT[0]; }
+  const vAt = (s) => vT[clamp(Math.ceil(s / T.ds), 0, n - 1)];
   let phase = 'run', pin = null, kickLeft = 0, done = -1, still = 0, back = 0;
   return (t, s, dt = 1 / 120) => {
     surfaceAt(T, s.x, s.z, q);
@@ -44,7 +53,7 @@ export function trackBot(T, { car = null, drift = true, speed = 26, entry = 15, 
     const follow = clamp(err * 2.4 - (Math.abs(slip) > 0.12 ? slip * 0.9 : 0), -1, 1);
     const vIn = drift ? entry : clean, toBend = next ? next.from - along : Infinity;
     // brake so that the entry speed is reached a few metres before the bend (7 m/s^2, less than the tyres give)
-    const mustBrake = next && sp > vIn && toBend - early - 2 < (sp * sp - vIn * vIn) / (2 * 7);
+    const mustBrake = next && sp > vIn && toBend - early - 2 < (sp * sp - vIn * vIn) / (2 * aBrake);
     if (phase === 'run') {
       if (drift && next && toBend < early && sp > vIn * 0.75) { phase = 'slide'; pin = next; kickLeft = kick; }
       else if (!drift && next && toBend < 0) { phase = 'grip'; pin = next; }
@@ -72,6 +81,7 @@ export function trackBot(T, { car = null, drift = true, speed = 26, entry = 15, 
       return { steer: follow, throttle: 0.45, brake: 0, handbrake: 0 };
     }
     if (sp < 2 && t > 2) return { steer: follow, throttle: 0.6, brake: 0, handbrake: 0 };   // stopped somewhere: drive on
-    return { steer: follow, throttle: mustBrake ? 0 : sp < speed ? 1 : 0.2, brake: mustBrake ? 0.8 : sp > speed + 2 ? 0.5 : 0, handbrake: 0 };
+    const v = vAt(along + sp * 0.15);   // (a moment ahead: the pedals take that long)
+    return { steer: follow, throttle: mustBrake || sp > v ? 0 : sp < v - 1 ? 1 : 0.4, brake: mustBrake ? 0.8 : clamp((sp - v) * 0.6, 0, 0.8), handbrake: 0 };
   };
 }

@@ -236,6 +236,11 @@ export function buildTrack(spec, limits = LIMITS) {
     ({ pts, ds } = resample(pts, L.ds));
   }
   const n = pts.length, head = headings(pts, n, closed), k = curvature(head, n, ds, closed);
+  // a road that comes home into its plaza (its last sample lies inside the plaza's polygon) is level at the plaza's height there too: from `plazaFlat` metres before it
+  // crosses the plaza's edge to its end (`flatEnd`: the first sample of that stretch; n when the road ends elsewhere)
+  let flatEnd = n;
+  if (spec.plaza && !closed && inPoly(spec.plaza.pts, pts[n - 1][0], pts[n - 1][1])) { let i = n - 1; while (i > flatN && inPoly(spec.plaza.pts, pts[i][0], pts[i][1])) i--; flatEnd = Math.max(flatN, i - Math.ceil(L.plazaFlat / ds)); }
+  const isFlat = (i) => i < flatN || i >= flatEnd;
   // where each control point is along the line now
   const at = ctrl.map((c) => { let b = 0, bd = Infinity; for (let i = 0; i < n; i++) { const d = (pts[i][0] - c.x) ** 2 + (pts[i][1] - c.z) ** 2; if (d < bd) { bd = d; b = i; } } return b; });
   at[0] = 0; if (!closed) at[at.length - 1] = n - 1;
@@ -256,7 +261,7 @@ export function buildTrack(spec, limits = LIMITS) {
     if (closed) hw[n - 1] = hw[0] = Math.min(hw[0], hw[n - 1]);
   }
   // 3. the side tilt: towards the inside of the bend, more the tighter it is; level at the plaza; it may change only slowly along the road
-  const bank = new Float64Array(n), want = (i) => (i < flatN ? 0 : -Math.sign(k[i]) * Math.min(L.bankIn * 0.9, Math.abs(k[i]) * 1.4));
+  const bank = new Float64Array(n), want = (i) => (isFlat(i) ? 0 : -Math.sign(k[i]) * Math.min(L.bankIn * 0.9, Math.abs(k[i]) * 1.4));
   const fixed = ctrl.map((c, j) => [at[j], c.bank]).filter((g) => g[1] !== undefined);
   for (let i = 0; i < n; i++) bank[i] = want(i);
   for (const [i, b] of fixed) for (let j = Math.max(0, i - 5); j <= Math.min(n - 1, i + 5); j++) bank[j] = b;
@@ -266,11 +271,13 @@ export function buildTrack(spec, limits = LIMITS) {
       for (let lap = 0; lap < (closed ? 2 : 1); lap++) { for (let i = 1; i < n; i++) a[i] = clamp(a[i], a[i - 1] + lo(i) * ds, a[i - 1] + hi(i) * ds); if (closed) a[0] = a[n - 1]; }
       for (let lap = 0; lap < (closed ? 2 : 1); lap++) { for (let i = n - 2; i >= 0; i--) a[i] = clamp(a[i], a[i + 1] - hi(i) * ds, a[i + 1] - lo(i) * ds); if (closed) a[n - 1] = a[0]; }
     }
+    // the level end (a road that comes home into its plaza): zero there, and the stretch before it comes down to zero in time (a pass backwards from it)
+    if (flatEnd < n) { for (let i = flatEnd; i < n; i++) a[i] = 0; for (let i = flatEnd - 1; i >= 0; i--) a[i] = clamp(a[i], a[i + 1] - hi(i) * ds, a[i + 1] - lo(i) * ds); }
   };
   const tw = L.twist * 0.9;
-  for (let r = 0; r < 60; r++) { for (let i = first; i < n - 1; i++) { const a = bank[nb(i, -1, n, closed)], b = bank[nb(i, 1, n, closed)]; if (Math.abs(b - bank[i]) > tw * ds || Math.abs(bank[i] - a) > tw * ds) bank[i] = i < flatN ? 0 : (a + 2 * bank[i] + b) / 4; } shut(bank); }
+  for (let r = 0; r < 60; r++) { for (let i = first; i < n - 1; i++) { const a = bank[nb(i, -1, n, closed)], b = bank[nb(i, 1, n, closed)]; if (Math.abs(b - bank[i]) > tw * ds || Math.abs(bank[i] - a) > tw * ds) bank[i] = isFlat(i) ? 0 : (a + 2 * bank[i] + b) / 4; } shut(bank); }
   slew(bank, () => -tw, () => tw);
-  for (let i = 0; i < flatN; i++) bank[i] = 0;
+  for (let i = 0; i < n; i++) if (isFlat(i)) bank[i] = 0;
   slew(bank, () => -tw, () => tw);
   // where the road is straight again the tilt must already be down to what a straight may have (else a hairpin's tilt runs on past its end and hangs outwards): an envelope
   // for the size of the tilt, low on the straights (under 1 / 250: a margin over the check's 1 / 400, the baked curvature differs a little) and rising from there no faster
@@ -305,9 +312,9 @@ export function buildTrack(spec, limits = LIMITS) {
   const y0 = anchors[0][1], g = new Float64Array(n), y = new Float64Array(n);
   for (let a = 0; a < anchors.length - 1; a++) { const [i0, ya] = anchors[a], [i1, yb] = anchors[a + 1], m = (yb - ya) / ((i1 - i0) * ds); for (let i = i0; i < i1; i++) g[i] = m; }
   const limit = () => {
-    for (let i = 0; i < n; i++) g[i] = i < flatN ? 0 : clamp(g[i], -gMax[i], gMax[i]);
+    for (let i = 0; i < n; i++) g[i] = isFlat(i) ? 0 : clamp(g[i], -gMax[i], gMax[i]);
     slew(g, (i) => kvLo[i], (i) => kvHi[i]);
-    for (let i = 0; i < flatN; i++) g[i] = 0;
+    for (let i = 0; i < n; i++) if (isFlat(i)) g[i] = 0;
     slew(g, (i) => kvLo[i], (i) => kvHi[i]);
     for (let i = 0; i < n; i++) g[i] = clamp(g[i], -gMax[i], gMax[i]);
   };
@@ -318,12 +325,13 @@ export function buildTrack(spec, limits = LIMITS) {
     for (let a = 0; a < anchors.length - 1; a++) {
       const [i0] = anchors[a], [i1, yb] = anchors[a + 1], err = yb - y[i1] - (a > 0 ? anchors[a][1] - y[i0] : 0);   // what this stretch itself is off by
       worst = Math.max(worst, Math.abs(yb - y[i1]));
-      let room = 0; for (let i = Math.max(i0, flatN); i < i1; i++) room += Math.max(0, gMax[i] - Math.sign(err) * g[i]);
-      if (room > 0) for (let i = Math.max(i0, flatN); i < i1; i++) g[i] += (err / ds) * (Math.max(0, gMax[i] - Math.sign(err) * g[i]) / room);
+      let room = 0; for (let i = Math.max(i0, flatN); i < Math.min(i1, flatEnd); i++) room += Math.max(0, gMax[i] - Math.sign(err) * g[i]);
+      if (room > 0) for (let i = Math.max(i0, flatN); i < Math.min(i1, flatEnd); i++) g[i] += (err / ds) * (Math.max(0, gMax[i] - Math.sign(err) * g[i]) / room);
     }
     if (worst < 0.005) break;
   }
   limit(); add();
+  if (flatEnd < n) { const miss = y[n - 1] - y0; for (let i = flatN; i < n; i++) y[i] -= miss * Math.min(1, (i - flatN) / Math.max(1, flatEnd - flatN)); }   // the solve's last millimetres spread over the road, so the end is at the plaza's height exactly
   if (closed) { const miss = y[n - 1] - y[0]; for (let i = 0; i < n; i++) y[i] -= (miss * i) / (n - 1); y[n - 1] = y[0]; bank[n - 1] = bank[0]; }   // the solve's last millimetres spread round the circuit, not left as a step at the seam
   const T = bakeTrack({ pts, ds, y, bank, hw, closed, plaza: spec.plaza ? { pts: spec.plaza.pts, y: y0 } : null }, L);
   T.anchors = anchors.map(([i, ya]) => ({ s: i * ds, want: ya, got: y[i] }));
@@ -352,6 +360,13 @@ export function checkTrack(T, limits = T.limits ?? LIMITS) {
   };
   const hi = (rule, s, v, lim, fmt) => see(rule, s, v, lim, v - lim, fmt), lo = (rule, s, v, lim, fmt) => see(rule, s, v, lim, lim - v, fmt);
   const P = { }, Q = { };
+  // a road that ends inside its plaza: level from `plazaFlat` metres before it crosses the plaza's edge (`sHome`; Infinity when it ends elsewhere)
+  let sHome = Infinity;
+  if (T.plaza && !T.closed && inPoly(T.plaza.pts, T.x[n - 1], T.z[n - 1])) { let i = n - 1; while (i > 0 && inPoly(T.plaza.pts, T.x[i], T.z[i])) i--; sHome = Math.max(0, i * ds - L.plazaFlat); }
+  // along the plaza's edge, wherever the road lies on the other side of it: the road's surface there is the plaza's height (no step to drive over)
+  if (T.plaza) { const E = T.plaza.pts;
+    for (let e = 0; e < E.length; e++) { const a = E[e], b = E[(e + 1) % E.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / len, uz = (b[1] - a[1]) / len;
+      for (let d = 0; d <= len; d += 0.5) for (const side of [-0.02, 0.02]) { const q = surfaceAt(T, a[0] + ux * d - uz * side, a[1] + uz * d + ux * side, Q); if (q.kind === 'road') hi('plaza-join', q.s, Math.abs(q.y - T.plaza.y), L.plazaStep); } } }
   for (let i = 0; i < n; i++) {
     const s = i * ds, k = T.k[i], ak = Math.abs(k), hwIn = k > 0 ? T.hwR[i] : T.hwL[i];
     lo('width', s, Math.min(T.hwL[i], T.hwR[i]), L.hwMin); hi('width-max', s, Math.max(T.hwL[i], T.hwR[i]), L.hwMax);
@@ -372,7 +387,7 @@ export function checkTrack(T, limits = T.limits ?? LIMITS) {
     hi('twist', s, Math.abs(T.dbank[i]), L.twist, (v) => (v * 500).toFixed(2) + ' % in 5 m');
     if (i > 0) hi('step', s, Math.abs(T.y[i] - T.y[i - 1]), L.step * ds);
     hi('bounds', s, Math.max(Math.abs(T.x[i]), Math.abs(T.z[i])), L.bound);
-    if (T.plaza && s <= L.plazaFlat) { hi('plaza-level', s, Math.abs(T.y[i] - T.plaza.y), L.plazaStep); hi('plaza-grade', s, Math.max(Math.abs(T.grade[i]), Math.abs(T.bank[i])), 0.001, pct); }
+    if (T.plaza && (s <= L.plazaFlat || s >= sHome)) { hi('plaza-level', s, Math.abs(T.y[i] - T.plaza.y), L.plazaStep); hi('plaza-grade', s, Math.max(Math.abs(T.grade[i]), Math.abs(T.bank[i])), 0.001, pct); }
     // four wheel points on the surface, on the centre line and near both edges: how far the fourth is from the plane of the other three
     if (T.closed || (i > 0 && i < n - 1)) for (const lat of [-T.hwL[i] + 1, 0, T.hwR[i] - 1]) {
       const a = frameAt(T, s - 1.3, lat - 0.8).y, b = frameAt(T, s - 1.3, lat + 0.8).y, c = frameAt(T, s + 1.3, lat - 0.8).y, d = frameAt(T, s + 1.3, lat + 0.8).y;
@@ -394,7 +409,7 @@ export function checkTrack(T, limits = T.limits ?? LIMITS) {
     'radius-rail': 'the rail inside the bend is too tight', transition: 'the bend begins too suddenly', grade: 'the road is too steep', 'grade-bend': 'the road is too steep in the bend', slope: 'the surface is too steep (at an edge)',
     'slope-both': 'the surface is too steep (along and across together)', crest: 'the crest is too sharp', 'crest-load': 'the crest lifts the car too much at speed', dip: 'the dip is too sharp', 'dip-load': 'the dip presses the car too much at speed',
     bank: 'the road tilts too much into the bend', 'bank-out': 'the road hangs outwards', twist: 'the tilt changes too fast', 'wheel-plane': 'the surface is twisted under the four wheels', step: 'the height jumps', bounds: 'the road leaves the map',
-    'plaza-level': 'the road does not start at the plaza\'s height', 'plaza-grade': 'the road is not level at the plaza', surface: 'the surface by place is not the surface of the road frame', branch: 'two branches of the road are too close',
+    'plaza-level': 'the road does not start at the plaza\'s height', 'plaza-grade': 'the road is not level at the plaza', 'plaza-join': 'a step between the plaza and the road at the plaza\'s edge', surface: 'the surface by place is not the surface of the road frame', branch: 'two branches of the road are too close',
     height: 'a control height is missed (the limits do not allow it)' };
   const problems = Object.keys(count).map((rule) => { const w = worst[rule]; return { rule, s: +w.s.toFixed(1), value: w.value, limit: w.limit, samples: count[rule], text: `${TEXT[rule] ?? rule}: ${w.fmt(w.value)} at ${w.s.toFixed(0)} m (limit ${w.fmt(w.limit)}; ${count[rule]} place${count[rule] > 1 ? 's' : ''})` }; });
   const table = {}; for (const [rule, w] of Object.entries(worst)) table[rule] = { value: w.value, limit: w.limit, s: +w.s.toFixed(1), shown: w.fmt(w.value), limitShown: w.fmt(w.limit), ok: !(count[rule] > 0), what: TEXT[rule] ?? rule };

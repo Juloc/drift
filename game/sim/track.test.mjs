@@ -46,7 +46,7 @@ test('track: each kind of broken road is found, and only that', () => {
   // the road hangs to one side on a straight piece by 5 %
   assert.deepEqual(rules(straight(200, () => 0, (s) => 0.05 * ramp(s, 100, 200))), ['bank-out']);
   // the plaza is half a metre above the start of the road
-  assert.deepEqual(rules(straight(100, () => 0, () => 0, { plaza: { pts: [[-10, -20], [10, -20], [10, 0], [-10, 0]], y: 0.5 } })), ['plaza-level']);
+  assert.deepEqual(rules(straight(100, () => 0, () => 0, { plaza: { pts: [[-10, -20], [10, -20], [10, 0], [-10, 0]], y: 0.5 } })), ['plaza-join', 'plaza-level']);
   // the road falls away right at the plaza's mouth
   assert.deepEqual(rules(straight(100, intoGrade(-0.05, 4, 60), () => 0, { plaza: { pts: [[-10, -20], [10, -20], [10, 0], [-10, 0]], y: 0 } })), ['plaza-grade', 'plaza-level']);
   // a height step of 40 cm between two samples
