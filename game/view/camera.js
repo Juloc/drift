@@ -128,6 +128,51 @@ export class LookChase {
   }
 }
 
+/**
+ * The action camera (the test page of the new driving model; the game keeps its calm chase): close and low, behind the direction the car TRAVELS (not its nose), so in a drift the
+ * car turns inside the picture and its side shows. 5.2 m behind, 1.55 m up, up to 0.8 m to the outside of the slide, the view opens from 58 to 74 degrees with speed, the horizon leans at
+ * most 2.5 degrees with the sideways g. NO shake and no bob: everything is damped, and it reads the drawn (blended) pose only.
+ */
+export class ActionCam {
+  constructor(camera, { dist = 5.2, up = 1.55, ahead = 1.2, lookY = 0.6, side = 0.8, fov0 = 58, fov1 = 74, maxRoll = 2.5 } = {}) {
+    Object.assign(this, { camera, dist, up, ahead, lookY, side, fov0, fov1, maxRoll });
+    this.ready = false; this.fov = fov0;
+  }
+  snap(s) { this.ready = false; this.update(s, 0, 0); }
+  update(s, top, dt) {
+    const g = this.ground ?? (() => 0), cover = this.cover ?? g, sp = speedOf(s);
+    const vf = s.vx * Math.sin(s.h) + s.vz * Math.cos(s.h);
+    const travel = sp > 0.5 && vf > -1 ? Math.atan2(s.vx, s.vz) : s.h, slip = angDiff(s.h, travel);   // (+: the travel direction is to the right of the nose)
+    const blend = clamp((sp - 3) / 5, 0, 1) * 0.65 * (Math.abs(slip) > 2 ? 0 : 1) * (vf > -1 ? 1 : 0);   // nose at a crawl, 0.65 travel above 8 m/s (not in a spin or backwards)
+    const aim = s.h + slip * blend;
+    if (this.ready && Math.hypot(s.x - this.x, s.z - this.z) > 12) this.ready = false;   // put somewhere else: the camera is there at once
+    if (!this.ready) { Object.assign(this, { yaw: aim, x: s.x, z: s.z, gy: g(s.x, s.z), off: 0, roll: 0, ex: 0, ready: true }); this.fov = this.fov0; }
+    this.x += s.vx * dt; this.z += s.vz * dt; this.x = damp(this.x, s.x, 8, dt); this.z = damp(this.z, s.z, 8, dt);   // carried along by the speed, only the rest is damped
+    this.gy = damp(this.gy, g(s.x, s.z), 3.5, dt);
+    this.yaw += angDiff(this.yaw, aim) * (1 - Math.exp(-dt / 0.35));
+    const offTo = -this.side * Math.sin(clamp(slip, -1.2, 1.2));   // to the outside of the slide: a car turned to the right of its travel has its tail out to the left
+    this.off = damp(this.off, offTo, 3, dt);
+    const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), rx = fz, rz = -fx;
+    const cx = this.x - fx * this.dist + rx * this.off, cz = this.z - fz * this.dist + rz * this.off;
+    let cy = this.gy + this.up;
+    // never nearer than 1.1 m to the road under it, and the car in sight over the land between (raised quickly, lowered slowly)
+    let need = Math.max(0, g(cx, cz) + 1.1 - cy);
+    for (let i = 1; i <= 5; i++) { const t = i / 6; need = Math.max(need, (cover(cx + (this.x - cx) * t, cz + (this.z - cz) * t) + 0.6 - (cy + (this.gy + 0.9 - cy) * t)) / (1 - t)); }
+    this.ex = dt === 0 ? need : need > this.ex ? damp(this.ex, need, 7, dt) : damp(this.ex, need, 2, dt);
+    cy += this.ex;
+    const cam = this.camera;
+    cam.position.set(X(cx), cy, cz);
+    cam.up.set(0, 1, 0);
+    cam.lookAt(X(s.x + Math.sin(aim) * this.ahead), this.gy + this.lookY, s.z + Math.cos(aim) * this.ahead);
+    const rollTo = clamp(((s.alat ?? 0) / 9.81) * 2, -1, 1) * this.maxRoll;   // leans into the bend
+    this.roll = damp(this.roll, rollTo, 1 / 0.3, dt);
+    cam.rotateZ((-this.roll * Math.PI) / 180);
+    const fov = this.fov0 + (this.fov1 - this.fov0) * (1 - Math.pow(1 - clamp(sp / 33.3, 0, 1), 2));
+    this.fov = dt === 0 ? fov : damp(this.fov, fov, 3, dt);
+    if (Math.abs(cam.fov - this.fov) > 0.01) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
+  }
+}
+
 /** The cameras of the game: chase (the default), bonnet, cockpit. `cycle()` goes to the next (the key C, a pad button). */
 export const CAMERAS = ['chase', 'bonnet', 'cockpit'];
 export class CameraRig {

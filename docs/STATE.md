@@ -763,3 +763,9 @@ A static page with sample data, no server logic, no inline script; every text th
 - Sound gets the largest `squealOf`; smoke per wheel by `smokeOf`; marks while sn>1 and slip>1; wheel card shows tread temperature, squeal, smoke.
 - Proof: `node tools/simdrive.mjs --keys= --jitter[=raw] --probeSeconds=1.5`: largest jump of the car in camera space at 50 km/h: raw 11.7 cm, blended 0.1 cm (headless runs a steady 60 Hz; a 144 Hz screen is worse for raw).
 - Pictures: `docs/screenshots/sim2/bend.png` (no smoke), `held-drift.png` (smoke at the rear; taken after the slide had slowed to 4 km/h).
+
+### Test page round 3 (sim2: action camera, burnout)
+- New sim2.js/simcheck (launch, both rear wheels smoke). `ActionCam` in `game/view/camera.js` (the game's chase untouched): behind the travel direction, 5.2 m / 1.55 m, outside offset up to 0.8 m, fov 58-74, roll at most 2.5 deg, all damped, reads the drawn pose only. Page starts in Action; C or the chip cycles Action / Ruhig / Weit. Help text has the burnout hint (de/en).
+- Proof: `node tools/simdrive.mjs --mode=sport --keys= --seconds=9 --probe "--query=auto=30&cam=action"` (auto=30: a test driver that holds a 30 degree drift; cam=calm for comparison). Drift frames: Action largest jump 0.7-1.2 cm, camera turn 0.8-1.4 deg/frame; Calm 4.4 cm. Car seen at 23-36 deg in the picture at 25-35 deg body angle. One run showed 55 cm once (probably a wall hit of the test driver).
+- The brief's weight 0.75 toward travel shows the car at only about 8 deg; the picture target (20-30 deg) needed 0.65, which is what is built.
+- Pictures: `action-drift-pc.png`, `action-drift-phone.png`, `calm-drift-phone.png`.

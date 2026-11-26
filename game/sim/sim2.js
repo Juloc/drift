@@ -61,7 +61,7 @@ export const ASSISTS = {
   // arcade: the wheels point where the car goes by themselves and the keys ask for a slip angle around that (`alpha`, rad at speed: just under the tyre's
   // peak, so a full key never scrubs the fronts; full lock only at a crawl), a key comes in over a quarter second, the brakes do not lock, a hand on the
   // yaw, tyres that forgive
-  arcade: { caster: 1.0, alpha: 0.135, rangeV: 6, keyRate: 4, abs: 1, tc: 0, spinCap: 1.2, stability: 1, betaMax: 0.85, grip: 1.06, forgive: 1, autoGear: 1, autoClutch: 1, hold: 1 },
+  arcade: { caster: 1.0, alpha: 0.135, rangeV: 6, keyRate: 4, abs: 1, tc: 0, spinCap: 2.5, stability: 1, betaMax: 0.85, grip: 1.06, forgive: 1, autoGear: 1, autoClutch: 1, hold: 1 },
   sport:  { caster: 0.85, alpha: 0.17, rangeV: 8, keyRate: 4, abs: 1, tc: 0, spinCap: 0, stability: 0.35, betaMax: 1.0, grip: 1.0, forgive: 0.4, autoGear: 1, autoClutch: 1, hold: 1 },
   // sim: the wheels still self-centre as a real rack does when you loosen your grip; a key can over-drive the front tyres; nothing else helps
   sim:    { caster: 0.55, alpha: 0.32, rangeV: 10, keyRate: 3, abs: 0, tc: 0, spinCap: 0, stability: 0, betaMax: 1.2, grip: 1.0, forgive: 0, autoGear: 1, autoClutch: 1, hold: 1 },
@@ -137,7 +137,7 @@ export function step(s, input, car, A = ASSISTS.arcade, env = FLAT, dt = DT) {
   s.beta = s.speed > 1 ? Math.atan2(vlat, Math.abs(vlon)) : 0;
   s.rpm = s.we * RPM;
   s.slide = clamp(Math.max(s.sn[2], s.sn[3]) - 0.8, 0, 1); s.ax = s.alon;
-  for (let i = 0; i < 4; i++) s.temp[i] += dt * (s.heat[i] / 600 - (s.temp[i] - 30) / 4);   // the tread's surface: heats with the sliding power (30 kW held: about 230 deg C), cools in about 4 s
+  for (let i = 0; i < 4; i++) s.temp[i] += dt * (s.heat[i] / 450 - (s.temp[i] - 30) / 4);   // the tread's surface: heats with the sliding power (20 kW held: about 210 deg C), cools in about 4 s
   return s;
 }
 
@@ -186,7 +186,10 @@ function controls(s, input, car, A, dt) {
   if (shifting) want = s.shiftT > 0.12 ? 0 : Math.min(want, 1 - s.shiftT / 0.12);
   if (A.autoClutch && s.gear !== 0) {
     const g = ground(s.gear);
-    if (g < 1500) want = Math.min(want, thr > 0.05 ? clamp((rpm - 1100) / 1300, 0, 1) : clamp((g - 800) / 500, 0, 1));
+    // pulling away: the clutch bites where a driver would let it in for that much throttle (a floored pedal lets the revs rise to 4500 first and then
+    // dumps it: that is the burnout start); it slips until the road has caught up with those revs; with no pedal it opens before the engine stalls
+    const bite = 1100 + thr * thr * 3400;
+    if (thr > 0.05) { if (g < bite + 1300) want = Math.min(want, clamp((rpm - bite) / 1300, 0, 1)); } else if (g < 1500) want = Math.min(want, clamp((g - 800) / 500, 0, 1));
   }
   s.engage = want < s.engage ? want : Math.min(want, s.engage + dt * 9);
 
@@ -194,7 +197,7 @@ function controls(s, input, car, A, dt) {
   if (shifting && s.shiftT > 0.1) thr = 0;
   const kr = Math.max(s.kappa[2], s.kappa[3]);
   if (A.tc > 0 && kr > 0.14) thr *= 1 - A.tc * clamp((kr - 0.14) / 0.2, 0, 1);
-  if (A.spinCap > 0 && kr > A.spinCap) thr *= clamp(1 - (kr - A.spinCap) / 0.4, 0.2, 1);   // arcade: the rear may spin, but not run away
+  if (A.spinCap > 0 && kr > A.spinCap && speed > 6) thr *= clamp(1 - (kr - A.spinCap) / 0.8, 0.35, 1);   // arcade, once rolling: the rear may spin, but not run away
   if (A.hold && thr < 0.02 && speed < 0.3 && s.gear >= 0 && brk < 0.3) brk = 0.3;            // held on a hill with no pedal
   s.thr = thr; s.brk = brk; s.hb = clamp(input.handbrake || 0, 0, 1);
 }
@@ -320,10 +323,10 @@ export function squealOf(s, car, i) {
 }
 
 /**
- * How much wheel `i` smokes, 0..1: rubber smokes when the tread is hot (over about 120 deg C, so only after a moment of hard sliding) and the sliding
- * power is high (over 12 kW at that wheel; 45 kW is a full burnout). A brisk bend, ABS braking and a short chirp give none; a locked wheel, a held drift
+ * How much wheel `i` smokes, 0..1: rubber smokes when the tread is hot (over about 105 deg C, so only after a moment of hard sliding) and the sliding
+ * power is high (over 6 kW at that wheel, so the lightly loaded inner wheel of a drift smokes too; 32 kW is a full burnout). A brisk bend, ABS braking and a short chirp give none; a locked wheel, a held drift
  * and a burnout do.
  */
 export function smokeOf(s, i) {
-  return clamp((s.temp[i] - 120) / 60, 0, 1) * clamp((s.heat[i] - 12000) / 33000, 0, 1);
+  return clamp((s.temp[i] - 105) / 60, 0, 1) * clamp((s.heat[i] - 6000) / 26000, 0, 1) ** 0.7;
 }

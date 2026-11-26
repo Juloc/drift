@@ -48,12 +48,23 @@ if (opt.jitter) {   // the DRAWN car against the camera at a steady 50 km/h: the
   for (let i = 1; i < p.length; i++) { const d = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1], p[i][2] - p[i - 1][2]); max = Math.max(max, d); sum += d; }
   console.log('jitter:', JSON.stringify({ frames: p.length, maxJumpCm: +(max * 100).toFixed(2), meanStepCm: +((sum / Math.max(1, p.length - 1)) * 100).toFixed(2), speedKmh: Math.round(3.6 * (await b.ev('__sim.state.speed'))) }));
 }
+if (opt.probe) await b.ev('__sim.startProbe()');   // --probe: the whole run is measured; the drift frames (body angle over 10 degrees, over 5 m/s) are judged
 const f0 = await b.ev('__sim.frames'), t0 = Date.now(); let top = 0, minX = 1e9, maxX = -1e9, maxBeta = 0, gearTop = 0;
 let steering = !steerAfter;
 while (Date.now() - t0 < seconds * 1000) { await sleep(500); if (!steering && Date.now() - t0 > steerAfter * 1000) { steering = true; for (const k of steerKeys) await press(k, 'rawKeyDown'); } const st = JSON.parse(await b.ev('JSON.stringify({ v: __sim.state.speed, x: __sim.state.x, z: __sim.state.z, beta: __sim.state.beta, gear: __sim.state.gear, rpm: __sim.state.rpm })')); top = Math.max(top, st.v * 3.6); minX = Math.min(minX, st.x); maxX = Math.max(maxX, st.x); maxBeta = Math.max(maxBeta, Math.abs(st.beta)); gearTop = Math.max(gearTop, st.gear); }
 const end = JSON.parse(await b.ev('JSON.stringify({ v: __sim.state.speed, x: __sim.state.x, z: __sim.state.z, h: __sim.state.h, gear: __sim.state.gear, rpm: __sim.state.rpm, finite: Object.values({ x: __sim.state.x, z: __sim.state.z, vx: __sim.state.vx, vz: __sim.state.vz, rpm: __sim.state.rpm, y: __sim.state.y }).every(Number.isFinite), frames: __sim.frames })'));
 if (opt.shot) { const s = await b.send('Page.captureScreenshot', { format: 'png' }); writeFileSync(opt.shot, Buffer.from(s.result.data, 'base64')); }
 if (opt.eval) console.log('eval:', JSON.stringify(await b.ev(opt.eval)));
+if (opt.probe) {
+  const p = await b.ev('__sim.stopProbe()'); let maxJ = 0, maxT = 0, n = 0, aMin = 1e9, aMax = -1e9;
+  for (let i = 1; i < p.length; i++) {
+    if (Math.abs(p[i][7]) < 10 || p[i][8] < 5 || Math.abs(p[i - 1][7]) < 10) continue; n++;
+    maxJ = Math.max(maxJ, Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1], p[i][2] - p[i - 1][2]));
+    maxT = Math.max(maxT, (Math.acos(Math.min(1, p[i][3] * p[i - 1][3] + p[i][4] * p[i - 1][4] + p[i][5] * p[i - 1][5])) * 180) / Math.PI);
+    if (Math.abs(p[i][7]) > 25 && Math.abs(p[i][7]) < 35) { const a = Math.abs(p[i][6]); aMin = Math.min(aMin, a); aMax = Math.max(aMax, a); }
+  }
+  console.log('probe:', JSON.stringify({ driftFrames: n, maxJumpCm: +(maxJ * 100).toFixed(2), maxCameraTurnDegPerFrame: +maxT.toFixed(2), carAngleInPictureAt30deg: aMin < 1e9 ? [Math.round(aMin), Math.round(aMax)] : null, ok: maxJ < 0.02 && maxT < 2.5 }));
+}
 for (const k of keys) await press(k, 'keyUp');
 const out = { seconds, fps: +(((end.frames - f0) * 1000) / (Date.now() - t0)).toFixed(1), topKmh: Math.round(top), endKmh: Math.round(end.v * 3.6), topGear: gearTop, maxBodyAngleDeg: Math.round((maxBeta * 180) / Math.PI), end: { x: +end.x.toFixed(1), z: +end.z.toFixed(1), rpm: Math.round(end.rpm) }, finite: end.finite, errors: b.logs.length, logs: b.logs.slice(0, 3) };
 const broken = []; if (b.logs.length) broken.push('page errors'); if (!end.finite) broken.push('not finite'); if (top < +(opt.minkmh ?? 30)) broken.push(`top speed only ${Math.round(top)} km/h`);

@@ -60,6 +60,14 @@ for (const name of ['arcade', 'sim']) { const A = ASSISTS[name], s = rolling(18,
   let pb = 0; const T = 0.55; r = lvl(A, rolling(16, 2), 14, 4, (i, s, t) => { const b = Math.abs(s.beta), db = (b - pb) / DT; pb = b; i.manual = true; if (t < 0.4) { i.steer = 1; i.throttle = 0.5; } else if (t < 0.9 && b < 0.25) { i.steer = 1; i.handbrake = 1; i.clutch = 1; i.throttle = 0.7; } else { i.handbrake = 0; i.clutch = 0; i.throttle = Math.min(1, Math.max(0.3, 0.72 + (T - b) * 1.0 - db * 0.25)); i.steer = Math.min(1, Math.max(-1, 0.2 + (T - b) * 1.6 - db * 0.45)); } });
   row('held drift: squeal', r[0], `/ smoke ${r[1].toFixed(2)}`, 0.6, 1); row('  smoke', r[1], '', drift ? 0.2 : 0.02, 1); }
 
+// 11 burnouts (no helpers): a floored start spins the rear wheels; gas against the brake holds the car and smokes the rear; in a drift both rear wheels smoke
+{ let s = makeCar(), slipSum = 0, n = 0, sm = 0; run(s, ASSISTS.sim, 3, (i) => { i.throttle = 1; }, (s, t) => { if (t > 0.8 && t < 2.5) { slipSum += Math.max(s.kappa[2], s.kappa[3]); n++; } if (t > 2) sm = Math.max(sm, smokeOf(s, 2), smokeOf(s, 3)); });
+  row('floored start (sim): rear slip ratio, 0.8 to 2.5 s', slipSum / n, '', drift ? 0.5 : 0.15, 30); row('  rear smoke by 3 s (a rolling start only wisps)', sm, '', 0, 1);
+  s = makeCar(); let smB = 0, smF = 0; run(s, ASSISTS.sim, 5, (i) => { i.throttle = 1; i.brake = 0.75; i.manual = true; }, (s, t) => { if (t > 3) { smB = Math.max(smB, Math.min(smokeOf(s, 2), smokeOf(s, 3))); smF = Math.max(smF, smokeOf(s, 0), smokeOf(s, 1)); } });
+  row('gas against the brake for 5 s (sim): the car moved', Math.hypot(s.x, s.z), 'm', 0, drift ? 6 : 60); row('  smoke at both rear wheels', smB, '', drift ? 0.4 : 0, 1); row('  smoke at the front', smF, '', 0, 0);
+  let pb = 0, both = 0, cnt = 0; const T = 0.55; s = rolling(16, 2); run(s, ASSISTS.arcade, 14, (i, s, t) => { const b = Math.abs(s.beta), db = (b - pb) / DT; pb = b; i.manual = true; if (t < 0.4) { i.steer = 1; i.throttle = 0.5; } else if (t < 0.9 && b < 0.25) { i.steer = 1; i.handbrake = 1; i.clutch = 1; i.throttle = 0.7; } else { i.handbrake = 0; i.clutch = 0; i.throttle = Math.min(1, Math.max(0.3, 0.72 + (T - b) * 1.0 - db * 0.25)); i.steer = Math.min(1, Math.max(-1, 0.2 + (T - b) * 1.6 - db * 0.45)); } }, (s, t) => { if (t > 4) { both += Math.min(smokeOf(s, 2), smokeOf(s, 3)); cnt++; } });
+  row('held drift (arcade): smoke at the less loaded rear wheel', both / cnt, '', drift ? 0.08 : 0, 1); }
+
 let bad = 0;
 console.log(CAR.name);
 for (const r of rows) { if (r.ok === false) bad++; console.log(`${r.ok === null ? '      ' : r.ok ? 'ok    ' : 'BROKEN'} ${r.name.padEnd(58)} ${(typeof r.value === 'number' ? r.value.toFixed(2) : r.value).toString().padStart(8)} ${r.unit}${r.want ? `   (want ${r.want})` : ''}`); }

@@ -7,7 +7,7 @@ import * as THREE from '../vendor/three/three.module.js';
 import { createStage, loadLook } from './view/look/stage.js';
 import { sceneFromMap } from './view/look/mapscene.js';
 import { Fleet } from './view/look/fleet.js';
-import { CameraRig } from './view/camera.js';
+import { CameraRig, ActionCam } from './view/camera.js';
 import { SoundSystem } from './view/sound.js';
 import { FixedLoop } from './sim/loop.js';
 import { prepareMap } from './sim/map.js';
@@ -19,11 +19,11 @@ const $ = (id) => document.getElementById(id);
 // the page's texts, German and English (the language: ?lang=, else the browser's)
 const LANG = (new URLSearchParams(location.search).get('lang') ?? navigator.language ?? '').startsWith('de') ? 'de' : 'en';
 const TEXT = {
-  en: { title: 'Drift: new driving model (test page)', hint: 'Arrows/WASD drive, Space handbrake, Shift clutch, Q/E gear, M manual, 1/2/3 Arcade/Sport/Sim, T stock/drift set-up, R reset',
+  en: { title: 'Drift: new driving model (test page)', action: 'Action', calm: 'Calm', wide: 'Wide', camB: 'Camera (Action, Calm, Wide)', hint: 'Arrows/WASD drive, Space handbrake, Shift clutch, Q/E gear, M manual, 1/2/3 Arcade/Sport/Sim, T stock/drift set-up, C camera, R reset. Burnout: hold the brake and full throttle',
     mode: 'mode', car: 'car', gearbox: 'gearbox', auto: 'automatic', manual: 'manual (Q/E, Shift)', bodyAngle: 'body angle', rpm: 'rpm', yaw: 'yaw', arcade: 'Arcade', sport: 'Sport', sim: 'Sim',
     gas: 'GAS', brake: 'BRAKE', clutch: 'CLUTCH', hand: 'HAND', gcircle: 'g (grip circle)', wheels: 'per wheel: slip (red over its peak) and load', data: 'Data', sq: 'squeal', sm: 'smoke', stock: 'AE86 (stock)', drift: 'AE86 (drift set-up)',
     steerL: 'Steer left', steerR: 'Steer right', gearDown: 'Gear down', gearUp: 'Gear up', manualBox: 'Manual gearbox', carToggle: 'Stock car or drift set-up', resetB: 'Reset' },
-  de: { title: 'Drift: neues Fahrmodell (Testseite)', hint: 'Pfeile/WASD fahren, Leertaste Handbremse, Shift Kupplung, Q/E Gang, M manuell, 1/2/3 Arcade/Sport/Sim, T Serie/Drift-Aufbau, R neu',
+  de: { title: 'Drift: neues Fahrmodell (Testseite)', action: 'Action', calm: 'Ruhig', wide: 'Weit', camB: 'Kamera (Action, Ruhig, Weit)', hint: 'Pfeile/WASD fahren, Leertaste Handbremse, Shift Kupplung, Q/E Gang, M manuell, 1/2/3 Arcade/Sport/Sim, T Serie/Drift-Aufbau, C Kamera, R neu. Burnout: Bremse halten und Vollgas',
     mode: 'Modus', car: 'Auto', gearbox: 'Getriebe', auto: 'automatisch', manual: 'manuell (Q/E, Shift)', bodyAngle: 'Driftwinkel', rpm: 'Drehzahl', yaw: 'Gierrate', arcade: 'Arcade', sport: 'Sport', sim: 'Sim',
     gas: 'GAS', brake: 'BREMSE', clutch: 'KUPPLUNG', hand: 'HAND', gcircle: 'g (Kammscher Kreis)', wheels: 'je Rad: Schlupf (rot über dem Maximum) und Last', data: 'Daten', sq: 'Quietsch.', sm: 'Rauch', stock: 'AE86 (Serie)', drift: 'AE86 (Drift-Aufbau)',
     steerL: 'Links lenken', steerR: 'Rechts lenken', gearDown: 'Runterschalten', gearUp: 'Hochschalten', manualBox: 'Schaltgetriebe', carToggle: 'Serienauto oder Drift-Aufbau', resetB: 'Neu starten' },
@@ -34,6 +34,7 @@ for (const e of document.querySelectorAll('[data-t]')) e.textContent = t(e.datas
 for (const e of document.querySelectorAll('[data-ta]')) e.setAttribute('aria-label', t(e.dataset.ta));
 const params = new URLSearchParams(location.search);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const AUTO = +(params.get('auto') ?? 0) * Math.PI / 180;   // measuring tool: a driver that holds a drift of that body angle (degrees) to the right
 const CRUISE = +(params.get('cruise') ?? 0), RAW = params.has('raw');   // cruise: hold that speed (m/s) for the measuring tool; raw: draw the last step's state unblended (to show the difference)
 const coarse = matchMedia('(pointer: coarse)').matches || params.has('touch');
 document.body.classList.toggle('touch', coarse);
@@ -60,17 +61,28 @@ const REST = { throttle: 0, brake: 0, steer: 0, handbrake: 0, clutch: 0, up: fal
 /** A car at the start that has stood a second on its springs (so it does not bounce down onto them). */
 function fresh() { const c = makeCar(START.x, START.z, START.h); for (let i = 0; i < 120; i++) step(c, REST, CARS[carNo], ASSISTS[mode], FLAT, DT); return c; }
 let s = fresh(), prev = null;   // `prev`: the state one step back; the picture is the blend of the two (as in main.js)
+let autoT = 0, autoPhase = 0, autoSteer = 0, autoHand = 0;
 const held = new Set(), touchHeld = new Set(), pending = { up: false, down: false };
 const inp = { throttle: 0, brake: 0, steer: 0, handbrake: 0, clutch: 0, up: false, down: false, manual: false };
 const ramp = (v, target, up, down, dt) => (target > v ? Math.min(target, v + up * dt) : Math.max(target, v - down * dt));
 const has = (k, ctl) => held.has(k) || touchHeld.has(ctl);
-function reset() { s = fresh(); prev = null; stage.skids.clear(); cam.snap(s); inp.throttle = inp.brake = inp.steer = inp.clutch = 0; }
+function reset() { s = fresh(); prev = null; stage.skids.clear(); activeCam().snap(s); inp.throttle = inp.brake = inp.steer = inp.clutch = 0; }
+// the cameras: Action (the test page's own, close and low, behind the way the car travels), Calm (the game's chase) and Wide (the game's chase, far); C cycles
+const action = new ActionCam(camera);
+action.ground = (x, z) => stage.field.groundY(x, z); if (stage.field.height) action.cover = (x, z) => stage.field.height(x, z);
+const CAMS = ['action', 'calm', 'wide'];
+let camNo = Math.max(0, CAMS.indexOf(params.get('cam') ?? 'action'));
+const activeCam = () => (camNo === 0 ? action : cam);
+function setCam(n) { camNo = n; if (n > 0) { cam.cams.chase.user.preset = n === 1 ? 'follow' : 'far'; cam.cams.chase.user.auto = true; } camera.up.set(0, 1, 0); if (s) activeCam().snap(drawn ?? s); }
+const camLabel = () => { $('simcam').textContent = t(CAMS[camNo]); };
+const cycleCam = () => { setCam((camNo + 1) % CAMS.length); camLabel(); };
+camLabel();
 const setMode = (m) => { mode = m; syncChips(); };
 const toggleCar = () => { carNo = 1 - carNo; syncChips(); };
 const toggleManual = () => { manual = !manual; syncChips(); };
 function key(code, down) {
   if (down) {
-    if (code === 'KeyR') reset(); else if (code === 'KeyM') toggleManual(); else if (code === 'KeyT') toggleCar();
+    if (code === 'KeyC') cycleCam(); else if (code === 'KeyR') reset(); else if (code === 'KeyM') toggleManual(); else if (code === 'KeyT') toggleCar();
     else if (code === 'KeyQ') pending.down = true; else if (code === 'KeyE') pending.up = true;
     else if (code === 'Digit1') setMode('arcade'); else if (code === 'Digit2') setMode('sport'); else if (code === 'Digit3') setMode('sim');
   }
@@ -140,11 +152,18 @@ function readout() {
 function simStep(dt) {
   const C = CARS[carNo], A = ASSISTS[mode];
   const steerKey = (has('ArrowRight', 'right') || held.has('KeyD') ? 1 : 0) - (has('ArrowLeft', 'left') || held.has('KeyA') ? 1 : 0);
-  const gas = has('ArrowUp', 'gas') || held.has('KeyW') || (CRUISE > 0 && s.speed < CRUISE), brake = has('ArrowDown', 'brake') || held.has('KeyS');
-  inp.steer = ramp(inp.steer, steerKey, 5, steerKey === 0 ? 9 : 7, dt);
+  const gas = AUTO > 0 || has('ArrowUp', 'gas') || held.has('KeyW') || (CRUISE > 0 && s.speed < CRUISE), brake = has('ArrowDown', 'brake') || held.has('KeyS');
+  if (AUTO > 0) {
+    autoT += dt;
+    if (autoT < 3 && s.speed < 17) autoSteer = 0;                   // run up
+    else if (autoPhase === 0 && s.speed >= 17) { autoPhase = 1; autoT = 0; }
+    if (autoPhase === 1) { autoSteer = 1; autoHand = autoT < 0.35 ? 1 : 0; if (autoT > 0.9) autoPhase = 2; }   // kick it round
+    else if (autoPhase === 2) { autoHand = 0; autoSteer = Math.max(-1, Math.min(1, 2.2 * (s.beta + AUTO) + 0.1)); }
+  }
+  inp.steer = AUTO > 0 ? autoSteer : ramp(inp.steer, steerKey, 5, steerKey === 0 ? 9 : 7, dt);
   inp.throttle = ramp(inp.throttle, gas ? 1 : 0, 6, 12, dt);
   inp.brake = ramp(inp.brake, brake ? 1 : 0, 8, 14, dt);
-  inp.handbrake = has('Space', 'hand') ? 1 : 0;
+  inp.handbrake = AUTO > 0 ? autoHand : has('Space', 'hand') ? 1 : 0;
   inp.clutch = has('ShiftLeft', 'clutch') || held.has('ShiftRight') ? 1 : 0;
   inp.manual = manual; inp.up = pending.up; inp.down = pending.down; pending.up = pending.down = false;
   step(s, inp, C, A, FLAT, dt);
@@ -206,7 +225,7 @@ function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now; 
   const alpha = loop.advance(dt, () => { prev = snapshot(s); simStep(DT); for (let i = 0; i < 4; i++) spin[i] += s.wheel[i] * DT; stage.smoke.update(DT); simSteps++; if (simSteps % 2 === 0) marksAndSmoke(); });
   const d = drawnPose(RAW ? 1 : alpha); drawn = d;
-  cam.update(d, 55, dt);
+  activeCam().update(d, 55, dt);
   place(d);
   stage.aimSun(X(d.x), 0, d.z);
   readout();
@@ -214,7 +233,8 @@ function frame(now) {
   if (innerWidth !== frame.w || innerHeight !== frame.h) { frame.w = innerWidth; frame.h = innerHeight; stage.resize(); }
   stage.smoke.sync?.();   // the puffs' buffers to the graphics card (the stage does not do it itself)
   stage.render();
-  if (probe) { mine.group.updateMatrixWorld(true); camera.updateMatrixWorld(); probe.push(new THREE.Vector3().setFromMatrixPosition(mine.group.matrixWorld).applyMatrix4(camera.matrixWorldInverse).toArray()); }
+  if (probe) { mine.group.updateMatrixWorld(true); camera.updateMatrixWorld(); const nose = new THREE.Vector3(0, 0, 1).transformDirection(mine.group.matrixWorld), fwd = camera.getWorldDirection(new THREE.Vector3());
+    probe.push([...new THREE.Vector3().setFromMatrixPosition(mine.group.matrixWorld).applyMatrix4(camera.matrixWorldInverse).toArray(), fwd.x, fwd.y, fwd.z, (Math.atan2(nose.x * fwd.z - nose.z * fwd.x, nose.x * fwd.x + nose.z * fwd.z) * 180) / Math.PI, (s.beta * 180) / Math.PI, s.speed]); }
   frames++;
   requestAnimationFrame(frame);
 }
@@ -227,4 +247,4 @@ function carRect() {
   for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) { v.set(x, y, z).project(camera); x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
   return { x0: ((x0 + 1) / 2) * innerWidth, x1: ((x1 + 1) / 2) * innerWidth, y0: ((1 - y1) / 2) * innerHeight, y1: ((1 - y0) / 2) * innerHeight };
 }
-window.__sim = { startProbe() { probe = []; }, stopProbe() { const p = probe; probe = null; return p; }, carRect, get drawn() { return drawn; }, camPose() { const v = new THREE.Vector3(); v.setFromMatrixPosition(mine.group.matrixWorld); camera.updateMatrixWorld(); return v.applyMatrix4(camera.matrixWorldInverse).toArray(); }, get state() { return s; }, get frames() { return frames; }, get mode() { return mode; }, held, reset, setMode, toggleCar, toggleManual, stage, camera };
+window.__sim = { cycleCam, setCam, get camNo() { return camNo; }, camera, startProbe() { probe = []; }, stopProbe() { const p = probe; probe = null; return p; }, carRect, get drawn() { return drawn; }, camPose() { const v = new THREE.Vector3(); v.setFromMatrixPosition(mine.group.matrixWorld); camera.updateMatrixWorld(); return v.applyMatrix4(camera.matrixWorldInverse).toArray(); }, get state() { return s; }, get frames() { return frames; }, get mode() { return mode; }, held, reset, setMode, toggleCar, toggleManual, stage, camera };
