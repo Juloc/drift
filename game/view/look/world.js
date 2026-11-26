@@ -69,13 +69,16 @@ export function buildWorld(scene, look, tierName = 'high') {
   if (scene.bridge) bridge(S, f, scene, look, lite);
   // the road has its own mesh: a slightly glossy material that shines in the low sun (the page gives it the sky as reflection)
   const Rb = new Builder({ seed: 7, jitter: 0, wobble: 0, bake: false });
+  Rb.lite = lite;
   road(Rb, f, look, onPlaza, mulberry32(23), lite, scene);
   zones(Rb, f, scene, look);
-  if (scene.plaza) plaza(S, G, f, scene, look, lite, lampHeads);
   const pools = [];   // warm pools of light on the ground under the lamps and lanterns: [x, y, z, radius] in drawing space
+  if (scene.plaza) plaza(S, G, f, scene, look, lite, lampHeads, pools);
   roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza, lampHeads, pools);
   trees(S, f, scene, look, tier, rnd, lite);
-  rocks(S, f, look, tier, rnd, sideInfo, lite);
+  // no loose boulders where a hairpin has its own set (scene.road.bendSets): the wall is there
+  const sets = scene.road.bendSets ? bends(f.info, { min: f.bendMin, span: f.bendSpan }).filter((b) => Math.abs(b.turn) > 1).map((b) => pointAt(f.road, f.info, b.s + 15)) : [];
+  rocks(S, f, look, tier, rnd, sideInfo, lite, (x, z) => sets.some((p) => Math.hypot(p.x - x, p.z - z) < 38));
   details(S, G, f, scene, look, tier, mulberry32(29), lite, sideInfo, onPlaza);
   if (scene.road.lamps) roadLamps(S, G, f, scene, look, sideInfo, lampHeads, pools);
   if (scene.props) props(S, G, f, scene, look, lite, lampHeads);
@@ -275,8 +278,10 @@ function strip(S, f, a, b, ya, yb, colour, keep = () => true) {
 
 /** A ribbon along the road through lateral offsets `offs` (metres, + = right), coloured per road point and column, at the road's drawn height. */
 function ribbon(S, f, offs, colour, { y = 0.02, keep = () => true, dy = () => 0, shift = () => 0 } = {}) {
-  const right = (d) => [d[1], -d[0]], runs = [];
-  for (let i = 0; i < f.road.length; i++) if (keep(i)) { if (!runs.length || i !== runs[runs.length - 1].at(-1) + 1) runs.push([i]); else runs[runs.length - 1].push(i); }
+  const right = (d) => [d[1], -d[0]], runs = [], H = f.info.head, n = f.road.length;
+  // a lite builder (the phone) takes every second point where the road runs nearly straight; in the bends every point stays
+  const fine = (i) => !S.lite || i % 2 === 0 || i === n - 1 || Math.abs(Math.atan2(Math.sin(H[Math.min(n - 1, i + 1)] - H[Math.max(0, i - 1)]), Math.cos(H[Math.min(n - 1, i + 1)] - H[Math.max(0, i - 1)]))) > 0.06;
+  for (let i = 0; i < n; i++) if (keep(i) && fine(i)) { const last = runs.at(-1)?.at(-1); if (last === undefined || !(i === last + 1 || (i === last + 2 && keep(last + 1)))) runs.push([i]); else runs[runs.length - 1].push(i); }
   for (const run of runs) {
     if (run.length < 2) continue;
     const g = gridGeo(run.length, offs.length, (r, c) => {
@@ -361,14 +366,23 @@ function zones(S, f, scene, look) {
 }
 
 // ---------------------------------------------------------------- the meeting place: surface, bays, kerb, a rail on the valley side, lamps, benches, its own trees
-function plaza(S, G, f, scene, look, lite, lampHeads) {
-  const P = scene.plaza, R = look.road, pts = P.pts;
+function plaza(S, G, f, scene, look, lite, lampHeads, pools = []) {
+  const P = scene.plaza, R = look.road, pts = P.pts, rnd = mulberry32(41);
   // the plaza is flat at the height of the road where it starts (on a hillside that is not 0): everything of it is drawn on that level
   const gp = f.groundY(pts[0][0], pts[0][1]);
   S.push(trs(0, gp, 0, 0, 0, 0)); G.push(trs(0, gp, 0, 0, 0, 0));
+  // scene.plaza.slabs (metres): the floor in stone slabs, each a little lighter or darker, with lighter joints between them (the joints are the floor below)
+  if (P.slabs && P.surface !== false) {
+    const xs = pts.map((p) => p[0]), zs = pts.map((p) => p[1]), n = P.slabs, gap = 0.09, base = C(R.plaza), k = new THREE.Color();
+    for (let x = Math.min(...xs); x < Math.max(...xs); x += n) for (let z = Math.min(...zs); z < Math.max(...zs); z += n) {
+      if (![[x, z], [x + n, z], [x, z + n], [x + n, z + n]].every(([a, b]) => insidePoly(pts, a, b))) continue;
+      k.copy(base).multiplyScalar(0.78 + rnd() * 0.3).lerp(C(R.asphaltLight), 0.2 * noise2(x / 15, z / 15) + 0.15);
+      S.box(n - gap, 0.03, n - gap, X(x + n / 2), 0.03, z + n / 2, k.clone(), { r: 0, jitter: 0 });
+    }
+  }
   if (P.surface !== false) {
   const tris = THREE.ShapeUtils.triangulateShape(pts.map(([x, z]) => new THREE.Vector2(x, z)), []);
-  const pos = [], col = [], base = C(R.plaza), k = new THREE.Color();
+  const pos = [], col = [], base = P.slabs ? C(R.plaza).lerp(C(R.kerb), 0.35) : C(R.plaza), k = new THREE.Color();   // under slabs: the light joints
   for (const t of tris) for (const v of t) { const [x, z] = pts[v]; pos.push(X(x), 0.012, z); k.copy(base).lerp(C(R.asphaltLight), 0.3 + 0.3 * noise2(x / 20, z / 20)); col.push(k.r, k.g, k.b); }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -390,13 +404,36 @@ function plaza(S, G, f, scene, look, lite, lampHeads) {
     else if (!roadHere && P.kerb !== false) S.box(0.3, 0.16, len, X(mx), 0.08, mz, C(R.kerb), { r: 0, ry });
     const fall = f.base(mx + nx * out * 14, mz + nz * out * 14) < -2;
     if (P.rail && fall && !roadHere) railRun(S, G, look, [[p[0] + nx * out * 0.7, p[1] + nz * out * 0.7], [q[0] + nx * out * 0.7, q[1] + nz * out * 0.7]], 4, lite);
+    // scene.plaza.edges: where the land beyond rises a bank of soft rocks, moss and cherry bushes; where it falls stone lanterns with their light
+    if (P.edges && !roadHere) {
+      const rise = f.base(mx + nx * out * 10, mz + nz * out * 10) > 1.5, L2 = look.land;
+      for (let d = 2; d < len - 1; d += rise ? (lite ? 4 : 2.6) : 14) {
+        const bx = p[0] + (dx / len) * d, bz = p[1] + (dz / len) * d;
+        if (Math.hypot(bx - start[0], bz - start[1]) < 12) continue;   // the way out to the road stays clear
+        if (rise) {
+          const o = 1.6 + rnd() * 1.2, x = bx + nx * out * o, z = bz + nz * out * o, r = 0.8 + rnd() * 0.7;
+          S.ball(r, X(x), r * 0.5, z, C(L2.rock).lerp(C(L2.rockDark), rnd() * 0.6), { detail: 1, sx: 1.3, sy: 0.9, sz: 1.0, ry: rnd() * 3 });
+          if (rnd() < 0.5) S.ball(r * 0.6, X(x), r * 1.0, z, C(L2.high).lerp(C(L2.moss ?? '#6f8a5c'), 0.6), { detail: 1, sx: 1.3, sy: 0.45, sz: 1.1 });
+          if (rnd() < 0.35) bush(S, look, x - nx * out * 1.4, 0, z - nz * out * 1.4, 0.8 + rnd() * 0.3, rnd, lite);
+        } else {
+          const x = bx - nx * out * 0.9, z = bz - nz * out * 0.9;
+          stoneLantern(S, G, look, x, 0, z, ry, 0.95); lampHeads.push([X(x), gp + 1.75, z, 1.5]); pools.push([X(x), gp, z, 4.5]);   // halos and pools are in world space
+        }
+      }
+    }
+  }
+  // scene.plaza.gateLights: a stone lantern on each side of the torii where the road leaves, lighting its pillars from below
+  for (const m of P.gateLights ? scene.marks ?? [] : []) if (m.type === 'gate') for (const sd of [-1, 1]) {
+    const w = (m.width ?? 2.6) / 2 + 1.4, ry = m.ry ?? 0, x = m.x + Math.cos(ry) * sd * w, z = m.z - Math.sin(ry) * sd * w;
+    const gy = f.height(x, z); stoneLantern(S, G, look, x, gy - gp, z, ry, 1.1); lampHeads.push([X(x), gy + 2.0, z, 1.8]); pools.push([X(x), gy, z, 6]);   // inside the plaza's lift
   }
   const L = look.lamp;
   for (const [x, z] of P.lamps ?? []) {
     S.cyl(0.11, 0.16, 6.2, X(x), 3.1, z, C(L.pole), { seg: 6 });
     S.box(0.18, 0.18, 1.6, X(x), 6.2, z - 0.7, C(L.pole), { r: 0 });
     G.box(0.5, 0.06, 0.32, X(x), 6.08, z - 1.35, glow(L.light, 2.2), { r: 0 });
-    lampHeads.push([X(x), 6.0, z - 1.35]);
+    lampHeads.push([X(x), gp + 6.0, z - 1.35]);
+    if (L.pool) pools.push([X(x), gp, z - 1.35, L.pool * 1.2]);
   }
   for (const [x, z, h] of P.benches ?? []) {
     S.box(2.0, 0.08, 0.5, X(x), 0.48, z, C('#8a6a5e'), { r: 0, ry: -h });
@@ -424,8 +461,11 @@ function railRun(S, G, look, line0, every, lite, yAt = () => 0) {
     const [ax, az] = line[i], [bx, bz] = line[i + 1], dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
     if (len < 0.01) continue;
     const ry = Math.atan2(X(dx), dz), ya = yAt(ax, az), yb = yAt(bx, bz), ym = (ya + yb) / 2, rx = -Math.atan2(yb - ya, len);
-    S.box(0.08, 0.2, len + 0.05, X((ax + bx) / 2), 0.52 + ym, (az + bz) / 2, beam, { r: 0, ry, rx, jitter: 0 });   // a W-beam at 0.75 m, as on real roads
-    S.box(0.1, 0.1, len + 0.05, X((ax + bx) / 2), 0.66 + ym, (az + bz) / 2, light, { r: 0, ry, rx, jitter: 0 });
+    if (lite) S.box(0.1, 0.28, len + 0.05, X((ax + bx) / 2), 0.56 + ym, (az + bz) / 2, beam.clone().lerp(light, 0.5), { r: 0, ry, rx, jitter: 0 });   // the phone: one beam
+    else {
+      S.box(0.08, 0.2, len + 0.05, X((ax + bx) / 2), 0.52 + ym, (az + bz) / 2, beam, { r: 0, ry, rx, jitter: 0 });   // a W-beam at 0.75 m, as on real roads
+      S.box(0.1, 0.1, len + 0.05, X((ax + bx) / 2), 0.66 + ym, (az + bz) / 2, light, { r: 0, ry, rx, jitter: 0 });
+    }
     for (let d = (every - acc) % every; d < len; d += every) {
       const t = d / len, px = X(ax + dx * t), pz = az + dz * t, py = ya + (yb - ya) * t;
       S.box(0.13, 3.0, 0.13, px, -0.75 + py, pz, post, { r: 0, ry });   // long posts: on a cliff edge the land below may already fall away
@@ -481,6 +521,7 @@ function roadside(S, G, f, look, tier, sideInfo, onPlaza, scene, nearPlaza = () 
     }
     // look.lantern.bends: a stone lantern on the inside of every bend and one at its exit on the outside (between the road and the rail, where the
     // chase camera looks), each with a warm pool of light round it
+    if (scene.road.bendSets && Math.abs(b.turn) > 1) { bendSet(S, G, f, look, b, lampHeads, pools, tier.cell > 8); continue; }
     if (look.lantern?.bends) for (const [ds, sd, o] of [[0, -out, hw + 2.4], [20, out, hw + 0.95]]) {
       const p = pointAt(f.road, f.info, b.s + ds), r = right(p.dir), side = sd;
       const x = p.x + r[0] * side * o, z = p.z + r[1] * side * o, y = Math.max(f.height(x, z), f.roadY(b.s + ds) - 0.2), k = look.lantern.size ?? 1.1;
@@ -585,9 +626,10 @@ function trees(S, f, scene, look, tier, rnd, lite) {
 }
 
 // ---------------------------------------------------------------- rocks: faceted boulders at the foot of the cut and on steep slopes
-function rocks(S, f, look, tier, rnd, sideInfo, lite) {
+function rocks(S, f, look, tier, rnd, sideInfo, lite, clear = () => false) {
   const L = look.land, right = (d) => [d[1], -d[0]];
   const boulder = (x, z, r) => {
+    if (clear(x, z)) return;
     const y = f.height(x, z);
     S.ball(r, X(x), y + r * 0.25, z, C(L.rock).lerp(C(L.rockDark), rnd() * 0.7), { detail: lite ? 0 : 1, sx: 0.8 + rnd() * 0.5, sy: 0.55 + rnd() * 0.3, sz: 0.8 + rnd() * 0.5, ry: rnd() * 3, rx: rnd() * 0.3 });
   };
@@ -609,6 +651,77 @@ function rocks(S, f, look, tier, rnd, sideInfo, lite) {
 // ---------------------------------------------------------------- the small things: grass tufts and stones at the roadside, bushes, petals under the
 // cherry trees, power poles with sagging wires along the slope, a stone lantern and a small shrine gate by the plaza
 const TRI = (() => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, 0, -0.35, 0.5, 0, -0.2, 0, 0, 0.45], 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0], 3)); return g; })();
+
+/** A torii: two red pillars, a tie beam and a black-capped top beam, `w` wide and `hh` high, facing along ry. */
+function torii(S, look, x, y, z, ry, w = 2.6, hh = 3.2) {
+  const red = C(look.lantern?.gate ?? '#c8423f'), k = hh / 3.2;
+  S.push(trs(X(x), y, z, 0, ry, 0));
+  for (const sx of [-w / 2, w / 2]) { S.cyl(0.14 * k, 0.17 * k, hh, sx, hh / 2, 0, red, { seg: 8 }); S.cyl(0.24 * k, 0.24 * k, 0.3 * k, sx, 0.15 * k, 0, C('#2e2428'), { seg: 8 }); }
+  S.box(w + 1.0 * k, 0.22 * k, 0.3 * k, 0, 2.75 * k, 0, red, { r: 0.03 });
+  S.box(w + 1.6 * k, 0.2 * k, 0.36 * k, 0, 3.25 * k, 0, C('#2e2428'), { r: 0.03 });
+  S.box(w + 1.4 * k, 0.16 * k, 0.32 * k, 0, 3.1 * k, 0, red, { r: 0.02 });
+  S.box(0.18 * k, 0.5 * k, 0.2 * k, 0, 3.0 * k, 0, red, { r: 0 });
+  S.pop();
+}
+
+/** A low cherry bush: a few soft pink balls, lighter on top (no trunk). */
+function bush(S, look, x, y, z, r, rnd, lite) {
+  const P = look.cherry, light = C(P.blossom[3]), dark = C(P.blossom[2]);
+  for (let k = 0, n = lite ? 3 : 5; k < n; k++) {
+    const a = rnd() * 6.3, d = k ? r * (0.5 + rnd() * 0.4) : 0, up = k ? rnd() : 1, rr = r * (k ? 0.5 + rnd() * 0.25 : 0.75);
+    S.ball(rr, X(x + Math.cos(a) * d), y + rr * 0.8 + up * r * 0.3, z + Math.sin(a) * d, C(P.blossom[Math.floor(rnd() * 2)]).lerp(up > 0.5 ? light : dark, 0.4), { detail: lite ? 0 : 1, sy: 0.8 });
+  }
+}
+
+/** A lantern on a post (the road's warm lights in the mockup): a dark post, a box with glowing glass, a small roof; `h` high. */
+function postLantern(S, G, look, x, y, z, ry, h = 2.8) {
+  const pole = C(look.lamp.pole);
+  S.cyl(0.07, 0.09, h, X(x), y + h / 2, z, pole, { seg: 6 });
+  S.box(0.42, 0.5, 0.42, X(x), y + h + 0.25, z, pole, { r: 0.02, ry });
+  G.box(0.34, 0.38, 0.44, X(x), y + h + 0.25, z, glow(look.lamp.light, look.lantern?.glow ?? 2.4), { r: 0, ry });
+  G.box(0.44, 0.38, 0.34, X(x), y + h + 0.25, z, glow(look.lamp.light, look.lantern?.glow ?? 2.4), { r: 0, ry });
+  S.cone(0.42, 0.3, X(x), y + h + 0.65, z, pole, { seg: 4, ry: ry + Math.PI / 4 });
+}
+
+/**
+ * The set of a hairpin as in the mockup (scene.road.bendSets; bends sharper than |turn| 1): on the outside a rock wall in soft stacked
+ * boulders with moss on top, a red torii at the top of a stone stair in a gap of the wall, stone lanterns, cherry bushes and a lantern
+ * on a post; on the inside a small island behind a kerb with mossy rocks, a stone lantern and a bush. Every light leaves a warm pool.
+ */
+function bendSet(S, G, f, look, b, lampHeads, pools, lite) {
+  const rnd = mulberry32(Math.round(b.s * 7)), hw = f.hw, out = b.turn > 0 ? -1 : 1, right = (d) => [d[1], -d[0]], L = look.land;
+  // a place at `ds` metres from the apex, `o` metres out from the road's middle on `side`: x, z, the ground there, the road's height, the road's heading
+  const at = (ds, o, side) => { const p = pointAt(f.road, f.info, b.s + ds), r = right(p.dir), x = p.x + r[0] * side * o, z = p.z + r[1] * side * o, ry = f.roadY(b.s + ds);
+    return { x, z, y: Math.max(f.height(x, z), ry - 0.15), road: ry, ry: Math.atan2(X(p.dir[0]), p.dir[1]), face: Math.atan2(-X(r[0] * side), -r[1] * side) }; };
+  const light = (q, h, pool, halo) => { lampHeads.push([X(q.x), q.y + h, q.z, halo]); pools.push([X(q.x), q.road, q.z, pool]); };
+  const rock = () => C(L.rock).lerp(C(L.rockDark), rnd() * 0.6), moss = () => C(L.high).lerp(C(look.land.moss ?? '#6f8a5c'), 0.5 + rnd() * 0.5);
+  // the outside right after the apex is what the chase camera has on its left (further on the outside lies straight ahead, the view into
+  // the valley stays open): there the rock wall, with a gap for the stair up to the torii
+  const stairAt = 4.5;
+  for (let ds = 1; ds < 9; ds += lite ? 2.6 : 1.8) {
+    if (Math.abs(ds - stairAt) < 1.8) continue;
+    const q = at(ds, hw + 3.2 + rnd() * 0.6, out), r = 0.9 + rnd() * 0.5;
+    S.ball(r, X(q.x), q.y + r * 0.8, q.z, rock(), { detail: lite ? 0 : 1, sx: 1.2, sy: 1.3, sz: 0.9, ry: rnd() * 3 });
+    // a second boulder on top (on the ground of the first, set back a little) and moss on the highest one
+    let topX = q.x, topZ = q.z, topY = q.y + r * 1.75, topR = r;
+    if (!lite) { const q2 = at(ds + 0.6, hw + 3.8, out), r2 = r * 0.8; S.ball(r2, X(q2.x), q.y + r * 1.5 + r2 * 0.6, q2.z, rock(), { detail: 1, sx: 1.2, sy: 1.2, sz: 0.9, ry: rnd() * 3 }); topX = q2.x; topZ = q2.z; topY = q.y + r * 1.5 + r2 * 1.95; topR = r2; }
+    if (rnd() < 0.6) S.ball(topR * 0.55, X(topX), topY - topR * 0.12, topZ, moss(), { detail: 1, sx: 1.2, sy: 0.45, sz: 1.0 });   // moss and grass on the ledges
+  }
+  // the stair up through the gap and the torii at its top
+  const steps = 6;
+  for (let k = 0; k < steps; k++) { const q = at(stairAt, hw + 2.6 + k * 0.55, out); S.box(2.4, 0.36, 0.6, X(q.x), q.road + 0.18 + k * 0.36, q.z, C(look.lantern.stone).lerp(C(L.rockDark), 0.2 + (k % 2) * 0.15), { r: 0.04, ry: q.face }); }
+  const top = at(stairAt, hw + 2.6 + steps * 0.55 + 0.4, out);
+  torii(S, look, top.x, top.road + steps * 0.36, top.z, top.face, 2.2, 3.4);
+  // stone lanterns in front of the wall, a lantern on a post, cherry bushes
+  for (const ds of [1.5, 8.5]) { const q = at(ds, hw + 1.7, out); stoneLantern(S, G, look, q.x, q.road, q.z, q.ry, 1.0); light(q, 1.85, 5, 1.6); }
+  { const q = at(12, hw + 0.9, out); postLantern(S, G, look, q.x, q.road, q.z, q.ry); light(q, 3.05, 6, 2.0); }
+  for (const [ds, o] of [[0, hw + 2.3], [7, hw + 2.3], [10.5, hw + 2.2]]) { const q = at(ds, o, out); bush(S, look, q.x, q.road, q.z, 0.8 + rnd() * 0.3, rnd, lite); }
+  // the inside: a kerb, mossy rocks, a stone lantern and a bush on a small island
+  for (let ds = -10; ds < 16; ds += 1.6) { const q = at(ds, hw + 0.35, -out); S.box(0.3, 0.22, 1.7, X(q.x), q.road + 0.11, q.z, C(look.road.kerb), { r: 0.04, ry: q.ry }); }
+  for (const [ds, o, r] of [[0, hw + 3.4, 1.3], [7, hw + 4.4, 1.0], [-6, hw + 3.8, 0.9]]) { const q = at(ds, o, -out); S.ball(r, X(q.x), q.road + r * 0.45, q.z, rock(), { detail: 1, sy: 0.75, ry: rnd() * 3 }); S.ball(r * 0.6, X(q.x), q.road + r * 1.05, q.z, moss(), { detail: 1, sx: 1.2, sy: 0.4, sz: 1.2 }); }
+  { const q = at(4, hw + 2.2, -out); stoneLantern(S, G, look, q.x, q.road, q.z, q.ry, 1.05); light(q, 1.95, 5, 1.6); }
+  { const q = at(-2, hw + 2.0, -out); bush(S, look, q.x, q.road, q.z, 1.0, rnd, lite); }
+}
 
 /** A stone lantern (tōrō): plinth, shaft, the light box with a warm window, a pyramid roof; `k` scales it. */
 function stoneLantern(S, G, look, x, y, z, ry, k = 1) {
@@ -687,15 +800,7 @@ function details(S, G, f, scene, look, tier, rnd, lite, sideInfo, onPlaza) {
       S.box(0.15, 0.14, 0.15, X(m.x), y + 0.7, m.z, C('#2b2630'), { r: 0.02, jitter: 0 });
       G.box(0.13, 0.3, 0.155, X(m.x), y + 0.8, m.z, glow(look.chevron?.arrow ?? '#ff5a96', 4), { r: 0, jitter: 0 });   // seen from every side, as bright as the chevrons
     } else if (m.type === 'gate') {
-      S.push(trs(X(m.x), y, m.z, 0, ry, 0));
-      // a torii: two red pillars, a tie beam and a black-capped top beam; m.width / m.height scale it (a road torii is wide)
-      const w = m.width ?? 2.6, hh = m.height ?? 3.2, k = hh / 3.2;
-      for (const sx of [-w / 2, w / 2]) { S.cyl(0.14 * k, 0.17 * k, hh, sx, hh / 2, 0, red, { seg: 8 }); S.cyl(0.24 * k, 0.24 * k, 0.3 * k, sx, 0.15 * k, 0, C('#2e2428'), { seg: 8 }); }
-      S.box(w + 1.0 * k, 0.22 * k, 0.3 * k, 0, 2.75 * k, 0, red, { r: 0.03 });
-      S.box(w + 1.6 * k, 0.2 * k, 0.36 * k, 0, 3.25 * k, 0, C('#2e2428'), { r: 0.03 });
-      S.box(w + 1.4 * k, 0.16 * k, 0.32 * k, 0, 3.1 * k, 0, red, { r: 0.02 });
-      S.box(0.18 * k, 0.5 * k, 0.2 * k, 0, 3.0 * k, 0, red, { r: 0 });
-      S.pop();
+      torii(S, look, m.x, y, m.z, ry, m.width ?? 2.6, m.height ?? 3.2);
     }
   }
 }
