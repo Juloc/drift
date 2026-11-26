@@ -32,6 +32,21 @@ Checked for the RX-7 (2026-11-25): the licence file and the glTF metadata both s
 scene looks self-made in Blender (default object names like Plane, Circle, Cylinder, own materials), no sign of a game rip;
 **not provable from the file alone**. The download itself (`mazda_rx-7_fd.zip`) stays on the GPU PC, not in the repository.
 
+### Downloaded models for the world
+
+Downloaded by the chief chat with the owner's yes (2026-11-26, only CC0 or CC BY); author, licence and source checked against the model page and the
+glTF's `asset.extras`. Changed into our own files by a conversion in the browser (GLTFLoader and GLTFExporter, a scratch page, not kept): the meshes merged per
+material, scaled to 1 m high standing on y = 0, every texture but the colour one dropped, the colour texture reduced to 512 x 512 JPEG. Used only on
+the high tier, the lantern at the hairpins and beside the torii on the plaza (`look.models`, `game/view/look/models.js`); the phone keeps our own shapes.
+
+| File | Title | Author | Source | Licence | Changed |
+|---|---|---|---|---|---|
+| `game/assets/env/lantern.glb` | Old Japanese Lamp | MarcHoogkamp (https://sketchfab.com/MarcHoogkamp) | https://sketchfab.com/3d-models/old-japanese-lamp-2d95746c71724633baf24d8066ecf8db | CC BY 4.0 | merged per material, scaled, normal and roughness maps dropped, colour map 512 px; our own warm light in its window |
+
+Downloaded and **not used** (2026-11-26), because they did not bring the picture closer to the mockup: "Ghibli-esque rocks" (erinnorris, after a model originally designed by martynagrek, CC BY 4.0; tried at the hairpins, it stood as tall dark single points instead of the mockup's soft grey-violet wall), "Stylized Cedar trees" (Mandrake,
+CC BY 4.0; thin see-through branch cards and 4k textures, the mockup's cedars are dense and soft) and "Low Poly Pink Cherry Blossom Tree 3D
+Model" (emaanrazarizvi, CC BY 4.0; hard facets, 3.8k triangles). The downloads stay outside the repository (`drift-mockups/assets-download/`).
+
 ## Packs
 
 None used.

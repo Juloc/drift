@@ -229,6 +229,25 @@
         "en": "\"Porsche 911 (930) Turbo 1975\" by Lexyc16, CC BY 4.0; changed: scaled, materials replaced, the lettering of the rear reflector (a texture) removed, reduced",
         "de": "„Porsche 911 (930) Turbo 1975“ von Lexyc16, CC BY 4.0; verändert: skaliert, Materialien ersetzt, der Schriftzug im Heckreflektor (eine Textur) entfernt, verkleinert"
       }
+    },
+    {
+      "id": "env-lantern",
+      "kind": "model",
+      "name": "Old Japanese Lamp",
+      "file": [
+        "game/assets/env/lantern.glb"
+      ],
+      "author": "MarcHoogkamp",
+      "authorUrl": "https://sketchfab.com/MarcHoogkamp",
+      "source": "https://sketchfab.com/3d-models/old-japanese-lamp-2d95746c71724633baf24d8066ecf8db",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "merged per material, scaled, maps reduced to the colour map (512 px); our own light in its window",
+      "use": {
+        "en": "\"Old Japanese Lamp\" by MarcHoogkamp, CC BY 4.0; changed: merged, scaled, textures reduced, own light",
+        "de": "„Old Japanese Lamp“ von MarcHoogkamp, CC BY 4.0; verändert: zusammengefasst, skaliert, Texturen verkleinert, eigenes Licht"
+      }
     }
   ]
 }

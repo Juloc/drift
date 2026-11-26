@@ -49,6 +49,10 @@ export function buildWorld(scene, look, tierName = 'high') {
   const S = new Builder({ seed: 5, jitter: 0.02, wobble: 0, bake: false });
   const G = new Builder({ seed: 6, jitter: 0, wobble: 0, bake: false });
   S.lite = lite;
+  // look.models (high tier only): places for model files instead of code shapes; the stage loads the files and fills them (stage.js, addModels)
+  S.models = !lite && look.models ? look.models : null;
+  S.slots = {};
+  S.slot = (kind, x, y, z, ry, sx, sy = sx, sz = sx) => { const v = new THREE.Vector3(x, y, z); if (S.top) v.applyMatrix4(S.top); (S.slots[kind] ??= []).push([v.x, v.y, v.z, ry, sx, sy, sz]); };   // in world space (the builder may be lifted, as on the plaza)
   const rnd = mulberry32(17);
   const lampHeads = [];
   // the side of the road the valley is on (+1 = right of the direction of travel) and how far the land falls there
@@ -122,7 +126,7 @@ export function buildWorld(scene, look, tierName = 'high') {
   if (poolMesh) group.add(poolMesh);
   if (water) group.add(water);
   if (far) group.add(far);
-  return { group, field: f, lampHeads, road: roadMesh, triangles: [solid, lights, water, roadMesh, far].filter(Boolean).reduce((n, m) => n + m.geometry.index.count / 3, 0) };
+  return { group, field: f, lampHeads, slots: S.slots, road: roadMesh, triangles: [solid, lights, water, roadMesh, far].filter(Boolean).reduce((n, m) => n + m.geometry.index.count / 3, 0) };
 }
 
 // ---------------------------------------------------------------- the land: a grid over the extent, fine near the road (the core), coarser
@@ -426,7 +430,7 @@ function plaza(S, G, f, scene, look, lite, lampHeads, pools = []) {
   // scene.plaza.gateLights: a stone lantern on each side of the torii where the road leaves, lighting its pillars from below
   for (const m of P.gateLights ? scene.marks ?? [] : []) if (m.type === 'gate') for (const sd of [-1, 1]) {
     const w = (m.width ?? 2.6) / 2 + 1.4, ry = m.ry ?? 0, x = m.x + Math.cos(ry) * sd * w, z = m.z - Math.sin(ry) * sd * w;
-    const gy = f.height(x, z); stoneLantern(S, G, look, x, gy - gp, z, ry, 1.1); lampHeads.push([X(x), gy + 2.0, z, 1.8]); pools.push([X(x), gy, z, 6]);   // inside the plaza's lift
+    const gy = f.height(x, z); stoneLantern(S, G, look, x, gy - gp, z, ry, 1.1, true); lampHeads.push([X(x), gy + 2.0, z, 1.8]); pools.push([X(x), gy, z, 6]);   // inside the plaza's lift
   }
   const L = look.lamp;
   for (const [x, z] of P.lamps ?? []) {
@@ -702,6 +706,7 @@ function bendSet(S, G, f, look, b, lampHeads, pools, lite) {
   for (let ds = 1; ds < 9; ds += lite ? 2.6 : 1.8) {
     if (Math.abs(ds - stairAt) < 1.8) continue;
     const q = at(ds, hw + 3.2 + rnd() * 0.6, out), r = 0.9 + rnd() * 0.5;
+    if (S.models?.rocks) { S.slot('rocks', X(q.x), q.y - 0.15, q.z, rnd() * 6.3, r * 2.3, r * 2.3 * 1.35); continue; }   // the painted rocks with moss (one cluster for the stack)
     S.ball(r, X(q.x), q.y + r * 0.8, q.z, rock(), { detail: lite ? 0 : 1, sx: 1.2, sy: 1.3, sz: 0.9, ry: rnd() * 3 });
     // a second boulder on top (on the ground of the first, set back a little) and moss on the highest one
     let topX = q.x, topZ = q.z, topY = q.y + r * 1.75, topR = r;
@@ -714,19 +719,24 @@ function bendSet(S, G, f, look, b, lampHeads, pools, lite) {
   const top = at(stairAt, hw + 2.6 + steps * 0.55 + 0.4, out);
   torii(S, look, top.x, top.road + steps * 0.36, top.z, top.face, 2.2, 3.4);
   // stone lanterns in front of the wall, a lantern on a post, cherry bushes
-  for (const ds of [1.5, 8.5]) { const q = at(ds, hw + 1.7, out); stoneLantern(S, G, look, q.x, q.road, q.z, q.ry, 1.0); light(q, 1.85, 5, 1.6); }
+  for (const ds of [1.5, 8.5]) { const q = at(ds, hw + 1.7, out); stoneLantern(S, G, look, q.x, q.road, q.z, q.ry, 1.0, true); light(q, 1.85, 5, 1.6); }
   { const q = at(12, hw + 0.9, out); postLantern(S, G, look, q.x, q.road, q.z, q.ry); light(q, 3.05, 6, 2.0); }
   for (const [ds, o] of [[0, hw + 2.3], [7, hw + 2.3], [10.5, hw + 2.2]]) { const q = at(ds, o, out); bush(S, look, q.x, q.road, q.z, 0.8 + rnd() * 0.3, rnd, lite); }
   // the inside: a kerb, mossy rocks, a stone lantern and a bush on a small island
   for (let ds = -10; ds < 16; ds += 1.6) { const q = at(ds, hw + 0.35, -out); S.box(0.3, 0.22, 1.7, X(q.x), q.road + 0.11, q.z, C(look.road.kerb), { r: 0.04, ry: q.ry }); }
-  for (const [ds, o, r] of [[0, hw + 3.4, 1.3], [7, hw + 4.4, 1.0], [-6, hw + 3.8, 0.9]]) { const q = at(ds, o, -out); S.ball(r, X(q.x), q.road + r * 0.45, q.z, rock(), { detail: 1, sy: 0.75, ry: rnd() * 3 }); S.ball(r * 0.6, X(q.x), q.road + r * 1.05, q.z, moss(), { detail: 1, sx: 1.2, sy: 0.4, sz: 1.2 }); }
-  { const q = at(4, hw + 2.2, -out); stoneLantern(S, G, look, q.x, q.road, q.z, q.ry, 1.05); light(q, 1.95, 5, 1.6); }
+  for (const [ds, o, r] of [[0, hw + 3.4, 1.3], [7, hw + 4.4, 1.0], [-6, hw + 3.8, 0.9]]) { const q = at(ds, o, -out); if (S.models?.rocks) { S.slot('rocks', X(q.x), q.road - 0.1, q.z, rnd() * 6.3, r * 1.8); continue; } S.ball(r, X(q.x), q.road + r * 0.45, q.z, rock(), { detail: 1, sy: 0.75, ry: rnd() * 3 }); S.ball(r * 0.6, X(q.x), q.road + r * 1.05, q.z, moss(), { detail: 1, sx: 1.2, sy: 0.4, sz: 1.2 }); }
+  { const q = at(4, hw + 2.2, -out); stoneLantern(S, G, look, q.x, q.road, q.z, q.ry, 1.05, true); light(q, 1.95, 5, 1.6); }
   { const q = at(-2, hw + 2.0, -out); bush(S, look, q.x, q.road, q.z, 1.0, rnd, lite); }
 }
 
 /** A stone lantern (tōrō): plinth, shaft, the light box with a warm window, a pyramid roof; `k` scales it. */
-function stoneLantern(S, G, look, x, y, z, ry, k = 1) {
+function stoneLantern(S, G, look, x, y, z, ry, k = 1, model = false) {
   const stoneC = C(look.lantern?.stone ?? '#b7a8a6');
+  if (model && S.models?.lantern) {   // the model (where the camera comes close: the hairpins, the torii on the plaza) (1 m high in its file) at the height of ours; its open window gets our warm light
+    S.slot('lantern', X(x), y, z, ry, 2.7 * k);
+    G.box(0.42 * k, 0.32 * k, 0.42 * k, X(x), y + 1.62 * k, z, glow(look.lamp.light, look.lantern?.glow ?? 2.4), { r: 0, ry });
+    return;
+  }
   S.box(0.9 * k, 0.3 * k, 0.9 * k, X(x), y + 0.15 * k, z, stoneC, { r: 0.04, ry });
   S.cyl(0.16 * k, 0.2 * k, 1.2 * k, X(x), y + 0.9 * k, z, stoneC, { seg: 6 });
   S.box(0.75 * k, 0.15 * k, 0.75 * k, X(x), y + 1.55 * k, z, stoneC, { r: 0.03, ry });

@@ -10,6 +10,7 @@ import { makeSky, makeMist, makeSkyEnvironment, sunDirection, makeClouds } from 
 import { Puffs } from './puffs.js';
 import { Billows } from './billows.js';
 import { Post } from './post.js';
+import { fillSlots } from './models.js';
 import { carMaterials } from '../carmaterials.js';
 import { loadCarModel } from '../carmodel.js';
 import { buildS15 } from '../s15.js';
@@ -87,6 +88,7 @@ export function createStage({ canvas, look, scene0, tierName = 'high', shadowSpa
       // the world of the scene, with the sky's reflection on the road
       stage.world = buildWorld(newScene, newLook, tierName);
       scene.add(stage.world.group);
+      const world = stage.world; fillSlots(world, newLook, () => stage.world === world);   // model files for the places the world kept (look.models), when they have come
       stage.field = stage.world.field;
       // low mist over the valley floor and the lake (places from the scene; the phone tier takes the first few); it lies relative to the road's height nearby
       const patches = (newScene.mist ?? []).slice(0, tier.mist).map(([x, z, w, d, y]) => [x, z, w, d, y ?? stage.field.groundY(x, z) + newLook.mist.y]);   // a patch may give its own absolute height
