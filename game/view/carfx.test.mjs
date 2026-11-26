@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import * as THREE from '../../vendor/three/three.module.js';
 import { prepareCar } from './carglb.js';
 import { SLOTS } from './carglb.js';
-import { dressCar, carFx, measure, splitPalette, treadTyres } from './carfx.js';
+import { dressCar, carFx, measure, splitPalette, treadTyres, WheelSet } from './carfx.js';
 
 function fakeCar() {
   const mats = Object.fromEntries(SLOTS.map((s) => [s, new THREE.MeshStandardMaterial({ name: 'game_' + s })]));
@@ -94,4 +94,25 @@ test('dressCar takes the rims out of each wheel into their own satin metal part'
   assert.equal(rims.length, 2);
   assert.equal(rims[0].material, rims[1].material, 'one material for all rims (one place to change colour and finish)');
   assert.equal(rims[0].material.metalness, 0.5);
+});
+
+test('phone tier: the four wheels are one instanced mesh that follows steering and spin, also in a copy of the car', () => {
+  const car = fakeCar();
+  dressCar(car.group, {}, { lite: true });
+  const copy = car.group.clone(true);
+  for (const g of [car.group, copy]) {
+    let ws = null; g.traverse((o) => { if (o instanceof WheelSet) ws = o; });
+    assert.ok(ws, 'a WheelSet in every copy');
+    ws.onBeforeRender();
+    const m = new THREE.Matrix4(), p = new THREE.Vector3();
+    ws.getMatrixAt(0, m); p.setFromMatrixPosition(m);
+    assert.ok(Math.abs(p.z - 1.2) < 1e-6, 'the front left wheel at its place');
+    let hidden = 0; g.traverse((o) => { if (o.isMesh && /_pivot$/.test(o.parent?.parent?.name ?? '') && !o.visible) hidden++; });
+    assert.equal(hidden, 4, 'the single wheels are not drawn');
+  }
+  car.setWheels(0.4, 1); car.group.updateMatrixWorld(true);   // (the renderer does this before it draws)
+  let ws = null; car.group.traverse((o) => { if (o instanceof WheelSet) ws = o; });
+  ws.onBeforeRender();
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(); ws.getMatrixAt(0, m); m.decompose(new THREE.Vector3(), q, new THREE.Vector3());
+  assert.ok(q.angleTo(new THREE.Quaternion()) > 0.3, 'steering and spin reach the instance');
 });
