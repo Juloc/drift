@@ -202,7 +202,7 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   const haloMat = (c, k) => new THREE.SpriteMaterial({ name: 'fx_halo', map: glowTexture(), color: new THREE.Color(c).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
   const rearHaloMat = haloMat(0xff2a18, 0.9), frontHaloMat = haloMat(0xfff0d8, 0.7);
   const halos = [];
-  for (const [re, mat, out, k] of [[/^lamp_rear_/i, rearHaloMat, -1, 0.5], [/^lamp_front_/i, frontHaloMat, 1, 0.55]]) {
+  for (const [re, mat, out, k] of [[/^lamp_rear_/i, rearHaloMat, -1, 0.62], [/^lamp_front_/i, frontHaloMat, 1, 0.55]]) {
     for (const l of lampCentres(re)) {
       const h = new THREE.Sprite(mat); h.position.copy(l.at).add(new THREE.Vector3(0, 0, out * 0.05)); h.scale.setScalar(k * 0.75);   // a fixed soft spot (35 to 40 cm), not the lamp's whole width
       h.userData.base = h.scale.x; h.userData.rear = out < 0; halos.push(h);
