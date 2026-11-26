@@ -34,7 +34,6 @@ import { X, HEAD } from './view/space.js';
 import { WorldClient } from './net/world.js';
 import { Remotes, hueColour } from './view/remotes.js';
 import { makePose, settle, wheelPoints, heightSurface } from './sim/carpose.js';
-import { surfaceAt as trackSurface } from './sim/track.js';
 import { GlowPool } from './view/wheels.js';
 
 const params = new URLSearchParams(location.search);
@@ -118,7 +117,7 @@ let mine = fleet.spawn(ownColour);
 // the road's surface in the simulation's axes ((x, z, out) -> out.y, gx, gz): the track's own when the map brings one (sim/track.js), else the drawn height field's.
 // The car's pose, the tyre marks and the smoke ask here, the other drivers' cars too (sim/carpose.js puts the car on its four wheel points)
 const fieldSurface = heightSurface((x, z) => stage.field.groundY(x, z));
-const roadSurface = (x, z, o = {}) => (map?.track ? trackSurface(map.track, x, z, o) : fieldSurface(x, z, o));
+const roadSurface = (x, z, o = {}) => (map?.surface ? trackSurface(map.surface, x, z, o) : fieldSurface(x, z, o));   // (`map.surface`: the map's road, loaded by prepareMap from the packed `track` of the file)
 const minePose = makePose(), ghostPose = makePose(), botPose = makePose(), _ws = { y: 0, gx: 0, gz: 0 };
 const fxFor = (c) => (fleet.file ? carFx(c, cars[carIndex]?.fx, { lite }) : null);   // brake lights, exhaust flames (on the event car.pop that the throttle code below fires), underglow on the road
 let mineFx = fxFor(mine);
@@ -659,7 +658,6 @@ function togglePractice(on = !practice) {
   scene.add(botCar.group);
 }
 
-const roadSurface = (x, z, o) => trackSurface(map.surface, x, z, o);
 function simStep(i) {
   prev = cur;
   const inp = locked ? { steer: 0, throttle: 0, brake: 0, handbrake: 1 } : demo ? orbitBot(i * DT, cur, { start: 1.5 }) : lineDriver ? lineDriver(i * DT, cur) : input.read();
