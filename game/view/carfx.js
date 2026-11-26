@@ -75,7 +75,7 @@ const padTexture = () => canvasTexture(128, 256, (x, w, h) => {
 });
 
 const flat = (geo) => geo.rotateX(-Math.PI / 2);
-const _v = new THREE.Vector3(), _inv = new THREE.Matrix4();
+const _v = new THREE.Vector3(), _inv = new THREE.Matrix4(), _hp = new THREE.Vector3(), _fw = new THREE.Vector3(), _cd = new THREE.Vector3();
 /** Moves each vertex of a flat sheet (child of a car) to 1.5 cm above the ground under it; keeps its own x and z. */
 function layOnGround(mesh, groundAt) {
   const p = mesh.geometry.attributes.position;
@@ -148,7 +148,7 @@ const treadTexture = () => {
  * v across the tyre; no seam: each triangle's u is kept together) and a matt rubber with the tread as a normal map.
  */
 export function treadTyres(group, uvAt, colour = 0x1b1b1d) {
-  const mat = new THREE.MeshStandardMaterial({ name: 'fx_tyre', color: colour, roughness: 0.9, metalness: 0, normalMap: treadTexture(), normalScale: new THREE.Vector2(0.9, 0.9) });
+  const mat = new THREE.MeshStandardMaterial({ name: 'fx_tyre', color: colour, roughness: 0.9, metalness: 0, normalMap: treadTexture(), normalScale: new THREE.Vector2(1.6, 1.6) });
   let n = 0;
   splitPalette(group, uvAt, mat, 0.06, { all: true, only: /^wheel_.._own$/ });
   group.traverse((o) => {
@@ -249,11 +249,19 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   // halos: a soft glow in front of each lamp (camera-facing, depth-tested so the body hides them), on every tier
   const haloMat = (c, k) => new THREE.SpriteMaterial({ name: 'fx_halo', map: glowTexture(), color: new THREE.Color(c).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
   const rearHaloMat = haloMat(0xff2a18, 0.9), frontHaloMat = haloMat(0xfff0d8, 0.7);
+  let rearOpacity = 0.55;
   const halos = [];
   for (const [re, mat, out, k] of [[/^lamp_rear_/i, rearHaloMat, -1, 0.62], [/^lamp_front_/i, frontHaloMat, 1, 0.55]]) {
     for (const l of lampCentres(re)) {
       const h = new THREE.Sprite(mat); h.position.copy(l.at).add(new THREE.Vector3(0, 0, out * 0.05)); h.scale.setScalar(k * 0.75);   // a fixed soft spot (35 to 40 cm), not the lamp's whole width
-      h.userData.base = h.scale.x; h.userData.rear = out < 0; halos.push(h);
+      h.userData.base = h.scale.x; h.userData.rear = out < 0; h.userData.out = out; halos.push(h);
+      // a lamp's glow only shows from the side it shines to: faded out by the angle between the lamp's direction and the camera
+      // (seen from behind, the front halos stuck out over the bonnet as two warm dots above the roof)
+      h.onBeforeRender = (renderer, scene, camera) => {
+        h.getWorldPosition(_hp); car.group.getWorldDirection(_fw).multiplyScalar(out);
+        const facing = _fw.dot(_cd.subVectors(camera.position, _hp).normalize());
+        h.material.opacity = (h.userData.rear ? rearOpacity : 1) * Math.max(0, Math.min(1, (facing - 0.05) / 0.35));
+      };
     }
   }
   // underglow: a thin light strip under each sill and one soft pad of light on the road under the whole car
@@ -292,7 +300,7 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     update(dt, s) {
       const braking = s.brake > 0.1;
       for (const mat of brakeMats.values()) mat.emissiveIntensity = mat.userData.base * (braking ? 2.5 : 1);
-      rearHaloMat.opacity = braking ? 1 : 0.55;
+      rearOpacity = braking ? 1 : 0.55;
       for (const h of halos) if (h.userData.rear) h.scale.setScalar(h.userData.base * (braking ? 1.35 : 1));
       // the headlight pool lies on the road: each of its points 1.5 cm over the ground under it (s.groundAt(x, z) in world space)
       if (s.groundAt && poolMesh) layOnGround(poolMesh, s.groundAt);

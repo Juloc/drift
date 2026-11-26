@@ -1,10 +1,10 @@
 // Opens a page in headless Chromium (software graphics, nice 10), waits for an expression to be true, prints the value of another.
-// Usage: node tools/pageeval.mjs <url> <ready expression> <value expression> [width=844] [height=390] [shot.png]
+// Usage: node tools/pageeval.mjs <url> <ready expression> <value expression> [width=844] [height=390] [shot.png] [clip=x,y,w,h,scale]
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import { homedir } from 'node:os';
 
-const [url, ready, value, w = 844, h = 390, shotFile] = process.argv.slice(2);
+const [url, ready, value, w = 844, h = 390, shotFile, clipArg] = process.argv.slice(2);
 const chrome = `${homedir()}/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const port = 20000 + Math.floor(Math.random() * 20000), profile = `/tmp/claude-1000/drift-eval-${port}`;
@@ -25,6 +25,6 @@ for (let t = 0; t < 120 && !(await ev(`!!(${ready})`)); t++) await sleep(500);
 await sleep(1000);
 const result = JSON.stringify(await ev(value), null, 1);
 await new Promise((r) => process.stdout.write(result + '\n', r));   // a big result through a pipe: wait until it is written (process.exit would cut it)
-if (shotFile) { const s = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(shotFile, Buffer.from(s.result.data, 'base64')); }
+if (shotFile) { const [cx, cy, cw, ch, cs = 1] = (clipArg ?? '').split(',').map(Number); const s = await send('Page.captureScreenshot', { format: 'png', ...(clipArg ? { clip: { x: cx, y: cy, width: cw, height: ch, scale: cs } } : {}) }); fs.writeFileSync(shotFile, Buffer.from(s.result.data, 'base64')); }
 if (logs.length) console.log('console:\n  ' + logs.slice(0, 15).join('\n  '));
 stop(); process.exit(0);
