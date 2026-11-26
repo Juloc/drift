@@ -73,7 +73,7 @@ function topView() {
 }
 const academy = buildPlace(json, groundAt); stage.scene.add(academy.group);
 // the look of the place (view/look/place.js): asphalt, barriers, sea and harbour, stand, palms, floodlights; the plain pad's blocks and wet sheet go
-const placeLook = buildPlaceLook(json, look, stage.env, groundAt, tierName); stage.scene.add(placeLook.group); placeLook.setWet(wetOn);   // (the shine starts as the grip does: ?wet=0 starts dry)
+const placeLook = buildPlaceLook(json, look, stage.env, groundAt, tierName); stage.scene.add(placeLook.group); placeLook.setWet(params.get("wet") !== "0");   // (the shine starts as the grip does: ?wet=0 starts dry)
 if (stage.world.road) stage.world.road.visible = false;   // the place draws its own asphalt
 for (const m of academy.wet) m.visible = false; academy.group.children.forEach((o) => { if (o.isInstancedMesh) o.visible = false; });
 for (const [x, y, z, size] of placeLook.lampHeads) stage.halos.add(x, y, z, new THREE.Color(look.lamp.light).multiplyScalar((look.lamp.halo ?? 0.55) * (stage.tier.post ? look.lamp.haloPost ?? 0.4 : 1)), size);
