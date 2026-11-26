@@ -10,6 +10,9 @@ import { Fleet } from './view/look/fleet.js';
 import { lookChoice, lookFile } from './view/look/variant.js';
 import { CameraRig, ActionCam } from './view/camera.js';
 import { SoundSystem } from './view/sound.js';
+import { buildPlace, ConeField } from './view/academy.js';
+import { newCones, coneStep } from './sim/cones.js';
+import { gripPerWheel } from './sim/exercise.js';
 import { FixedLoop } from './sim/loop.js';
 import { prepareMap } from './sim/map.js';
 import { collideBody } from './sim/collision.js';
@@ -20,13 +23,15 @@ const $ = (id) => document.getElementById(id);
 // the page's texts, German and English (the language: ?lang=, else the browser's)
 const LANG = (new URLSearchParams(location.search).get('lang') ?? navigator.language ?? '').startsWith('de') ? 'de' : 'en';
 const TEXT = {
-  en: { title: 'Drift: new driving model (test page)', action: 'Action', calm: 'Calm', wide: 'Wide', camB: 'Camera (Action, Calm, Wide)', hint: 'Arrows/WASD drive, Space handbrake, Shift clutch, Q/E gear, M manual, 1/2/3 Arcade/Sport/Sim, T stock/drift set-up, C camera, R reset. Burnout: hold the brake and full throttle',
+  en: { title: 'Drift: new driving model (test page)', action: 'Action', calm: 'Calm', wide: 'Wide', camB: 'Camera (Action, Calm, Wide)', hint: 'Arrows/WASD drive, Space handbrake, Shift clutch, Q/E gear, M manual, 1/2/3 Arcade/Sport/Sim, T stock/drift set-up, C camera, N wet pad, R back to the start. Burnout: hold the brake and full throttle',
     mode: 'mode', car: 'car', gearbox: 'gearbox', auto: 'automatic', manual: 'manual (Q/E, Shift)', bodyAngle: 'body angle', rpm: 'rpm', yaw: 'yaw', arcade: 'Arcade', sport: 'Sport', sim: 'Sim',
     gas: 'GAS', brake: 'BRAKE', clutch: 'CLUTCH', hand: 'HAND', gcircle: 'g (grip circle)', wheels: 'per wheel: slip (red over its peak) and load', data: 'Data', sq: 'squeal', sm: 'smoke', stock: 'AE86 (stock)', drift: 'AE86 (drift set-up)',
+    exercise: 'Exercise', wet: 'Wet (N)', conesDown: 'cones down', ex_circle: 'Circle', ex_eight: 'Eight', ex_slalom: 'Slalom', ex_hairpin: 'Hairpin', ex_sBends: 'S-bends', ex_wallBend: 'Wall bend', ex_wetPad: 'Wet pad', ex_straight: 'Straight', ex_free: 'Free pad',
     steerL: 'Steer left', steerR: 'Steer right', gearDown: 'Gear down', gearUp: 'Gear up', manualBox: 'Manual gearbox', carToggle: 'Stock car or drift set-up', resetB: 'Reset' },
-  de: { title: 'Drift: neues Fahrmodell (Testseite)', action: 'Action', calm: 'Ruhig', wide: 'Weit', camB: 'Kamera (Action, Ruhig, Weit)', hint: 'Pfeile/WASD fahren, Leertaste Handbremse, Shift Kupplung, Q/E Gang, M manuell, 1/2/3 Arcade/Sport/Sim, T Serie/Drift-Aufbau, C Kamera, R neu. Burnout: Bremse halten und Vollgas',
+  de: { title: 'Drift: neues Fahrmodell (Testseite)', action: 'Action', calm: 'Ruhig', wide: 'Weit', camB: 'Kamera (Action, Ruhig, Weit)', hint: 'Pfeile/WASD fahren, Leertaste Handbremse, Shift Kupplung, Q/E Gang, M manuell, 1/2/3 Arcade/Sport/Sim, T Serie/Drift-Aufbau, C Kamera, N nasse Fläche, R zurück zum Start. Burnout: Bremse halten und Vollgas',
     mode: 'Modus', car: 'Auto', gearbox: 'Getriebe', auto: 'automatisch', manual: 'manuell (Q/E, Shift)', bodyAngle: 'Driftwinkel', rpm: 'Drehzahl', yaw: 'Gierrate', arcade: 'Arcade', sport: 'Sport', sim: 'Sim',
     gas: 'GAS', brake: 'BREMSE', clutch: 'KUPPLUNG', hand: 'HAND', gcircle: 'g (Kammscher Kreis)', wheels: 'je Rad: Schlupf (rot über dem Maximum) und Last', data: 'Daten', sq: 'Quietsch.', sm: 'Rauch', stock: 'AE86 (Serie)', drift: 'AE86 (Drift-Aufbau)',
+    exercise: 'Übung', wet: 'Nass (N)', conesDown: 'Kegel gefallen', ex_circle: 'Kreis', ex_eight: 'Acht', ex_slalom: 'Slalom', ex_hairpin: 'Kehre', ex_sBends: 'S-Kurven', ex_wallBend: 'Wandkurve', ex_wetPad: 'Nasse Fläche', ex_straight: 'Gerade', ex_free: 'Freie Fläche',
     steerL: 'Links lenken', steerR: 'Rechts lenken', gearDown: 'Runterschalten', gearUp: 'Hochschalten', manualBox: 'Schaltgetriebe', carToggle: 'Serienauto oder Drift-Aufbau', resetB: 'Neu starten' },
 };
 const t = (k) => TEXT[LANG][k] ?? TEXT.en[k] ?? k;
@@ -42,8 +47,7 @@ document.body.classList.toggle('touch', coarse);
 
 // ---- the pad: the practice ground's map (its walls), its look and scene, as in the game
 const [cars, mapList] = await Promise.all([fetch('data/cars.json').then((r) => r.json()).then((j) => j.cars), fetch('data/maps.json').then((r) => r.json()).then((j) => j.maps)]);
-const entry = mapList.find((m) => m.scene === 'practice');
-const [json, theme] = await Promise.all([fetch('data/maps/' + entry.file).then((r) => r.json()), fetch(`data/scenes/${entry.scene}.json`).then((r) => r.json())]);
+const [json, theme] = await Promise.all([fetch('data/maps/09-academy.json').then((r) => r.json()), fetch('data/scenes/academy.json').then((r) => r.json())]);   // the drift academy (tools/make-academy.mjs)
 const look = await loadLook(lookFile(theme.look, lookChoice(params))), map = prepareMap(json);
 const tierName = ['high', 'medium', 'low'].includes(params.get('tier')) ? params.get('tier') : coarse ? 'low' : 'high';
 const stage = createStage({ canvas: $('view'), look, scene0: sceneFromMap(json, theme), tierName });
@@ -52,22 +56,41 @@ const AE = cars.find((c) => c.model === 'ae86') ?? cars[1];
 const fleet = await new Fleet(stage, { model: 'ae86', fx: AE?.fx }).load();
 const mine = fleet.spawn(new THREE.Color('#d8d4cc'));
 stage.scene.add(mine.group);
+// the place in plain shapes (paint, zones, walls) and ONE mesh for all cones; the zones' grip goes per wheel into the model's ground (`ENV.muW`)
+const groundAt = (x, z) => stage.field.groundY(x, z);
+const EXERCISES = json.academy.exercises;
+let exNo = Math.max(0, EXERCISES.findIndex((e) => e.key === (params.get('ex') ?? 'circle')));   // the chosen start (the chip "Übung"); R goes back to it
+// ?top=1 (for pictures): the whole pad from straight above, every exercise labelled
+const TOP = params.has('top'), labelEls = [];
+if (TOP) { document.body.classList.add('top'); for (const e of EXERCISES) { const d = Object.assign(document.createElement('div'), { className: 'exlabel', textContent: t('ex_' + e.key) }); document.body.append(d); labelEls.push([d, e]); } }
+function topView() {
+  const f = 40, tan = Math.tan((f / 2) * Math.PI / 180), aspect = innerWidth / innerHeight, H = Math.max(196 / (2 * tan), 262 / (aspect * 2 * tan));
+  camera.up.set(0, 0, 1); camera.position.set(0, H, 0); camera.lookAt(0, 0, 0); if (camera.fov !== f) { camera.fov = f; camera.updateProjectionMatrix(); }
+  camera.updateMatrixWorld();
+  const v = new THREE.Vector3();
+  for (const [d, e] of labelEls) { const cx = (e.box[0] + e.box[2]) / 2, cz = (e.box[1] + e.box[3]) / 2; v.set(X(cx), 0, cz).project(camera); d.style.left = `${((v.x + 1) / 2) * innerWidth}px`; d.style.top = `${((1 - v.y) / 2) * innerHeight}px`; }
+}
+const academy = buildPlace(json, groundAt); stage.scene.add(academy.group);
+const coneField = new ConeField(json.cones, groundAt); stage.scene.add(coneField.mesh);
+let cs = newCones(json.cones), wetOn = params.get('wet') !== '0';
+const minMu = [1, 1, 1, 1];   // the lowest grip each wheel had since the page began (for the checking tool)
+const ENV = { ...FLAT, muW: [1, 1, 1, 1] }, wheelPts = [[0, 0], [0, 0], [0, 0], [0, 0]];
 const cam = new CameraRig(camera, { look: look.camera, ground: (x, z) => stage.field.groundY(x, z) });
-const START = { x: -30, z: -30, h: Math.PI / 2 };
+const START = () => EXERCISES[exNo].spawn;
 
 // ---- the state of the drive
 const MODES = ['arcade', 'sport', 'sim'], CARS = [AE86_DRIFT, AE86];
 let mode = MODES.includes(params.get('mode')) ? params.get('mode') : 'arcade', carNo = params.get('car') === 'stock' ? 1 : 0, manual = params.get('manual') === '1';
 const REST = { throttle: 0, brake: 0, steer: 0, handbrake: 0, clutch: 0, up: false, down: false, manual: false };
 /** A car at the start that has stood a second on its springs (so it does not bounce down onto them). */
-function fresh() { const c = makeCar(START.x, START.z, START.h); for (let i = 0; i < 120; i++) step(c, REST, CARS[carNo], ASSISTS[mode], FLAT, DT); return c; }
+function fresh() { const c = makeCar(START().x, START().z, START().h); for (let i = 0; i < 120; i++) step(c, REST, CARS[carNo], ASSISTS[mode], FLAT, DT); return c; }
 let s = fresh(), prev = null;   // `prev`: the state one step back; the picture is the blend of the two (as in main.js)
 let autoT = 0, autoPhase = 0, autoSteer = 0, autoHand = 0;
 const held = new Set(), touchHeld = new Set(), pending = { up: false, down: false };
 const inp = { throttle: 0, brake: 0, steer: 0, handbrake: 0, clutch: 0, up: false, down: false, manual: false };
 const ramp = (v, target, up, down, dt) => (target > v ? Math.min(target, v + up * dt) : Math.max(target, v - down * dt));
 const has = (k, ctl) => held.has(k) || touchHeld.has(ctl);
-function reset() { s = fresh(); prev = null; stage.skids.clear(); activeCam().snap(s); inp.throttle = inp.brake = inp.steer = inp.clutch = 0; }
+function reset() { s = fresh(); prev = null; cs = newCones(json.cones); coneField.standAll(); stage.skids.clear(); activeCam().snap(s); inp.throttle = inp.brake = inp.steer = inp.clutch = 0; }
 // the cameras: Action (the test page's own, close and low, behind the way the car travels), Calm (the game's chase) and Wide (the game's chase, far); C cycles
 const action = new ActionCam(camera);
 action.ground = (x, z) => stage.field.groundY(x, z); if (stage.field.height) action.cover = (x, z) => stage.field.height(x, z);
@@ -81,9 +104,11 @@ camLabel();
 const setMode = (m) => { mode = m; syncChips(); };
 const toggleCar = () => { carNo = 1 - carNo; syncChips(); };
 const toggleManual = () => { manual = !manual; syncChips(); };
+const toggleWet = () => { wetOn = !wetOn; for (const m of academy.wet) m.visible = wetOn; syncChips(); };
+function setExercise(n) { exNo = clamp(n, 0, EXERCISES.length - 1); reset(); syncChips(); document.body.classList.remove('list-open'); }
 function key(code, down) {
   if (down) {
-    if (code === 'KeyC') cycleCam(); else if (code === 'KeyR') reset(); else if (code === 'KeyM') toggleManual(); else if (code === 'KeyT') toggleCar();
+    if (code === 'KeyN') toggleWet(); else if (code === 'KeyC') cycleCam(); else if (code === 'KeyR') reset(); else if (code === 'KeyM') toggleManual(); else if (code === 'KeyT') toggleCar();
     else if (code === 'KeyQ') pending.down = true; else if (code === 'KeyE') pending.up = true;
     else if (code === 'Digit1') setMode('arcade'); else if (code === 'Digit2') setMode('sport'); else if (code === 'Digit3') setMode('sim');
   }
@@ -100,7 +125,11 @@ $('simdata').addEventListener('pointerdown', (e) => { document.body.classList.to
 for (const b of document.querySelectorAll('#simtouch [data-key]')) b.addEventListener('pointerdown', (e) => { key(b.dataset.key, true); e.preventDefault(); unlockSound(); });
 const chips = [...document.querySelectorAll('#simmodes [data-mode]')];
 for (const c of chips) c.addEventListener('click', () => setMode(c.dataset.mode));
-function syncChips() { for (const c of chips) c.setAttribute('aria-pressed', c.dataset.mode === mode); }
+const list = $('simlist'), exButtons = EXERCISES.map((e, i) => { const b = Object.assign(document.createElement('button'), { type: 'button', textContent: t('ex_' + e.key) }); b.addEventListener('click', () => setExercise(i)); list.append(b); return b; });
+if (params.has('list')) document.body.classList.add('list-open');   // (for pictures)
+$('simex').addEventListener('click', () => document.body.classList.toggle('list-open'));
+$('simwet').addEventListener('click', toggleWet);
+function syncChips() { for (const c of chips) c.setAttribute('aria-pressed', c.dataset.mode === mode); exButtons.forEach((b, i) => b.setAttribute('aria-pressed', i === exNo)); $('simwet').setAttribute('aria-pressed', wetOn); $('simex').textContent = t('exercise') + ': ' + t('ex_' + EXERCISES[exNo].key); }
 syncChips();
 $('simhint').textContent = t('hint');
 
@@ -143,6 +172,7 @@ function readout() {
   limitMark.style.left = `${(C.engine.limit / (C.engine.limit * 1.05)) * 100}%`;
   gasI.style.width = `${inp.throttle * 100}%`; brkI.style.width = `${inp.brake * 100}%`; cluI.style.width = `${(1 - s.engage) * 100}%`;
   const rows = [[t('mode'), t(mode)], [t('car'), carNo === 0 ? t('drift') : t('stock')], [t('gearbox'), manual ? t('manual') : t('auto')], [t('bodyAngle'), `${Math.round((s.beta * 180) / Math.PI)}\u00b0`]];
+  { const e = EXERCISES[exNo], n = e.cones[1] - e.cones[0]; rows.push([t('conesDown'), n ? `${coneField.downCount(e.cones)}/${n}` : '-']); }
   if (!coarse) rows.push([t('rpm'), String(Math.round(s.rpm))], [t('yaw'), `${((s.w * 180) / Math.PI).toFixed(0)}\u00b0/s`]);   // (a phone's card is short: nothing may lie over the car)
   cMode.replaceChildren(...rows.map(([k, v]) => { const d = el('div'); d.append(`${k}: `, el('b', '', v)); return d; }));
   for (let i = 0; i < 4; i++) { wc[i].si.style.width = `${clamp((s.sn[i] / 2) * 100, 0, 100)}%`; wc[i].si.classList.toggle('red', s.sn[i] > 1); wc[i].li.style.width = `${clamp((s.fz[i] / 6000) * 100, 0, 100)}%`; wc[i].v.textContent = `${s.sn[i].toFixed(2)}  ${Math.round(s.fz[i])} N`; wc[i].v2.textContent = `${Math.round(s.temp[i])}\u00b0C  ${t('sq')} ${squealOf(s, C, i).toFixed(2)}  ${t('sm')} ${smokeOf(s, C, i).toFixed(2)}`; }
@@ -167,8 +197,14 @@ function simStep(dt) {
   inp.handbrake = AUTO > 0 ? autoHand : has('Space', 'hand') ? 1 : 0;
   inp.clutch = has('ShiftLeft', 'clutch') || held.has('ShiftRight') ? 1 : 0;
   inp.manual = manual; inp.up = pending.up; inp.down = pending.down; pending.up = pending.down = false;
-  step(s, inp, C, A, FLAT, dt);
+  const sh = Math.sin(s.h), ch = Math.cos(s.h);
+  for (let i = 0; i < 4; i++) { const [lx, lz] = wheelLocal[i]; wheelPts[i][0] = s.x + lz * sh - lx * ch; wheelPts[i][1] = s.z + lz * ch + lx * sh; }
+  gripPerWheel(json.academy.grip, wheelPts, ENV.muW, wetOn);   // the grip under each wheel's contact point
+  for (let i = 0; i < 4; i++) if (ENV.muW[i] < minMu[i]) minMu[i] = ENV.muW[i];
+  step(s, inp, C, A, ENV, dt);
   s = collideBody(map, s);
+  const hit = coneStep(cs, json.cones, s.x, s.z, s.vx, s.vz);
+  if (hit !== cs) { for (const i of hit.event) coneField.fall(i, hit.down[i].dx, hit.down[i].dz, hit.down[i].v); cs = hit; }
 }
 
 // ---- the picture: the car on its body node, marks and smoke per wheel
@@ -226,7 +262,8 @@ function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now; 
   const alpha = loop.advance(dt, () => { prev = snapshot(s); simStep(DT); for (let i = 0; i < 4; i++) spin[i] += s.wheel[i] * DT; stage.smoke.update(DT); simSteps++; if (simSteps % 2 === 0) marksAndSmoke(); });
   const d = drawnPose(RAW ? 1 : alpha); drawn = d;
-  activeCam().update(d, 55, dt);
+  coneField.update(dt);
+  if (TOP) topView(); else activeCam().update(d, 55, dt);
   place(d);
   stage.aimSun(X(d.x), 0, d.z);
   readout();
@@ -248,4 +285,4 @@ function carRect() {
   for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) { v.set(x, y, z).project(camera); x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
   return { x0: ((x0 + 1) / 2) * innerWidth, x1: ((x1 + 1) / 2) * innerWidth, y0: ((1 - y1) / 2) * innerHeight, y1: ((1 - y0) / 2) * innerHeight };
 }
-window.__sim = { cycleCam, setCam, get camNo() { return camNo; }, camera, startProbe() { probe = []; }, stopProbe() { const p = probe; probe = null; return p; }, carRect, get drawn() { return drawn; }, camPose() { const v = new THREE.Vector3(); v.setFromMatrixPosition(mine.group.matrixWorld); camera.updateMatrixWorld(); return v.applyMatrix4(camera.matrixWorldInverse).toArray(); }, get state() { return s; }, get frames() { return frames; }, get mode() { return mode; }, held, reset, setMode, toggleCar, toggleManual, stage, camera };
+window.__sim = { get exNo() { return exNo; }, setExercise, toggleWet, get wetOn() { return wetOn; }, get muW() { return ENV.muW; }, minMu, get cones() { return cs; }, coneField, cycleCam, setCam, get camNo() { return camNo; }, camera, startProbe() { probe = []; }, stopProbe() { const p = probe; probe = null; return p; }, carRect, get drawn() { return drawn; }, camPose() { const v = new THREE.Vector3(); v.setFromMatrixPosition(mine.group.matrixWorld); camera.updateMatrixWorld(); return v.applyMatrix4(camera.matrixWorldInverse).toArray(); }, get state() { return s; }, get frames() { return frames; }, get mode() { return mode; }, held, reset, setMode, toggleCar, toggleManual, stage, camera };

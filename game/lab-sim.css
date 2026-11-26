@@ -47,3 +47,19 @@ body.touch.data-open #c-wheels { display: block; }
 body.touch #simhint { display: none; }
 body.touch #c-mode { top: 52px; font-size: 11px; line-height: 1.35; padding: 5px 8px; max-width: 160px; }
 body.touch #simmodes button { min-height: 36px; padding: 0 9px; font-size: 12px; }
+
+/* the exercise chip, the wet pad switch and the list of exercises */
+#simtools { position: fixed; right: max(10px, env(safe-area-inset-right)); top: 56px; display: flex; gap: 6px; z-index: 5; }
+#simtools .tool, #simlist button { min-height: 36px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--edge); background: var(--glass); color: var(--white); font: 600 13px var(--font); cursor: pointer; }
+#simtools .tool[aria-pressed='true'], #simlist button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); }
+#simlist { display: none; position: fixed; left: max(10px, env(safe-area-inset-left)); top: 100px; z-index: 6; grid-template-columns: repeat(2, 1fr); gap: 5px; padding: 8px; border-radius: 14px; background: var(--glass); border: 1px solid var(--edge); width: 220px; }
+body.list-open #simlist { display: grid; }
+#simlist button { min-height: 34px; padding: 0 8px; font-size: 12px; }
+body.touch #simtools { right: auto; left: max(8px, env(safe-area-inset-left)); top: 50px; }
+body.touch #simtools .tool { min-height: 34px; padding: 0 10px; font-size: 12px; }
+body.touch #simlist { top: 90px; width: 200px; }
+body.touch #c-mode { top: 92px; }
+body.touch #c-wheels { top: 170px; }
+body.touch.list-open #c-mode { display: none; }
+.exlabel { position: fixed; transform: translate(-50%, -50%); padding: 2px 8px; border-radius: 10px; background: rgba(24, 18, 44, 0.78); border: 1px solid var(--edge); color: var(--white); font: 700 13px var(--font); pointer-events: none; z-index: 3; }
+body.top #simhud, body.top #simhint, body.top #simtouch { display: none; }
