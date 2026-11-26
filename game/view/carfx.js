@@ -349,10 +349,10 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
       if (!/^lamp_rear_/i.test(mat?.name ?? '')) return mat;
       if (!brakeMats.has(mat)) {
         // the red lamp (the brake light): dim when only the lights are on, 3.5x brighter and a pink-red (a pure red over-exposed turns orange-white and the two states
-        // looked the same) when braking; the white parts (reverse, reflector) stay as they are
+        // looked the same) when braking: 11 on the red channel, well over the bloom threshold (2.8, the brightest channel counts), so the bloom catches it; the white parts (reverse, reflector) stay as they are
         const c = mat.clone(), red = c.emissive && c.emissive.r > 0.8 && c.emissive.g < 0.3 && c.emissive.b < 0.3;
         if (red) c.emissive.setRGB(1, 0.06, 0.16);
-        c.userData.base = red ? 1.7 : 2.2; c.userData.boost = red ? 3.8 : 1; c.emissiveIntensity = c.userData.base; brakeMats.set(mat, c);
+        c.userData.base = red ? 1.7 : 2.2; c.userData.boost = red ? 6.5 : 1; c.emissiveIntensity = c.userData.base; brakeMats.set(mat, c);
       }
       return brakeMats.get(mat);
     };

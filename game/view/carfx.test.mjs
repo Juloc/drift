@@ -187,5 +187,5 @@ test('a pop is a short sharp flame: 15 to 30 cm long, a flash of at most 22 cm, 
   }
   const red = [...fx.brakeMats.values()].find((m) => m.emissive.g < 0.2);
   assert.ok(red, 'the red lamp is a pink-red'); const idle = red.emissiveIntensity;
-  fx.update(1 / 60, { brake: 1 }); assert.ok(red.emissiveIntensity >= idle * 3.5, 'braking: at least 3.5 times the light');
+  fx.update(1 / 60, { brake: 1 }); assert.ok(red.emissiveIntensity >= idle * 3.5 && red.emissiveIntensity * red.emissive.r > 2.8 * 1.5, 'braking: at least 3.5 times the light, over the bloom threshold');
 });
