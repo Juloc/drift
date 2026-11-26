@@ -353,3 +353,9 @@ All five milestones of SCOPE are built. Waits for the owner: design and details,
 - **16+ in one world:** the app's lobby relay already allows 64 per world with interest areas (70 m full, the rest in short frames); a relay test with 16 bots on the long map has not been written (not checked on the touge's 2 km).
 - **Not done:** private sessions by link (a guest link opens the same lobby), a second world per link. A hand test with several browsers on the new map.
 - Pictures: `docs/screenshots/game-touge-lobby.png` (the plaza with torii, lanterns and the volcano).
+
+## Release candidate 0.5.0 (look round 8, AE86, camera, white paint, run summary, lobby on the touge)
+- Merged by the chief's say: look round 8 (d28e2c5, cool sky, dark green land, moon), the cars branch (AE86 as car 1 with its fx, exhaust flames on `car.pop`; conflict only in `__drift`). The cars' model comes from `cars.json` (`?car=1` shows the AE86; a new driver's default car in the garage is still car 0, the RX-7 file: the chief decides).
+- **Camera (touge look):** `dist 5.4, height 1.45, lookY 0.4, turnDrift -26, swing 3`. `turnDrift` (new in `LookChase`) turns the view away from the side the car slides to, so the car stands left of the middle in both directions of drift; in the fixed shots the car box is x 0.31 to 0.69, y 0.50 to 0.80 of the picture (the mockup: x 0.25 to 0.58, y 0.42 to 0.68: the car is a little low and a little right). Pictures (AE86, white): `docs/screenshots/game-touge-tal.png`, `game-touge-kehre.png`, `game-touge-tal-phone.png`.
+- Full run on the merge: node 150, .NET 230 (M1_parallel_sign_ups failed once under load, passed alone twice).
+- The wheel-arch orange on the RX-7 was not looked at (the AE86 replaces it).

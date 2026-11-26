@@ -149,9 +149,10 @@ async function changeTier(name) {
   stage.setTier(name); tierName = name; lite = name === 'low';
   document.body.classList.toggle('lite', lite);
   if (stage.carTier !== carTierBefore) {
-    fleet.dispose(); fleet = await new Fleet(stage, { model: 'rx7' }).load();
+    fleet.dispose(); fleet = await new Fleet(stage, { model: carModel, fx: cars[carIndex]?.fx }).load();
     if (remotes) { remotes.fleet = fleet; remotes.clear(); remotes.maxNear = lite ? 3 : 6; }
     mine = fleet.spawn(ownColour);
+    mineFx = fxFor(mine);
     if (practice) togglePractice(false);
   }
   carGroup.add(mine.group);
