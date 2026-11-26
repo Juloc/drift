@@ -119,13 +119,13 @@ for (const sz of SIZES) {
 const status = fails.length ? 'FAILED' : 'passed';
 const lines = [`play check ${status}: ${rows.length} sizes, ${fails.length} problem(s)`, ...rows.map((r) => `${r.size} ${r.box}: ${r.shapes.length} shape check(s), ${r.spots} start places, ${r.touchButtons ?? '-'} touch buttons, ${r.hudParts} HUD parts${r.note ? ' (' + r.note + ')' : ''}`), ...fails.map((f) => 'PROBLEM ' + f)];
 writeFileSync(`${out}/report.txt`, lines.join('\n') + '\n');
-const html = `<body style="margin:0;background:#16131c;color:#fff;font:14px monospace;padding:14px;width:1500px"><h2 style="margin:0 0 8px;color:${fails.length ? '#ff7a7a' : '#7affb0'}">${lines[0]}</h2>
+const html = `<body style="margin:0;background:#16131c;color:#fff;font:14px monospace;padding:14px;width:1870px"><h2 style="margin:0 0 8px;color:${fails.length ? '#ff7a7a' : '#7affb0'}">${lines[0]}</h2>
 <div style="display:flex;gap:14px;align-items:flex-start">${rows.map((r) => `<figure style="margin:0"><img src="data:image/png;base64,${readFileSync(`${out}/${r.size}.png`).toString('base64')}" style="height:${r.size === 'tablet' || r.size === 'phone-portrait' ? 300 : 200}px;border:1px solid #555"><figcaption>${r.size}<br>${r.box}</figcaption></figure>`).join('')}</div>
 <pre style="margin-top:10px;white-space:pre-wrap">${lines.slice(1).map((l) => l.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('\n')}</pre></body>`;
 writeFileSync('/tmp/claude-1000/playcheck-overview.html', html);
 const ov = await browser();
 try {
-  await ov.send('Emulation.setDeviceMetricsOverride', { width: 1530, height: 760, deviceScaleFactor: 1, mobile: false });
+  await ov.send('Emulation.setDeviceMetricsOverride', { width: 1900, height: 700, deviceScaleFactor: 1, mobile: false });
   await ov.send('Page.navigate', { url: 'file:///tmp/claude-1000/playcheck-overview.html' }); await sleep(1500);
   const shot = await ov.send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(`${out}/overview.png`, Buffer.from(shot.result.data, 'base64'));
