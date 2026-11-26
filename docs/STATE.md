@@ -690,3 +690,29 @@ A static page with sample data, no server logic, no inline script; every text th
 - **Proven in a browser run** (105 s, bot): HUD "2.031", card "Punkte 2.031 / Drift + Kehren-Bonus 892 + 1.139". Test: the hub's mode-run test asserts that `zones` is part of the points. The server's pose rate can miss a clean clip (1.5 m) by a little, so the server's number can be a few percent under what an exact count would give; it is the one that counts (boards).
 - **While a result card is open only the card shows:** the damage note, messages, toasts and hints are hidden then (`body.card-open`).
 - Time attack has no points penalty (its card shows the time first and the points as extra), so nothing more to explain there.
+
+## L5 rocks and L6 grass (the look chat)
+- L5: `game/assets/env/rocks.glb` (the Ghibli-esque rocks, CC BY 4.0, one cluster of painted rocks, 516 triangles, 256 px colour map) through `look.models.rocks` and `view/look/models.js`
+  (instanced, one draw call). Placed by `rocks()` at the foot of the cut and on the slope, in the hairpins' rock walls and on their islands: sunk 28 to 45 % into the ground and leaning
+  with the ground's normal (`S.slot(..., n)`), never within 1.5 m of the road's edge. The colour is the look's (`look.models.paint.rocks`: `rock` and `moss`; the file's painting only
+  gives light and dark, moss on faces that look up, by the normal in the shader); the old balls only when the model is missing. The phone has fewer (`tier.rocks`, wall steps).
+- L6: `view/look/foliage.js` (`makeFoliage`): grass clumps (three blades, dark foot, lighter tip, a light wind on the GPU) and low bushes, one instanced mesh each, along the road
+  (densest 1 to 12 m from the edge, `look.foliage.reach`), on ground that is not steep, not on the road, plaza or lake. Counts by tier: `tier.grass`, `tier.plants` (high 4000 / 70, medium 3000 / 80,
+  none on the phone: it keeps the tufts). No shadows. Not tiled in 64 m squares: one draw call per kind keeps the budget (a tile per square would be 5 to 10 more calls).
+- Numbers (headless Chromium on the machine's graphics, shot=tal): high 402k triangles / 60 calls (before L5 and L6: 395k / 58; the budget is 400k / 60), 16.9 ms with the foliage, 16.8 ms
+  without it (the frame is capped by the display rate here, so this only says "not slower"); phone 130k / 23 (before 116k / 22; the rocks are 14k of it; the aim is about 120k).
+  To fit: the tier's carpet 2000 to 400, near pines 160 to 130, rocks 40 to 8 (each a cluster of 516 triangles). Palette on shot=tal: mean 69 (the sky changed meanwhile).
+- Not checked: a real phone's frame time. Not done: L7 (clouds, stars: the drift chat), the pine thickening on the slope above the road (plan L6 item 5).
+
+## Look chat: the 895 m sample, frame time per part, props near the camera, the rock face, smoke size
+- **Play check at 895 m (7 cm):** the shelf under the land was too shallow for the coarse grid on that hairpin: field.relHeight's `sink` now grows with the grid's cell size (`-0.4 - (cell - 6) * 0.03` on a hillside).
+  Play check green again (5 sizes, 0 problems; track, drive and interface checks green).
+- **Frame time per part** (PC high tier, shot=kehre, headless Chromium on the machine's graphics, median of 5 runs, the part hidden or shown; 16.5 ms is the display's rate, so a cost of
+  0 means "not slower"): smoke -0.2 ms, light pools +0.16, halos -0.15, stars +0.31, **clouds +2.0**, foliage +0.75, rocks +1.3, lantern models 0, mist +0.16.
+  So the 53 to 42 fps in the ride check is not the smoke, the pools or the stars; the clouds (L7, the drift chat) are the biggest single part, then the rocks. Phone (low tier): everything under 1 ms.
+- **Props within 3 m of the camera** (the black lamp post): the land mesh (posts, lanterns, trees) and the model meshes dissolve in a fine dither inside 3 m, above the ground the camera looks over.
+- **Rock face** (`look.rockFace`, `rockFace()` in world.js): a closed, layered band of grey-violet rock with moss patches and a mossy ledge on the uphill side of every cut (rise 3.5 m or more),
+  4.4 m high with a batter, part of the world mesh (no extra draw call); the Ghibli rocks stand in front of it as accents. Not yet the plan's "retaining wall on the fill side" and not a face
+  built from the rock models themselves (the model is one cluster: a wall of 100 of them would be 50k triangles).
+- **Smoke** 1.5 times bigger (size 1.5, maxSize 5.4, opacity 1).
+- **Draw calls**: 61 at shot=tal; the car alone is about 30 of them (4 wheels, body, lamps, glass: twice with the shadow pass); grass, plants, rocks and lantern together 5. Triangles: high 402k, phone 132k.

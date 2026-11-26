@@ -37,13 +37,14 @@ scene looks self-made in Blender (default object names like Plane, Circle, Cylin
 Downloaded by the chief chat with the owner's yes (2026-11-26, only CC0 or CC BY); author, licence and source checked against the model page and the
 glTF's `asset.extras`. Changed into our own files by a conversion in the browser (GLTFLoader and GLTFExporter, a scratch page, not kept): the meshes merged per
 material, scaled to 1 m high standing on y = 0, every texture but the colour one dropped, the colour texture reduced to 512 x 512 JPEG. Used only on
-the high tier, the lantern at the hairpins and beside the torii on the plaza (`look.models`, `game/view/look/models.js`); the phone keeps our own shapes.
+the high tier, the lantern at the hairpins and beside the torii on the plaza, the rocks on every tier (`look.models`, `game/view/look/models.js`); the phone keeps our own shapes.
 
 | File | Title | Author | Source | Licence | Changed |
 |---|---|---|---|---|---|
 | `game/assets/env/lantern.glb` | Old Japanese Lamp | MarcHoogkamp (https://sketchfab.com/MarcHoogkamp) | https://sketchfab.com/3d-models/old-japanese-lamp-2d95746c71724633baf24d8066ecf8db | CC BY 4.0 | merged per material, scaled, normal and roughness maps dropped, colour map 512 px; our own warm light in its window |
+| `game/assets/env/rocks.glb` | Ghibli-esque rocks | erinnorris (https://sketchfab.com/erinnorris); after a model originally designed by martynagrek (https://martynagrek.artstation.com/), as the model page says | https://sketchfab.com/3d-models/ghibli-esque-rocks-d3b0c4ba2571498ea4d1e02ae8ef6cd3 | CC BY 4.0 | the mesh scaled to 1 m high and standing on y = 0, normal/occlusion/specular maps dropped, colour map 256 px; in the game only its light and dark are used, the colour comes from the look (grey-violet rock, moss on faces that look up) |
 
-Downloaded and **not used** (2026-11-26), because they did not bring the picture closer to the mockup: "Ghibli-esque rocks" (erinnorris, after a model originally designed by martynagrek, CC BY 4.0; tried at the hairpins, it stood as tall dark single points instead of the mockup's soft grey-violet wall), "Stylized Cedar trees" (Mandrake,
+Downloaded and **not used** (2026-11-26), because they did not bring the picture closer to the mockup: "Stylized Cedar trees" (Mandrake,
 CC BY 4.0; thin see-through branch cards and 4k textures, the mockup's cedars are dense and soft) and "Low Poly Pink Cherry Blossom Tree 3D
 Model" (emaanrazarizvi, CC BY 4.0; hard facets, 3.8k triangles). The downloads stay outside the repository (`drift-mockups/assets-download/`).
 

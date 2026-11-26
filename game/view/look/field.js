@@ -185,7 +185,7 @@ export function makeField(scene, { cell = 6 } = {}) {
     // land that falls away may start right at the road's edge (a cliff behind the guardrail: nothing can poke up over the road);
     // land that rises keeps the flat shelf first, wide enough for the grid
     // on a hillside the grid's facets cut the road's curved descent (up to 13 cm above it in a hollow): the shelf lies deeper there (the play check measures it)
-    const b = base(x, z), sink = slopeDir ? -0.4 : -0.15;
+    const b = base(x, z), sink = slopeDir ? -0.4 - Math.max(0, cell - 6) * 0.03 : -0.15;   // (a coarser grid cuts a hairpin's curved surface higher: the shelf lies deeper the bigger the cell)
     if (b < 0 && T.drop) { const k = smoothstep(T.drop[0], T.drop[1], e); return sink * (1 - k) + b * k; }
     if (e < shelf) return sink;
     const k = smoothstep(shelf, shelf + T.blend, e);

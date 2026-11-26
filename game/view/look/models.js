@@ -26,11 +26,28 @@ export async function fillSlots(world, look, alive = () => true) {
       if (!o.isMesh) return;
       const material = o.material.clone();
       if (M.tint?.[kind]) material.color.set(M.tint[kind]);   // the file's colours towards the look (painted green rocks to the dusk's grey-violet)
-      const sat = M.saturation?.[kind];   // look.models.saturation: how much of the file's own colour stays (0 grey, 1 as painted)
+      // look.models.paint[kind] = { rock, moss }: the file's painting only gives the light and dark of the surface; the colour is the look's: rock colour, and moss where the face looks up
+      const P = M.paint?.[kind];
+      if (P) { const c = (h) => { const k = new THREE.Color(h); return `vec3(${k.r.toFixed(4)}, ${k.g.toFixed(4)}, ${k.b.toFixed(4)})`; };
+        material.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+          { float l = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); vec3 wn = inverseTransformDirection(normal, viewMatrix);
+            vec3 rockC = ${c(P.rock)} * (0.55 + 1.1 * l), mossC = ${c(P.moss)} * (0.7 + 0.7 * l);
+            diffuseColor.rgb = mix(rockC, mossC, smoothstep(0.55, 0.85, wn.y)); }`); }; }
+      const sat = P ? undefined : M.saturation?.[kind];   // look.models.saturation: how much of the file's own colour stays (0 grey, 1 as painted)
       if (sat !== undefined) material.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
         diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114))), diffuseColor.rgb, ${sat.toFixed(3)});`); };
+      // the props of the models dissolve within 3 m of the camera too (a dither: nothing stands in front of the lens)
+      const prev = material.onBeforeCompile;
+      material.onBeforeCompile = (sh, r) => { prev?.(sh, r); sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+        { float dc = length(vViewPosition); if (dc < 3.0 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) > smoothstep(0.8, 3.0, dc)) discard; }`); };
       const mesh = new THREE.InstancedMesh(o.geometry.clone().applyMatrix4(o.matrixWorld), material, places.length);
-      places.forEach(([x, y, z, ry, sx, sy, sz], i) => mesh.setMatrixAt(i, m.compose(p.set(x, y, z), q.setFromAxisAngle(up, ry), s.set(sx, sy, sz))));
+      // a place may bring the ground's normal: the model's up turns to it, then it turns about it by ry
+      const q2 = new THREE.Quaternion(), nv = new THREE.Vector3();
+      places.forEach(([x, y, z, ry, sx, sy, sz, n], i) => {
+        q.setFromAxisAngle(up, ry);
+        if (n) { q2.setFromUnitVectors(up, nv.set(n[0], n[1], n[2]).normalize()); q.premultiply(q2); }
+        mesh.setMatrixAt(i, m.compose(p.set(x, y, z), q, s.set(sx, sy, sz)));
+      });
       mesh.instanceMatrix.needsUpdate = true;
       mesh.computeBoundingSphere();
       mesh.name = `model:${kind}`;
