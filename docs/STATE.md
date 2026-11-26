@@ -416,3 +416,14 @@ All five milestones of SCOPE are built. Waits for the owner: design and details,
 - **Interface for the look chat's mode choice (UI lab):** in the game page `?mode=time|drift` starts that mode as soon as the lobby socket is open; inside the page the menu has two buttons (`#mode-time`, `#mode-drift`); the function is `startMode('time' | 'drift')` (not exported on `__drift` yet: ask and it will be). A mode needs a signed-in person or a guest link (the race socket); without an account (open lobby) the modes are not offered. The old race bar stays hidden unless `?races=1`.
 - **Tests:** a whole mode run through the hub (path along the road at 20 m/s: time, points, both boards written), the open-run logic, the attack board (store), the start in the unit tests. Full run: node 167, .NET 238, all green. In a local stack (signed-in browser): `?mode=time&demo=line` starts the countdown ("LOS!"), unlocks the car and the bot drives the run (checked for the first 400 s of wall time in a software browser, about a third of the road); a real run to the result card was **not** driven in the browser (too slow in software graphics): the result cards were checked with a synthetic result (`docs/screenshots/game-touge-mode-time.png`, `game-touge-mode-drift.png`), the server side with the hub test.
 - **Not done:** zone points are client-only (not in the server's score), a mode choice screen (the look chat's lab), the board only shows the top five, no mode on the open (no account) lobby, tandem in two runs and training with a ghost (next waves).
+## Interface lab, first three views (game/lab/)
+A static page with sample data, no server logic, no inline script; every text through `t()` (game/lab/i18n.js, German and English, switch in the bar).
+- `#garage`, the garage as home: the real AE86 (game/assets/cars, loaded as in the game) in a small 3D garage at dusk. Drag to turn; it turns
+  slowly by itself when untouched; six paints to pick under it. Left the car and its values, right the daily tasks and bests, below six
+  tiles, then back, settings, track, time of day, weather and the big Drive button (to `#modi`).
+- Navigation: Garage, World, Events, Workshop, Settings; Dealer, Career and Community are locked. On the PC it is a slim bar on top, on the
+  phone a bar at the bottom. Views not built yet show a short notice.
+- `#modi`, the choice of game mode: free roam, drift attack, time attack, tandem, training, each a card with a picture from the game, a short
+  text, the best value and Start (to the game page with `mode=`; the build chat gives the modes their rules).
+- Numbers: PC 52k triangles / 52 calls; phone 14k / 35, with the car on the low model.
+- Pictures: docs/screenshots/lab-*.png. Not checked: a real phone, turning by finger on a real touch screen.
