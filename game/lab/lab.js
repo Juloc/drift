@@ -116,7 +116,8 @@ function modesView() {
 
 // ---------------------------------------------------------------- the track list (sheets 2 to 4, "world map, simple view"): only the touge is open
 const TRACKS = [
-  { key: 'touge', region: 'regionMountain', km: 1.96, open: true, img: 'img/mode-attack.jpg', fav: true },
+  { key: 'touge', region: 'regionMountain', km: 2.0, open: true, img: 'img/mode-attack.jpg', fav: true },
+  { key: 'practice', region: 'regionPractice', km: 0.69, open: true, href: '../?map=practice', icon: 'track', hue: 150 },   // the practice ground: drift circles, a figure eight, slalom and a short course; driven alone, no account needed
   { key: 'snowPass', region: 'regionSnow', km: 2.4, icon: 'snow', hue: 250 },
   { key: 'harbour', region: 'regionCoast', km: 1.6, icon: 'wave', hue: 215 },
   { key: 'coast', region: 'regionCoast', km: 3.1, icon: 'wave', hue: 190 },
@@ -126,8 +127,8 @@ const TRACKS = [
 const TRACK_LINE = 'M8 70 C 30 70, 30 30, 52 30 S 70 62, 92 56 S 120 18, 140 24 S 150 60, 172 62';
 function tracksView() {
   const filters = ['filterAll', 'filterFav', 'filterMountain', 'filterCity', 'filterCoast'];
-  const card = (tr) => h(tr.open ? 'a' : 'article', { class: `card course${tr.open ? ' open' : ' soon'}`, href: tr.open ? '#strecke' : null },
-    tr.open ? h('div', { class: 'track-img', 'data-img': tr.img })
+  const card = (tr) => h(tr.open ? 'a' : 'article', { class: `card course${tr.open ? ' open' : ' soon'}`, href: tr.open ? tr.href ?? '#strecke' : null },
+    tr.img ? h('div', { class: 'track-img', 'data-img': tr.img })
       : h('div', { class: 'track-img art', 'data-hue': tr.hue }, h('span', { class: 'track-line', html: `<svg viewBox="0 0 180 90" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="${TRACK_LINE}"/></svg>` }), icon(tr.icon, 'ic big')),
     h('div', { class: 'track-body' },
       h('div', { class: 'track-head' }, h('h2', {}, t(tr.key)), h('span', { class: 'fav' }, icon(tr.fav ? 'heartFull' : 'heart', 'ic tiny'))),
