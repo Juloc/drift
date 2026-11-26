@@ -440,3 +440,17 @@ below, greener and lighter cedars, a mauve-grey road. Palette against touge.png 
 layout as the mockup: hill left, valley right): mean 107 before, 58 now; brightness 81 / 91, saturation 0.42 / 0.33. shot=kehre is
 laid out the other way round (hill right), so its boxes compare different things (mean 77). Game numbers unchanged: high 355k / 49,
 phone 130k / 22. Not done: the lake's orange reflection, lanterns, torii and rock wall in the view, three-arrow boards.
+
+## Touge round 10 (2026-11-26, the chief's round-9 list)
+
+Done: the lake, the sun and the moon moved so that from shot=tal (the mockup's layout) they lie right of the middle: the lake at
+(591, -438), the terrain extent to x 820; below the road the trees keep under the line of sight down into the valley
+(`terrain.sight`). The water shows the sunset as a lane of vertical streaks under the sun (`water.path`, `pathWidth`, `pathColour`).
+Moon smaller and brighter with a tight halo, at about 0.83 / 0.10 of the picture. Smoke: cleared per pixel only where it covers the
+car (an ellipse round the car on screen, `smoke.carRadius`), a soft dense cluster texture without rims (`smoke.texture: 'soft'`),
+kept below the middle of the screen. Chevron boards with three arrows in strong pink (`chevron.count`, `chevron.glow`); the clipping
+post's reflector bigger and as bright as the boards. Stone lanterns at every bend and warm pools of light on the ground under lamps and
+lanterns (`lantern.bends`, `lamp.pool`); halos sized per head. Lighter rocks.
+Palette shot=tal: mean 63 (brightness 91 / 91, saturation 0.41 / 0.33). High 351k / 52, phone 133k / 25.
+Not done: the stone lanterns do not show in shot=tal or shot=kehre yet (placement); smoke lacks the mockup's shaded round shapes;
+scene.environment for the car (G1); the big boulder above the board in shot=tal; E1, E2, E5, F6.
