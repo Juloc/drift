@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#2a2340">
+<title>Drift: look editor (development)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2716%27 fill=%27%23e0409a%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="lab-look.css">
+</head>
+<body>
+<canvas id="view" tabindex="0" aria-label="Training place"></canvas>
+<nav id="places" aria-label="Places"></nav>
+<p id="labstats"></p>
+<button type="button" id="fold" class="chip"></button>
+<aside id="panel">
+  <div id="tools">
+    <button type="button" id="b-export" class="chip"></button>
+    <button type="button" id="b-import" class="chip"></button>
+    <button type="button" id="b-reset" class="chip"></button>
+    <button type="button" id="b-smoke" class="chip"></button>
+    <button type="button" id="b-wet" class="chip"></button>
+  </div>
+  <textarea id="labjson" spellcheck="false" rows="4"></textarea>
+  <div id="sliders"></div>
+</aside>
+<script type="module" src="lab-look.js"></script>
+</body>
+</html>

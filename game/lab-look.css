@@ -1,0 +1,30 @@
+/* The look editor (lab-look.html): the canvas, the places, the panel of sliders (a column on the right, a sheet from the bottom on a phone). Development only. */
+:root { --glass: rgba(24, 18, 44, 0.78); --edge: rgba(255, 255, 255, 0.16); --accent: #e0409a; --font: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #1b1530; color: #fff; font: 13px var(--font); overflow: hidden; }
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+.chip { min-height: 34px; padding: 0 11px; border-radius: 11px; border: 1px solid var(--edge); background: var(--glass); color: #fff; font: 600 12px var(--font); cursor: pointer; }
+.chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); }
+#places { position: fixed; left: max(10px, env(safe-area-inset-left)); top: 10px; display: flex; gap: 6px; flex-wrap: wrap; max-width: calc(100vw - 360px); z-index: 4; }
+#labstats { position: fixed; left: max(10px, env(safe-area-inset-left)); bottom: 8px; margin: 0; padding: 3px 9px; border-radius: 9px; background: var(--glass); border: 1px solid var(--edge); font-size: 11px; font-variant-numeric: tabular-nums; z-index: 4; }
+#fold { position: fixed; right: 10px; top: 10px; z-index: 6; }
+#panel { position: fixed; right: 0; top: 0; bottom: 0; width: 340px; padding: 52px 10px 10px; background: var(--glass); border-left: 1px solid var(--edge); backdrop-filter: blur(8px); overflow-y: auto; z-index: 5; }
+body.folded #panel { display: none; }
+#tools { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+#labjson { width: 100%; background: rgba(0, 0, 0, 0.35); color: #cfe; border: 1px solid var(--edge); border-radius: 8px; font: 11px ui-monospace, monospace; resize: vertical; margin-bottom: 8px; }
+details { border-top: 1px solid var(--edge); padding: 4px 0; }
+summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+.row { display: grid; grid-template-columns: 1fr 120px 42px; gap: 6px; align-items: center; margin: 3px 0; }
+.row label { font-size: 11px; opacity: 0.9; }
+.row input[type='range'] { width: 100%; }
+.row input[type='color'] { width: 100%; height: 22px; padding: 0; border: 1px solid var(--edge); border-radius: 5px; background: none; grid-column: 2 / 4; }
+.row output { font-size: 10px; font-variant-numeric: tabular-nums; opacity: 0.8; text-align: right; }
+@media (max-width: 760px), (pointer: coarse) {
+  #labjson { height: 34px; }
+  #panel { top: auto; left: 0; right: 0; width: auto; height: 38vh; padding: 10px; border-left: 0; border-top: 1px solid var(--edge); border-radius: 14px 14px 0 0; }
+  #fold { top: auto; right: 10px; bottom: calc(38vh + 8px); }
+  body.folded #fold { bottom: 8px; }
+  #places { max-width: calc(100vw - 20px); }
+  #labstats { bottom: calc(38vh + 8px); }
+  body.folded #labstats { bottom: 8px; left: 10px; }
+}

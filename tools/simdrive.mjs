@@ -32,7 +32,15 @@ const [w, h] = (opt.size ?? '1280x720').split('x').map(Number), seconds = +(opt.
 const b = await browser();
 await b.send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: !!opt.touch });
 if (opt.touch) await b.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
-await b.send('Page.navigate', { url: `http://127.0.0.1:${webPort}/game/lab-sim.html?tier=${opt.tier ?? 'high'}${opt.mode ? '&mode=' + opt.mode : ''}${opt.car ? '&car=' + opt.car : ''}${opt.touch ? '&touch=1' : ''}${opt.jitter ? '&cruise=13.9' + (opt.jitter === 'raw' ? '&raw=1' : '') : ''}${opt.query ? '&' + opt.query : ''}` });
+await b.send('Page.navigate', { url: `http://127.0.0.1:${webPort}/game/${opt.page ?? 'lab-sim.html'}?tier=${opt.tier ?? 'high'}${opt.mode ? '&mode=' + opt.mode : ''}${opt.car ? '&car=' + opt.car : ''}${opt.touch ? '&touch=1' : ''}${opt.jitter ? '&cruise=13.9' + (opt.jitter === 'raw' ? '&raw=1' : '') : ''}${opt.query ? '&' + opt.query : ''}` });
+if (opt.page && opt.page !== 'lab-sim.html') {   // another page of the lab (lab-look.html): wait for its hook, run --eval (may be async, may take a --shot first via --shot=), take --shot, print, leave
+  let up = false; for (let i = 0; i < 240 && !(up = await b.ev('!!window.__look && __look.frames > 20')); i++) await sleep(500);
+  if (!up) { console.log(JSON.stringify({ error: 'the page did not start', logs: b.logs.slice(0, 3) })); process.exit(1); }
+  await sleep(+(opt.wait ?? 800));
+  if (opt.eval) console.log('eval:', JSON.stringify(await b.ev(opt.eval)));
+  if (opt.shot) { const sh = await b.send('Page.captureScreenshot', { format: 'png' }); writeFileSync(opt.shot, Buffer.from(sh.result.data, 'base64')); }
+  console.log(JSON.stringify({ errors: b.logs.length, logs: b.logs.slice(0, 3) })); b.close(); process.exit(b.logs.length ? 1 : 0);
+}
 let ok = false; for (let i = 0; i < 240 && !(ok = await b.ev('!!window.__sim && __sim.frames > 5')); i++) await sleep(500);
 if (!ok) { console.log(JSON.stringify({ error: 'the page did not start', logs: b.logs.slice(0, 3) })); process.exit(1); }
 const code = (k) => ({ ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, Space: 32, ShiftLeft: 16, KeyW: 87, KeyA: 65, KeyS: 83, KeyD: 68 }[k] ?? 0);
