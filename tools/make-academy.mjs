@@ -60,8 +60,8 @@ export function mapOf({ placed, spawns }) {
 }
 
 const theme = {
-  look: 'academy-sunset', rails: 'none', mode: 'area', note: 'The drift academy: scene of the place (its look: data/looks/academy-sunset.json, game/view/look/place.js); made by tools/make-academy.mjs.',
-  road: { centreLine: false }, terrain: { profile: [[0, 0], [40, 1], [160, 6], [400, 20], [2000, 60]], floor: -30, hills: { amp: 8, from: 4, to: 10, near: 0 } },
+  look: 'academy-sunset', rails: 'none', mode: 'area', note: 'The drift training place: a pier in a harbour; its look is view/look/place.js; made by tools/make-academy.mjs.',
+  road: { centreLine: false }, terrain: { profile: [[0, 0], [10, 0], [28, -5], [2000, -8]], floor: -30, hills: { amp: 0, from: 4, to: 10, near: 0 } },   // under the sea all round: the place stands on its own platform
   rings: [[900, 50, 140], [1150, 80, 200], [1450, 110, 250], [1800, 140, 300]], marks: [], margin: 600, trees: [], mist: false,
 };
 

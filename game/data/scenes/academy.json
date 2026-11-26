@@ -2,7 +2,7 @@
  "look": "academy-sunset",
  "rails": "none",
  "mode": "area",
- "note": "The drift academy: scene of the place (its look: data/looks/academy-sunset.json, game/view/look/place.js); made by tools/make-academy.mjs.",
+ "note": "The drift training place: a pier in a harbour; its look is view/look/place.js; made by tools/make-academy.mjs.",
  "road": {
   "centreLine": false
  },
@@ -13,25 +13,21 @@
     0
    ],
    [
-    40,
-    1
+    10,
+    0
    ],
    [
-    160,
-    6
-   ],
-   [
-    400,
-    20
+    28,
+    -5
    ],
    [
     2000,
-    60
+    -8
    ]
   ],
   "floor": -30,
   "hills": {
-   "amp": 8,
+   "amp": 0,
    "from": 4,
    "to": 10,
    "near": 0
