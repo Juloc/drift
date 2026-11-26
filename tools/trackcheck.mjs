@@ -60,7 +60,7 @@ function sheet(name, T, check, extra) {
   const boxA = { x: 20, y: Y, w: 790, h: 470 }, boxB = { x: 830, y: Y, w: 790, h: 470 };
   for (const b of [boxA, boxB]) add(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="#f6f7fa" stroke="#ccd"/>`);
   text(boxA.x + 8, boxA.y - 5, 'Plan. Colour = grade: green under 5 %, yellow to 8 %, orange to 10 %, red above. Red rings: a limit is broken there. Numbers: metres along the road.', { size: 11 });
-  const xs = Array.from(T.x), zs = Array.from(T.z), minX = Math.min(...xs) - 15, maxX = Math.max(...xs) + 15, minZ = Math.min(...zs) - 15, maxZ = Math.max(...zs) + 15;
+  const xs = Array.from(T.x), zs = Array.from(T.z), px_ = (T.plaza?.pts ?? []).map((p) => p[0]), pz_ = (T.plaza?.pts ?? []).map((p) => p[1]), minX = Math.min(...xs, ...px_) - 15, maxX = Math.max(...xs, ...px_) + 15, minZ = Math.min(...zs, ...pz_) - 15, maxZ = Math.max(...zs, ...pz_) + 15;
   const scA = Math.min((boxA.w - 20) / (maxX - minX), (boxA.h - 40) / (maxZ - minZ));
   const ax = (x) => boxA.x + 10 + (x - minX) * scA, az = (z) => boxA.y + 14 + (maxZ - z) * scA;
   if (T.plaza) add(`<polygon points="${T.plaza.pts.map((p) => `${f1(ax(p[0]))},${f1(az(p[1]))}`).join(' ')}" fill="#dde3ee" stroke="#99a"/>`);

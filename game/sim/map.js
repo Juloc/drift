@@ -6,6 +6,9 @@
 //   zones     [{ kind, x, z, r } or { kind, x0, z0, x1, z1 }]  ground other than `ground`, first match wins
 //   road      { kind, halfWidth }: the ground within halfWidth of `centre` (the loop) is `kind`, not `ground`
 //   ground    kind of the ground everywhere else
+//   track     the road of the track system (game/sim/track.js), packed; `prepareMap` loads it as `surface`: height, slope and side tilt under any point
+
+import { loadTrack } from './track.js';
 
 export const SURFACES = {
   asphalt: { mu: 1.0 },
@@ -32,7 +35,7 @@ export function prepareMap(json) {
   for (const w of json.walls ?? []) addLine(w.pts, w.closed !== false);
   const roadSegs = [];
   if (json.road && json.centre) for (let i = 0; i < json.centre.length - (json.closed === false ? 1 : 0); i++) { const p = json.centre[i], q = json.centre[(i + 1) % json.centre.length]; roadSegs.push(p[0], p[1], q[0], q[1]); }   // (`closed: false`: a descent, not a loop)
-  return { ...json, segs: Float64Array.from(segs), roadSegs: Float64Array.from(roadSegs), obstacles: json.obstacles ?? [], zones: json.zones ?? [] };
+  return { ...json, surface: json.track?.version === 2 ? loadTrack(json.track) : null, segs: Float64Array.from(segs), roadSegs: Float64Array.from(roadSegs), obstacles: json.obstacles ?? [], zones: json.zones ?? [] };
 }
 
 /** Ground kind and grip at a point. */

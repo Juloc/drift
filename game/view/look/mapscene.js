@@ -35,7 +35,8 @@ export function sceneFromMap(map, th) {
   };
   if (area) scene.plaza = { pts: map.bounds.map((p) => [...p]), rail: th.rail ?? false, surface: false, lamps: [], benches: [], trees: [] };   // (the ground of the area is the land itself, coloured by the look's `land.gravel`)
   else if (th.plaza) scene.plaza = th.plaza;
-  Object.assign(scene.road, th.road ?? {});   // a theme may add to the road (a hillside's own height, lamps)
+  Object.assign(scene.road, th.road ?? {});
+  if (map.track?.version === 2) scene.road.track = map.track;   // the road of the track system: the field takes every height from it   // a theme may add to the road (a hillside's own height, lamps)
   for (const k of ['volcanoes', 'ridges']) if (th[k] && k === 'volcanoes') scene[k] = th[k];
   if (th.ridges?.centre) scene.ridges = th.ridges;
   if (th.sea) scene.sea = th.sea;

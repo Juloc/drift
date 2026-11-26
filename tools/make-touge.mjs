@@ -1,82 +1,103 @@
 // Writes the touge (map 0, the lobby: its plaza is where people meet): game/data/maps/06-touge.json (what the simulation and the server read) and game/data/scenes/touge.json (how it is drawn).
-// A plaza at the top by the crater lake, then a narrow road of about 2 km that zigzags down a steep hillside in nine runs joined by eight hairpins; guardrails on both sides are
-// physics walls (the plaza's walls leave the road mouth open), the road ends in a dead end where a run is over (the page then takes the car back to the top).
-// The height is only drawn (the 'slope' terrain mode of the look: the road takes its height from the hillside), the physics stays flat. Run: node tools/make-touge.mjs
-import { writeFileSync } from 'node:fs';
+// A plaza at the top, then a road of about 2 km that zigzags down a hillside in nine runs joined by eight hairpins, built with the track system (game/sim/track.js,
+// design: drift-mockups/DESIGN-PHYSIK-STRECKE.md): this script only writes CONTROL DATA (where the road goes, where it starts and how deep it ends); `buildTrack` makes the
+// road inside the limits (grade spread over runs and hairpins, bends of at least 15 m that begin gently, side tilt into the bends, level out of the plaza), `checkTrack` must
+// find nothing, and everything beside the road (rails as physics walls, gates, start slots, clipping points, the centre line the server reads) comes from the road frame.
+// The runs fan out (each falls away from the one above), so two branches are never steep above one another. Run: node tools/make-touge.mjs
+import { writeFileSync, readFileSync } from 'node:fs';
 import { round } from './maplib.mjs';
+import { buildTrack, checkTrack, frameAt, surfaceAt, packTrack, LIMITS } from '../game/sim/track.js';
 
-const HW = 4.5, RAIL = HW + 1.5, RUNS = 9, GAP_Z = 36, R = GAP_Z / 2, X_EAST = 170, X_WEST = 0;
-const probe = JSON.parse((await import('node:fs')).readFileSync(new URL('../game/data/probe-touge.json', import.meta.url), 'utf8'));
-// ---- the road: start at the plaza's east edge (30, 0); even runs go east, odd runs go west; hairpins are half circles of radius R
-const pts = [];
-const run = (x0, x1, z) => {   // a run with a gentle wobble that dies away towards both ends
-  const n = Math.max(2, Math.round(Math.abs(x1 - x0) / 10));
-  for (let i = 0; i <= n; i++) { const t = i / n, w = 5 * Math.sin(Math.PI * t * 3) * Math.sin(Math.PI * t) ** 2; pts.push([x0 + (x1 - x0) * t, z + w]); }
-};
-const hairpin = (x, z, dir) => {   // from (x, z) round to (x, z - GAP_Z), bulging towards +x (dir 1) or -x (dir -1)
-  for (let i = 1; i < 12; i++) { const a = (i / 12) * Math.PI; pts.push([x + dir * R * Math.sin(a), z - R + R * Math.cos(a)]); }
-};
+const HW = 4.5, RAIL = HW + LIMITS.shoulder, RUNS = 9, RUN = 165, FAN = (5 * Math.PI) / 180, R = 22, DROP = 105, WOBBLE = 3.5;
+const probe = JSON.parse(readFileSync(new URL('../game/data/probe-touge.json', import.meta.url), 'utf8'));
+
+// ---- the control line: start at the plaza's east edge (30, 0) heading east; even runs go east, odd runs west, every run also falls away down the hill (-z) by the fan angle;
+//      a hairpin is an arc of radius R that turns the rest of the half circle. A gentle wobble on each run dies away towards both ends.
+const line = [];
 let x = 30, z = 0;
+const push = (px, pz) => line.push([px, pz]);
 for (let k = 0; k < RUNS; k++) {
-  const east = k % 2 === 0, x1 = east ? X_EAST : X_WEST;
-  run(x, x1, z);
-  if (k < RUNS - 1) { hairpin(x1, z, east ? 1 : -1); pts.push([x1, z - GAP_Z]); }
-  x = x1; z -= GAP_Z;
+  const east = k % 2 === 0, dx = (east ? 1 : -1) * Math.cos(FAN), dz = -Math.sin(FAN), nx = -dz, nz = dx;
+  // the first run leaves the plaza straight east and level, and only then swings into its fan angle
+  const lead = k === 0 ? 40 : 0;
+  if (k === 0) { for (let s = 0; s < lead; s += 5) push(x + s, z); x += lead; }
+  const len = RUN - lead, n = Math.round(len / 10);
+  for (let i = k === 0 ? 0 : 1; i <= n; i++) { const t = i / n, w = WOBBLE * Math.sin(Math.PI * t * 3) * Math.sin(Math.PI * t) ** 2 * (k % 2 ? -1 : 1); push(x + dx * len * t + nx * w, z + dz * len * t + nz * w); }
+  x += dx * len; z += dz * len;
+  if (k === RUNS - 1) break;
+  // the hairpin: from heading (dx, dz) round to the next run's heading, turning towards -z (east end: to the right, west end: to the left)
+  const turn = Math.PI - 2 * FAN, sign = east ? 1 : -1;   // + = to the right
+  const h0 = Math.atan2(dx, dz), cx = x + Math.cos(h0) * R * sign, cz = z - Math.sin(h0) * R * sign;   // the centre is to the right (or left) of the way
+  const steps = 10;
+  for (let i = 1; i <= steps; i++) { const h = h0 + sign * turn * (i / steps); push(cx - Math.cos(h) * R * sign, cz + Math.sin(h) * R * sign); }
+  x = line.at(-1)[0]; z = line.at(-1)[1];
 }
-z += GAP_Z;
-// dedupe near points and resample every 3.5 m so that the walls and the gates are smooth
-const dense = [pts[0]];
-for (const p of pts.slice(1)) { const q = dense.at(-1), d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < 0.5) continue; const n = Math.ceil(d / 3.5); for (let i = 1; i <= n; i++) dense.push([q[0] + ((p[0] - q[0]) * i) / n, q[1] + ((p[1] - q[1]) * i) / n]); }
-// a smooth centre line: a few passes of averaging (the corners of the polyline are rounded, the hairpins keep their radius)
-let centre = dense;
-for (let pass = 0; pass < 3; pass++) centre = centre.map((p, i) => (i === 0 || i === centre.length - 1 ? p : [(centre[i - 1][0] + p[0] * 2 + centre[i + 1][0]) / 4, (centre[i - 1][1] + p[1] * 2 + centre[i + 1][1]) / 4]));
-centre = centre.map((p) => p.map(round));
-const cum = [0]; for (let i = 1; i < centre.length; i++) cum.push(cum[i - 1] + Math.hypot(centre[i][0] - centre[i - 1][0], centre[i][1] - centre[i - 1][1]));
-const length = cum.at(-1);
-const dirAt = (i) => { const a = centre[Math.max(0, i - 1)], b = centre[Math.min(centre.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l]; };
-// ---- the guardrails: both sides of the road as open polylines (a car cannot leave the road), joined by a wall across the dead end
-const side = (o) => centre.map((p, i) => { const d = dirAt(i); return [round(p[0] + d[1] * o), round(p[1] - d[0] * o)]; });
-const rightRail = side(RAIL), leftRail = side(-RAIL);
-const dEnd = dirAt(centre.length - 1);
-const walls = [{ pts: rightRail, closed: false, style: 'rail' }, { pts: leftRail, closed: false, style: 'rail' }, { pts: [rightRail.at(-1), [round(rightRail.at(-1)[0] + dEnd[0] * 8), round(rightRail.at(-1)[1] + dEnd[1] * 8)], [round(leftRail.at(-1)[0] + dEnd[0] * 8), round(leftRail.at(-1)[1] + dEnd[1] * 8)], leftRail.at(-1)], closed: false, style: 'rail' }];
-// ---- the plaza (from the look's probe: a flat meeting place with the road mouth on its east side); its walls leave the mouth (z -6 to 6 at x = 30) open
-const plaza = probe.plaza.pts;
-const plazaWall = { pts: [[30, 6], [30, 30], [-40, 30], [-44, 24], [-44, 0], [-40, -6], [30, -6]], closed: false, style: 'wall' };
-walls.push(plazaWall);
-// ---- gates: 8 across the road from the plaza's mouth to the end (a run is judged between the first and the last), grid on the first straight
-const gates = Array.from({ length: 8 }, (_, g) => {
-  const s = 12 + ((length - 40) * g) / 7; let i = 0; while (i < centre.length - 2 && cum[i + 1] < s) i++;
-  const t = (s - cum[i]) / (cum[i + 1] - cum[i] || 1), cx = centre[i][0] + (centre[i + 1][0] - centre[i][0]) * t, cz = centre[i][1] + (centre[i + 1][1] - centre[i][1]) * t, d = dirAt(i), half = 11;
-  return { a: [round(cx - d[1] * half), round(cz + d[0] * half)], b: [round(cx + d[1] * half), round(cz - d[0] * half)], d: [round(d[0]), round(d[1])] };
-});
-const at = (sAlong) => { let i = 0; while (i < centre.length - 2 && cum[i + 1] < sAlong) i++; const t = (sAlong - cum[i]) / (cum[i + 1] - cum[i] || 1); return { x: centre[i][0] + (centre[i + 1][0] - centre[i][0]) * t, z: centre[i][1] + (centre[i + 1][1] - centre[i][1]) * t, d: dirAt(i) }; };
-const grid = Array.from({ length: 8 }, (_, i) => { const q = at(30 + Math.floor(i / 2) * 9), o = i % 2 ? 2 : -2; return { x: round(q.x + q.d[1] * o), z: round(q.z - q.d[0] * o), h: round(Math.atan2(q.d[0], q.d[1])) }; });
-// ---- clipping points (game/sim/zones.js): one at the inner edge of each hairpin's apex, a zone of 9 m round it
-const clips = [];
-for (let k = 0; k < RUNS - 1; k++) {
-  const dir = k % 2 === 0 ? 1 : -1, zk = -GAP_Z * k - R;
-  const apex = centre.filter((p) => Math.abs(p[1] - zk) < 14).reduce((a, p) => (dir * p[0] > dir * a[0] ? p : a));
-  clips.push({ x: round(apex[0] - dir * 3), z: round(apex[1]) });
+const ctrl = line.map(([px, pz]) => ({ x: round(px), z: round(pz) }));
+ctrl[0].y = 0;
+ctrl.at(-1).y = -DROP;
+const plazaPts = probe.plaza.pts;
+const spec = { version: 2, closed: false, ctrl, plaza: { pts: plazaPts, mouth: 0 } };
+const T = buildTrack(spec), check = checkTrack(T);
+if (!check.ok) { console.error('the touge breaks the limits of the track system:\n  ' + check.problems.map((p) => p.text).join('\n  ')); process.exit(1); }
+
+// ---- everything beside the road comes from the road frame
+const at = (s, lat = 0) => frameAt(T, Math.max(0, Math.min(T.len, s)), lat);
+const pt = (s, lat) => { const f = at(s, lat); return [round(f.x), round(f.z)]; };
+// the centre line as the server, the minimap and the old drawing read it (every 3.5 m)
+const centre = []; for (let i = 0, n = Math.round(T.len / 3.5); i <= n; i++) centre.push(pt((T.len * i) / n, 0));
+// the guardrails: the line at the outer edge of the shoulder on both sides (the drawing puts the rail on the same line), joined by a wall across the dead end
+const railLine = (lat) => { const a = []; for (let i = 0, n = Math.round(T.len / 3); i <= n; i++) a.push(pt((T.len * i) / n, lat)); return a; };
+const rightRail = railLine(RAIL), leftRail = railLine(-RAIL), end = at(T.len), ex = Math.sin(end.head) * 8, ez = Math.cos(end.head) * 8;
+const walls = [{ pts: rightRail, closed: false, style: 'rail' }, { pts: leftRail, closed: false, style: 'rail' },
+  { pts: [rightRail.at(-1), [round(rightRail.at(-1)[0] + ex), round(rightRail.at(-1)[1] + ez)], [round(leftRail.at(-1)[0] + ex), round(leftRail.at(-1)[1] + ez)], leftRail.at(-1)], closed: false, style: 'wall' }];
+// the plaza's walls leave the road mouth (as wide as the rails) open
+walls.push({ pts: [[30, RAIL], [30, 30], [-40, 30], [-44, 24], [-44, 0], [-40, -6], [26, -6], [30, -RAIL]].map((p) => p.map(round)), closed: false, style: 'wall' });
+// gates: 8 across the road from the plaza's mouth to the end (a run is judged between the first and the last)
+const gates = Array.from({ length: 8 }, (_, g) => { const s = 12 + ((T.len - 40) * g) / 7, f = at(s); return { a: pt(s, -11), b: pt(s, 11), d: [round(Math.sin(f.head)), round(Math.cos(f.head))] }; });
+// the start slots: two by two on the first straight
+const grid = Array.from({ length: 8 }, (_, i) => { const s = 30 + Math.floor(i / 2) * 9, f = at(s, i % 2 ? 2 : -2); return { x: round(f.x), z: round(f.z), h: round(f.head) }; });
+// clipping points (game/sim/zones.js): one near the inner edge at the apex of each hairpin
+const clips = [], pins = [];
+for (let i = 0; i < T.n; ) {
+  if (Math.abs(T.k[i]) <= 1 / 40) { i++; continue; }
+  let j = i, turn = 0; while (j < T.n && Math.abs(T.k[j]) > 1 / 60) { turn += T.k[j] * T.ds; j++; }
+  if (Math.abs(turn) > 1.75) { const s = ((i + j) / 2) * T.ds, f = at(s, Math.sign(turn) * (HW - 1.5)); clips.push({ x: round(f.x), z: round(f.z) }); pins.push({ s: round(s), right: turn > 0 }); }
+  i = j + 1;
 }
 const xs = centre.map((p) => p[0]), zs = centre.map((p) => p[1]);
-const bounds = [[-70, Math.max(...zs) + 40], [Math.max(...xs) + 40, Math.max(...zs) + 40], [Math.max(...xs) + 40, Math.min(...zs) - 40], [-70, Math.min(...zs) - 40]];
+const bounds = [[-70, Math.max(...zs) + 40], [Math.max(...xs) + 40, Math.max(...zs) + 40], [Math.max(...xs) + 40, Math.min(...zs) - 40], [-70, Math.min(...zs) - 40]].map((p) => p.map(round));
 const map = {
   id: 0, name: 'Touge', lobby: true, kind: 'descent', closed: false, laps: 1, ground: 'grass', bounds, walls, obstacles: [], zones: [{ kind: 'asphalt', x0: -44, z0: -6, x1: 30, z1: 30 }],
-  road: { kind: 'asphalt', halfWidth: HW }, centre, halfWidth: HW, loopLength: round(length), gates, grid, clips, lobbySpawn: { x: -8, z: 12, h: round(Math.PI / 2 - 0.2) }, props: [],
+  road: { kind: 'asphalt', halfWidth: HW }, centre, halfWidth: HW, loopLength: round(T.len), gates, grid, clips, lobbySpawn: { x: -8, z: 12, h: round(Math.PI / 2 - 0.2) }, props: [],
+  track: { ...packTrack(T), ctrl: spec.ctrl, hairpins: pins },
 };
-// ---- checks: the grid and the spawn are clear of the walls
+// ---- checks: start slots and the spawn are clear of the walls and stand on the surface, the walls are where the rails are, the gates lie on the road
 const segs = [];
 for (const w of walls) for (let i = 0; i < w.pts.length - 1; i++) segs.push([w.pts[i], w.pts[i + 1]]);
-const near = (px, pz) => Math.min(...segs.map(([p, q]) => { const dx = q[0] - p[0], dz = q[1] - p[1], l2 = dx * dx + dz * dz, t = l2 ? Math.max(0, Math.min(1, ((px - p[0]) * dx + (pz - p[1]) * dz) / l2)) : 0; return Math.hypot(px - p[0] - dx * t, pz - p[1] - dz * t); }));
+const near = (px, pz) => Math.min(...segs.map(([p, q]) => { const ddx = q[0] - p[0], ddz = q[1] - p[1], l2 = ddx * ddx + ddz * ddz, t = l2 ? Math.max(0, Math.min(1, ((px - p[0]) * ddx + (pz - p[1]) * ddz) / l2)) : 0; return Math.hypot(px - p[0] - ddx * t, pz - p[1] - ddz * t); }));
 for (const g of [...grid, map.lobbySpawn]) if (near(g.x, g.z) < 2.5) throw new Error(`a start slot at ${g.x}, ${g.z} is too close to a wall`);
+for (const g of grid) if (surfaceAt(T, g.x, g.z).kind !== 'road') throw new Error(`a start slot at ${g.x}, ${g.z} is not on the road`);
+if (surfaceAt(T, map.lobbySpawn.x, map.lobbySpawn.z).kind !== 'plaza') throw new Error('the lobby spawn is not on the plaza');
 for (const p of centre) if (near(p[0], p[1]) < HW + 0.9) throw new Error(`the road is too close to a wall at ${p}`);
+for (const w of [rightRail, leftRail]) for (const p of w) { const q = surfaceAt(T, p[0], p[1]); if (q.kind !== 'plaza' && Math.abs(Math.abs(q.lat) - RAIL) > 0.05) throw new Error(`a rail point at ${p} is ${Math.abs(q.lat).toFixed(2)} m from the centre, not ${RAIL}`); }
+for (const g of gates) { const m = surfaceAt(T, (g.a[0] + g.b[0]) / 2, (g.a[1] + g.b[1]) / 2); if (Math.abs(m.lat) > 0.1) throw new Error('a gate is not centred on the road'); }
+if (Math.max(...xs.map(Math.abs), ...zs.map(Math.abs)) > LIMITS.bound) throw new Error('the map is too big for the wire format');
 writeFileSync(new URL('../game/data/maps/06-touge.json', import.meta.url), JSON.stringify(map) + '\n');
-// ---- the theme: the look's probe scene (hillside, lake, volcanoes, moon) with this map's plaza, marks and road
+
+// ---- the theme: the look's probe scene (hillside, lake, volcanoes, moon) with this map's plaza, marks and road. The hillside's profile down the slope (-z) is taken from the
+//      road's own heights, so the land lies where the road is (until the drawing follows the road by itself: slice 3 of the design)
+const prof = new Map();
+for (let i = 0; i < T.n; i++) { const key = Math.round(-T.z[i] / 20) * 20; const a = prof.get(key) ?? [0, 0]; a[0] += T.y[i]; a[1]++; prof.set(key, a); }
+const down = [...prof.entries()].sort((a, b) => a[0] - b[0]).map(([key, [sum, cnt]]) => [key, round(sum / cnt)]).filter(([key]) => key > 0);
+const last = down.at(-1), profile = [...probe.terrain.profile.filter(([key]) => key <= 0), ...down, [last[0] + 60, round(last[1] - 6)], [last[0] + 400, round(last[1] - 12)]];
+const zMin = Math.min(...zs), xMax = Math.max(...xs);
 const theme = {
   look: 'touge-dusk', rails: 'both', note: 'The touge: a hillside with a crater lake far below; made by tools/make-touge.mjs together with the physics map.', mode: 'slope',
   road: { centreLine: false, bendMin: probe.road.bendMin, bendSpan: probe.road.bendSpan, grade: 'slope', cut: probe.road.cut, lamps: probe.road.lamps, bendSets: probe.road.bendSets },
-  terrain: { ...probe.terrain, extent: [-300, -1100, 600, 320], core: [-60, round(Math.min(...zs) - 80), round(Math.max(...xs) + 60), 60] },
-  plaza: { ...probe.plaza, pts: plaza }, marks: [...probe.marks, ...clips.map((c) => ({ type: 'clip', x: c.x, z: c.z }))], lake: probe.lake, volcanoes: probe.volcanoes, ridges: probe.ridges, mist: probe.mist, trees: [],
+  terrain: { ...probe.terrain, profile, extent: [-300, round(zMin - 560), 820, 320], core: [-60, round(zMin - 80), round(xMax + 60), 60] },
+  plaza: { ...probe.plaza, pts: plazaPts }, marks: [...probe.marks, ...clips.map((c) => ({ type: 'clip', x: c.x, z: c.z }))], lake: probe.lake, volcanoes: probe.volcanoes, ridges: probe.ridges, mist: probe.mist, trees: [],
 };
 writeFileSync(new URL('../game/data/scenes/touge.json', import.meta.url), JSON.stringify(theme, null, 1) + '\n');
-console.log(`touge: ${round(length)} m, ${centre.length} points, ${walls.length} walls, z from ${Math.max(...zs)} down to ${Math.min(...zs)}, x ${Math.min(...xs)} to ${Math.max(...xs)}`);
+const w = check.worst;
+console.log(`touge: ${round(T.len)} m, ${round(Math.max(...T.y) - Math.min(...T.y))} m down, ${pins.length} hairpins, ${centre.length} centre points, ${walls.length} walls, z from ${Math.max(...zs)} down to ${zMin}, x ${Math.min(...xs)} to ${xMax}`);
+console.log(`  steepest: ${w.grade?.shown} on a run, ${w['grade-bend']?.shown} in a bend, ${w.slope?.shown} at an edge; tightest bend ${w.radius?.shown}; side tilt up to ${w.bank?.shown}; inside every limit`);

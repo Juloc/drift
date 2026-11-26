@@ -110,3 +110,24 @@ test('track: plaza, road, shoulder and land; the frame and the surface agree; a 
   for (const [x, z] of [[2, 60], [33, 150], [58, 20]]) assert.ok(Math.abs(surfaceAt(again, x, z).y - surfaceAt(T, x, z).y) < 0.002);
   assert.deepEqual(checkTrack(again).problems.map((p) => p.rule), []);
 });
+
+test('track: every map file that brings a road of the track system is inside the limits, and its walls, gates and start slots sit on that road', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const { prepareMap } = await import('./map.js');
+  let seen = 0;
+  for (const f of readdirSync('game/data/maps').filter((n) => n.endsWith('.json'))) {
+    const json = JSON.parse(readFileSync('game/data/maps/' + f, 'utf8'));
+    if (!json.track) continue;
+    seen++;
+    const map = prepareMap(json), T = map.surface, c = checkTrack(T);
+    assert.deepEqual(c.problems.map((p) => p.text), [], f);
+    for (const g of json.grid) assert.equal(surfaceAt(T, g.x, g.z).kind, 'road', `${f}: a start slot is on the road`);
+    assert.equal(surfaceAt(T, json.lobbySpawn.x, json.lobbySpawn.z).kind, 'plaza');
+    // the rails (the physics walls) run along the outer edge of the shoulder
+    for (const w of json.walls.filter((x) => x.style === 'rail')) for (const p of w.pts) { const q = surfaceAt(T, p[0], p[1]); if (q.kind !== 'plaza') assert.ok(Math.abs(Math.abs(q.lat) - (json.halfWidth + T.limits.shoulder)) < 0.06, `${f}: rail point ${p} at ${q.lat.toFixed(2)} m`); }
+    // the centre line the server reads lies on the road's centre, and the heights fall the whole way down
+    for (const p of json.centre) { const q = surfaceAt(T, p[0], p[1]); assert.ok(q.kind === 'plaza' || Math.abs(q.lat) < 0.05, `${f}: centre point ${p}`); }
+    assert.ok(T.y[0] - T.y[T.n - 1] > 90, 'the touge goes down about a hundred metres');
+  }
+  assert.ok(seen >= 1, 'the touge has track data');
+});

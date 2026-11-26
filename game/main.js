@@ -370,7 +370,7 @@ function startRace() {
   window.__net = net;
 }
 // ----- the ghost: every run of the time modes is recorded; the best one is kept on this device. In training it drives again, see-through, and the time ahead or behind it is shown.
-const GHOST_KEY = 'drift.ghost';
+const GHOST_KEY = 'drift.ghost.2';   // (2: the touge of the track system; a ghost of the old road does not fit)
 let ghostRec = null, ghostPlay = null, ghostCar = null, ghostRun = false, ghostT = 0, ghostPrevMs = null, ghostNew = false;
 const ghostLoad = () => { try { const d = JSON.parse(localStorage.getItem(GHOST_KEY)); if (d && Array.isArray(d.v) && d.v.length > 30 && d.ms > 0) return d; } catch { /* nothing kept, or broken */ } return null; };
 function ghostStart() {
