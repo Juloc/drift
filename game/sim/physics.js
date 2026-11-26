@@ -4,6 +4,9 @@
 // no randomness. Units: metres, seconds, radians; mass is 1, so forces are accelerations.
 // Axes: x and z on the ground, heading h = 0 faces +z and grows towards the car's right.
 // docs/ARCHITECTURE.md section 1 describes the model; K holds every constant that is not a car's.
+// With a surface (the road of the track system, game/sim/track.js) the car drives "2.5D": its place stays x, z, h on the plan and its height is always the surface's, but the
+// slope pulls it downhill, the wheel load follows the slope, a crest (light) and a dip (heavy), it is held on a hill without a pedal, and downhill the front axle carries more.
+// Without a surface every number is as it always was (a flat ground).
 
 export const DT = 1 / 120;
 export const G = 9.81;
@@ -34,6 +37,10 @@ export const K = {
   shift: 0.12, // weight shift per g of longitudinal acceleration (share of the weight)
   circle: 1, // how much of the rear's grip the engine's push eats (1 = all of it: a strict friction circle)
   lowSpeed: 3, // below this speed the tyres are blended out (no pivoting on the spot)
+  hcg: 0.5, // height of the centre of gravity, m: how much of the weight a slope moves between the axles (hcg / wheelbase per unit of grade)
+  probe: 1.5, // the vertical curve along the way is taken from the slopes this far ahead and behind, m
+  loadMin: 0.25, loadMax: 1.8, // the wheel load in g: a crest never lifts the car off, a dip never crushes it
+  holdSpeed: 0.5, // below this speed, with no pedal (or with the handbrake), the tyres hold the car on a hill
 };
 
 /** A fresh car at rest. */
@@ -62,11 +69,14 @@ export function tyreCurve(u, slide) {
   return 1 - (1 - slide) * smooth((u - 1) / K.fall);
 }
 
+const _s0 = {}, _s1 = {}, _s2 = {}, _s3 = {};
 /**
  * One step. `car` = { power, top, grip, slide, agility }; `input` = { steer -1..1, throttle 0..1, brake 0..1,
  * handbrake 0|1 }; `mu` = grip of the ground (1 = asphalt). Returns the next state (the old one is not changed).
+ * `surf(x, z, out)` -> { y, gx, gz }: the surface under a point (height and gradient), or nothing for a flat ground. With a surface the state also carries `y` (the
+ * height, always the surface's) and `nLoad` (the wheel load in g: 1 on level ground). `car.hold === false` lets a car roll on a hill with no pedal (for measuring).
  */
-export function step(s, input, car, mu = 1, dt = DT) {
+export function step(s, input, car, mu = 1, dt = DT, surf = null) {
   const { a, b } = K;
   const sn = Math.sin(s.h), cs = Math.cos(s.h);
   const vf = s.vx * sn + s.vz * cs;
@@ -75,6 +85,19 @@ export function step(s, input, car, mu = 1, dt = DT) {
   const dir = vf >= 0 ? 1 : -1;
   const speed = Math.hypot(s.vx, s.vz);
   const lowK = clamp(speed / K.lowSpeed, 0, 1);
+
+  // --- the surface: the pull of the slope (on the plan), the wheel load (less on a slope, less on a crest, more in a dip), the grade along the car
+  let N = G, slopeX = 0, slopeZ = 0, gradeAlong = 0;
+  if (surf) {
+    const S = surf(s.x, s.z, _s0), gx = S.gx, gz = S.gz, g2 = gx * gx + gz * gz;
+    slopeX = (-G * gx) / (1 + g2); slopeZ = (-G * gz) / (1 + g2);
+    gradeAlong = gx * sn + gz * cs;
+    // the vertical curve along the way the car travels: how the slope in that direction changes from a little behind to a little ahead
+    const dx = speed > 0.5 ? s.vx / speed : sn, dz = speed > 0.5 ? s.vz / speed : cs;
+    const A = surf(s.x + dx * K.probe, s.z + dz * K.probe, _s1), B = surf(s.x - dx * K.probe, s.z - dz * K.probe, _s2);
+    const kv = (A.gx * dx + A.gz * dz - (B.gx * dx + B.gz * dz)) / (2 * K.probe);
+    N = clamp(G / Math.sqrt(1 + g2) + speed * speed * kv, K.loadMin * G, K.loadMax * G);
+  }
 
   // --- the steering wheel
   const lock = (K.lockMax * (car.lockScale ?? 1) * Math.min(1.25, car.agility)) / (1 + (av / K.lockSpeed) ** 2);
@@ -109,16 +132,16 @@ export function step(s, input, car, mu = 1, dt = DT) {
   const axLong = driveRear - dir * (brakeFront + brakeRear) + rolling;
 
   // --- weight shift: braking loads the front, accelerating the rear
-  const shiftR = clamp(0.5 + K.shift * (driveRear - dir * brakeTotal) / G, 0.35, 0.65);
+  const shiftR = clamp(0.5 + K.shift * (driveRear - dir * brakeTotal) / G + (surf ? (K.hcg / (a + b)) * gradeAlong : 0), 0.35, 0.65);   // (and nose down a hill: the front carries more)
   const loadR = shiftR, loadF = 1 - shiftR;
 
   // --- tyres
   const bal = car.balance ?? 0;   // tuning: more grip at the front, less at the rear (or the other way)
   const slideEff = Math.min(1, car.slide + (1 - car.slide) * (1 - mu) * 1.2);
-  const gripF = car.grip * (1 + bal) * mu * G * loadF;
-  const gripR = car.grip * (1 - bal) * mu * G * loadR * (hb ? car.hbGrip ?? K.hbGrip : 1);
+  const gripF = car.grip * (1 + bal) * mu * N * loadF;
+  const gripR = car.grip * (1 - bal) * mu * N * loadR * (hb ? car.hbGrip ?? K.hbGrip : 1);
   const fxR = Math.abs(driveRear - dir * brakeRear);
-  const circle = Math.sqrt(Math.max(0, 1 - (K.circle * fxR / Math.max(1e-6, car.grip * (1 - bal) * mu * G * loadR)) ** 2));
+  const circle = Math.sqrt(Math.max(0, 1 - (K.circle * fxR / Math.max(1e-6, car.grip * (1 - bal) * mu * N * loadR)) ** 2));
   const vden = Math.max(av, 2);
   const alphaF = Math.atan2(vr + a * s.w, vden) - steer * dir;
   const alphaR = Math.atan2(vr - b * s.w, vden);
@@ -133,17 +156,25 @@ export function step(s, input, car, mu = 1, dt = DT) {
 
   // --- integrate (semi-implicit Euler): velocities first, then positions
   const ax = axLong;
-  let vx = s.vx + (sn * ax + cs * ay) * dt;
-  let vz = s.vz + (cs * ax - sn * ay) * dt;
-  const w = s.w + wDot * dt;
-  // a stopped car with no pedal stays stopped
-  if (throttle === 0 && brake === 0 && Math.hypot(vx, vz) < 0.15) { vx = 0; vz = 0; }
+  let vx = s.vx + (sn * ax + cs * ay + slopeX) * dt;
+  let vz = s.vz + (cs * ax - sn * ay + slopeZ) * dt;
+  let w = s.w + wDot * dt;
+  if (surf) {
+    // held on the hill: nearly stopped, and no pedal (or the handbrake without gas): the tyres hold against the slope, up to what they can grip. (The brake pedal at a
+    // standstill is the reverse gear, so it does not hold.)
+    const sp = Math.hypot(vx, vz);
+    if (car.hold !== false && speed < K.holdSpeed && sp < K.holdSpeed && throttle === 0 && (brake === 0 || hb)) {
+      const can = car.grip * mu * N * dt;
+      if (sp <= can) { vx = 0; vz = 0; w = Math.abs(w) < 0.5 ? 0 : w; } else { vx -= (vx / sp) * can; vz -= (vz / sp) * can; }
+    }
+  } else if (throttle === 0 && brake === 0 && Math.hypot(vx, vz) < 0.15) { vx = 0; vz = 0; }   // a stopped car with no pedal stays stopped
   const h = s.h + w * dt;
   const x = s.x + vx * dt;
   const z = s.z + vz * dt;
 
   // how far the rear is sliding, 0..1 (for smoke, sound and score)
   const sl = clamp((Math.abs(alphaR) / K.alphaPeak - 0.6) / 1.4, 0, 1) * (speed > 3 ? 1 : 0);
+  if (surf) return { x, z, h, vx, vz, w, steer, slide: sl, ax: axLong, hit: 0, y: surf(x, z, _s3).y, nLoad: N / G };
   return { x, z, h, vx, vz, w, steer, slide: sl, ax: axLong, hit: 0 };
 }
 

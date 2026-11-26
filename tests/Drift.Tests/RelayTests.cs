@@ -362,6 +362,27 @@ public class RelayTests
         Assert.Equal(1, pox.Count(Wire.Fix));
     }
 
+    /// <summary>
+    /// The physics on slopes (game/sim/slope.test.mjs, "slope 11") proves: down the steepest surface a road may have, no car is faster than 1.1 times its top speed.
+    /// The number here: a car that drives exactly that fast for ten seconds passes the relay's speed check and its distance budget, so the relay needs no change for hills.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 35)]
+    [InlineData(1, 33)]
+    [InlineData(2, 39)]
+    [InlineData(3, 36)]
+    [InlineData(4, 28)]
+    public void A_car_at_the_most_a_hill_can_give_it_passes_the_speed_check(int car, double top)
+    {
+        var (r, t) = Make(new RelayOptions { HalfX = 5000, HalfZ = 5000 });
+        var (s, p) = Join(r, "hill", car);
+        var v = 1.1 * top;
+        r.OnMessage(s, Pose(0, 0, 0, v));
+        for (var i = 1; i <= 150; i++) { t.Advance(1.0 / 15); r.OnMessage(s, Pose(0, i * v / 15, 0, v)); }
+        Assert.Equal(0, p.Count(Wire.Fix));
+        Assert.Null(p.Closed);
+    }
+
     [Fact]
     public void Sixteen_cars_at_15_Hz_fit_the_numbers_of_the_design()
     {

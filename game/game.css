@@ -23,13 +23,13 @@ body.touch #hud #invite { font-size: 12px; padding: 6px 10px; max-width: 70vw; }
 #chips { position: fixed; left: max(var(--gap), env(safe-area-inset-left)); top: 190px; z-index: 3; display: flex; flex-direction: column; gap: 8px; }
 #chips > button, #chips-toggle { position: static !important; min-width: 44px; width: 44px; height: 44px; min-height: 44px; margin: 0 !important; padding: 0 !important; border: 1px solid var(--glass-edge); border-radius: 14px; background: var(--glass); color: var(--white); font: 700 13px var(--font); opacity: 0.9; box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); pointer-events: auto; text-shadow: 0 1px 4px oklch(0.2 0.06 330 / 0.4); }
 #chips > button[aria-pressed="true"] { background: var(--accent); border-color: #fff; opacity: 1; }
-#chips > #feel { width: auto; padding: 0 10px !important; font-size: 11px; }
+#chips > #feel, #chips > #phys-chip { width: auto; padding: 0 10px !important; font-size: 11px; }
 #chips-toggle { display: none; position: fixed !important; left: max(var(--gap), env(safe-area-inset-left)) !important; top: 190px !important; z-index: 4; font-size: 22px; }
 body.touch #chips-toggle { display: block; width: 40px; height: 40px; min-height: 40px; }
 body.touch #chips { display: none; flex-direction: row; flex-wrap: wrap; top: 190px; left: 56px; max-width: 60vw; gap: 6px; }
 body.touch #chips.open { display: flex; }
 body.touch #chips > button { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
-body.touch #chips > #feel { width: auto; }
+body.touch #chips > #feel, body.touch #chips > #phys-chip { width: auto; }
 #emotes { top: auto; bottom: 120px; left: max(var(--gap), env(safe-area-inset-left)); z-index: 4; }
 #emotes button { background: var(--glass); border: 1px solid var(--glass-edge); }
 #emote-open { position: static !important; }
