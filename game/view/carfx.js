@@ -337,7 +337,7 @@ export function dressCar(group, spec = {}, { lite = false } = {}) {
   shadow.position.set(0, 0.012, (box.max.z + box.min.z) / 2); shadow.renderOrder = 1; shadow.name = 'fx_shadow';
   // headlight pool on the road ahead
   const poolMap = poolTexture();
-  const pool = new THREE.Mesh(flat(new THREE.PlaneGeometry(5, 11, 2, 6)), new THREE.MeshBasicMaterial({ name: 'fx_pool', color: new THREE.Color(1, 0.93, 0.8).multiplyScalar(spec.pool ?? 0.45), map: poolMap, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const pool = new THREE.Mesh(flat(new THREE.PlaneGeometry(5, 11, 8, 16)), new THREE.MeshBasicMaterial({ name: 'fx_pool', color: new THREE.Color(1, 0.93, 0.8).multiplyScalar(spec.pool ?? 0.45), map: poolMap, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
   pool.position.set(0, 0.015, box.max.z - 0.2 + 5.5); pool.renderOrder = 2; pool.name = 'fx_pool';   // its near edge just under the bumper
   const fx = new THREE.Group(); fx.name = 'fx'; fx.add(under, shadow, pool);
   group.add(tag(fx));

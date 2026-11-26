@@ -128,7 +128,14 @@ const roadSurface = (x, z, o = {}) => (map?.surface ? trackSurface(map.surface, 
 // the road AS DRAWN: the asphalt lies 3 cm over the track's surface (the drawn road's ribbons are lifted off it so they do not fight with the land: measured with a ray down
 // at a banked bend, 2 to 3.8 cm), so the cars stand on it, their shadow, light pools and underglow lie over it and the tyre marks over that. The physics keeps `roadSurface`.
 const DRAWN_LIFT = 0.03;
-const drawnSurface = (x, z, o = {}) => { roadSurface(x, z, o); if (stage.field?.surfaceRoad) o.y += DRAWN_LIFT; return o; };
+const drawnSurface = (x, z, o = {}) => {
+  roadSurface(x, z, o);
+  if (!stage.field?.surfaceRoad) return o;
+  // beyond the shoulder (kind 'land') the surface only holds the height of the shoulder's edge: the drawn land has its own shape (field.height), so a flat sheet of light over it
+  // (the headlight pool, the shadow) lay under it or hung over it, with the hard straight edge of where the land cut it
+  if (o.kind === 'land' && stage.field.height) { const h = stage.field.height(x, z); o.y = h + 0.02; const e = 0.5; o.gx = (stage.field.height(x + e, z) - stage.field.height(x - e, z)) / (2 * e); o.gz = (stage.field.height(x, z + e) - stage.field.height(x, z - e)) / (2 * e); return o; }
+  o.y += DRAWN_LIFT; return o;
+};
 const minePose = makePose(), ghostPose = makePose(), botPose = makePose(), _ws = { y: 0, gx: 0, gz: 0 };
 const fxFor = (c) => (fleet.file ? carFx(c, cars[carIndex]?.fx, { lite }) : null);   // brake lights, exhaust flames (on the event car.pop that the throttle code below fires), underglow on the road
 let mineFx = fxFor(mine);
