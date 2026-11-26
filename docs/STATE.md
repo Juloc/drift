@@ -462,6 +462,12 @@ A static page with sample data, no server logic, no inline script; every text th
   Again and Next.
 - Round 2: the garage is warmer and brighter, with a plant, shelves and light from above; the floor no longer shines. The player shows as
   "Name (Guest)", with no levels. A menu next to the language switch reaches every view.
+- `#pause` and `#einstellungen`, pause and settings:
+  - The pause has Resume, Restart and To the garage.
+  - The settings have tabs for controls (phone steering stick, buttons or tilt; sensitivity; vibration; the PC keys), graphics (quality,
+    camera, smoke, shadows, frame rate), sound (four sliders) and language. Every switch can be clicked; nothing is stored yet.
+- `#hud`: the game's own HUD (view/probehud.js with probe.css) with sample values over a game picture, a small pause key. On the phone it
+  has the touch controls of the sheets: an analog stick on the left, handbrake, brake and a large throttle on the right.
 - Numbers: PC 54k triangles / 73 calls; phone 14k / 35, with the car on the low model.
 - Pictures: docs/screenshots/lab-*.png. Not checked: a real phone, turning by finger on a real touch screen.
 
