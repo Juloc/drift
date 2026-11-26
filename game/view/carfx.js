@@ -75,7 +75,7 @@ const padTexture = () => canvasTexture(128, 256, (x, w, h) => {
 });
 
 const flat = (geo) => geo.rotateX(-Math.PI / 2);
-const _v = new THREE.Vector3(), _inv = new THREE.Matrix4();
+const _v = new THREE.Vector3(), _inv = new THREE.Matrix4(), _hp = new THREE.Vector3(), _fw = new THREE.Vector3(), _cd = new THREE.Vector3();
 /** Moves each vertex of a flat sheet (child of a car) to 1.5 cm above the ground under it; keeps its own x and z. */
 function layOnGround(mesh, groundAt) {
   const p = mesh.geometry.attributes.position;
@@ -102,7 +102,7 @@ const tag = (o) => { o.userData.fx = true; o.traverse((c) => { c.userData.fx = t
  * the AE86's windows share the palette material with the black trim, and glass must reflect much less than trim.
  * @returns the new mesh, or null when no face lies on that field
  */
-export function splitPalette(group, uvAt, material, tol = 0.06, { all = false, only = null } = {}) {
+export function splitPalette(group, uvAt, material, tol = 0.06, { all = false, only = null, where = null } = {}) {
   let made = null; const list = [];
   group.traverse((o) => { if (o.isMesh) list.push(o); });
   for (const o of list) {
@@ -110,7 +110,14 @@ export function splitPalette(group, uvAt, material, tol = 0.06, { all = false, o
     const g = o.geometry, uv = g.attributes.uv, idx = g.index ? g.index.array : [...Array(g.attributes.position.count).keys()];
     const on = (i) => Math.abs(uv.getX(i) - uvAt[0]) < tol && Math.abs(uv.getY(i) - uvAt[1]) < tol;
     const keep = [], take = [];
-    for (let t = 0; t < idx.length; t += 3) (on(idx[t]) && on(idx[t + 1]) && on(idx[t + 2]) ? take : keep).push(idx[t], idx[t + 1], idx[t + 2]);
+    const pos = g.attributes.position, A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), N = new THREE.Vector3();
+    const inPlace = (t) => {   // `where(centre, normal)`: only faces in a place (car axes), e.g. the bonnet's top
+      if (!where) return true;
+      A.fromBufferAttribute(pos, idx[t]); B.fromBufferAttribute(pos, idx[t + 1]); C.fromBufferAttribute(pos, idx[t + 2]);
+      N.subVectors(C, B).cross(_v.subVectors(A, B)).normalize();
+      return where(A.add(B).add(C).multiplyScalar(1 / 3), N);
+    };
+    for (let t = 0; t < idx.length; t += 3) (on(idx[t]) && on(idx[t + 1]) && on(idx[t + 2]) && inPlace(t) ? take : keep).push(idx[t], idx[t + 1], idx[t + 2]);
     if (!take.length) continue;
     const g2 = g.clone(); g2.setIndex(take); g.setIndex(keep);
     made = new THREE.Mesh(g2, material); made.name = o.name + '_' + (material.name ?? 'part');
@@ -148,7 +155,7 @@ const treadTexture = () => {
  * v across the tyre; no seam: each triangle's u is kept together) and a matt rubber with the tread as a normal map.
  */
 export function treadTyres(group, uvAt, colour = 0x1b1b1d) {
-  const mat = new THREE.MeshStandardMaterial({ name: 'fx_tyre', color: colour, roughness: 0.9, metalness: 0, normalMap: treadTexture(), normalScale: new THREE.Vector2(0.9, 0.9) });
+  const mat = new THREE.MeshStandardMaterial({ name: 'fx_tyre', color: colour, roughness: 0.9, metalness: 0, normalMap: treadTexture(), normalScale: new THREE.Vector2(1.6, 1.6) });
   let n = 0;
   splitPalette(group, uvAt, mat, 0.06, { all: true, only: /^wheel_.._own$/ });
   group.traverse((o) => {
@@ -169,6 +176,14 @@ export function treadTyres(group, uvAt, colour = 0x1b1b1d) {
 export function dressCar(group, spec = {}, { lite = false } = {}) {
   // windows: their own dark tinted glass, a weak reflection of the sky (the palette's glass reflected it fully: a pale plate)
   if (spec.tyreUv) treadTyres(group, spec.tyreUv);
+  // parts of the model's own dark trim that are body panels (the AE86's bonnet): they take the garage paint like the rest of the body
+  const paintMesh = group.getObjectByName('body_paint');
+  for (const part of spec.paintParts ?? []) {
+    if (!paintMesh) break;
+    const [lo, hi] = [new THREE.Vector3(...part.lo), new THREE.Vector3(...part.hi)];
+    const n = splitPalette(group, part.uv, paintMesh.material, 0.06, { only: /^body_/, where: (c, nrm) => c.x >= lo.x && c.x <= hi.x && c.y >= lo.y && c.y <= hi.y && c.z >= lo.z && c.z <= hi.z && nrm.y >= (part.up ?? -1) });
+    if (n) n.name = 'body_paint_' + (part.name ?? 'part');
+  }
   if (spec.glassUv) {
     let env = null; group.traverse((o) => { if (o.isMesh && !env) env = o.material?.envMap ?? null; });
     splitPalette(group, spec.glassUv, new THREE.MeshStandardMaterial({ name: 'fx_glass', color: 0x05070b, metalness: 0, roughness: 0.06, envMap: env, envMapIntensity: 0.32 }));
@@ -249,11 +264,19 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   // halos: a soft glow in front of each lamp (camera-facing, depth-tested so the body hides them), on every tier
   const haloMat = (c, k) => new THREE.SpriteMaterial({ name: 'fx_halo', map: glowTexture(), color: new THREE.Color(c).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
   const rearHaloMat = haloMat(0xff2a18, 0.9), frontHaloMat = haloMat(0xfff0d8, 0.7);
+  let rearOpacity = 0.55;
   const halos = [];
   for (const [re, mat, out, k] of [[/^lamp_rear_/i, rearHaloMat, -1, 0.62], [/^lamp_front_/i, frontHaloMat, 1, 0.55]]) {
     for (const l of lampCentres(re)) {
       const h = new THREE.Sprite(mat); h.position.copy(l.at).add(new THREE.Vector3(0, 0, out * 0.05)); h.scale.setScalar(k * 0.75);   // a fixed soft spot (35 to 40 cm), not the lamp's whole width
-      h.userData.base = h.scale.x; h.userData.rear = out < 0; halos.push(h);
+      h.userData.base = h.scale.x; h.userData.rear = out < 0; h.userData.out = out; halos.push(h);
+      // a lamp's glow only shows from the side it shines to: faded out by the angle between the lamp's direction and the camera
+      // (seen from behind, the front halos stuck out over the bonnet as two warm dots above the roof)
+      h.onBeforeRender = (renderer, scene, camera) => {
+        h.getWorldPosition(_hp); car.group.getWorldDirection(_fw).multiplyScalar(out);
+        const facing = _fw.dot(_cd.subVectors(camera.position, _hp).normalize());
+        h.material.opacity = (h.userData.rear ? rearOpacity : 1) * Math.max(0, Math.min(1, (facing - 0.05) / 0.35));
+      };
     }
   }
   // underglow: a thin light strip under each sill and one soft pad of light on the road under the whole car
@@ -292,7 +315,7 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     update(dt, s) {
       const braking = s.brake > 0.1;
       for (const mat of brakeMats.values()) mat.emissiveIntensity = mat.userData.base * (braking ? 2.5 : 1);
-      rearHaloMat.opacity = braking ? 1 : 0.55;
+      rearOpacity = braking ? 1 : 0.55;
       for (const h of halos) if (h.userData.rear) h.scale.setScalar(h.userData.base * (braking ? 1.35 : 1));
       // the headlight pool lies on the road: each of its points 1.5 cm over the ground under it (s.groundAt(x, z) in world space)
       if (s.groundAt && poolMesh) layOnGround(poolMesh, s.groundAt);
