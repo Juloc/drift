@@ -22,6 +22,12 @@ Updated 2026-11-26 (evening) by the building session. Every session updates this
   cone texture (blue at the root, orange at the tip), 15 to 30 cm, 2 to 4 frames, flash at most 22 cm, ground flash 30 cm at 15 % (no fog ball).
   Pictures `docs/screenshots/cars/ae86-lights-*.png`, `ae86-glow-banked-L.png`, `ae86-pop-rear.png`. No lens pattern (the model's lamps are flat colours
   in the palette). Not checked on a phone.
+- **C1 again with slice 3 (the look branch dc67b4f merged in a throwaway worktree, not on this branch yet):** the drawn road now lies on the surface, 2 to 3.8 cm over
+  it (asphalt about 3 cm, patches and marks above). So the cars, their shadow, light pools and underglow had gone under it by 1 to 2 cm. Fix in `main.js`:
+  `drawnSurface` = the track's surface + 3 cm where `field.surfaceRoad` is set (the physics keeps `roadSurface`); the car, the other drivers, the ghost,
+  the bot, the tyre marks and the car's flat sheets use it. Measured with a ray down at the banked bend (1816 m): pad 1.7 to 3.5 cm over the drawn road,
+  shadow 0.5 cm, headlight pool 0.5 cm at the car and up to 15 cm at its far end where it runs over the road's edge into land. Pictures
+  `docs/screenshots/cars/ae86-glow-slice3-*.png`. The brake lamp: 11 on the red channel when braking (the bloom threshold 2.8 counts the brightest channel).
 - **Recorded engine and music (2026-11-26, downloads with the owner's yes):** the AE86 plays loops cut from a real recording (Honda F20C, Wikimedia,
   CC BY 3.0): `tools/sound/run.mjs engine` measures the firing frequency over the recording (`docs/sound/source-f20c.png`), picks a stretch for each of
   five revs (1500 to 6300) rising (on load) and falling (off load), warps it in time to a steady firing frequency and closes it into a loop;
