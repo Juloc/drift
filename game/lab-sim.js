@@ -11,6 +11,7 @@ import { lookChoice, lookFile } from './view/look/variant.js';
 import { CameraRig, ActionCam } from './view/camera.js';
 import { SoundSystem } from './view/sound.js';
 import { buildPlace, ConeField } from './view/academy.js';
+import { buildPlaceLook } from './view/look/place.js';
 import { newCones, coneStep } from './sim/cones.js';
 import { gripPerWheel } from './sim/exercise.js';
 import { FixedLoop } from './sim/loop.js';
@@ -48,7 +49,7 @@ document.body.classList.toggle('touch', coarse);
 // ---- the pad: the practice ground's map (its walls), its look and scene, as in the game
 const [cars, mapList] = await Promise.all([fetch('data/cars.json').then((r) => r.json()).then((j) => j.cars), fetch('data/maps.json').then((r) => r.json()).then((j) => j.maps)]);
 const [json, theme] = await Promise.all([fetch('data/maps/09-academy.json').then((r) => r.json()), fetch('data/scenes/academy.json').then((r) => r.json())]);   // the drift academy (tools/make-academy.mjs)
-const look = await loadLook(lookFile(theme.look, lookChoice(params))), map = prepareMap(json);
+const look = await loadLook(theme.look === 'touge-dusk' ? lookFile(theme.look, lookChoice(params)) : theme.look), map = prepareMap(json);   // the place has its own look (no A/B)
 const tierName = ['high', 'medium', 'low'].includes(params.get('tier')) ? params.get('tier') : coarse ? 'low' : 'high';
 const stage = createStage({ canvas: $('view'), look, scene0: sceneFromMap(json, theme), tierName });
 const { camera } = stage;
@@ -71,6 +72,11 @@ function topView() {
   for (const [d, e] of labelEls) { const cx = (e.box[0] + e.box[2]) / 2, cz = (e.box[1] + e.box[3]) / 2; v.set(X(cx), 0, cz).project(camera); d.style.left = `${((v.x + 1) / 2) * innerWidth}px`; d.style.top = `${((1 - v.y) / 2) * innerHeight}px`; }
 }
 const academy = buildPlace(json, groundAt); stage.scene.add(academy.group);
+// the look of the place (view/look/place.js): asphalt, barriers, sea and harbour, stand, palms, floodlights; the plain pad's blocks and wet sheet go
+const placeLook = buildPlaceLook(json, look, stage.env, groundAt, tierName); stage.scene.add(placeLook.group);
+if (stage.world.road) stage.world.road.visible = false;   // the place draws its own asphalt
+for (const m of academy.wet) m.visible = false; academy.group.children.forEach((o) => { if (o.isInstancedMesh) o.visible = false; });
+for (const [x, y, z, size] of placeLook.lampHeads) stage.halos.add(x, y, z, new THREE.Color(look.lamp.light).multiplyScalar((look.lamp.halo ?? 0.55) * (stage.tier.post ? look.lamp.haloPost ?? 0.4 : 1)), size);
 const coneField = new ConeField(json.cones, groundAt); stage.scene.add(coneField.mesh);
 let cs = newCones(json.cones), wetOn = params.get('wet') !== '0';
 const minMu = [1, 1, 1, 1];   // the lowest grip each wheel had since the page began (for the checking tool)
@@ -104,7 +110,7 @@ camLabel();
 const setMode = (m) => { mode = m; syncChips(); };
 const toggleCar = () => { carNo = 1 - carNo; syncChips(); };
 const toggleManual = () => { manual = !manual; syncChips(); };
-const toggleWet = () => { wetOn = !wetOn; for (const m of academy.wet) m.visible = wetOn; syncChips(); };
+const toggleWet = () => { wetOn = !wetOn; placeLook.setWet(wetOn); syncChips(); };
 function setExercise(n) { exNo = clamp(n, 0, EXERCISES.length - 1); reset(); syncChips(); document.body.classList.remove('list-open'); }
 function key(code, down) {
   if (down) {
