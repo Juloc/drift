@@ -3,7 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { sceneFromMap, closedGrade } from './mapscene.js';
-import { makeField } from './field.js';
+import { makeField, insidePoly } from './field.js';
+import { lobbyStart } from '../../sim/spawn.js';
 
 const read = (f) => JSON.parse(readFileSync(new URL('../../data/' + f, import.meta.url), 'utf8'));
 const maps = read('maps.json').maps;
@@ -47,3 +48,16 @@ function sides(f, p) {
 }
 const insidePoint = (f, p) => (f.insideSide === 1 ? sides(f, p)[0] : sides(f, p)[1]);
 const outsidePoint = (f, p) => (f.insideSide === 1 ? sides(f, p)[1] : sides(f, p)[0]);
+
+test('touge: everybody who starts, restarts or comes back up stands on the drawn plaza, not below it and not above it', () => {
+  const json = read('maps/06-touge.json'), theme = read('scenes/touge.json'), scene = sceneFromMap(json, theme);
+  const f = makeField(scene, { cell: 8 }), pts = scene.plaza.pts, level = f.plazaLevel;   // the plaza is drawn flat on this height (world.js)
+  const spots = [[json.lobbySpawn.x, json.lobbySpawn.z, 'the restart and the ride back up']];
+  for (let id = 0; id < 64; id++) { const p = lobbyStart(id, json.lobbySpawn); spots.push([p.x, p.z, `the spawn of id ${id}`]); }
+  for (const [x, z, what] of spots) {
+    assert.ok(insidePoly(pts, x, z), `${what}: outside the plaza at ${x}, ${z}`);
+    assert.ok(Math.abs(f.groundY(x, z) - level) < 0.05, `${what}: the car stands at ${f.groundY(x, z).toFixed(2)}, the plaza is drawn at ${level.toFixed(2)}`);
+  }
+  // the start slots of the modes lie on the road: the car's height is the road's drawn height
+  for (const g of json.grid) assert.ok(Math.abs(f.groundY(g.x, g.z) - f.roadY(f.info.s[f.road.reduce((b, p, i) => (Math.hypot(p[0] - g.x, p[1] - g.z) < b[0] ? [Math.hypot(p[0] - g.x, p[1] - g.z), i] : b), [1e9, 0])[1]])) < 0.05, `grid slot ${g.x}, ${g.z}`);
+});

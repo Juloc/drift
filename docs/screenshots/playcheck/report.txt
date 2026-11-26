@@ -1,0 +1,6 @@
+play check passed: 5 sizes, 0 problem(s)
+phone-portrait 390x844: 1 shape check(s), 27 start places, 10 touch buttons, 14 HUD parts (the turn hint covers the screen (a phone held upright))
+phone-landscape 844x390: 5 shape check(s), 27 start places, 10 touch buttons, 14 HUD parts
+phone-small-landscape 667x375: 1 shape check(s), 27 start places, 10 touch buttons, 14 HUD parts
+tablet 820x1180: 1 shape check(s), 27 start places, 10 touch buttons, 14 HUD parts (the turn hint covers the screen (a phone held upright))
+pc 1600x900: 5 shape check(s), 27 start places, - touch buttons, 6 HUD parts

@@ -88,3 +88,16 @@ body.races #hud #racebar:not([hidden]) { display: flex; }
 #res-mode .board { margin: 0; padding-left: 22px; font-size: 14px; }
 #res-mode .board .mine { color: var(--accent); font-weight: 800; }
 #res-again { min-height: 44px; margin-right: 8px; padding: 0 16px; border: 1px solid var(--glass-edge); border-radius: 14px; background: var(--accent); color: #fff; font: 700 14px var(--font); }
+
+/* phone: the small reset button (R) under the speed card; the creative chip is in the menu again (every key has a way by touch) */
+#reset { display: none; position: fixed; right: max(var(--gap), env(safe-area-inset-right)); top: 172px; z-index: 3; width: 40px; height: 40px; border: 1px solid var(--glass-edge); border-radius: 14px; background: var(--glass); color: var(--white); font: 700 20px var(--font); box-shadow: var(--shadow); pointer-events: auto; }
+body.touch #reset { display: block; }
+#chips > #creative { display: block; }
+#chips > button { font-size: 16px; }
+
+/* a small phone held sideways (667 px wide): smaller buttons and a narrower arc, so that the arc stays between the pads (the play check found them overlapping) */
+@media (max-width: 720px) and (pointer: coarse), (max-width: 720px) and (hover: none) {
+  .btn.steer { width: 70px; height: 70px; } .btn.gas { width: 80px; height: 108px; } .btn.small { width: 54px; height: 54px; }
+  .pad { gap: 8px; }
+  body.touch .c-angle { width: 150px; }
+}

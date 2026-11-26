@@ -131,7 +131,11 @@ export function makeField(scene, { cell = 6 } = {}) {
   const roadY = (sAlong) => { if (sAlong <= G[0][0]) return G[0][1]; for (let i = 1; i < G.length; i++) if (sAlong <= G[i][0]) { const k = (sAlong - G[i - 1][0]) / (G[i][0] - G[i - 1][0]); return G[i - 1][1] + (G[i][1] - G[i - 1][1]) * k * k * (3 - 2 * k); } return G[G.length - 1][1]; };
   const roadYs = info.s.map(roadY);
   /** the height of the driving ground under a point (the road's height at its nearest point; the plaza and its surroundings at the road's start) */
-  const groundY = (x, z) => { const q = distToPath(road, x, z); return roadY(info.s[q.seg] + (info.s[q.seg + 1] - info.s[q.seg]) * q.t); };
+  const roadGroundY = (x, z) => { const q = distToPath(road, x, z); return roadY(info.s[q.seg] + (info.s[q.seg + 1] - info.s[q.seg]) * q.t); };
+  // on a hillside the plaza lies flat at the height where the road starts (its mouth), over the whole of its floor: the nearest road point of a corner of the plaza may belong to a hairpin far
+  // below, which put the car (and the land under the plaza) 14 m down; the height blends into the road's own over 40 m beyond the plaza's edge
+  const plazaLevel = slopeDir && plazaPts ? roadGroundY(road[0][0], road[0][1]) : 0;
+  const groundY = slopeDir && plazaPts ? (x, z) => { const k = smoothstep(0, 40, distToPoly(plazaPts, x, z)); return k >= 1 ? roadGroundY(x, z) : plazaLevel * (1 - k) + roadGroundY(x, z) * k; } : roadGroundY;
   const shelf = T.flat + cell * 1.45;   // up to here from the edge of the road the land stays just under the road
   /** the land without the road: the valley's profile, gently waving, and some noise that is quiet near the river */
   // `terrain.mode`: 'road' keys the profile by the signed distance to a closed road (inside negative: the land rises there, outside it falls away), 'area' by the distance to the
@@ -185,7 +189,7 @@ export function makeField(scene, { cell = 6 } = {}) {
   /** is a point on water (river or lake)? */
   const onIsland = (x, z) => { const I = scene.lake?.island; return !!I && Math.hypot(x - I.x, z - I.z) < I.r * 0.8; };
   const wet = (x, z, margin = 0) => !onIsland(x, z) && ( (R.width > 0 && Math.abs(z - riverZ(x)) < R.width / 2 + margin && x < (R.x1 ?? Infinity)) || (scene.lake && Math.hypot((x - scene.lake.x) / (scene.lake.rx + margin), (z - scene.lake.z) / (scene.lake.rz + margin)) < 1));
-  return { core: T.rocksBox ?? T.core ?? T.extent, onIsland, slope: !!slopeDir, waterY, closed, insideSide, floor: R.y, lift: scene.road.lift ?? 0, road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
+  return { plazaLevel, core: T.rocksBox ?? T.core ?? T.extent, onIsland, slope: !!slopeDir, waterY, closed, insideSide, floor: R.y, lift: scene.road.lift ?? 0, road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
 }
 
 /** Bends of a road: places where the heading turns by more than `min` rad over `span` metres; the sign is the turn (+ = right). */

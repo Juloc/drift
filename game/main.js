@@ -11,6 +11,7 @@ import { applyFeel, feelOf, PRO } from './sim/feel.js';
 import { FixedLoop } from './sim/loop.js';
 import { orbitBot } from './sim/bot.js';
 import { lineBot } from './sim/linebot.js';
+import { lobbyStart } from './sim/spawn.js';
 import { newZones, zoneStep } from './sim/zones.js';
 import { createStage, loadLook } from './view/look/stage.js';
 import { sceneFromMap } from './view/look/mapscene.js';
@@ -36,12 +37,12 @@ const params = new URLSearchParams(location.search);
 const de = params.get('lang') ? params.get('lang') === 'de' : navigator.language?.startsWith('de');
 const T = {
   en: { drift: 'DRIFT', score: 'Score', lost: 'Lost!', hand: 'HAND', brake: 'BRAKE', gas: 'GAS', rotate: 'Turn your phone to landscape', tip: 'Hold GAS, steer with the arrows, tap HAND to throw the tail out',
-    online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', tunedMark: 'tuned', paint: 'Paint', modeDrift: 'Drift attack', modeTime: 'Time attack', again: 'Again', board: 'Best runs', privateSession: 'Private session', run: 'Run finished', sumTime: 'Time', sumPoints: 'Points', sumClips: 'Clipping points', sumBest: 'Best drift', clip: 'CLIP', zone: 'Zone', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
+    online: 'driving here', solo: 'Time trial', newDrift: 'new best drift', reset: 'Restart', tunedMark: 'tuned', paint: 'Paint', modeDrift: 'Drift attack', modeTime: 'Time attack', again: 'Again', board: 'Best runs', privateSession: 'Private session', run: 'Run finished', sumTime: 'Time', sumPoints: 'Points', sumClips: 'Clipping points', sumBest: 'Best drift', clip: 'CLIP', zone: 'Zone', slip: 'Angle', best: 'Best drift', you: 'You are', race: 'Start a race', invite: '{by} starts a race on {map} ({laps} laps).', join: 'Join', no: 'No', waiting: 'Invitation sent: the race starts in a few seconds.', joined: 'You are in. Get ready.', busy: 'A race is on right now.', pause: 'The next race can start in {s} s.', getReady: 'Get ready', waitOthers: 'Waiting for the others', go: 'GO!', lap: 'Lap', finished: 'Finished', result: 'Result', dnf: 'DNF', newBest: 'new best', leave: 'Leave', backLobby: 'Back to the lobby', dropped: 'You were dropped. Tap to rejoin.', full: 'The world is full right now. Tap to try again.',
     keysSoft: 'Keyboard: soft (gas and steering build up)', keysDirect: 'Keyboard: direct (all or nothing)', leverOn: 'Mouse throttle lever on (L): wheel or drag up and down; the brake resets it', leverOff: 'Mouse throttle lever off (L)', volume: 'Volume', quality: 'Graphics', camChase: 'Chase camera', camBonnet: 'Bonnet camera', camCockpit: 'Cockpit camera', padOn: 'Controller: stick steers, right trigger gas, left trigger brake, A handbrake, Y camera, X restart', padOff: 'Controller unplugged: paused', creativeOn: 'Creative mode on (K): no scores count, no damage', creativeOff: 'Creative mode off (K)', creativeBanner: 'CREATIVE: scores do not count', creativeChip: 'Creative', damageLabel: 'Damage', damageOn: 'Damage on (V)', damageOff: 'Damage off (V)', soundOn: 'Sound on (M)', soundOff: 'Sound off (M)', musicOff: 'Music: off (placeholder)', musicOn: 'Music: on (placeholder, no music yet)', chLap: 'Set a clean lap in a race or time trial', chDone: 'Challenge finished', chConfirmed: 'confirmed', chFailed: 'ended by a hit', chTitle: 'Challenge',
     feelArcade: 'Arcade', feelPro: 'Pro (fewer aids)', feelKey: 'Feel of driving (X)', tandem: 'Tandem', lead: 'Lead', chase: 'Chase', side: 'Side by side', tandemBank: 'Tandem bonus', practiceBot: 'Practice bot (B)',
     hintKeys: 'Arrows or WASD to drive, Space = handbrake, Shift = brake, R = restart, F = fullscreen' },
   de: { drift: 'DRIFT', score: 'Punkte', lost: 'Verloren!', hand: 'HAND', brake: 'BREMSE', gas: 'GAS', rotate: 'Dreh das Handy ins Querformat', tip: 'GAS halten, mit den Pfeilen lenken, HAND wirft das Heck raus',
-    online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', tunedMark: 'getunt', paint: 'Lack', modeDrift: 'Drift-Attacke', modeTime: 'Zeitjagd', again: 'Nochmal', board: 'Beste Läufe', privateSession: 'Private Runde', run: 'Lauf beendet', sumTime: 'Zeit', sumPoints: 'Punkte', sumClips: 'Clipping-Punkte', sumBest: 'Bester Drift', clip: 'CLIP', zone: 'Zone', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
+    online: 'fahren hier', solo: 'Zeitfahren', newDrift: 'neuer bester Drift', reset: 'Neu starten', tunedMark: 'getunt', paint: 'Lack', modeDrift: 'Drift-Attacke', modeTime: 'Zeitjagd', again: 'Nochmal', board: 'Beste Läufe', privateSession: 'Private Runde', run: 'Lauf beendet', sumTime: 'Zeit', sumPoints: 'Punkte', sumClips: 'Clipping-Punkte', sumBest: 'Bester Drift', clip: 'CLIP', zone: 'Zone', slip: 'Winkel', best: 'Bester Drift', you: 'Du bist', race: 'Rennen starten', invite: '{by} startet ein Rennen auf {map} ({laps} Runden).', join: 'Mitfahren', no: 'Nein', waiting: 'Einladung verschickt: das Rennen startet in ein paar Sekunden.', joined: 'Du bist dabei. Mach dich bereit.', busy: 'Gerade läuft ein Rennen.', pause: 'Das nächste Rennen geht in {s} s.', getReady: 'Mach dich bereit', waitOthers: 'Warte auf die anderen', go: 'LOS!', lap: 'Runde', finished: 'Im Ziel', result: 'Ergebnis', dnf: 'Ausgeschieden', newBest: 'neue Bestzeit', leave: 'Verlassen', backLobby: 'Zurück zur Lobby', dropped: 'Du wurdest getrennt. Tippen zum Zurückkehren.', full: 'Die Welt ist gerade voll. Tippen zum Erneut-Versuchen.',
     keysSoft: 'Tastatur: weich (Gas und Lenken bauen sich auf)', keysDirect: 'Tastatur: direkt (alles oder nichts)', leverOn: 'Maus-Gashebel an (L): Rad oder Ziehen nach oben und unten; die Bremse setzt ihn zur\u00fcck', leverOff: 'Maus-Gashebel aus (L)', volume: 'Lautstärke', quality: 'Grafik', camChase: 'Verfolgerkamera', camBonnet: 'Hauben-Kamera', camCockpit: 'Cockpit-Kamera', padOn: 'Controller: Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A Handbremse, Y Kamera, X Neustart', padOff: 'Controller getrennt: Pause', creativeOn: 'Kreativ-Modus an (K): keine Wertung, kein Schaden', creativeOff: 'Kreativ-Modus aus (K)', creativeBanner: 'KREATIV: nichts davon z\u00e4hlt', creativeChip: 'Kreativ', damageLabel: 'Schaden', damageOn: 'Schaden an (V)', damageOff: 'Schaden aus (V)', soundOn: 'Ton an (M)', soundOff: 'Ton aus (M)', musicOff: 'Musik: aus (Platzhalter)', musicOn: 'Musik: an (Platzhalter, noch keine Musik)', chLap: 'Fahr im Rennen oder Zeitfahren eine saubere Runde', chDone: 'Herausforderung beendet', chConfirmed: 'bestätigt', chFailed: 'durch einen Treffer beendet', chTitle: 'Herausforderung',
     feelArcade: 'Arcade', feelPro: 'Pro (weniger Hilfen)', feelKey: 'Fahrgef\u00fchl (X)', tandem: 'Tandem', lead: 'Vorne', chase: 'Hinterher', side: 'Nebeneinander', tandemBank: 'Tandem-Bonus', practiceBot: '\u00dcbungs-Bot (B)',
     hintKeys: 'Pfeile oder WASD fahren, Leertaste = Handbremse, Shift = Bremse, R = neu starten, F = Vollbild' },
@@ -197,7 +198,7 @@ function openNet(url, inRace) {
     onWelcome(me) {
       if (!inRace && !spawned) {
         const ls = lobbyJson.lobbySpawn;   // the lobby is map 0, whichever map is drawn at this moment
-        const g = { x: ls.x + ((me.id % 6) - 2.5) * 9, z: ls.z + (Math.floor(me.id / 6) % 3) * 8 - 6, h: ls.h };   // spread over the plaza by id (six a row, three rows)
+        const g = lobbyStart(me.id, ls);   // spread over the plaza by id (six a row, three rows)
         cur = prev = makeCar(g.x, g.z, g.h); score = newScore(); cam.snap(cur); spawned = true;
       }
       droppedBtn.hidden = true;
@@ -242,6 +243,15 @@ chipsToggle.addEventListener('click', () => chips.classList.toggle('open'));
 const hudChip = Object.assign(document.createElement('button'), { id: 'hud-chip', type: 'button', textContent: 'HUD', title: 'HUD (H)' });
 hudChip.addEventListener('click', () => hud.cycle());
 document.body.append(chips, chipsToggle);
+// everything a key can do can be done by touch (game/view/touchmap.js lists the keys and where their buttons are; a test keeps the list true): the reset is a small button of its own, the rest is in the menu
+const resetBtn = Object.assign(document.createElement('button'), { id: 'reset', type: 'button', textContent: '\u21bb', title: 'R', ariaLabel: T.reset });
+resetBtn.addEventListener('click', () => reset());
+document.body.append(resetBtn);
+const menuBtn = (id, label, title, fn) => { const b = Object.assign(document.createElement('button'), { id, type: 'button', textContent: label, title, ariaLabel: title }); b.addEventListener('click', fn); chips.append(b); return b; };
+menuBtn('cam-chip', '\u{1F3A5}', T.camChase, () => cycleCamera());
+menuBtn('dmg-chip', '\u{1F527}', T.damageLabel, () => toggleDamage());
+menuBtn('bot-chip', '\u{1F916}', T.practiceBot, () => togglePractice());
+menuBtn('pause-chip', '\u23EF', 'P', () => { paused = !paused; });
 for (const id of ['racebar', 'invite', 'racehud']) { const el = $(id); if (el) $('hud').append(el); }   // the race bar, the invitation and the race's leave button stand in one column under the score card
 chips.append(hudChip);
 
@@ -618,7 +628,16 @@ if (coarse) { tip.hidden = false; const iv = setInterval(() => { if (input.has('
 if (coarse) showTouch();
 addEventListener('touchstart', showTouch, { once: true, passive: true });
 const checkRotate = () => ($('rotate').hidden = !(coarse && innerHeight > innerWidth));
-addEventListener('resize', checkRotate); checkRotate();
+checkRotate();
+// a new size (turning the phone, the browser bar sliding in or out, full screen, a resized window): the renderer's buffer, the pixel ratio, the camera's aspect and the targets of the
+// after-pass are set again (stage.resize), once per frame at most; and the frame loop looks at the window's size every frame, so a missed event heals itself. The canvas is never
+// stretched by CSS to another shape than its buffer (the buffer has the window's shape).
+let fitW = 0, fitH = 0, fitQueued = false;
+const refit = () => { checkRotate(); if (fitQueued) return; fitQueued = true; requestAnimationFrame(() => { fitQueued = false; fitW = innerWidth; fitH = innerHeight; stage.resize(); }); };
+for (const ev of ['resize', 'orientationchange', 'fullscreenchange']) addEventListener(ev, refit);
+visualViewport?.addEventListener('resize', refit);
+// a phone turns itself into landscape: the first tap into the game asks for full screen and locks the orientation (where the browser cannot, the turn hint stays)
+if (coarse) addEventListener('pointerup', async () => { try { if (document.fullscreenEnabled && !document.fullscreenElement) await document.documentElement.requestFullscreen(); await screen.orientation?.lock?.('landscape'); } catch { /* not possible here: the hint stays */ } }, { once: true });
 
 // ----- drawing
 const dbg = $('debug');
@@ -645,6 +664,7 @@ function frame(now) {
   const kmh = speedOf(cur) * 3.6;
 
   // body pose: yaw, a little roll and pitch from the forces; the car stands on the road's drawn height and leans with its slope (only drawn: the physics is flat)
+  if (innerWidth !== fitW || innerHeight !== fitH) { fitW = innerWidth; fitH = innerHeight; stage.resize(); checkRotate(); }
   const field = stage.field, gy = field.groundY(drawn.x, drawn.z), sh = Math.sin(drawn.h), ch = Math.cos(drawn.h);
   const slope = (field.groundY(drawn.x + sh * 1.3, drawn.z + ch * 1.3) - field.groundY(drawn.x - sh * 1.3, drawn.z - ch * 1.3)) / 2.6;
   const roll = Math.max(-0.08, Math.min(0.08, -cur.w * vf * 0.0035));
@@ -728,5 +748,19 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
-window.__drift = { showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return carGroup; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; } };
+/** The height of the drawn ground under a point (the highest surface of the world below 60 m: land, plaza, road), by a ray down: for the play check (tools/playcheck.mjs). */
+const floorRay = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0);
+function floorAt(x, z) {
+  floorRay.set(new THREE.Vector3(X(x), 60, z), down);
+  const hits = floorRay.intersectObjects(stage.world.group.children.filter((o) => o.isMesh && !o.material?.transparent), false);
+  return hits.length ? hits[0].point.y : null;
+}
+/** Every place a car is put: the spawns of the first 18 ids, the restart (and so the ride back up), the start slots of the modes; with the height the car stands at and the drawn ground's. */
+function startSpots() {
+  const spots = [{ what: 'restart and ride back up', ...lobbyJson.lobbySpawn }];
+  for (let id = 0; id < 18; id++) spots.push({ what: `spawn of id ${id}`, ...lobbyStart(id, lobbyJson.lobbySpawn) });
+  for (const [i, g] of (map.grid ?? []).entries()) spots.push({ what: `grid slot ${i}`, x: g.x, z: g.z });
+  return spots.map((p) => { const car = stage.field.groundY(p.x, p.z), floor = floorAt(p.x, p.z); return { what: p.what, x: +p.x.toFixed(1), z: +p.z.toFixed(1), car: +car.toFixed(3), floor: floor === null ? null : +floor.toFixed(3) }; });
+}
+window.__drift = { floorAt, startSpots, showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return carGroup; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; } };
 requestAnimationFrame(frame);

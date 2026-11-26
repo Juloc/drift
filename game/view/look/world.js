@@ -364,7 +364,7 @@ function zones(S, f, scene, look) {
 function plaza(S, G, f, scene, look, lite, lampHeads) {
   const P = scene.plaza, R = look.road, pts = P.pts;
   // the plaza is flat at the height of the road where it starts (on a hillside that is not 0): everything of it is drawn on that level
-  const gp = f.groundY(pts[0][0], pts[0][1]);
+  const gp = f.plazaLevel ?? f.groundY(pts[0][0], pts[0][1]);
   S.push(trs(0, gp, 0, 0, 0, 0)); G.push(trs(0, gp, 0, 0, 0, 0));
   if (P.surface !== false) {
   const tris = THREE.ShapeUtils.triangulateShape(pts.map(([x, z]) => new THREE.Vector2(x, z)), []);
