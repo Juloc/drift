@@ -14,21 +14,22 @@
 <p id="simhint"></p>
 <nav id="simtouch" aria-label="Controls">
   <div class="pad left">
-    <button type="button" class="btn steer" data-ctl="left" aria-label="Steer left">&#9664;</button>
-    <button type="button" class="btn steer" data-ctl="right" aria-label="Steer right">&#9654;</button>
+    <button type="button" class="btn steer" data-ctl="left" data-ta="steerL">&#9664;</button>
+    <button type="button" class="btn steer" data-ctl="right" data-ta="steerR">&#9654;</button>
   </div>
   <div class="pad mid">
-    <button type="button" class="btn chip" data-key="KeyQ" aria-label="Gear down">Q &minus;</button>
-    <button type="button" class="btn chip" data-key="KeyE" aria-label="Gear up">E +</button>
-    <button type="button" class="btn chip" data-key="KeyM" aria-label="Manual gearbox">M</button>
-    <button type="button" class="btn chip" data-key="KeyT" aria-label="Stock car or drift set-up">T</button>
-    <button type="button" class="btn chip" data-key="KeyR" aria-label="Reset">R</button>
+    <button type="button" class="btn chip" data-key="KeyQ" data-ta="gearDown">Q &minus;</button>
+    <button type="button" class="btn chip" data-key="KeyE" data-ta="gearUp">E +</button>
+    <button type="button" class="btn chip" data-key="KeyM" data-ta="manualBox">M</button>
+    <button type="button" class="btn chip" data-key="KeyT" data-ta="carToggle">T</button>
+    <button type="button" class="btn chip" data-key="KeyR" data-ta="resetB">R</button>
+    <button type="button" class="btn chip" id="simdata" data-t="data">Data</button>
   </div>
   <div class="pad right">
-    <button type="button" class="btn small" data-ctl="clutch" aria-label="Clutch">CLUTCH</button>
-    <button type="button" class="btn small" data-ctl="hand" aria-label="Handbrake">HAND</button>
-    <button type="button" class="btn small" data-ctl="brake" aria-label="Brake">BRAKE</button>
-    <button type="button" class="btn gas" data-ctl="gas" aria-label="Throttle">GAS</button>
+    <button type="button" class="btn small" data-ctl="clutch" data-t="clutch">CLUTCH</button>
+    <button type="button" class="btn small" data-ctl="hand" data-t="hand">HAND</button>
+    <button type="button" class="btn small" data-ctl="brake" data-t="brake">BRAKE</button>
+    <button type="button" class="btn gas" data-ctl="gas" data-t="gas">GAS</button>
   </div>
 </nav>
 <nav id="simmodes" aria-label="Assist level">

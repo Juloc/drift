@@ -16,6 +16,22 @@ import { step, makeCar, AE86, AE86_DRIFT, ASSISTS, FLAT, DT, G } from './sim/sim
 import { X, HEAD } from './view/space.js';
 
 const $ = (id) => document.getElementById(id);
+// the page's texts, German and English (the language: ?lang=, else the browser's)
+const LANG = (new URLSearchParams(location.search).get('lang') ?? navigator.language ?? '').startsWith('de') ? 'de' : 'en';
+const TEXT = {
+  en: { title: 'Drift: new driving model (test page)', hint: 'Arrows/WASD drive, Space handbrake, Shift clutch, Q/E gear, M manual, 1/2/3 Arcade/Sport/Sim, T stock/drift set-up, R reset',
+    mode: 'mode', car: 'car', gearbox: 'gearbox', auto: 'automatic', manual: 'manual (Q/E, Shift)', bodyAngle: 'body angle', rpm: 'rpm', yaw: 'yaw', arcade: 'Arcade', sport: 'Sport', sim: 'Sim',
+    gas: 'GAS', brake: 'BRAKE', clutch: 'CLUTCH', hand: 'HAND', gcircle: 'g (grip circle)', wheels: 'per wheel: slip (red over its peak) and load', data: 'Data', stock: 'AE86 (stock)', drift: 'AE86 (drift set-up)',
+    steerL: 'Steer left', steerR: 'Steer right', gearDown: 'Gear down', gearUp: 'Gear up', manualBox: 'Manual gearbox', carToggle: 'Stock car or drift set-up', resetB: 'Reset' },
+  de: { title: 'Drift: neues Fahrmodell (Testseite)', hint: 'Pfeile/WASD fahren, Leertaste Handbremse, Shift Kupplung, Q/E Gang, M manuell, 1/2/3 Arcade/Sport/Sim, T Serie/Drift-Aufbau, R neu',
+    mode: 'Modus', car: 'Auto', gearbox: 'Getriebe', auto: 'automatisch', manual: 'manuell (Q/E, Shift)', bodyAngle: 'Driftwinkel', rpm: 'Drehzahl', yaw: 'Gierrate', arcade: 'Arcade', sport: 'Sport', sim: 'Sim',
+    gas: 'GAS', brake: 'BREMSE', clutch: 'KUPPLUNG', hand: 'HAND', gcircle: 'g (Kammscher Kreis)', wheels: 'je Rad: Schlupf (rot über dem Maximum) und Last', data: 'Daten', stock: 'AE86 (Serie)', drift: 'AE86 (Drift-Aufbau)',
+    steerL: 'Links lenken', steerR: 'Rechts lenken', gearDown: 'Runterschalten', gearUp: 'Hochschalten', manualBox: 'Schaltgetriebe', carToggle: 'Serienauto oder Drift-Aufbau', resetB: 'Neu starten' },
+};
+const t = (k) => TEXT[LANG][k] ?? TEXT.en[k] ?? k;
+document.documentElement.lang = LANG; document.title = t('title');
+for (const e of document.querySelectorAll('[data-t]')) e.textContent = t(e.dataset.t);
+for (const e of document.querySelectorAll('[data-ta]')) e.setAttribute('aria-label', t(e.dataset.ta));
 const params = new URLSearchParams(location.search);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const coarse = matchMedia('(pointer: coarse)').matches || params.has('touch');
@@ -66,12 +82,13 @@ for (const b of document.querySelectorAll('#simtouch [data-ctl]')) {
   const ctl = b.dataset.ctl, down = (e) => { touchHeld.add(ctl); b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch { /* not capturable */ } e.preventDefault(); unlockSound(); }, up = () => { touchHeld.delete(ctl); b.classList.remove('on'); };
   b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
 }
+$('simdata').addEventListener('pointerdown', (e) => { document.body.classList.toggle('data-open'); e.preventDefault(); });
 for (const b of document.querySelectorAll('#simtouch [data-key]')) b.addEventListener('pointerdown', (e) => { key(b.dataset.key, true); e.preventDefault(); unlockSound(); });
 const chips = [...document.querySelectorAll('#simmodes [data-mode]')];
 for (const c of chips) c.addEventListener('click', () => setMode(c.dataset.mode));
 function syncChips() { for (const c of chips) c.setAttribute('aria-pressed', c.dataset.mode === mode); }
 syncChips();
-$('simhint').textContent = 'Arrows/WASD drive, Space handbrake, Shift clutch, Q/E gear, M manual, 1/2/3 Arcade/Sport/Sim, T stock/drift set-up, R reset';
+$('simhint').textContent = t('hint');
 
 // ---- sound: the engine of the AE86 with the model's own revs; the squeal on the rear wheels' slip
 const sound = new SoundSystem({ recorded: { [AE?.id ?? 1]: 'assets/sound/ae86-engine.json' }, squeal: 'assets/sound/squeal.json', pops: 'assets/sound/pops.json' });
@@ -88,13 +105,13 @@ const big = el('div', 'big'); big.append(speedB, el('span', '', 'km/h'), gearB);
 const [revBar, revI] = bar('rev'), limitMark = el('u'); revBar.append(limitMark);
 const [gasBar, gasI] = bar(), [brkBar, brkI] = bar(), [cluBar, cluI] = bar();
 const pedal = (name, b) => { const r = el('div', 'lbl'); r.append(el('span', '', name)); return [r, b]; };
-cSpeed.append(big, revBar, ...pedal('GAS', gasBar), ...pedal('BRAKE', brkBar), ...pedal('CLUTCH', cluBar));
+cSpeed.append(big, revBar, ...pedal(t('gas'), gasBar), ...pedal(t('brake'), brkBar), ...pedal(t('clutch'), cluBar));
 const cMode = el('div', 'card'); cMode.id = 'c-mode';
-const cG = el('div', 'card'), gCanvas = el('canvas'); cG.id = 'c-g'; gCanvas.width = gCanvas.height = 150; cG.append(el('div', 'lbl', 'g (grip circle)'), gCanvas);
+const cG = el('div', 'card'), gCanvas = el('canvas'); cG.id = 'c-g'; gCanvas.width = gCanvas.height = 150; cG.append(el('div', 'lbl', t('gcircle')), gCanvas);
 const cW = el('div', 'card'); cW.id = 'c-wheels';
 const wGrid = el('div', 'grid'), wc = [];
 for (const name of ['FL', 'FR', 'RL', 'RR']) { const w = el('div', 'w'), [sb, si] = bar(), [lb, li] = bar(); const head = el('div', 'lbl'), t = el('span', '', name), v = el('span', '', ''); head.append(t, v); w.append(head, sb, lb); li.classList.add('blue'); wGrid.append(w); wc.push({ si, li, v }); }
-cW.append(el('div', 'lbl', 'per wheel: slip (red over its peak) and load'), wGrid);
+cW.append(el('div', 'lbl', t('wheels')), wGrid);
 hud.append(cMode, cSpeed, cG, cW);
 const gctx = gCanvas.getContext('2d');
 function drawG() {
@@ -111,7 +128,9 @@ function readout() {
   revI.style.width = `${clamp((s.rpm / (C.engine.limit * 1.05)) * 100, 0, 100)}%`; revI.classList.toggle('hot', s.rpm > C.engine.limit * 0.97);
   limitMark.style.left = `${(C.engine.limit / (C.engine.limit * 1.05)) * 100}%`;
   gasI.style.width = `${inp.throttle * 100}%`; brkI.style.width = `${inp.brake * 100}%`; cluI.style.width = `${(1 - s.engage) * 100}%`;
-  cMode.replaceChildren(...[['mode', mode], ['car', C.name], ['gearbox', manual ? 'manual (Q/E, Shift)' : 'automatic'], ['body angle', `${Math.round((s.beta * 180) / Math.PI)}°`], ['rpm', String(Math.round(s.rpm))], ['yaw', `${((s.w * 180) / Math.PI).toFixed(0)}°/s`]].map(([k, v]) => { const d = el('div'); d.append(`${k}: `, el('b', '', v)); return d; }));
+  const rows = [[t('mode'), t(mode)], [t('car'), carNo === 0 ? t('drift') : t('stock')], [t('gearbox'), manual ? t('manual') : t('auto')], [t('bodyAngle'), `${Math.round((s.beta * 180) / Math.PI)}\u00b0`]];
+  if (!coarse) rows.push([t('rpm'), String(Math.round(s.rpm))], [t('yaw'), `${((s.w * 180) / Math.PI).toFixed(0)}\u00b0/s`]);   // (a phone's card is short: nothing may lie over the car)
+  cMode.replaceChildren(...rows.map(([k, v]) => { const d = el('div'); d.append(`${k}: `, el('b', '', v)); return d; }));
   for (let i = 0; i < 4; i++) { wc[i].si.style.width = `${clamp((s.sn[i] / 2) * 100, 0, 100)}%`; wc[i].si.classList.toggle('red', s.sn[i] > 1); wc[i].li.style.width = `${clamp((s.fz[i] / 6000) * 100, 0, 100)}%`; wc[i].v.textContent = `${s.sn[i].toFixed(2)}  ${Math.round(s.fz[i])} N`; }
   drawG();
 }
@@ -155,13 +174,16 @@ function place() {
 }
 let DT_FRAME = 1 / 60;
 function marksAndSmoke() {
-  const sh = Math.sin(s.h), ch = Math.cos(s.h), g = stage.field.groundY(s.x, s.z), moving = s.speed > 3;
+  const sh = Math.sin(s.h), ch = Math.cos(s.h), g = stage.field.groundY(s.x, s.z), moving = s.speed > 3, S = look.smoke ?? {}, t = Math.atan2(s.vx, s.vz), push = S.drift ?? 0, out = S.offset ?? 0;
   for (let i = 0; i < 4; i++) {
-    const [lx, lz] = wheelLocal[i], px = s.x + lz * sh - lx * ch, pz = s.z + lz * ch + lx * sh;
-    stage.skids.mark(skidIdx[i], X(px), pz, 0, 0, s.sn[i] > 1 && moving, g, 0, 0);
-    if (simSteps % 2 === 0 && s.heat[i] > 8000 && s.temp[i] > 110 && moving) {
-      const t = Math.atan2(s.vx, s.vz);
-      stage.smoke.emit(X(px) + X(-Math.cos(t)) * 0.2, g + 0.12, pz + Math.sin(t) * 0.2, X(s.vx * -0.12), s.vz * -0.12, clamp(s.heat[i] / 40000, 0.15, 1));
+    const [lx, lz0] = wheelLocal[i], lz = i >= 2 ? lz0 - (S.behind ?? 0) : lz0, px = s.x + lz * sh - lx * ch, pz = s.z + lz * ch + lx * sh;
+    stage.skids.mark(skidIdx[i], X(s.x + lz0 * sh - lx * ch), s.z + lz0 * ch + lx * sh, 0, 0, s.sn[i] > 1 && moving, g, 0, 0);
+    // smoke: a hot tread that is sliding (also standing: a burnout); the amount by the heat. It starts where the look's smoke starts (a little behind and outside the tyre: the
+    // smoke keeps a hole round the car, a puff inside it would not show). Thresholds: the first numbers asked for, 8000 W and 110 C, were too high for a launch in first
+    // gear (7000 W at 113 C), so 3000 W and 90 C.
+    if (simSteps % 2 === 0 && s.heat[i] > 3000 && s.temp[i] > 90 && s.sn[i] > 1) {
+      const slideDir = moving ? t : s.h;
+      stage.smoke.emit(X(px) + X(-Math.cos(slideDir)) * out, (S.height ?? 0.12) + g, pz + Math.sin(slideDir) * out, X(s.vx * (S.throw ?? -0.12) - Math.cos(slideDir) * push), s.vz * (S.throw ?? -0.12) + Math.sin(slideDir) * push, clamp(s.heat[i] / 20000, 0.2, 1));
     }
   }
 }
@@ -179,10 +201,18 @@ function frame(now) {
   readout();
   if (unlocked && sound.unlocked) sound.update({ speed: s.speed, throttle: s.load, slide: clamp((Math.max(s.sn[2], s.sn[3]) - 0.8) / 0.8, 0, 1), car: AE?.id ?? 1, top: 55, surface: 'asphalt', rpm: s.rpm, gear: s.gear }, [], { x: s.x, z: s.z, heading: s.h });
   if (innerWidth !== frame.w || innerHeight !== frame.h) { frame.w = innerWidth; frame.h = innerHeight; stage.resize(); }
+  stage.smoke.sync?.();   // the puffs' buffers to the graphics card (the stage does not do it itself)
   stage.render();
   frames++;
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 // for the checking tools (tools/simdrive.mjs) and the pictures
-window.__sim = { get state() { return s; }, get frames() { return frames; }, get mode() { return mode; }, held, reset, setMode, toggleCar, toggleManual, stage, camera };
+// where the car is on the screen (CSS pixels), for the layout check
+function carRect() {
+  const box = new THREE.Box3().setFromObject(mine.group), v = new THREE.Vector3(); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  camera.updateMatrixWorld();
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) { v.set(x, y, z).project(camera); x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
+  return { x0: ((x0 + 1) / 2) * innerWidth, x1: ((x1 + 1) / 2) * innerWidth, y0: ((1 - y1) / 2) * innerHeight, y1: ((1 - y0) / 2) * innerHeight };
+}
+window.__sim = { carRect, get state() { return s; }, get frames() { return frames; }, get mode() { return mode; }, held, reset, setMode, toggleCar, toggleManual, stage, camera };

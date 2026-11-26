@@ -1,5 +1,6 @@
 // A headless drive of the test page of the new driving model (game/lab-sim.html), with the keys held: the page is served from the repository, the keys go in as real key events
 // (arrow up and arrow right held), and after `--seconds` (20) the state of the car is read: no page error, a speed above 30 km/h, still inside the pad. Writes a picture with --shot.
+// (--eval=<js> prints a value from the page at the end)
 // Usage: node tools/simdrive.mjs [--seconds=20] [--steerAfter=6 (the steering keys go down after that many seconds)] [--mode=arcade|sport|sim] [--car=stock] [--keys=ArrowUp,ArrowRight] [--size=1280x720] [--touch] [--tier=high] [--shot=file.png] [--minkmh=30] [--query=...]
 import { spawn } from 'node:child_process';
 import { GL_FLAGS } from './chrome.mjs';
@@ -44,6 +45,7 @@ let steering = !steerAfter;
 while (Date.now() - t0 < seconds * 1000) { await sleep(500); if (!steering && Date.now() - t0 > steerAfter * 1000) { steering = true; for (const k of steerKeys) await press(k, 'rawKeyDown'); } const st = JSON.parse(await b.ev('JSON.stringify({ v: __sim.state.speed, x: __sim.state.x, z: __sim.state.z, beta: __sim.state.beta, gear: __sim.state.gear, rpm: __sim.state.rpm })')); top = Math.max(top, st.v * 3.6); minX = Math.min(minX, st.x); maxX = Math.max(maxX, st.x); maxBeta = Math.max(maxBeta, Math.abs(st.beta)); gearTop = Math.max(gearTop, st.gear); }
 const end = JSON.parse(await b.ev('JSON.stringify({ v: __sim.state.speed, x: __sim.state.x, z: __sim.state.z, h: __sim.state.h, gear: __sim.state.gear, rpm: __sim.state.rpm, finite: Object.values({ x: __sim.state.x, z: __sim.state.z, vx: __sim.state.vx, vz: __sim.state.vz, rpm: __sim.state.rpm, y: __sim.state.y }).every(Number.isFinite), frames: __sim.frames })'));
 if (opt.shot) { const s = await b.send('Page.captureScreenshot', { format: 'png' }); writeFileSync(opt.shot, Buffer.from(s.result.data, 'base64')); }
+if (opt.eval) console.log('eval:', JSON.stringify(await b.ev(opt.eval)));
 for (const k of keys) await press(k, 'keyUp');
 const out = { seconds, fps: +(((end.frames - f0) * 1000) / (Date.now() - t0)).toFixed(1), topKmh: Math.round(top), endKmh: Math.round(end.v * 3.6), topGear: gearTop, maxBodyAngleDeg: Math.round((maxBeta * 180) / Math.PI), end: { x: +end.x.toFixed(1), z: +end.z.toFixed(1), rpm: Math.round(end.rpm) }, finite: end.finite, errors: b.logs.length, logs: b.logs.slice(0, 3) };
 const broken = []; if (b.logs.length) broken.push('page errors'); if (!end.finite) broken.push('not finite'); if (top < +(opt.minkmh ?? 30)) broken.push(`top speed only ${Math.round(top)} km/h`);
