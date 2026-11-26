@@ -52,18 +52,19 @@ export const AE86_DRIFT = {
   camberF: -0.055, toeF: -0.002, lock: 0.87, ackermann: 0.3,
   engine: { ...AE86.engine, power: 1.2, inertia: 0.105, limit: 8000 },
   diff: { preload: 90, lock: 2.4 },
-  tyreF: makeTyre({ C: 1.4, E: 0.1, kp: 0.11, tp: 0.15, mu: 1.06, kMu: 0.12 }),
-  tyreR: makeTyre({ C: 1.4, E: 0.1, kp: 0.11, tp: 0.15, mu: 0.98, kMu: 0.12 }),
+  tyreF: makeTyre({ C: 1.4, E: 0.1, kp: 0.11, tp: 0.15, mu: 1.04, kMu: 0.12 }),
+  tyreR: makeTyre({ C: 1.4, E: 0.1, kp: 0.11, tp: 0.15, mu: 1.0, kMu: 0.12 }),
 };
 
 /** Helpers. Every number is 0 (off) to 1 (full) unless said. The same car drives under all of them. */
 export const ASSISTS = {
-  // arcade: the wheels point where the car goes by themselves and the keys ask for a slip angle around that (range x lock at speed: just past the tyre's
-  // peak, so full key never scrubs the fronts), the brakes do not lock, a hand on the yaw, tyres that forgive
-  arcade: { caster: 1.0, range: 0.26, rangeV: 7, abs: 1, tc: 0, spinCap: 1.2, stability: 1, betaMax: 0.85, grip: 1.06, forgive: 1, autoGear: 1, autoClutch: 1, hold: 1 },
-  sport:  { caster: 0.85, range: 0.36, rangeV: 10, abs: 1, tc: 0, spinCap: 0, stability: 0.35, betaMax: 1.0, grip: 1.0, forgive: 0.4, autoGear: 1, autoClutch: 1, hold: 1 },
-  // sim: the wheels still self-centre as a real rack does when you loosen your grip, nothing else
-  sim:    { caster: 0.55, range: 1.0, rangeV: 1e9, abs: 0, tc: 0, spinCap: 0, stability: 0, betaMax: 1.2, grip: 1.0, forgive: 0, autoGear: 1, autoClutch: 1, hold: 1 },
+  // arcade: the wheels point where the car goes by themselves and the keys ask for a slip angle around that (`alpha`, rad at speed: just under the tyre's
+  // peak, so a full key never scrubs the fronts; full lock only at a crawl), a key comes in over a quarter second, the brakes do not lock, a hand on the
+  // yaw, tyres that forgive
+  arcade: { caster: 1.0, alpha: 0.135, rangeV: 6, keyRate: 4, abs: 1, tc: 0, spinCap: 1.2, stability: 1, betaMax: 0.85, grip: 1.06, forgive: 1, autoGear: 1, autoClutch: 1, hold: 1 },
+  sport:  { caster: 0.85, alpha: 0.17, rangeV: 8, keyRate: 4, abs: 1, tc: 0, spinCap: 0, stability: 0.35, betaMax: 1.0, grip: 1.0, forgive: 0.4, autoGear: 1, autoClutch: 1, hold: 1 },
+  // sim: the wheels still self-centre as a real rack does when you loosen your grip; a key can over-drive the front tyres; nothing else helps
+  sim:    { caster: 0.55, alpha: 0.32, rangeV: 10, keyRate: 3, abs: 0, tc: 0, spinCap: 0, stability: 0, betaMax: 1.2, grip: 1.0, forgive: 0, autoGear: 1, autoClutch: 1, hold: 1 },
 };
 
 const ZERO4 = new Float64Array(4);
@@ -73,7 +74,7 @@ export const FLAT = { mu: 1, muW: null, ax: 0, az: 0, yW: ZERO4, yWv: ZERO4 };
 /** A fresh car at rest, in first gear, engine at idle. */
 export function makeCar(x = 0, z = 0, h = 0) {
   return {
-    x, z, h, vx: 0, vz: 0, w: 0, steer: 0,
+    x, z, h, vx: 0, vz: 0, w: 0, steer: 0, key: 0,
     y: 0, vy: 0, pitch: 0, pitchV: 0, roll: 0, rollV: 0,   // the body on its springs: height over its rest, nose up, lean to the right
     wheel: new Float64Array(4), we: 900 / RPM, gear: 1, engage: 0, shiftT: 0, shiftTo: 0, sinceShift: 9, revT: 0, cutT: 0, tAxle: 0,
     thr: 0, thrE: 0, brk: 0, hb: 0, flonF: 0, flatF: 0, flatR: 0,
@@ -107,7 +108,7 @@ function tyre(T, kappa, tanA, fz, mu, forgive) {
 }
 
 /** Grip of the tread by its temperature (deg C): a cold tyre a little less, an overheated one clearly less. */
-export const tempGrip = (t) => 1 - 0.05 * clamp((70 - t) / 40, 0, 1) - 0.14 * clamp((t - 120) / 110, 0, 1);
+export const tempGrip = (t) => 1 - 0.04 * clamp((60 - t) / 30, 0, 1) - 0.12 * clamp((t - 140) / 140, 0, 1);
 
 /** The engine's torque at full throttle, Nm. */
 export function torqueAt(E, rpm) {
@@ -136,7 +137,7 @@ export function step(s, input, car, A = ASSISTS.arcade, env = FLAT, dt = DT) {
   s.beta = s.speed > 1 ? Math.atan2(vlat, Math.abs(vlon)) : 0;
   s.rpm = s.we * RPM;
   s.slide = clamp(Math.max(s.sn[2], s.sn[3]) - 0.8, 0, 1); s.ax = s.alon;
-  for (let i = 0; i < 4; i++) s.temp[i] += dt * (s.heat[i] / 300 - (s.temp[i] - 30) / 3);   // the tread's surface: heats with the sliding power, cools in about 3 s
+  for (let i = 0; i < 4; i++) s.temp[i] += dt * (s.heat[i] / 600 - (s.temp[i] - 30) / 4);   // the tread's surface: heats with the sliding power (30 kW held: about 230 deg C), cools in about 4 s
   return s;
 }
 
@@ -151,8 +152,11 @@ function controls(s, input, car, A, dt) {
   // --- steering: the wheels' free angle is where the front axle is going (caster); the driver steers around a share of it
   const fade = clamp((vlon - 1.5) / 3, 0, 1);
   const free = fade > 0 ? Math.atan2(vlat + s.w * car.a, Math.max(vlon, 0.5)) * fade : 0;
-  const range = car.lock * (A.range + (1 - A.range) / (1 + (speed / A.rangeV) ** 2));
-  const target = clamp(A.caster * free + clamp(input.steer || 0, -1, 1) * range, -car.lock, car.lock);
+  const range = A.alpha + (car.lock - A.alpha) / (1 + (speed / A.rangeV) ** 2);
+  // a key is all or nothing: it comes in over a moment (`keyRate` per second) and goes out twice as fast; a stick or a wheel (input.analog) is taken as it is
+  const key = clamp(input.steer || 0, -1, 1);
+  if (input.analog) s.key = key; else { const kr = (Math.abs(key) < Math.abs(s.key) || key * s.key < 0 ? 2 : 1) * A.keyRate * dt; s.key += clamp(key - s.key, -kr, kr); }
+  const target = clamp(A.caster * free + s.key * range, -car.lock, car.lock);
   const rate = (Math.abs(target) < Math.abs(s.steer) ? car.steerBack : car.steerRate) * dt;
   s.steer += clamp(target - s.steer, -rate, rate);
 
@@ -304,4 +308,22 @@ function sub(s, car, A, env, h) {
   s.vz += (alon * cs - alat * sn + env.az - (drag * s.vz) / m) * h;
   s.w += (mz / car.izz) * h;
   s.x += s.vx * h; s.z += s.vz * h; s.h += s.w * h;
+}
+
+/**
+ * How loud wheel `i` squeals, 0..1: a tyre howls when it works at and past its peak (not below three quarters of it) and its tread slides over the road
+ * at walking pace or more; a lightly loaded wheel is quieter. Brisk driving is silent, the limit sings, a slide screams.
+ */
+export function squealOf(s, car, i) {
+  const z0 = (car.mass * G * (i < 2 ? car.b : car.a)) / car.wheelbase / 2;
+  return clamp((s.sn[i] - 0.75) / 0.6, 0, 1) * clamp((s.slip[i] - 0.4) / 3.5, 0, 1) * clamp(s.fz[i] / z0, 0, 1.3) / 1.3;
+}
+
+/**
+ * How much wheel `i` smokes, 0..1: rubber smokes when the tread is hot (over about 120 deg C, so only after a moment of hard sliding) and the sliding
+ * power is high (over 12 kW at that wheel; 45 kW is a full burnout). A brisk bend, ABS braking and a short chirp give none; a locked wheel, a held drift
+ * and a burnout do.
+ */
+export function smokeOf(s, i) {
+  return clamp((s.temp[i] - 120) / 60, 0, 1) * clamp((s.heat[i] - 12000) / 33000, 0, 1);
 }

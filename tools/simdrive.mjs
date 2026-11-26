@@ -1,7 +1,7 @@
 // A headless drive of the test page of the new driving model (game/lab-sim.html), with the keys held: the page is served from the repository, the keys go in as real key events
 // (arrow up and arrow right held), and after `--seconds` (20) the state of the car is read: no page error, a speed above 30 km/h, still inside the pad. Writes a picture with --shot.
 // (--eval=<js> prints a value from the page at the end)
-// Usage: node tools/simdrive.mjs [--seconds=20] [--steerAfter=6 (the steering keys go down after that many seconds)] [--mode=arcade|sport|sim] [--car=stock] [--keys=ArrowUp,ArrowRight] [--size=1280x720] [--touch] [--tier=high] [--shot=file.png] [--minkmh=30] [--query=...]
+// Usage: node tools/simdrive.mjs [--seconds=20] [--steerAfter=6 (the steering keys go down after that many seconds)] [--mode=arcade|sport|sim] [--car=stock] [--keys=ArrowUp,ArrowRight] [--size=1280x720] [--touch] [--tier=high] [--shot=file.png] [--minkmh=30] [--query=...] [--jitter[=raw]]
 import { spawn } from 'node:child_process';
 import { GL_FLAGS } from './chrome.mjs';
 import { writeFileSync, rmSync } from 'node:fs';
@@ -32,7 +32,7 @@ const [w, h] = (opt.size ?? '1280x720').split('x').map(Number), seconds = +(opt.
 const b = await browser();
 await b.send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: !!opt.touch });
 if (opt.touch) await b.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
-await b.send('Page.navigate', { url: `http://127.0.0.1:${webPort}/game/lab-sim.html?tier=${opt.tier ?? 'high'}${opt.mode ? '&mode=' + opt.mode : ''}${opt.car ? '&car=' + opt.car : ''}${opt.touch ? '&touch=1' : ''}${opt.query ? '&' + opt.query : ''}` });
+await b.send('Page.navigate', { url: `http://127.0.0.1:${webPort}/game/lab-sim.html?tier=${opt.tier ?? 'high'}${opt.mode ? '&mode=' + opt.mode : ''}${opt.car ? '&car=' + opt.car : ''}${opt.touch ? '&touch=1' : ''}${opt.jitter ? '&cruise=13.9' + (opt.jitter === 'raw' ? '&raw=1' : '') : ''}${opt.query ? '&' + opt.query : ''}` });
 let ok = false; for (let i = 0; i < 240 && !(ok = await b.ev('!!window.__sim && __sim.frames > 5')); i++) await sleep(500);
 if (!ok) { console.log(JSON.stringify({ error: 'the page did not start', logs: b.logs.slice(0, 3) })); process.exit(1); }
 const code = (k) => ({ ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, Space: 32, ShiftLeft: 16, KeyW: 87, KeyA: 65, KeyS: 83, KeyD: 68 }[k] ?? 0);
@@ -40,6 +40,14 @@ const press = (k, type) => b.send('Input.dispatchKeyEvent', { type, code: k, key
 const steerAfter = +(opt.steerAfter ?? 0), steerKeys = keys.filter((k) => /Left|Right|KeyA|KeyD/.test(k)), holdKeys = keys.filter((k) => !steerKeys.includes(k));
 for (const k of holdKeys) await press(k, 'rawKeyDown');
 if (!steerAfter) for (const k of steerKeys) await press(k, 'rawKeyDown');
+if (opt.jitter) {   // the DRAWN car against the camera at a steady 50 km/h: the car's place in camera space frame to frame; the largest jump (cm). --jitter=raw draws the unblended state
+  for (const k of holdKeys) await press(k, 'rawKeyDown');
+  for (let i = 0; i < 60 && (await b.ev('__sim.state.speed')) < 13.5; i++) await sleep(500);
+  await sleep(200); await b.ev('__sim.startProbe()'); await sleep(+(opt.probeSeconds ?? 4) * 1000);
+  const p = await b.ev('__sim.stopProbe()'); let max = 0, sum = 0;
+  for (let i = 1; i < p.length; i++) { const d = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1], p[i][2] - p[i - 1][2]); max = Math.max(max, d); sum += d; }
+  console.log('jitter:', JSON.stringify({ frames: p.length, maxJumpCm: +(max * 100).toFixed(2), meanStepCm: +((sum / Math.max(1, p.length - 1)) * 100).toFixed(2), speedKmh: Math.round(3.6 * (await b.ev('__sim.state.speed'))) }));
+}
 const f0 = await b.ev('__sim.frames'), t0 = Date.now(); let top = 0, minX = 1e9, maxX = -1e9, maxBeta = 0, gearTop = 0;
 let steering = !steerAfter;
 while (Date.now() - t0 < seconds * 1000) { await sleep(500); if (!steering && Date.now() - t0 > steerAfter * 1000) { steering = true; for (const k of steerKeys) await press(k, 'rawKeyDown'); } const st = JSON.parse(await b.ev('JSON.stringify({ v: __sim.state.speed, x: __sim.state.x, z: __sim.state.z, beta: __sim.state.beta, gear: __sim.state.gear, rpm: __sim.state.rpm })')); top = Math.max(top, st.v * 3.6); minX = Math.min(minX, st.x); maxX = Math.max(maxX, st.x); maxBeta = Math.max(maxBeta, Math.abs(st.beta)); gearTop = Math.max(gearTop, st.gear); }

@@ -1,5 +1,5 @@
 // Checks of sim2 against the real car and against what a drift needs. Usage: node simcheck.mjs [--drift] (the drift set-up instead of the stock car)
-import { step, makeCar, AE86, AE86_DRIFT, ASSISTS, FLAT, DT, G } from '../game/sim/sim2.js';
+import { step, makeCar, AE86, AE86_DRIFT, ASSISTS, FLAT, DT, G, squealOf, smokeOf } from '../game/sim/sim2.js';
 const drift = process.argv.includes('--drift'), CAR = drift ? AE86_DRIFT : AE86;
 const kmh = (v) => v * 3.6, deg = (r) => (r * 180) / Math.PI;
 const rows = [];
@@ -15,9 +15,10 @@ const rolling = (v, gear) => { const s = makeCar(); s.vz = v; for (let i = 0; i 
 for (const [name, A, lo, hi] of [['brake 100-0, ABS', ASSISTS.arcade, 34, 44], ['brake 100-0, locked', ASSISTS.sim, 40, 58]]) { const s = rolling(100 / 3.6, 3); const z0 = s.z; let peak = 0;
   run(s, A, 8, (i) => { i.brake = 1; }, (s) => { peak = Math.max(peak, -s.alon / G); return s.speed > 0.2; }); row(name, s.z - z0, 'm', lo, hi); if (A === ASSISTS.arcade) row('  peak deceleration', peak, 'g', 0.85, 1.15); }
 // 3 steady cornering in second gear, the wheel held still (no caster), the speed rising slowly: the most sideways g, and which end gives up first
-{ const s = rolling(8, 2), A = { ...ASSISTS.sim, caster: 0 }; let best = 0, acc = 0, cnt = 0, front = 0, spin = 0;
-  run(s, A, 60, (i, s, t) => { i.manual = true; i.steer = 0.2; i.throttle = Math.min(1, Math.max(0, (8 + t * 0.3 - s.speed) * 0.5 + 0.25)); },
-    (s) => { acc += Math.abs(s.alat) / G; cnt++; if (cnt === 60) { if (acc / cnt > best) { best = acc / cnt; front = Math.max(s.sn[0], s.sn[1]) > Math.max(s.sn[2], s.sn[3]) ? 1 : 0; } acc = 0; cnt = 0; } if (Math.abs(s.beta) > 0.5) { spin = 1; return false; } return s.speed < 24; });
+{ const s = rolling(8, 2), A = { ...ASSISTS.sim, caster: 0, alpha: CAR.lock }; let best = 0, acc = 0, cnt = 0, front = 0, spin = 0;
+  run(s, A, 60, (i, s, t) => { i.manual = true; i.analog = true; i.steer = 0.2; i.throttle = Math.min(1, Math.max(0, (8 + t * 0.3 - s.speed) * 0.5 + 0.25)); },
+    (s) => { acc += Math.abs(s.alat) / G; cnt++; if (cnt === 60) { if (acc / cnt > best) { best = acc / cnt; front = Math.max(s.sn[0], s.sn[1]) > Math.max(s.sn[2], s.sn[3]) ? 1 : 0; } acc = 0; cnt = 0; } if (Math.abs(s.beta) > 0.5) { spin = 1; return false; } if (Math.max(s.sn[0], s.sn[1]) > 1.6 && Math.abs(s.beta) < 0.2) return false;   // the front has let go and the car pushes wide: the answer is in
+      return s.speed < 24; });
   row('steady cornering: most sideways g', best, 'g', 0.8, drift ? 1.02 : 0.95); row('  the front gives up first (understeer)', front, '', drift ? 0 : 1, 1); row('  ends in a spin', spin, '', 0, drift ? 1 : 0); }
 // 4 roll and pitch
 { const s = rolling(15, 2); let roll = 0, lat = 0; run(s, ASSISTS.sim, 4, (i, s) => { i.steer = 0.16; i.throttle = 0.25; }, (s, t) => { if (t > 3) { roll = s.roll; lat = s.alat / G; } });
@@ -47,6 +48,17 @@ for (const name of ['arcade', 'sim']) { const A = ASSISTS[name], s = rolling(18,
   row('over a crest (0.6 m in 40 m) at 90 km/h: least wheel load', minLoad, 'g', 0.2, 0.85); }
 // 9 the same run twice is the same
 { const a = rolling(16, 2), b = rolling(16, 2); const d = (i, s, t) => { i.steer = Math.sin(t * 2); i.throttle = 0.8; }; run(a, ASSISTS.arcade, 6, d); run(b, ASSISTS.arcade, 6, d); row('repeatable', a.x === b.x && a.z === b.z && a.we === b.we ? 1 : 0, '', 1, 1); }
+
+// 10 squeal and smoke: silent and clean in ordinary driving, loud and smoky only where a real car is
+{ const lvl = (A, s, seconds, from, drive) => { let sq = 0, sm = 0, n = 0; run(s, A, seconds, drive, (s, t) => { if (t >= from) { let a = 0, b = 0; for (let i = 0; i < 4; i++) { a = Math.max(a, squealOf(s, CAR, i)); b = Math.max(b, smokeOf(s, i)); } sq += a; sm += b; n++; } }); return [sq / n, sm / n]; };
+  const A = ASSISTS.arcade, bend = (g, v, bias) => (i, s) => { i.analog = true; i.steer = ((g * G) / v - s.w) * 1.2 + bias; i.throttle = 0.35; };
+  let r = lvl(A, rolling(22, 3), 8, 3, bend(0.3, 22, 0.25)); row('gentle bend at 80 km/h: squeal / smoke', r[0], `/ ${r[1].toFixed(2)}`, 0, 0.02); row('  smoke', r[1], '', 0, 0);
+  r = lvl(A, rolling(16, 2), 8, 3, bend(0.6, 16, 0.5)); row('brisk bend, 0.6 g: squeal', r[0], `/ smoke ${r[1].toFixed(2)}`, 0, 0.05); row('  smoke', r[1], '', 0, 0);
+  r = lvl(A, rolling(27.8, 3), 2.5, 0.3, (i) => { i.brake = 1; }); row('ABS stop from 100: squeal', r[0], `/ smoke ${r[1].toFixed(2)}`, 0.15, 0.7); row('  smoke', r[1], '', 0, 0.02);
+  r = lvl(ASSISTS.sim, rolling(27.8, 3), 2.5, 1.2, (i) => { i.brake = 1; }); row('locked wheels from 100, after 1.2 s: squeal', r[0], `/ smoke ${r[1].toFixed(2)}`, 0.6, 1); row('  smoke', r[1], '', 0.1, 1);
+  r = lvl(A, rolling(17, 2), 3, 0.5, (i) => { i.throttle = 1; }); row('full throttle straight in 2nd: squeal', r[0], `/ smoke ${r[1].toFixed(2)}`, 0, 0.02);
+  let pb = 0; const T = 0.55; r = lvl(A, rolling(16, 2), 14, 4, (i, s, t) => { const b = Math.abs(s.beta), db = (b - pb) / DT; pb = b; i.manual = true; if (t < 0.4) { i.steer = 1; i.throttle = 0.5; } else if (t < 0.9 && b < 0.25) { i.steer = 1; i.handbrake = 1; i.clutch = 1; i.throttle = 0.7; } else { i.handbrake = 0; i.clutch = 0; i.throttle = Math.min(1, Math.max(0.3, 0.72 + (T - b) * 1.0 - db * 0.25)); i.steer = Math.min(1, Math.max(-1, 0.2 + (T - b) * 1.6 - db * 0.45)); } });
+  row('held drift: squeal', r[0], `/ smoke ${r[1].toFixed(2)}`, 0.6, 1); row('  smoke', r[1], '', drift ? 0.2 : 0.02, 1); }
 
 let bad = 0;
 console.log(CAR.name);

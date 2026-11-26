@@ -757,3 +757,9 @@ A static page with sample data, no server logic, no inline script; every text th
 - Texts in German and English (`?lang=de`, else browser language); phone landscape: small buttons in one row top-left, info card under them, wheel read-out behind a "Data/Daten" chip, nothing over the car at 640x360, 844x390 (checked), 932x430. Pictures: `docs/screenshots/sim2/phone-*.png`, `burnout.png`.
 - Smoke was invisible: `stage.smoke.sync()` was never called, thresholds too high, puffs started inside the smoke's car hole. Fixed. The burnout picture is a 1.8 s launch (throttle+brake holds the car, no slip).
 - Not checked: the opened "Data" card as a picture, `tools/uicheck.mjs --page`.
+
+### Test page round 2 (sim2, owner: shaking, squeal, smoke)
+- Drawn pose = blend of previous and last step by the loop's alpha (camera too); new `sim2.js`/`simcheck.mjs` (squealOf, smokeOf); `tools/situations.mjs`, `tools/jitter.mjs`.
+- Sound gets the largest `squealOf`; smoke per wheel by `smokeOf`; marks while sn>1 and slip>1; wheel card shows tread temperature, squeal, smoke.
+- Proof: `node tools/simdrive.mjs --keys= --jitter[=raw] --probeSeconds=1.5`: largest jump of the car in camera space at 50 km/h: raw 11.7 cm, blended 0.1 cm (headless runs a steady 60 Hz; a 144 Hz screen is worse for raw).
+- Pictures: `docs/screenshots/sim2/bend.png` (no smoke), `held-drift.png` (smoke at the rear; taken after the slide had slowed to 4 km/h).
