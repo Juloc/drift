@@ -225,7 +225,7 @@
    "cherries": 0,
    "nearPines": 160,
    "nearCherries": 0,
-   "rocks": 40,
+   "rocks": 14,
    "ridge": 140,
    "mist": 7,
    "railPost": 3,
@@ -243,7 +243,7 @@
     "petals": 70,
     "poles": 0
    },
-   "carpet": 2000,
+   "carpet": 900,
    "billows": 140,
    "carpetNear": 30
   },
@@ -254,7 +254,7 @@
    "cherries": 0,
    "nearPines": 160,
    "nearCherries": 0,
-   "rocks": 40,
+   "rocks": 50,
    "ridge": 160,
    "mist": 5,
    "railPost": 4,
@@ -283,7 +283,7 @@
    "cherries": 0,
    "nearPines": 40,
    "nearCherries": 0,
-   "rocks": 24,
+   "rocks": 2,
    "ridge": 120,
    "mist": 3,
    "railPost": 9,
@@ -354,6 +354,13 @@
  },
  "farUnlit": true,
  "models": {
-  "lantern": "lantern"
+  "lantern": "lantern",
+  "rocks": "rocks",
+  "paint": {
+   "rocks": {
+    "rock": "#8a7c98",
+    "moss": "#6a8a58"
+   }
+  }
  }
 }

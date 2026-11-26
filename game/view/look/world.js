@@ -50,9 +50,9 @@ export function buildWorld(scene, look, tierName = 'high') {
   const G = new Builder({ seed: 6, jitter: 0, wobble: 0, bake: false });
   S.lite = lite;
   // look.models (high tier only): places for model files instead of code shapes; the stage loads the files and fills them (stage.js, addModels)
-  S.models = !lite && look.models ? look.models : null;
+  S.models = look.models ?? null;   // (the lantern model only on the high tier: see stoneLantern; the rocks on every tier, fewer on the phone)
   S.slots = {};
-  S.slot = (kind, x, y, z, ry, sx, sy = sx, sz = sx) => { const v = new THREE.Vector3(x, y, z); if (S.top) v.applyMatrix4(S.top); (S.slots[kind] ??= []).push([v.x, v.y, v.z, ry, sx, sy, sz]); };   // in world space (the builder may be lifted, as on the plaza)
+  S.slot = (kind, x, y, z, ry, sx, sy = sx, sz = sx, n = null) => { const v = new THREE.Vector3(x, y, z); if (S.top) v.applyMatrix4(S.top); (S.slots[kind] ??= []).push([v.x, v.y, v.z, ry, sx, sy, sz, n]); };   // `n`: the ground's normal (drawing axes): the rock leans with the ground   // in world space (the builder may be lifted, as on the plaza)
   const rnd = mulberry32(17);
   const lampHeads = [];
   // the side of the road the valley is on (+1 = right of the direction of travel) and how far the land falls there
@@ -647,8 +647,20 @@ function trees(S, f, scene, look, tier, rnd, lite) {
 // ---------------------------------------------------------------- rocks: faceted boulders at the foot of the cut and on steep slopes
 function rocks(S, f, look, tier, rnd, sideInfo, lite, clear = () => false) {
   const L = look.land, right = (d) => [d[1], -d[0]];
+  // the normal of the ground at a point (drawing axes: x mirrored)
+  const normalAt = (x, z) => { const hx = f.height(x - 1, z) - f.height(x + 1, z), hz = f.height(x, z - 1) - f.height(x, z + 1), l = Math.hypot(hx, 2, hz); return [-hx / l, 2 / l, hz / l]; };
+  // the rock model (look.models.rocks; a cluster of painted rocks, 1 m high): sunk into the ground by a third, leaning with the slope; big ones (2 to 4 m) at the foot of the cut in
+  // groups of two or three, small ones on the slope; never within 1.5 m of the road's edge; the phone has half of them
+  const modelRock = (x, z, r) => {
+    if (f.edge(x, z) < 1.5 || (lite && rnd() < 0.5)) return;
+    const big = r > 1.8, h = (big ? 2 + r : 0.5 + r * 0.45) * (0.85 + rnd() * 0.3), sink = 0.28 + rnd() * 0.17;
+    const put = (px, pz, hh) => { const y = f.height(px, pz); S.slot('rocks', X(px), y - hh * sink, pz, rnd() * 6.3, hh * (0.9 + rnd() * 0.3), hh, hh * (0.9 + rnd() * 0.3), normalAt(px, pz)); };
+    put(x, z, h);
+    if (big) for (let k = 0, m = 1 + Math.floor(rnd() * 2); k < m; k++) { const a = rnd() * 6.3, d = h * (0.6 + rnd() * 0.5); if (f.edge(x + Math.cos(a) * d, z + Math.sin(a) * d) >= 1.5) put(x + Math.cos(a) * d, z + Math.sin(a) * d, h * (0.45 + rnd() * 0.3)); }
+  };
   const boulder = (x, z, r) => {
     if (clear(x, z)) return;
+    if (S.models?.rocks) return modelRock(x, z, r);
     const y = f.height(x, z);
     S.ball(r, X(x), y + r * 0.25, z, C(L.rock).lerp(C(L.rockDark), rnd() * 0.7), { detail: lite ? 0 : 1, sx: 0.8 + rnd() * 0.5, sy: 0.55 + rnd() * 0.3, sz: 0.8 + rnd() * 0.5, ry: rnd() * 3, rx: rnd() * 0.3 });
   };
@@ -717,10 +729,13 @@ function bendSet(S, G, f, look, b, lampHeads, pools, lite) {
   // the outside right after the apex is what the chase camera has on its left (further on the outside lies straight ahead, the view into
   // the valley stays open): there the rock wall, with a gap for the stair up to the torii
   const stairAt = 4.5;
-  for (let ds = 1; ds < 9; ds += lite ? 2.6 : 1.8) {
+  for (let ds = 1; ds < 9; ds += lite ? 5 : 2.8) {
     if (Math.abs(ds - stairAt) < 1.8) continue;
     const q = at(ds, hw + 3.2 + rnd() * 0.6, out), r = 0.9 + rnd() * 0.5;
     if (S.models?.rocks) { S.slot('rocks', X(q.x), q.y - 0.15, q.z, rnd() * 6.3, r * 2.3, r * 2.3 * 1.35); continue; }   // the painted rocks with moss (one cluster for the stack)
+    if (S.models?.rocks) {   // the rock model: a wall of sunk, leaning clusters (the moss is in its paint)
+      const hh = 1.8 + r * 1.6, nrm = [Math.sin(rnd() * 6.3) * 0.12, 1, Math.cos(rnd() * 6.3) * 0.12]; S.slot('rocks', X(q.x), q.y - hh * 0.3, q.z, rnd() * 6.3, hh * 1.1, hh, hh * 1.1, nrm); continue;
+    }
     S.ball(r, X(q.x), q.y + r * 0.8, q.z, rock(), { detail: lite ? 0 : 1, sx: 1.2, sy: 1.3, sz: 0.9, ry: rnd() * 3 });
     // a second boulder on top (on the ground of the first, set back a little) and moss on the highest one
     let topX = q.x, topZ = q.z, topY = q.y + r * 1.75, topR = r;
@@ -738,7 +753,7 @@ function bendSet(S, G, f, look, b, lampHeads, pools, lite) {
   for (const [ds, o] of [[0, hw + 2.3], [7, hw + 2.3], [10.5, hw + 2.2]]) { const q = at(ds, o, out); bush(S, look, q.x, q.road, q.z, 0.8 + rnd() * 0.3, rnd, lite); }
   // the inside: a kerb, mossy rocks, a stone lantern and a bush on a small island
   for (let ds = -10; ds < 16; ds += 1.6) { const q = at(ds, hw + 0.35, -out); S.box(0.3, 0.22, 1.7, X(q.x), q.road + 0.11, q.z, C(look.road.kerb), { r: 0.04, ry: q.ry }); }
-  for (const [ds, o, r] of [[0, hw + 3.4, 1.3], [7, hw + 4.4, 1.0], [-6, hw + 3.8, 0.9]]) { const q = at(ds, o, -out); if (S.models?.rocks) { S.slot('rocks', X(q.x), q.road - 0.1, q.z, rnd() * 6.3, r * 1.8); continue; } S.ball(r, X(q.x), q.road + r * 0.45, q.z, rock(), { detail: 1, sy: 0.75, ry: rnd() * 3 }); S.ball(r * 0.6, X(q.x), q.road + r * 1.05, q.z, moss(), { detail: 1, sx: 1.2, sy: 0.4, sz: 1.2 }); }
+  for (const [ds, o, r] of [[0, hw + 3.4, 1.3], [7, hw + 4.4, 1.0], [-6, hw + 3.8, 0.9]]) { const q = at(ds, o, -out); if (S.models?.rocks) { if (!lite || ds === 0) S.slot('rocks', X(q.x), q.road - r * 0.35, q.z, rnd() * 6.3, r * 1.9, r * 1.5, r * 1.9); continue; } if (S.models?.rocks) { S.slot('rocks', X(q.x), q.road - 0.1, q.z, rnd() * 6.3, r * 1.8); continue; } S.ball(r, X(q.x), q.road + r * 0.45, q.z, rock(), { detail: 1, sy: 0.75, ry: rnd() * 3 }); S.ball(r * 0.6, X(q.x), q.road + r * 1.05, q.z, moss(), { detail: 1, sx: 1.2, sy: 0.4, sz: 1.2 }); }
   { const q = at(4, hw + 2.2, -out); stoneLantern(S, G, look, q.x, q.road, q.z, q.ry, 1.05, true); light(q, 1.95, 5, 1.6); }
   { const q = at(-2, hw + 2.0, -out); bush(S, look, q.x, q.road, q.z, 1.0, rnd, lite); }
 }
@@ -746,7 +761,7 @@ function bendSet(S, G, f, look, b, lampHeads, pools, lite) {
 /** A stone lantern (tōrō): plinth, shaft, the light box with a warm window, a pyramid roof; `k` scales it. */
 function stoneLantern(S, G, look, x, y, z, ry, k = 1, model = false) {
   const stoneC = C(look.lantern?.stone ?? '#b7a8a6');
-  if (model && S.models?.lantern) {   // the model (where the camera comes close: the hairpins, the torii on the plaza) (1 m high in its file) at the height of ours; its open window gets our warm light
+  if (model && S.models?.lantern && !S.lite) {   // the model (where the camera comes close: the hairpins, the torii on the plaza) (1 m high in its file) at the height of ours; its open window gets our warm light
     S.slot('lantern', X(x), y, z, ry, 2.7 * k);
     G.box(0.42 * k, 0.32 * k, 0.42 * k, X(x), y + 1.62 * k, z, glow(look.lamp.light, look.lantern?.glow ?? 2.4), { r: 0, ry });
     return;
