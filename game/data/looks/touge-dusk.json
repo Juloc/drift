@@ -1,133 +1,370 @@
 {
-  "name": "Touge at dusk",
-  "note": "The mountain pass road at dusk (the owner's focus): blue-violet sky with the last orange low in the west, a rising moon, warm street lamps and stone lanterns, dark cedars, a calm crater lake far below, volcano silhouettes.",
-  "sky": {
-    "top": "#262e86",
-    "mid": "#6a54a0",
-    "horizon": "#ff9466",
-    "below": "#4a4478",
-    "midHeight": 0.09,
-    "sun": "#ffb070",
-    "sunGlow": 0.6,
-    "glow": "#ff8040",
-    "sunSize": 0.01,
-    "glowStrength": 0.3,
-    "clouds": { "lit": "#d08ca8", "shade": "#4a3a78", "amount": 0.7, "layer": 0.75, "bright": 1 },
-    "bands": [
-      { "az": -8, "el": 3.5, "w": 40, "h": 2.2 },
-      { "az": 15, "el": 6, "w": 30, "h": 1.8 },
-      { "az": -30, "el": 8, "w": 34, "h": 2 },
-      { "az": 40, "el": 4, "w": 28, "h": 1.6 }
-    ],
-    "moon": { "dir": [0.708, 0.14, -0.674], "size": 1.3, "colour": "#fff0d0", "bright": 3, "glow": 0.6 }
+ "name": "Touge at dusk",
+ "note": "The mountain pass road at dusk (the owner's focus): blue-violet sky with the last orange low in the west, a rising moon, warm street lamps and stone lanterns, dark cedars, a calm crater lake far below, volcano silhouettes.",
+ "sky": {
+  "top": "#262e86",
+  "mid": "#6a54a0",
+  "horizon": "#ff9466",
+  "below": "#4a4478",
+  "midHeight": 0.09,
+  "sun": "#ffb070",
+  "sunGlow": 0.6,
+  "glow": "#ff8040",
+  "sunSize": 0.01,
+  "glowStrength": 0.3,
+  "clouds": {
+   "lit": "#d08ca8",
+   "shade": "#4a3a78",
+   "amount": 0.7,
+   "layer": 0.75,
+   "bright": 1
   },
-  "sun": { "dir": [0.684, 0.06, -0.698], "colour": "#ffa878", "intensity": 2.4 },
-  "fill": { "sky": "#a096d8", "ground": "#8a7088", "intensity": 3.4 },
-  "fog": { "colour": "#7a6aa4", "near": 70, "far": 1500 },
-  "mist": { "colour": "#8a7ab8", "opacity": 0.6, "y": -60 },
-  "grade": { "exposure": 1.25, "bloom": 0.5, "threshold": 2.4, "warmth": 0, "saturation": 0.95, "contrast": 1, "grain": 0, "lift": "#1c1224", "tone": "neutral" },
-  "land": { "valley": "#3a4a48", "mid": "#4a5a52", "high": "#56625a", "warm": "#44564a", "cool": "#3a4e4e", "rock": "#8a7c8e", "rockDark": "#685c70", "gravel": "#4e4c58", "sand": "#6a6070" },
-  "road": { "asphalt": "#5a4a5e", "asphaltLight": "#665468", "edge": "#f4f2f6", "centre": "#3c3a4a", "plaza": "#403a48", "bay": "#cfcad6", "kerb": "#8a8494", "roughness": 0.8, "sheen": 0.12, "edgeWidth": 0.34, "track": "#40323e", "grain": 0.12, "receiveShadow": false, "columns": "mid" },
-  "water": { "deep": "#2e2a62", "light": "#6a6aa8", "glint": "#ffc890", "glow": 0.6, "mirror": true, "band": 1, "streak": 1.6, "bandWidth": 0.12, "path": 3, "pathWidth": 0.01, "pathColour": "#ff8a50" },
-  "bridge": { "stone": "#9a5a6c", "shade": "#7a4458" },
-  "ridges": ["#4a4a7e", "#5a5a8e", "#6c6aa0", "#8078b0", "#9a8cc0"],
-  "pine": {
-    "trunk": "#3a2a28",
-    "dark": "#2a4044",
-    "mid": "#365a50",
-    "top": "#4e7a62",
-    "shape": { "layers": 5, "width": 0.2, "tier": 0.24 }
+  "bands": [
+   {
+    "az": -8,
+    "el": 3.5,
+    "w": 40,
+    "h": 2.2
+   },
+   {
+    "az": 15,
+    "el": 6,
+    "w": 30,
+    "h": 1.8
+   },
+   {
+    "az": -30,
+    "el": 8,
+    "w": 34,
+    "h": 2
+   },
+   {
+    "az": 40,
+    "el": 4,
+    "w": 28,
+    "h": 1.6
+   }
+  ],
+  "moon": {
+   "dir": [
+    0.708,
+    0.14,
+    -0.674
+   ],
+   "size": 1.3,
+   "colour": "#fff0d0",
+   "bright": 3,
+   "glow": 0.6
+  }
+ },
+ "sun": {
+  "dir": [
+   0.684,
+   0.06,
+   -0.698
+  ],
+  "colour": "#ffa878",
+  "intensity": 2.4
+ },
+ "fill": {
+  "sky": "#a096d8",
+  "ground": "#8a7088",
+  "intensity": 3.4
+ },
+ "fog": {
+  "colour": "#7a6aa4",
+  "near": 70,
+  "far": 1500
+ },
+ "mist": {
+  "colour": "#8a7ab8",
+  "opacity": 0.6,
+  "y": -60
+ },
+ "grade": {
+  "exposure": 1.25,
+  "bloom": 0.5,
+  "threshold": 2.4,
+  "warmth": 0,
+  "saturation": 0.95,
+  "contrast": 1,
+  "grain": 0,
+  "lift": "#1c1224",
+  "tone": "neutral"
+ },
+ "land": {
+  "valley": "#3a4a48",
+  "mid": "#4a5a52",
+  "high": "#56625a",
+  "warm": "#44564a",
+  "cool": "#3a4e4e",
+  "rock": "#8a7c8e",
+  "rockDark": "#685c70",
+  "gravel": "#4e4c58",
+  "sand": "#6a6070"
+ },
+ "road": {
+  "asphalt": "#5a4a5e",
+  "asphaltLight": "#665468",
+  "edge": "#f4f2f6",
+  "centre": "#3c3a4a",
+  "plaza": "#403a48",
+  "bay": "#cfcad6",
+  "kerb": "#8a8494",
+  "roughness": 0.8,
+  "sheen": 0.12,
+  "edgeWidth": 0.34,
+  "track": "#40323e",
+  "grain": 0.12,
+  "receiveShadow": false,
+  "columns": "mid"
+ },
+ "water": {
+  "deep": "#2e2a62",
+  "light": "#6a6aa8",
+  "glint": "#ffc890",
+  "glow": 0.6,
+  "mirror": true,
+  "band": 1,
+  "streak": 1.6,
+  "bandWidth": 0.12,
+  "path": 3,
+  "pathWidth": 0.01,
+  "pathColour": "#ff8a50"
+ },
+ "bridge": {
+  "stone": "#9a5a6c",
+  "shade": "#7a4458"
+ },
+ "ridges": [
+  "#4a4a7e",
+  "#5a5a8e",
+  "#6c6aa0",
+  "#8078b0",
+  "#9a8cc0"
+ ],
+ "pine": {
+  "trunk": "#3a2a28",
+  "dark": "#2a4044",
+  "mid": "#365a50",
+  "top": "#4e7a62",
+  "shape": {
+   "layers": 5,
+   "width": 0.2,
+   "tier": 0.24
+  }
+ },
+ "cherry": {
+  "trunk": "#5e4444",
+  "blossom": [
+   "#ff6fa0",
+   "#ff86b0",
+   "#e0507e",
+   "#ffa3c2"
+  ]
+ },
+ "rail": {
+  "beam": "#9a98a8",
+  "beamLight": "#c8c6d4",
+  "post": "#4a4858",
+  "reflector": "#ffad42"
+ },
+ "chevron": {
+  "board": "#2a1e2e",
+  "arrow": "#ff4f8e",
+  "post": "#7a7488",
+  "glow": 4.5,
+  "count": 3
+ },
+ "post": {
+  "white": "#f4efee",
+  "band": "#2b2630",
+  "reflector": "#ffb83a"
+ },
+ "lamp": {
+  "pole": "#3a3844",
+  "light": "#ffc888",
+  "height": 7,
+  "halo": 0.7,
+  "haloSize": 2,
+  "pool": 7,
+  "poolGlow": 0.5
+ },
+ "smoke": {
+  "style": "billows",
+  "colour": "#f0b8c8",
+  "shade": "#a682aa",
+  "bright": 1.05,
+  "tint": "#ffffff",
+  "opacity": 0.85,
+  "near": 0.2,
+  "drift": 0.8,
+  "offset": 0.4,
+  "clear": 0,
+  "size": 1,
+  "start": 1.2,
+  "spread": 4.5,
+  "life": 1,
+  "lifeGrow": 0.9,
+  "burst": 1.7,
+  "burstTime": 0.6,
+  "fade": 0.55,
+  "glow": 0.95,
+  "texture": "soft",
+  "maxRise": 1.3,
+  "maxSize": 4.2,
+  "screenTop": -0.15,
+  "carRadius": 1.9
+ },
+ "skid": {
+  "colour": "#0e0c14",
+  "opacity": 0.85
+ },
+ "camera": {
+  "dist": 5.6,
+  "height": 1.2,
+  "side": 0,
+  "look": 14,
+  "lookY": -0.5,
+  "travel": 0.6,
+  "fov": 52,
+  "turn": 8.0,
+  "swing": 3,
+  "turnDrift": -24.0
+ },
+ "tiers": {
+  "high": {
+   "cell": 6,
+   "far": 20,
+   "pines": 260,
+   "cherries": 0,
+   "nearPines": 160,
+   "nearCherries": 0,
+   "rocks": 40,
+   "ridge": 140,
+   "mist": 7,
+   "railPost": 3,
+   "smoke": 300,
+   "smokeDetail": 1,
+   "shadows": 2048,
+   "post": true,
+   "dpr": 1.75,
+   "scale": 1,
+   "env": 128,
+   "details": {
+    "tufts": 1400,
+    "stones": 500,
+    "bushes": 180,
+    "petals": 70,
+    "poles": 0
+   },
+   "carpet": 2000,
+   "billows": 90,
+   "carpetNear": 30
   },
-  "cherry": { "trunk": "#5e4444", "blossom": ["#ff6fa0", "#ff86b0", "#e0507e", "#ffa3c2"] },
-  "rail": { "beam": "#9a98a8", "beamLight": "#c8c6d4", "post": "#4a4858", "reflector": "#ffad42" },
-  "chevron": { "board": "#2a1e2e", "arrow": "#ff4f8e", "post": "#7a7488", "glow": 4.5, "count": 3 },
-  "post": { "white": "#f4efee", "band": "#2b2630", "reflector": "#ffb83a" },
-  "lamp": { "pole": "#3a3844", "light": "#ffc888", "height": 7, "halo": 0.7, "haloSize": 2, "pool": 7, "poolGlow": 0.5 },
-  "smoke": { "style": "billows", "colour": "#f0b8c8", "shade": "#a682aa", "bright": 1.05, "tint": "#ffffff", "opacity": 0.85, "near": 0.2, "drift": 0.8, "offset": 0.4, "clear": 0, "size": 1, "start": 1.2, "spread": 4.5, "life": 1, "lifeGrow": 0.9, "burst": 1.7, "burstTime": 0.6, "fade": 0.55, "glow": 0.95, "texture": "soft", "maxRise": 1.3, "maxSize": 4.2, "screenTop": -0.15, "carRadius": 1.9 },
-  "skid": { "colour": "#0e0c14", "opacity": 0.85 },
-  "camera": { "dist": 5.4, "height": 1.45, "side": 0, "look": 14, "lookY": 0.4, "travel": 0.6, "fov": 52, "turn": 0, "swing": 3, "turnDrift": -26 },
-  "tiers": {
-    "high": {
-      "cell": 6,
-      "far": 20,
-      "pines": 260,
-      "cherries": 0,
-      "nearPines": 160,
-      "nearCherries": 0,
-      "rocks": 40,
-      "ridge": 140,
-      "mist": 7,
-      "railPost": 3,
-      "smoke": 300,
-      "smokeDetail": 1,
-      "shadows": 2048,
-      "post": true,
-      "dpr": 1.75,
-      "scale": 1,
-      "env": 128,
-      "details": { "tufts": 1400, "stones": 500, "bushes": 180, "petals": 70, "poles": 0 },
-      "carpet": 2000,
-      "billows": 90,
-      "carpetNear": 30
-    },
-    "medium": {
-      "cell": 8,
-      "far": 28,
-      "pines": 240,
-      "cherries": 0,
-      "nearPines": 160,
-      "nearCherries": 0,
-      "rocks": 40,
-      "ridge": 160,
-      "mist": 5,
-      "railPost": 4,
-      "smoke": 160,
-      "smokeDetail": 1,
-      "shadows": 1024,
-      "post": true,
-      "dpr": 1.25,
-      "scale": 1,
-      "env": 64,
-      "details": { "tufts": 700, "stones": 250, "bushes": 90, "petals": 35, "poles": 0 },
-      "carpet": 1300,
-      "billows": 70,
-      "carpetNear": 30
-    },
-    "low": {
-      "cell": 12,
-      "far": 56,
-      "pines": 50,
-      "cherries": 0,
-      "nearPines": 60,
-      "nearCherries": 0,
-      "rocks": 24,
-      "ridge": 120,
-      "mist": 3,
-      "railPost": 6,
-      "smoke": 90,
-      "smokeDetail": 0,
-      "shadows": 0,
-      "post": false,
-      "dpr": 1.5,
-      "scale": 1,
-      "env": 32,
-      "details": { "tufts": 150, "stones": 60, "bushes": 30, "petals": 20, "poles": 0 },
-      "carpet": 420,
-      "billows": 45,
-      "carpetNear": 30
-    }
+  "medium": {
+   "cell": 8,
+   "far": 28,
+   "pines": 240,
+   "cherries": 0,
+   "nearPines": 160,
+   "nearCherries": 0,
+   "rocks": 40,
+   "ridge": 160,
+   "mist": 5,
+   "railPost": 4,
+   "smoke": 160,
+   "smokeDetail": 1,
+   "shadows": 1024,
+   "post": true,
+   "dpr": 1.25,
+   "scale": 1,
+   "env": 64,
+   "details": {
+    "tufts": 700,
+    "stones": 250,
+    "bushes": 90,
+    "petals": 35,
+    "poles": 0
+   },
+   "carpet": 1300,
+   "billows": 70,
+   "carpetNear": 30
   },
-  "facets": false,
-  "car": {
-    "tail": "#ff0a2a",
-    "tailGlow": 2,
-    "painted": false,
-    "gloss": { "env": 1, "roughness": 0.22, "coat": 0.06, "clearcoat": 1 }
-  },
-  "pole": { "wood": "#5b4140", "wire": "#2c2430" },
-  "lantern": { "stone": "#8a8690", "gate": "#d0402e", "bends": true, "size": 1.1, "pool": 5, "glow": 3 },
-  "surface": { "facet": 0.07, "blotch": 0.1, "grain": 0.02 },
-  "volcano": { "haze": 0.35, "rim": "#c4c8e0", "rimMix": 0.35, "hazeColour": "#7a84b0", "plume": "#3a3444" },
-  "key2": { "dir": [-0.7, 0.35, 0.6], "colour": "#ffb88a", "intensity": 1.4 },
-  "farUnlit": true
+  "low": {
+   "cell": 12,
+   "far": 56,
+   "pines": 50,
+   "cherries": 0,
+   "nearPines": 60,
+   "nearCherries": 0,
+   "rocks": 24,
+   "ridge": 120,
+   "mist": 3,
+   "railPost": 6,
+   "smoke": 90,
+   "smokeDetail": 0,
+   "shadows": 0,
+   "post": false,
+   "dpr": 1.5,
+   "scale": 1,
+   "env": 32,
+   "details": {
+    "tufts": 150,
+    "stones": 60,
+    "bushes": 30,
+    "petals": 20,
+    "poles": 0
+   },
+   "carpet": 420,
+   "billows": 45,
+   "carpetNear": 30
+  }
+ },
+ "facets": false,
+ "car": {
+  "tail": "#ff0a2a",
+  "tailGlow": 2,
+  "painted": false,
+  "gloss": {
+   "env": 1,
+   "roughness": 0.22,
+   "coat": 0.06,
+   "clearcoat": 1
+  }
+ },
+ "pole": {
+  "wood": "#5b4140",
+  "wire": "#2c2430"
+ },
+ "lantern": {
+  "stone": "#8a8690",
+  "gate": "#d0402e",
+  "bends": true,
+  "size": 1.1,
+  "pool": 5,
+  "glow": 3
+ },
+ "surface": {
+  "facet": 0.07,
+  "blotch": 0.1,
+  "grain": 0.02
+ },
+ "volcano": {
+  "haze": 0.35,
+  "rim": "#c4c8e0",
+  "rimMix": 0.35,
+  "hazeColour": "#7a84b0",
+  "plume": "#3a3444"
+ },
+ "key2": {
+  "dir": [
+   -0.7,
+   0.35,
+   0.6
+  ],
+  "colour": "#ffb88a",
+  "intensity": 1.4
+ },
+ "farUnlit": true
 }
