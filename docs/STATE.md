@@ -169,6 +169,12 @@ A switch **of the session** (key **K**, the violet chip, `?mode=creative`): ever
   Round 2: the intake noise about 10 dB down, two resonances on the 5th and 8th order of the firing (the scream between 600 Hz and
   2.5 kHz), each cylinder its own strength and delay (half orders), 24 dB per octave under 80 Hz in the loops and a high-pass after
   the pitch (0.6 % of the energy under 100 Hz at full throttle); only the heard loops play (at most 4 instead of 10).
+  **Tyres** (`game/sim/tyresound.js`, one noise per voice into four layers): rolling (a low rumble growing with speed), a hiss at a
+  little slip, a squeal between 500 and 1500 Hz in a drift (two narrow band-passes, a 5.5 Hz wobble, louder under load, sinking as the
+  angle grows), a rough scrub at a big angle. Proof: `node tools/sound/ramp.mjs 1 ae86 '&scene=tyres'` writes
+  `docs/sound/ae86-tyres.wav` (10 s, the engine muted) and `.png`. **The other drivers** now play the same engine loops in one layer
+  (at most two loops each): at most 4 + 4 x 2 = 12 loop sources and 5 noise sources at once (a test checks the 12); a loop whose gain is
+  under 1 % is stopped at once. No rim blur yet (the rims sit in the wheel's palette; it would need its own blurred disc).
 
 - **No files:** everything is made in the browser with WebAudio (`game/view/sound.js`), the numbers come from `game/sim/engine.js` (pure, tested). **Engine:** two oscillators (a sawtooth and a square one octave lower) through a low-pass filter; the revs come from a **virtual gearbox** (gears per car, the revs rise in a gear and fall at the shift, a little hysteresis), the pitch is the firing frequency (cylinders / 2 per revolution); the volume follows throttle and revs. **Each car sounds different** (`ENGINES`: Dart a lively four, Pip a small buzzy three, Bruno a low V8, Marlin a smooth six, Ox a heavy turbo diesel with a whistle when the throttle is lifted at high revs). **Tyres:** looped noise through a band-pass, louder and higher the further the rear slides (silent under a slide of 0.25 or at a crawl).
 - **Others:** only the **four nearest** other cars get a voice (a pool of four, reused), the volume falls with distance (nothing past 70 m), the pan follows the side they are on; their throttle and slide are guessed from the pose flags.

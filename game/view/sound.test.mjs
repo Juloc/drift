@@ -105,3 +105,17 @@ test('a new device starts muted, the volume is kept and capped behind a limiter'
   assert.equal(s.volume, 1); assert.ok(s.master.gain.value <= 0.5 + 1e-9, 'the master gain is at most half');
   assert.equal(st.m.get('drift.volume'), '1');
 });
+
+test('the other cars play the same loops in one layer: never more than 4 + 4 x 2 = 12 loop sources, and quiet voices stop theirs', () => {
+  const { Ctx } = fakeAudio();
+  const s = new SoundSystem({ AudioCtx: Ctx, storage: store() }); s.unlock();
+  let most = 0;
+  for (let k = 0; k < 40; k++) {
+    s.update({ ...own, speed: 5 + k * 0.7, car: 1 }, cars.map((c) => ({ ...c, car: 1, speed: 4 + ((k + c.id) % 25), throttle: (k + c.id) % 2 })), { x: 0, z: 0, heading: 0 });
+    most = Math.max(most, s.loopsPlaying);
+  }
+  assert.ok(most > 4 && most <= 12, `${most} loop sources at most`);
+  for (const v of s.pool) if (v.bank.length) assert.ok(v.bank.every((b) => b.layer === 'on'), 'the others: on-load layer only');
+  s.update(own, [], { x: 0, z: 0 });
+  assert.ok(s.loopsPlaying <= 4, 'the others went quiet: their loops stopped');
+});
