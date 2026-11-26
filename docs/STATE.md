@@ -769,3 +769,4 @@ A static page with sample data, no server logic, no inline script; every text th
 - Proof: `node tools/simdrive.mjs --mode=sport --keys= --seconds=9 --probe "--query=auto=30&cam=action"` (auto=30: a test driver that holds a 30 degree drift; cam=calm for comparison). Drift frames: Action largest jump 0.7-1.2 cm, camera turn 0.8-1.4 deg/frame; Calm 4.4 cm. Car seen at 23-36 deg in the picture at 25-35 deg body angle. One run showed 55 cm once (probably a wall hit of the test driver).
 - The brief's weight 0.75 toward travel shows the car at only about 8 deg; the picture target (20-30 deg) needed 0.65, which is what is built.
 - Pictures: `action-drift-pc.png`, `action-drift-phone.png`, `calm-drift-phone.png`.
+- Round 3 addition: sim2.js with `smokeOf(s, car, i)` (tread heats by power per contact area), `tools/smokecheck.mjs` (held drift: both rear wheels 100 %); picture `docs/screenshots/sim2/drift-smoke-both.png`.

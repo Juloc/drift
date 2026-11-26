@@ -137,7 +137,10 @@ export function step(s, input, car, A = ASSISTS.arcade, env = FLAT, dt = DT) {
   s.beta = s.speed > 1 ? Math.atan2(vlat, Math.abs(vlon)) : 0;
   s.rpm = s.we * RPM;
   s.slide = clamp(Math.max(s.sn[2], s.sn[3]) - 0.8, 0, 1); s.ax = s.alon;
-  for (let i = 0; i < 4; i++) s.temp[i] += dt * (s.heat[i] / 450 - (s.temp[i] - 30) / 4);   // the tread's surface: heats with the sliding power (20 kW held: about 210 deg C), cools in about 4 s
+  // the tread's surface: it heats with the sliding power PER AREA of the contact patch (the patch grows with the load, so a lightly loaded wheel that
+  // slides as fast gets as hot: both rear wheels of a drift smoke, not only the loaded one); 20 kW on a normally loaded wheel held: about 240 deg C;
+  // it cools in about 4 s
+  for (let i = 0; i < 4; i++) s.temp[i] += dt * (heatOf(s, car, i) / 380 - (s.temp[i] - 30) / 4);
   return s;
 }
 
@@ -322,11 +325,18 @@ export function squealOf(s, car, i) {
   return clamp((s.sn[i] - 0.75) / 0.6, 0, 1) * clamp((s.slip[i] - 0.4) / 3.5, 0, 1) * clamp(s.fz[i] / z0, 0, 1.3) / 1.3;
 }
 
+/** The sliding power of wheel `i` as if it carried its normal load (W): what heats the tread and makes the smoke, whatever the wheel's load. */
+export function heatOf(s, car, i) {
+  const z0 = (car.mass * G * (i < 2 ? car.b : car.a)) / car.wheelbase / 2;
+  return (s.heat[i] / Math.max(s.fz[i], 0.15 * z0)) * z0;
+}
+
 /**
- * How much wheel `i` smokes, 0..1: rubber smokes when the tread is hot (over about 105 deg C, so only after a moment of hard sliding) and the sliding
- * power is high (over 6 kW at that wheel, so the lightly loaded inner wheel of a drift smokes too; 32 kW is a full burnout). A brisk bend, ABS braking and a short chirp give none; a locked wheel, a held drift
- * and a burnout do.
+ * How much wheel `i` smokes, 0..1: rubber smokes when the tread is hot (over about 100 deg C, so only after a moment of hard sliding) and slides hard
+ * (over 6 kW for a normally loaded wheel; 32 kW is a full burnout). A lightly loaded wheel smokes at the same moment, a little less (smaller patch).
+ * A brisk bend, ABS braking and a short chirp give none; a locked wheel, a held drift and a burnout do.
  */
-export function smokeOf(s, i) {
-  return clamp((s.temp[i] - 105) / 60, 0, 1) * clamp((s.heat[i] - 6000) / 26000, 0, 1) ** 0.7;
+export function smokeOf(s, car, i) {
+  const z0 = (car.mass * G * (i < 2 ? car.b : car.a)) / car.wheelbase / 2;
+  return clamp((s.temp[i] - 100) / 60, 0, 1) * clamp((heatOf(s, car, i) - 6000) / 26000, 0, 1) ** 0.7 * clamp(s.fz[i] / z0, 0.35, 1.2) ** 0.5 / 1.2 ** 0.5;
 }

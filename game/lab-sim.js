@@ -144,7 +144,7 @@ function readout() {
   const rows = [[t('mode'), t(mode)], [t('car'), carNo === 0 ? t('drift') : t('stock')], [t('gearbox'), manual ? t('manual') : t('auto')], [t('bodyAngle'), `${Math.round((s.beta * 180) / Math.PI)}\u00b0`]];
   if (!coarse) rows.push([t('rpm'), String(Math.round(s.rpm))], [t('yaw'), `${((s.w * 180) / Math.PI).toFixed(0)}\u00b0/s`]);   // (a phone's card is short: nothing may lie over the car)
   cMode.replaceChildren(...rows.map(([k, v]) => { const d = el('div'); d.append(`${k}: `, el('b', '', v)); return d; }));
-  for (let i = 0; i < 4; i++) { wc[i].si.style.width = `${clamp((s.sn[i] / 2) * 100, 0, 100)}%`; wc[i].si.classList.toggle('red', s.sn[i] > 1); wc[i].li.style.width = `${clamp((s.fz[i] / 6000) * 100, 0, 100)}%`; wc[i].v.textContent = `${s.sn[i].toFixed(2)}  ${Math.round(s.fz[i])} N`; wc[i].v2.textContent = `${Math.round(s.temp[i])}\u00b0C  ${t('sq')} ${squealOf(s, C, i).toFixed(2)}  ${t('sm')} ${smokeOf(s, i).toFixed(2)}`; }
+  for (let i = 0; i < 4; i++) { wc[i].si.style.width = `${clamp((s.sn[i] / 2) * 100, 0, 100)}%`; wc[i].si.classList.toggle('red', s.sn[i] > 1); wc[i].li.style.width = `${clamp((s.fz[i] / 6000) * 100, 0, 100)}%`; wc[i].v.textContent = `${s.sn[i].toFixed(2)}  ${Math.round(s.fz[i])} N`; wc[i].v2.textContent = `${Math.round(s.temp[i])}\u00b0C  ${t('sq')} ${squealOf(s, C, i).toFixed(2)}  ${t('sm')} ${smokeOf(s, C, i).toFixed(2)}`; }
   drawG();
 }
 
@@ -207,7 +207,7 @@ function marksAndSmoke() {
     stage.skids.mark(skidIdx[i], X(s.x + lz0 * sh - lx * ch), s.z + lz0 * ch + lx * sh, 0, 0, s.sn[i] > 1 && s.slip[i] > 1 && moving, g, 0, 0);
     // smoke by smokeOf(): the rate and the size follow it, nothing at 0. It starts where the look's smoke starts (a little behind and outside the tyre: the smoke keeps a
     // hole round the car, a puff inside it would not show).
-    const k = smokeOf(s, i);
+    const k = smokeOf(s, CARS[carNo], i);
     acc[i] = k > 0 ? Math.min(acc[i] + k, 1.5) : 0;
     if (acc[i] >= 0.5) {
       acc[i] -= 0.5;
