@@ -5,6 +5,7 @@
 // (browsers forbid it, and a page that makes noise by itself is rude); mute is kept on the device; music is only a switch for now (a placeholder, no sound behind it).
 import { ENGINES, revs, firing, engineGain, squeal, turboWhistle, nearest } from '../sim/engine.js';
 import { loopRpms, renderLoop, loopWeights, layerLevels, limiterDepth } from '../sim/enginesynth.js';
+import { tyreLayers } from '../sim/tyresound.js';
 
 export const MAX_OTHERS = 4;
 
@@ -21,11 +22,15 @@ class Voice {
     this.bGain = ctx.createGain();
     this.a.connect(this.filter); this.b.connect(this.bGain); this.bGain.connect(this.filter);
     this.a.start(); this.b.start();
-    // tyres: looped noise through a band-pass
+    // tyres (sim/tyresound.js): one looped noise into four layers: roll (low-pass), hiss (band-pass high), squeal (two narrow band-passes,
+    // the pitch wobbling at 5.5 Hz), scrub (a wide band-pass low); `tyreGain` is the level of all four (the distance)
     this.tyre = ctx.createBufferSource(); this.tyre.buffer = noise; this.tyre.loop = true;
-    this.tyreFilter = ctx.createBiquadFilter(); this.tyreFilter.type = 'bandpass'; this.tyreFilter.frequency.value = 1200; this.tyreFilter.Q.value = 2.5;
-    this.tyreGain = ctx.createGain(); this.tyreGain.gain.value = 0;
-    this.tyre.connect(this.tyreFilter); this.tyreFilter.connect(this.tyreGain); this.tyreGain.connect(this.pan ?? out); if (this.pan) { /* the tyres share the pan */ }
+    this.tyreGain = ctx.createGain(); this.tyreGain.gain.value = 0; this.tyreGain.connect(this.pan ?? out);
+    const layer = (type, f, q) => { const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = ctx.createGain(); g.gain.value = 0; this.tyre.connect(fl); fl.connect(g); g.connect(this.tyreGain); return { fl, g }; };
+    this.roll = layer('lowpass', 300, 0.7); this.hiss = layer('bandpass', 3200, 0.8); this.squealA = layer('bandpass', 1000, 18); this.squealB = layer('bandpass', 1500, 22); this.scrub = layer('bandpass', 450, 1.2);
+    this.wobble = ctx.createOscillator(); this.wobble.frequency.value = 5.5; this.wobbleDepth = ctx.createGain(); this.wobbleDepth.gain.value = 0;
+    this.wobble.connect(this.wobbleDepth); this.wobbleDepth.connect(this.squealA.fl.frequency); this.wobble.start();
+    this.tyreFilter = this.squealA.fl;   // (the name the first tests used)
     this.tyre.start();
     // the turbo's whistle
     this.whistle = ctx.createOscillator(); this.whistle.type = 'sine'; this.whistle.frequency.value = 2600;
@@ -42,14 +47,20 @@ class Voice {
     this.a.frequency.setTargetAtTime(f, t, 0.04); this.b.frequency.setTargetAtTime(f / 2, t, 0.04);
     this.filter.frequency.setTargetAtTime(eng.tone + 2200 * throttle + 1200 * ((r.rpm - eng.idle) / (eng.max - eng.idle)), t, 0.06);
     this.gain.gain.setTargetAtTime(engineGain(throttle, r.rpm, eng) * level * 0.3, t, 0.05);
-    const q = squeal(slide, speed);
-    this.tyreGain.gain.setTargetAtTime(q.gain * level * 0.3, t, 0.05); this.tyreFilter.frequency.setTargetAtTime(q.freq, t, 0.05);
+    const ty = tyreLayers(slide, speed, throttle);
+    this.tyreGain.gain.setTargetAtTime(level * 0.35, t, 0.05);
+    this.roll.g.gain.setTargetAtTime(ty.roll, t, 0.08); this.roll.fl.frequency.setTargetAtTime(ty.rollF, t, 0.08);
+    this.hiss.g.gain.setTargetAtTime(ty.hiss, t, 0.05);
+    this.squealA.g.gain.setTargetAtTime(ty.squeal * 2.2, t, 0.04); this.squealA.fl.frequency.setTargetAtTime(ty.squealF, t, 0.06);   // (a narrow band lets little through: louder)
+    this.squealB.g.gain.setTargetAtTime(ty.squeal * 1.1, t, 0.04); this.squealB.fl.frequency.setTargetAtTime(ty.squealF * 1.52, t, 0.06);
+    this.wobbleDepth.gain.setTargetAtTime(ty.squealF * 0.025, t, 0.1);
+    this.scrub.g.gain.setTargetAtTime(ty.scrub, t, 0.05); this.scrub.fl.frequency.setTargetAtTime(ty.scrubF, t, 0.08);
     this.whistleGain.gain.setTargetAtTime(turboWhistle(throttle, this.prevThrottle, r.rpm, eng) * level * 0.03, t, 0.03);
     this.prevThrottle = throttle;
     if (this.pan) this.pan.pan.setTargetAtTime(pan, t, 0.1);
     this.active = true;
   }
-  silence() { const t = this.ctx.currentTime; this.gain.gain.setTargetAtTime(0, t, 0.05); this.tyreGain.gain.setTargetAtTime(0, t, 0.05); this.whistleGain.gain.setTargetAtTime(0, t, 0.05); this.active = false; }
+  silence() { const t = this.ctx.currentTime; this.gain.gain.setTargetAtTime(0, t, 0.05); this.tyreGain.gain.setTargetAtTime(0, t, 0.05); for (const l of [this.roll, this.hiss, this.squealA, this.squealB, this.scrub]) l.g.gain.setTargetAtTime(0, t, 0.05); this.whistleGain.gain.setTargetAtTime(0, t, 0.05); this.active = false; }
 }
 
 /**
@@ -59,10 +70,10 @@ class Voice {
  * limiter's flutter (a 13 Hz square wave added to its gain). The tyres and the turbo stay as in Voice.
  */
 class LoopVoice extends Voice {
-  constructor(ctx, out, noise, loopsFor, keepAll = false) {
+  constructor(ctx, out, noise, loopsFor, keepAll = false, { cheap = false } = {}) {
     super(ctx, out, noise);
-    this.loopsFor = loopsFor; this.keepAll = keepAll; this.playing = 0; this.maxPlaying = 0;
-    try { this.a.disconnect?.(); this.bGain.disconnect?.(); } catch { /* the fake context in tests */ }
+    this.loopsFor = loopsFor; this.keepAll = keepAll; this.cheap = cheap; this.playing = 0; this.maxPlaying = 0;   // cheap: the other cars, the on-load layer only (at most two loops)
+    try { this.a.disconnect?.(); this.bGain.disconnect?.(); this.a.stop?.(); this.b.stop?.(); } catch { /* the fake context in tests */ }
     this.dip = ctx.createGain(); this.dip.gain.value = 1;
     // a low cut after the pitch follows the revs (the loops' own cut moves down when they play slower): nothing under 80 Hz reaches a phone's speaker
     this.lowCut = ctx.createBiquadFilter(); this.lowCut.type = 'highpass'; this.lowCut.frequency.value = 80; this.lowCut.Q.value = 0.7;
@@ -78,7 +89,7 @@ class LoopVoice extends Voice {
     const loops = this.loopsFor(car);   // { rpms, on: [{data, rpm}], off: [...] }
     this.rpms = loops.rpms;
     this.bank = [];
-    for (const layer of ['on', 'off']) loops[layer].forEach((l, i) => {
+    for (const layer of this.cheap ? ['on'] : ['on', 'off']) loops[layer].forEach((l, i) => {
       const buf = this.ctx.createBuffer(1, l.data.length, this.ctx.sampleRate); buf.getChannelData(0).set(l.data);
       const gain = this.ctx.createGain(); gain.gain.value = 0; gain.connect(this.dip);
       const b = { layer, i, rpm: l.rpm, buf, gain, src: null, quietSince: 0 };
@@ -96,17 +107,18 @@ class LoopVoice extends Voice {
     try { b.src.stop?.(); b.src.disconnect?.(); } catch { /* gone */ }
     b.src = null; this.playing--;
   }
+  silence() { super.silence(); if (!this.keepAll) for (const b of this.bank) this.stopLoop(b); }
   set(o, level, pan) {
     const gearBefore = this.gear;
     super.set(o, level, pan);   // tyres, turbo, pan, the gear and the overall gain
     const t = this.ctx.currentTime, eng = this.eng, r = revs(o.speed, o.top, eng, gearBefore);
     this.rpm = r.rpm;
-    const w = loopWeights(r.rpm, this.rpms), lv = layerLevels(o.throttle, r.rpm, eng);
+    const w = loopWeights(r.rpm, this.rpms), lv = this.cheap ? { on: 0.6 + 0.4 * Math.max(0, Math.min(1, o.throttle)) } : layerLevels(o.throttle, r.rpm, eng);
     for (const b of this.bank) {
       const want = w[b.i] * lv[b.layer];
-      if (want > 0.002) { if (!b.src) this.startLoop(b); b.quietSince = t; }
-      else if (b.src && !this.keepAll && t - b.quietSince > 0.15) this.stopLoop(b);   // faded out by now: stop it
       b.gain.gain.setTargetAtTime(want, t, 0.03);
+      if (want > 0.002) { if (!b.src) this.startLoop(b); b.quietSince = t; }
+      else if (b.src && !this.keepAll && (b.gain.gain.value < 0.01 || t - b.quietSince > 0.15)) this.stopLoop(b);   // faded out (its gain under 1 %, so no click), or 0.15 s gone: stop it
       if (b.src) { if (b.src.playbackRate?.setTargetAtTime) b.src.playbackRate.setTargetAtTime(r.rpm / b.rpm, t, 0.03); }
     }
     if (r.gear > gearBefore && o.throttle > 0.3) { this.dip.gain.setTargetAtTime?.(0.25, t, 0.008); this.dip.gain.setTargetAtTime?.(1, t + 0.05, 0.03); }   // the clutch: a short cut at the upshift, soft edges (no click)
@@ -149,7 +161,7 @@ export class SoundSystem {
         return this.loopCache.get(car);
       };
       this.own = new LoopVoice(this.ctx, this.master, noise, loopsFor, this.keepAllLoops);
-      for (let i = 0; i < MAX_OTHERS; i++) this.pool.push(new Voice(this.ctx, this.master, noise));
+      for (let i = 0; i < MAX_OTHERS; i++) this.pool.push(new LoopVoice(this.ctx, this.master, noise, loopsFor, false, { cheap: true }));   // the other drivers: the same engine, one layer
       return true;
     } catch { this.ctx = null; return false; }   // no audio here: the game goes on without it
   }
@@ -193,6 +205,8 @@ export class SoundSystem {
     }
   }
   get activeOthers() { return this.pool.filter((v) => v.active).length; }
+  /** Loop sources playing now (yours and the others'): at most 4 + 4 x 2 = 12; plus one noise source per voice for the tyres. */
+  get loopsPlaying() { return (this.own?.playing ?? 0) + this.pool.reduce((n, v) => n + (v.playing ?? 0), 0); }
 
   /**
    * Every frame. own = { speed, throttle, slide, car, top }, others = [{ id, x, z, speed, throttle, slide, car, top }], listener = { x, z, heading }.

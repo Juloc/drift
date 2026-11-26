@@ -3,28 +3,41 @@
 // WAV of it. window.__ramp = { png, wav } (base64) for tools/sound/ramp.mjs. Address: ?car=1 (the car id), ?sr=22050.
 import { SoundSystem } from '../../game/view/sound.js';
 
-const q = new URLSearchParams(location.search), car = +(q.get('car') ?? 1), SR = +(q.get('sr') ?? 22050), SECS = 13, top = 33;
+const q = new URLSearchParams(location.search), car = +(q.get('car') ?? 1), SR = +(q.get('sr') ?? 22050), top = 33;
+const tyres = q.get('scene') === 'tyres';   // ?scene=tyres: the tyres alone (the engine muted) through roll, turn-in, drift, a switch, a big angle, roll-out
+const SECS = tyres ? 10 : 13;
 class Offline { constructor() { return new OfflineAudioContext(1, SR * SECS, SR); } }
 const store = { getItem: (k) => ({ 'drift.mute': '0', 'drift.volume': '1' })[k] ?? null, setItem() {} };
 const s = new SoundSystem({ AudioCtx: Offline, storage: store, keepAllLoops: q.has('all') });   // ?all=1: all ten loops play all the time (to compare the cost)
 s.unlock();
 const ctx = s.ctx;
+if (tyres) s.own.lowCut.disconnect();   // the engine's loops out of the mix: only the tyres are heard
 // the drive: [time, speed m/s, throttle]
+const lerp = (a, b, t0, t1, t) => a + (b - a) * Math.max(0, Math.min(1, (t - t0) / (t1 - t0)));
+// the tyre drive: [speed, throttle, slide]
+const tyreDrive = (t) => {
+  if (t < 2) return [lerp(0, 20, 0, 2, t), 0.6, 0];   // rolling away
+  if (t < 3) return [20, 0.5, lerp(0, 0.18, 2, 3, t)];   // turning in: a little slip
+  if (t < 5.5) return [20, 0.85, lerp(0.18, 0.6, 3, 3.6, t)];   // the drift held
+  if (t < 6.5) return [19, 0.7, t < 6 ? lerp(0.6, 0.08, 5.5, 6, t) : lerp(0.08, 0.65, 6, 6.5, t)];   // the switch left to right
+  if (t < 8) return [18, 0.9, lerp(0.65, 0.95, 6.5, 7, t)];   // a big angle: scrubbing
+  return [lerp(18, 4, 8, 10, t), 0, lerp(0.95, 0, 8, 8.8, t)];   // rolling out
+};
 const drive = (t) => {
   if (t < 1) return [0, 0];
   if (t < 8) return [top * ((t - 1) / 7) ** 0.8, 1];   // full throttle through the gears
   if (t < 9.5) return [top, 1];   // at the limiter
   return [Math.max(0, top - (t - 9.5) * 4), 0];   // throttle shut, coasting
 };
-const marks = [[0, 'idle'], [1, 'full throttle through the gears'], [8, 'limiter'], [9.5, 'throttle shut: off load, pops']];
+const marks = tyres ? [[0, 'rolling away'], [2, 'turn-in'], [3, 'drift held'], [5.5, 'switch'], [6.5, 'big angle'], [8, 'rolling out']] : [[0, 'idle'], [1, 'full throttle through the gears'], [8, 'limiter'], [9.5, 'throttle shut: off load, pops']];
 const step = 128 / SR * 4;   // every four render quanta (23 ms at 22 kHz)
 let lastThrottle = 0;
 for (let t = 0; t < SECS - step; t += step) {
   const at = Math.round(t * SR / 128) * 128 / SR;
   ctx.suspend(at).then(() => {
-    const [speed, throttle] = drive(at);
-    s.update({ speed, throttle, slide: 0, car, top }, [], { x: 0, z: 0, heading: 0 });
-    if (lastThrottle > 0.7 && throttle < 0.2) s.pop(1, at * 1000);   // as the game does it (main.js)
+    const [speed, throttle, slide = 0] = tyres ? tyreDrive(at) : drive(at);
+    s.update({ speed, throttle, slide, car, top }, [], { x: 0, z: 0, heading: 0 });
+    if (!tyres && lastThrottle > 0.7 && throttle < 0.2) s.pop(1, at * 1000);   // as the game does it (main.js)
     lastThrottle = throttle;
     ctx.resume();
   });
@@ -62,7 +75,7 @@ for (let px = 0; px < W; px++) {
 }
 x.fillStyle = '#000'; x.fillRect(0, 0, W, 560); x.putImageData(img, 0, top0);
 x.font = '14px sans-serif'; x.fillStyle = '#fff';
-x.fillText(`engine of car ${car}: spectrogram of the game's own sound (game/view/sound.js), ${SECS} s, 40 to 6000 Hz on a log scale`, 8, 15);
+x.fillText(`${tyres ? 'tyres' : 'engine'} of car ${car}: spectrogram of the game's own sound (game/view/sound.js), ${SECS} s, 40 to 6000 Hz on a log scale`, 8, 15);
 for (const [t, label] of marks) { const px = (t / (d.length / SR)) * W; x.fillStyle = 'rgba(255,255,255,0.6)'; x.fillRect(px, top0, 1, H); x.fillStyle = '#fff'; x.fillText(label, px + 4, top0 + 16); }
 for (const f of [100, 200, 500, 1000, 2000, 5000]) { const y = top0 + (H - 1) * (1 - Math.log(f / fLo) / Math.log(fHi / fLo)); x.fillStyle = 'rgba(255,255,255,0.35)'; x.fillRect(0, y, 30, 1); x.fillStyle = '#ddd'; x.fillText(f + ' Hz', 34, y + 4); }
 

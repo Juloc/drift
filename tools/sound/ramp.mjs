@@ -1,5 +1,5 @@
 // Writes the engine ramp of a car (tools/sound/ramp.html, headless Chromium): docs/sound/<name>-ramp.png (spectrogram) and .wav.
-// Usage: node tools/sound/ramp.mjs [car=1] [name=ae86]   (serves the repository itself on a free port)
+// Usage: node tools/sound/ramp.mjs [car=1] [name=ae86] [extra]   (extra '&scene=tyres' for the tyres alone, '&all=1' to compare the cost)   (serves the repository itself on a free port)
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,6 +17,7 @@ server.close();
 const body = out.split('\nconsole:')[0];
 const r = JSON.parse(body.slice(body.indexOf('{'), body.lastIndexOf('}') + 1));
 fs.mkdirSync(path.join(root, 'docs/sound'), { recursive: true });
-fs.writeFileSync(path.join(root, `docs/sound/${name}-ramp.png`), Buffer.from(r.png, 'base64'));
-fs.writeFileSync(path.join(root, `docs/sound/${name}-ramp.wav`), Buffer.from(r.wav, 'base64'));
-console.log(`docs/sound/${name}-ramp.png and .wav (peak ${r.peak.toFixed(3)}; energy under 100 Hz at full throttle ${(100 * r.lowShare).toFixed(1)} %; ${r.seconds} s of sound rendered in ${r.renderMs} ms, at most ${r.maxPlaying} loops playing at once)`);
+const base = extra.includes('scene=tyres') ? `${name}-tyres` : `${name}-ramp`;
+fs.writeFileSync(path.join(root, `docs/sound/${base}.png`), Buffer.from(r.png, 'base64'));
+fs.writeFileSync(path.join(root, `docs/sound/${base}.wav`), Buffer.from(r.wav, 'base64'));
+console.log(`docs/sound/${base}.png and .wav (peak ${r.peak.toFixed(3)}; energy under 100 Hz at full throttle ${(100 * r.lowShare).toFixed(1)} %; ${r.seconds} s of sound rendered in ${r.renderMs} ms, at most ${r.maxPlaying} loops playing at once)`);
