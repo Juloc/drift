@@ -192,8 +192,65 @@ function resultView() {
       h('a', { class: 'go small', href: '#garage' }, h('span', {}, t('next')), icon('chevrons', 'ic go-chev'))));
 }
 
+// ---------------------------------------------------------------- settings (also inside the pause): controls, graphics, sound, language
+const SET = { tab: 'controls', steer: 'steerStick', sens: 60, vib: true, quality: 'qAuto', smoke: true, shadows: true, fps: false, cam: 'camChase', master: 80, engine: 70, music: 40, effects: 75 };
+function settingsPanel() {
+  const TABS = [['controls', 'tabControls', 'gamepad'], ['graphics', 'tabGraphics', 'monitor'], ['sound', 'tabSound', 'sound'], ['language', 'tabLanguage', 'globe']];
+  const redraw = () => show();
+  const seg = (key, options) => h('div', { class: 'seg' }, options.map((o) => h('button', { type: 'button', class: SET[key] === o ? 'on' : '', onclick: () => { SET[key] = o; redraw(); } }, t(o))));
+  const toggle = (key) => h('button', { type: 'button', role: 'switch', 'aria-checked': String(SET[key]), class: `switch${SET[key] ? ' on' : ''}`, onclick: () => { SET[key] = !SET[key]; redraw(); } }, h('i'));
+  const slider = (key) => h('span', { class: 'slider' }, h('input', { type: 'range', min: 0, max: 100, value: SET[key], 'aria-label': t(key), oninput: (e) => { SET[key] = +e.target.value; e.target.nextSibling.textContent = SET[key]; e.target.style.setProperty('--v', `${SET[key]}%`); } }), h('b', { class: 'num' }, SET[key]));
+  const row = (label, control) => h('div', { class: 'set-row' }, h('span', {}, t(label)), control);
+  const key = (label, ...caps) => h('div', { class: 'key-row' }, h('span', {}, t(label)), h('span', { class: 'caps' }, caps.map((c) => h('kbd', {}, c))));
+  const content = {
+    controls: () => [row('steering', seg('steer', ['steerStick', 'steerButtons', 'steerTilt'])), row('sensitivity', slider('sens')), row('vibration', toggle('vib')),
+      h('h3', {}, t('keys')), key('keyGas', 'W', '↑'), key('keyBrake', 'S', '↓'), key('keySteer', 'A', 'D', '←', '→'), key('keyHand', t('space')), key('keyCam', 'C'), key('keyHud', 'H')],
+    graphics: () => [row('quality', seg('quality', ['qAuto', 'qHigh', 'qMedium', 'qLow'])), row('camera', seg('cam', ['camChase', 'camBonnet', 'camCockpit'])), row('smoke', toggle('smoke')), row('shadows', toggle('shadows')), row('fps', toggle('fps'))],
+    sound: () => ['master', 'engine', 'music', 'effects'].map((k) => row(k, slider(k))),
+    language: () => [h('div', { class: 'seg big' }, [['de', 'langDe'], ['en', 'langEn']].map(([l, k]) => h('button', { type: 'button', class: lang === l ? 'on' : '', onclick: () => { setLang(l); redraw(); } }, t(k))))],
+  };
+  return h('section', { class: 'card settings' },
+    h('nav', { class: 'set-tabs' }, TABS.map(([id, k, ic]) => h('button', { type: 'button', class: SET.tab === id ? 'on' : '', onclick: () => { SET.tab = id; redraw(); } }, icon(ic, 'ic tiny'), t(k)))),
+    h('div', { class: 'set-body' }, h('h2', {}, t(TABS.find((x) => x[0] === SET.tab)[1])), content[SET.tab]()));
+}
+function settingsView() {
+  return h('main', { class: 'view settings-view' }, nav('einstellungen'), h('header', { class: 'page-head' }, h('h1', {}, t('settings'))), settingsPanel());
+}
+function pauseView() {
+  return h('main', { class: 'view pause' },
+    h('section', { class: 'card pause-card' },
+      h('div', { class: 'pause-head' }, icon('pause', 'ic big'), h('h1', {}, t('pause'))),
+      h('small', { class: 'over' }, t('resultMode')),
+      h('a', { class: 'go small', href: '#hud' }, icon('play', 'ic go-play'), h('span', {}, t('resume'))),
+      h('a', { class: 'chip-btn big', href: '#hud' }, icon('retry', 'ic tiny'), t('restart')),
+      h('a', { class: 'chip-btn big', href: '#garage' }, icon('garage', 'ic tiny'), t('toGarage'))),
+    settingsPanel());
+}
+
+// ---------------------------------------------------------------- the HUD while driving: the game's own HUD (view/probehud.js) with sample values; on the phone the touch controls of the sheets
+let ProbeHudClass = null, roadShape = null;
+function hudView() {
+  const root = h('div', { id: 'phud' });
+  const view = h('main', { class: 'view hud-view' }, root,
+    h('a', { class: 'hud-pause', href: '#pause', 'aria-label': t('hudPause') }, icon('pause', 'ic tiny')));
+  if (phone) view.append(
+    h('div', { class: 'stick', 'aria-label': t('keySteer') }, h('span', { class: 'stick-knob' })),
+    h('div', { class: 'pedals' },
+      h('button', { type: 'button', class: 'pedal hand' }, t('hudHand')),
+      h('button', { type: 'button', class: 'pedal brake' }, t('hudBrake')),
+      h('button', { type: 'button', class: 'pedal gas' }, t('hudGas'))));
+  if (ProbeHudClass && roadShape) {
+    const T = { lap: t('hLap'), time: t('hTime'), best: t('hBest'), score: t('hScore'), position: t('hPosition'), angle: t('hAngle'), gear: t('hGear'), gas: t('hGas'), brake: t('hBrake'), hand: t('hHand'), lost: t('hLost'), online: t('hOnline'), bestDrift: t('hBestDrift') };
+    const hud = new ProbeHudClass(root, T, lang, { road: roadShape, plaza: [], closed: false });
+    const i = 260, [ax, az] = roadShape[i], [bx, bz] = roadShape[i + 2];
+    const car = { kmh: 118, forward: 1, slip: (42 * Math.PI) / 180, x: ax, z: az, h: Math.atan2(-(bx - ax), bz - az) };
+    hud.update({ free: false, lap: 2, laps: 3, ms: 58731, best: 86980, pos: 2, of: 6, name: '' }, car, { throttle: 0.9, brake: 0, handbrake: 0.3 }, { banked: 22140, pending: 2540, mult: 3.6, chainTime: 1.1, drifting: true, grace: 0, event: null }, [], 1);
+  }
+  return view;
+}
+
 // ---------------------------------------------------------------- the lab's own menu: every view one tap away (for the owner on the phone)
-const LAB_VIEWS = [['garage', 'viewGarage'], ['welt', 'viewNav'], ['modi', 'viewModes'], ['strecken', 'viewTracks'], ['strecke', 'viewTrack'], ['ergebnis', 'viewResult']];
+const LAB_VIEWS = [['garage', 'viewGarage'], ['werkstatt', 'viewNav'], ['modi', 'viewModes'], ['strecken', 'viewTracks'], ['strecke', 'viewTrack'], ['ergebnis', 'viewResult'], ['pause', 'viewPause'], ['einstellungen', 'viewSettings'], ['hud', 'viewHud']];
 function labMenu() {
   const list = h('div', { class: 'card lab-list', hidden: true }, LAB_VIEWS.map(([v, k], i) => h('a', { href: `#${v}`, class: current === v ? 'on' : '' }, h('span', { class: 'num' }, `${i + 1}`), t(k))));
   return h('div', { class: 'lab-menu' }, h('button', { class: 'lang', type: 'button', 'aria-label': t('screens'), onclick: () => { list.hidden = !list.hidden; } }, icon('menu', 'ic tiny')), list);
@@ -204,8 +261,8 @@ function laterView(view) {
 }
 
 // ---------------------------------------------------------------- views and the 3D garage behind them
-const BACKGROUND = { strecken: 'img/hero-kehre.jpg', strecke: 'img/hero-tal.jpg', ergebnis: 'img/hero-kehre.jpg' };
-const VIEWS = { garage: garageView, modi: modesView, strecken: tracksView, strecke: trackView, ergebnis: resultView };
+const BACKGROUND = { strecken: 'img/hero-kehre.jpg', strecke: 'img/hero-tal.jpg', ergebnis: 'img/hero-kehre.jpg', pause: 'img/hero-tal.jpg', hud: 'img/hero-tal.jpg' };
+const VIEWS = { garage: garageView, modi: modesView, strecken: tracksView, strecke: trackView, ergebnis: resultView, pause: pauseView, einstellungen: settingsView, hud: hudView };
 const root = document.getElementById('ui'), canvas = document.getElementById('scene');
 let garage = null, carName = 'AE86', current = '';
 function show() {
@@ -233,6 +290,7 @@ addEventListener('hashchange', show);
 const q = new URLSearchParams(location.search);
 const phone = matchMedia('(max-height: 520px), (max-width: 700px)').matches || q.get('tier') === 'low';
 document.body.classList.toggle('phone', phone);
+document.body.classList.toggle('touch', phone);   // the game HUD's phone sizes (probe.css)
 setLang(lang);
 const cars = await fetch('../data/cars.json').then((r) => r.json()).catch(() => ({ cars: [] }));
 const spec = cars.cars.find((c) => c.model === 'ae86');
@@ -246,6 +304,9 @@ if (map?.centre) {
   const d = pts.map((p, i) => `${i ? 'L' : 'M'}${(ox + (p[0] - x0) * k).toFixed(1)} ${(oy - (p[1] - z0) * k).toFixed(1)}`).join(' ');
   trackLine = `<svg viewBox="0 0 200 120" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="${d}" stroke="rgba(255,255,255,0.35)" stroke-width="7"/><path d="${d}" stroke="currentColor" stroke-width="3"/></svg>`;
 }
+// the game's own HUD for the HUD view, and the road in its drawing axes (x mirrored) for its minimap
+ProbeHudClass = (await import('../view/probehud.js').catch(() => null))?.ProbeHud ?? null;
+roadShape = map?.centre ? map.centre.map(([x, z]) => [-x, z]) : null;
 show();
 garage = await createGarage(canvas, { tier: phone ? 'low' : 'high', model: 'ae86', paint: PAINTS[0], spec: spec?.fx ?? {} });
 // the car sits in the free middle of the screen; on the phone a little higher (the bottom bar)

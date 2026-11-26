@@ -3,6 +3,8 @@
 // turns with the car (heading up); bottom centre the drift angle on a wide open arc; bottom right speed, a gear (made up from the
 // speed: the physics has none) and bars for throttle, brake and handbrake. Two levels as in the game (H): plain hides the arc and the bars. Text goes in as text; the DOM is touched only
 // when a value changes.
+import { mountFrame, hudScale } from './frame.js';
+
 const NS = 'http://www.w3.org/2000/svg';
 const LEVELS = ['plain', 'driver'];
 
@@ -38,10 +40,12 @@ export class ProbeHud {
     // ?hud=off hides it (for pictures of the scene alone)
     this.level = wanted === 'off' || LEVELS.includes(wanted) ? wanted : LEVELS.includes(kept) ? kept : 'driver';
     this.root = root;
-    // on a big screen the cards are drawn at the mockup's size (made for 1600 px wide) and scaled with the window
-    const fit = () => root.style.setProperty('--hud-scale', Math.max(0.5, Math.min(1.25, innerWidth / 1600)).toFixed(3));
+    // the cards are drawn at the mockup's size (1600 x 900, a phone 844 x 390) and scaled with the window (view/frame.js)
+    const fit = () => root.style.setProperty('--hud-scale', hudScale(innerWidth, innerHeight, document.body.classList.contains('touch')).toFixed(3));
     addEventListener('resize', fit); fit();
     this.build(mapShapes);
+    mountFrame(root);   // every part of the HUD in one place of a grid over the screen (game/frame.css)
+    new MutationObserver(fit).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   }
 
   build(shapes) {

@@ -370,5 +370,8 @@
   "colour": "#ffb88a",
   "intensity": 1.4
  },
- "farUnlit": true
+ "farUnlit": true,
+ "models": {
+  "lantern": "lantern"
+ }
 }

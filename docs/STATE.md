@@ -483,6 +483,12 @@ A static page with sample data, no server logic, no inline script; every text th
   Again and Next.
 - Round 2: the garage is warmer and brighter, with a plant, shelves and light from above; the floor no longer shines. The player shows as
   "Name (Guest)", with no levels. A menu next to the language switch reaches every view.
+- `#pause` and `#einstellungen`, pause and settings:
+  - The pause has Resume, Restart and To the garage.
+  - The settings have tabs for controls (phone steering stick, buttons or tilt; sensitivity; vibration; the PC keys), graphics (quality,
+    camera, smoke, shadows, frame rate), sound (four sliders) and language. Every switch can be clicked; nothing is stored yet.
+- `#hud`: the game's own HUD (view/probehud.js with probe.css) with sample values over a game picture, a small pause key. On the phone it
+  has the touch controls of the sheets: an analog stick on the left, handbrake, brake and a large throttle on the right.
 - Numbers: PC 54k triangles / 73 calls; phone 14k / 35, with the car on the low model.
 - Pictures: docs/screenshots/lab-*.png. Not checked: a real phone, turning by finger on a real touch screen.
 
@@ -581,3 +587,18 @@ A static page with sample data, no server logic, no inline script; every text th
 - Merged through the gate (ead10b5: scripts parse, tests, the page starts). Node 226 pass.
 - Done after the merge: the menu offers every track-system map other than the one driven ("Übungsplatz", "Winterpass", "Herbst-Driftkurs", and "Zur Lobby" away from the lobby); each is driven alone with or without an account (`/play/?map=practice|winter|autumn`, `boot.js` as for the practice ground).
 - **Not done yet:** the lab's track list has no cards for the winter pass and the autumn course; the cone penalty on the practice ground (the 64 cones are data in `07-practice.json`, nothing counts them yet); a test that the new winter map's bests are apart from the old map 4 (they should be by `track.version` 2 -> `ver` 2 or 3, not checked); the play check's track check still names only the touge and the practice ground; .NET not run after this merge; the three maps not looked at in the browser after the merge.
+
+## The HUD on a fixed grid (D5, D8 of FEHLER-0.6.2)
+- `game/view/frame.js` and `game/frame.css`: one grid over the whole screen with nine named places (top left, top, top right; a middle row
+  of its own with the menu, the messages and reset; bottom left, bottom, bottom right). The safe area (notch, rounded corners) is in its
+  padding; gaps with clamp(). Every part of the HUD stands in exactly one place; the parts made later by main.js or the app's page are
+  placed when they appear (a MutationObserver), so main.js is unchanged. ProbeHud mounts the frame. The messages (toast, damage, note, tip,
+  key hint, the race bar) have the middle to themselves and never spill over the cards. Cards scale by the smaller of width/1600 and
+  height/900 (a phone: 844 x 390); buttons keep their size, at least 44 px on a touch screen. On a phone the open menu is one row to swipe.
+- Cause of D5: the cards were placed `absolute` inside #phud, whose safe-area padding does not move absolute children, so on a phone with a
+  notch the left cards lay under it. Cause of D8: the messages were all placed at fixed heights round the top middle (96 to 168 px) and the
+  switches, the damage note and the key hint at fixed spots, so they met the score card and each other.
+- `tools/uicheck.mjs` (run through devq): eleven screens, from 640 x 360 with a notch to 3440 x 1440, each quiet, with messages and with
+  the menu open; checks every part inside the screen and its safe area, no overlap, nothing cut off by its place, touch buttons at least
+  44 px, no page errors; an overview sheet. First run: passed, 33 pictures (docs/screenshots/uicheck-overview.png).
+- Not checked: a real phone (the safe area is emulated by Chromium), the race bar and the invitation in a real race.

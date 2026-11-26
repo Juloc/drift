@@ -1,0 +1,34 @@
+ui check passed: 11 screens, 33 pictures, 0 problem(s)
+phone-small            640x360 touch safe area L44 B21: 12 parts, ok
+phone-small messages   640x360 touch safe area L44 B21: 15 parts, ok
+phone-small menu       640x360 touch safe area L44 B21: 12 parts, ok
+phone                  844x390 touch safe area L47 B21: 12 parts, ok
+phone messages         844x390 touch safe area L47 B21: 15 parts, ok
+phone menu             844x390 touch safe area L47 B21: 12 parts, ok
+phone-large            932x430 touch safe area L59 B21: 12 parts, ok
+phone-large messages   932x430 touch safe area L59 B21: 15 parts, ok
+phone-large menu       932x430 touch safe area L59 B21: 12 parts, ok
+tablet-landscape       1180x820 touch safe area L0 B20: 12 parts, ok
+tablet-landscape messages 1180x820 touch safe area L0 B20: 15 parts, ok
+tablet-landscape menu  1180x820 touch safe area L0 B20: 12 parts, ok
+tablet-portrait        820x1180 touch safe area L0 B20: 12 parts, turn hint shown
+tablet-portrait messages 820x1180 touch safe area L0 B20: 15 parts, turn hint shown
+tablet-portrait menu   820x1180 touch safe area L0 B20: 12 parts, turn hint shown
+pc-1280                1280x720: 8 parts, ok
+pc-1280 messages       1280x720: 12 parts, ok
+pc-1280 menu           1280x720: 9 parts, ok
+pc-1366                1366x768: 8 parts, ok
+pc-1366 messages       1366x768: 12 parts, ok
+pc-1366 menu           1366x768: 9 parts, ok
+pc-1600                1600x900: 8 parts, ok
+pc-1600 messages       1600x900: 12 parts, ok
+pc-1600 menu           1600x900: 9 parts, ok
+pc-1920                1920x1080: 8 parts, ok
+pc-1920 messages       1920x1080: 12 parts, ok
+pc-1920 menu           1920x1080: 9 parts, ok
+pc-2560                2560x1440: 8 parts, ok
+pc-2560 messages       2560x1440: 12 parts, ok
+pc-2560 menu           2560x1440: 9 parts, ok
+pc-3440                3440x1440: 8 parts, ok
+pc-3440 messages       3440x1440: 12 parts, ok
+pc-3440 menu           3440x1440: 9 parts, ok

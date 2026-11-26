@@ -46,4 +46,9 @@ export const ICON = {
   retry: svg('<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>'),
   height: svg('<path d="M3 20l6-9 4 5 3-4 5 8z"/><path d="M18 3v6M16 5l2-2 2 2"/>'),
   clip: svg('<path d="M12 3v18"/><rect x="9" y="7" width="6" height="3" rx="1"/>'),
+  pause: svg('<path d="M9 5v14M15 5v14"/>'),
+  gamepad: svg('<path d="M7 8h10a4 4 0 0 1 4 4.5l-.7 4a2.5 2.5 0 0 1-4.3 1.2L14 16h-4l-2 1.7a2.5 2.5 0 0 1-4.3-1.2l-.7-4A4 4 0 0 1 7 8z"/><path d="M8 11v3M6.5 12.5h3"/><circle cx="16" cy="11.5" r=".6"/><circle cx="17.5" cy="13.5" r=".6"/>'),
+  monitor: svg('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 20h6M12 16v4"/>'),
+  sound: svg('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>'),
+  globe: svg('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>'),
 };
