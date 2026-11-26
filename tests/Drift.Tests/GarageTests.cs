@@ -22,7 +22,7 @@ public class GarageTests
     {
         var parts = name.Split(' ');
         Assert.Equal(2, parts.Length);
-        Assert.Equal(Drift.Relay.WorldRelay.Colours[colour / 2 % Drift.Relay.WorldRelay.Colours.Length], parts[0]);
+        Assert.Equal(colour >= 24 ? Drift.Relay.WorldRelay.PaintWords[colour - 24] : Drift.Relay.WorldRelay.Colours[colour / 2 % Drift.Relay.WorldRelay.Colours.Length], parts[0]);
         Assert.Contains(parts[1], Drift.Relay.WorldRelay.Animals);
         Assert.DoesNotContain("jul", name, StringComparison.OrdinalIgnoreCase);
     }
@@ -44,14 +44,14 @@ public class GarageTests
         var c = app.Http();
         var cookie = await app.SignedInAsync(c);
         var first = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/garage", cookie)));
-        Assert.Equal(0, first.GetProperty("car").GetInt32());
+        Assert.Equal(GarageStore.OnlyCar, first.GetProperty("car").GetInt32());   // one car for now: the AE86
         AssertNeutral(first.GetProperty("name").GetString()!, first.GetProperty("colour").GetInt32()); // no nickname: a neutral name, never the account name "jul"
         Assert.Equal(5, first.GetProperty("cars").GetArrayLength());
 
         var put = await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", cookie, new { car = 3, colour = 17, nick = "  Sky Fox " }));
         Assert.Equal(HttpStatusCode.OK, put.StatusCode);
         var again = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/garage", cookie)));
-        Assert.Equal(3, again.GetProperty("car").GetInt32());
+        Assert.Equal(GarageStore.OnlyCar, again.GetProperty("car").GetInt32());   // the car 3 is kept but the AE86 is the one in use
         Assert.Equal(17, again.GetProperty("colour").GetInt32());
         Assert.Equal("Sky Fox", again.GetProperty("nick").GetString());
         Assert.Equal("Sky Fox", again.GetProperty("name").GetString());
@@ -91,7 +91,8 @@ public class GarageTests
         await app.SignedInAsync(app.Http()); // runs the migrations
         var store = new GarageStore(db.Data);
         var a = Guid.NewGuid();
-        await using (var cmd = db.Data.CreateCommand("insert into users (id, name, password_hash, totp_secret, roles) values ($1, 'a', 'x', 'x', '{member}'), ($2, 'b', 'x', 'x', '{member}')") ) { cmd.Parameters.AddWithValue(a); var b = Guid.NewGuid(); cmd.Parameters.AddWithValue(b); await cmd.ExecuteNonQueryAsync(); await store.SaveAsync(a, new Profile(4, 5, "Alpha")); Assert.Equal(new Profile(4, 5, "Alpha"), await store.GetAsync(a)); Assert.Null((await store.GetAsync(b)).Nick); Assert.Equal(0, (await store.GetAsync(b)).Car); }
+        await using (var cmd = db.Data.CreateCommand("insert into users (id, name, password_hash, totp_secret, roles) values ($1, 'a', 'x', 'x', '{member}'), ($2, 'b', 'x', 'x', '{member}')") ) { cmd.Parameters.AddWithValue(a); var b = Guid.NewGuid(); cmd.Parameters.AddWithValue(b); await cmd.ExecuteNonQueryAsync(); await store.SaveAsync(a, new Profile(4, 5, "Alpha")); Assert.Equal(new Profile(GarageStore.OnlyCar, 5, "Alpha"), await store.GetAsync(a)); Assert.Null((await store.GetAsync(b)).Nick); Assert.Equal(GarageStore.OnlyCar, (await store.GetAsync(b)).Car);   // (the saved car 4 stays in the table; the one car in use is the AE86)
+            await using var raw = db.Data.CreateCommand("select car_id from drift_profile where user_id = $1"); raw.Parameters.AddWithValue(a); Assert.Equal((short)4, (short)(await raw.ExecuteScalarAsync())!); }
     }
 
     [Fact]

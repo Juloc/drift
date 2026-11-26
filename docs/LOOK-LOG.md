@@ -428,3 +428,15 @@ moon moved into the lake view. Game numbers unchanged: high 353k / 48, phone 130
 In the game picture (t 24): high tier and phone now share the cool violet sky with the orange band; the ground is dark green; the moon
 shows at the top edge (on the wide picture partly behind the drift-score card); the lake is dark blue-violet but its orange streaked
 reflection still does not show; the smoke still covers the tail in this view.
+
+## Touge round 9 (2026-11-26)
+
+Done: the smoke fades out towards the top of the screen (`look.smoke.screenTop`, in the billows' vertex shader) and fades in fast at
+its start, so it shows beside and behind the car and not over it; pink-violet smoke tint; the cloud bands also in the sky's reflection
+(env), the car paint glossy (look.car.gloss). The big change is the light: the measured picture was half as bright and twice as
+saturated as the mockup (brightness 54 / 91, saturation 0.65 / 0.33). Now: exposure 1.25, saturation 0.95, a mauve lift in the
+shadows, a lilac fog from 70 m (the valley and the far cedars get the mockup's haze), lighter ridges, a brighter mauve fill from
+below, greener and lighter cedars, a mauve-grey road. Palette against touge.png (the boxes of palette-kaesten.txt), shot=tal (same
+layout as the mockup: hill left, valley right): mean 107 before, 58 now; brightness 81 / 91, saturation 0.42 / 0.33. shot=kehre is
+laid out the other way round (hill right), so its boxes compare different things (mean 77). Game numbers unchanged: high 355k / 49,
+phone 130k / 22. Not done: the lake's orange reflection, lanterns, torii and rock wall in the view, three-arrow boards.

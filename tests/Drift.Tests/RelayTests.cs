@@ -162,6 +162,50 @@ public class RelayTests
     }
 
     [Fact]
+    public void A_lost_respawn_costs_a_pose_and_a_fix_not_the_connection_and_a_later_respawn_works()
+    {
+        var (r, t) = Make(new RelayOptions { HalfX = 400, HalfZ = 400 });
+        r.SetSpawn(0, 0, 60);
+        var (a, pa) = Join(r);
+        r.OnMessage(a, Pose(150, 0));
+        t.Advance(0.1);
+        r.OnMessage(a, Pose(0, 0));                              // the respawn frame never came: this pose is a jump and is refused
+        Assert.Equal(1, pa.Count(Wire.Fix));
+        var fix = pa.Last(Wire.Fix)!;                            // the page takes the fix and goes on from there: accepted, nobody is thrown out
+        t.Advance(0.07);
+        r.OnMessage(a, Pose(150.5, 0));
+        Assert.Equal(1, pa.Count(Wire.Fix)); Assert.Null(pa.Closed);
+        t.Advance(4);
+        r.OnMessage(a, [Wire.Respawn, 3]);
+        r.OnMessage(a, Pose(5, 5));
+        Assert.Equal(1, pa.Count(Wire.Fix)); Assert.Null(pa.Closed);
+        Assert.NotNull(fix);
+    }
+
+    [Fact]
+    public void Sixteen_drivers_on_the_touge_all_pass_the_relays_checks_with_its_walls_and_every_one_is_seen_by_the_near_ones()
+    {
+        var json = File.ReadAllText(Path.Combine(Repo.Root, "game", "data", "maps", "06-touge.json"));
+        var track = Drift.Race.RaceTrack.FromJson(json);
+        var t = new FakeTime();
+        var r = new WorldRelay(t, new RelayOptions { MaxPerAddress = 99, JoinsPerMinutePerAddress = 999, FramesPerSecondPerAddress = 99999, MaxPerWorld = 64, HalfX = track.HalfX, HalfZ = track.HalfZ, InterestRadius = 70, InterestHysteresis = 10, FarEvery = 4 }, new Random(1));
+        r.SetGeometry(track.Segments, track.Obstacles);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var centre = doc.RootElement.GetProperty("centre").EnumerateArray().Select(p => (X: p[0].GetDouble(), Z: p[1].GetDouble())).ToList();
+        var path = RaceTrackTests.Sample(centre, 20.0 / 15);
+        var bots = Enumerable.Range(0, 16).Select(i => Join(r, "addr" + i)).ToList();
+        for (var step = 0; step < 200; step++)
+        {
+            for (var i = 0; i < bots.Count; i++) { var p = path[(i * 6 + step) % path.Count]; r.OnMessage(bots[i].s, Pose(p.X, p.Z, p.H, 20)); }   // six steps apart: the cars follow each other 8 m apart in a column
+            t.Advance(1.0 / 15); r.Tick();
+        }
+        Assert.Equal(0, r.Stats.Rejected);
+        Assert.All(bots, b => Assert.Null(b.p.Closed));
+        Assert.All(bots, b => Assert.True(b.p.Count(Wire.Snapshot) > 100, "every driver gets snapshots"));
+        Assert.True(r.Stats.NearEntries > 0);
+    }
+
+    [Fact]
     public void Eight_violations_in_ten_seconds_end_the_connection()
     {
         var (r, t) = Make();

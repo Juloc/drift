@@ -98,6 +98,8 @@ public sealed class RelayStats
 
 public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, Random? random = null)
 {
+    /// <summary>The colour word of the paints 24 to 26 (white, black, silver).</summary>
+    public static readonly string[] PaintWords = ["White", "Black", "Silver"];
     public static readonly string[] Colours = ["Red", "Orange", "Amber", "Lime", "Green", "Mint", "Teal", "Sky", "Blue", "Indigo", "Violet", "Pink"];
     public static readonly string[] Animals = ["Otter", "Fox", "Heron", "Badger", "Lynx", "Gecko", "Falcon", "Wombat", "Marmot", "Ibis", "Newt", "Panda", "Moose", "Stoat", "Puffin", "Koala"];
 
@@ -445,7 +447,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     /// <summary>The colour word follows the car's hue (24 hues of 15 degrees, 12 words), the animal is free.</summary>
     string PickName(List<Session> members, byte hue)
     {
-        var colour = Colours[hue / 2 % Colours.Length];
+        var colour = hue >= 24 ? PaintWords[Math.Min(2, hue - 24)] : Colours[hue / 2 % Colours.Length];
         for (int tries = 0; tries < 200; tries++)
         {
             var n = colour + " " + Animals[rnd.Next(Animals.Length)];

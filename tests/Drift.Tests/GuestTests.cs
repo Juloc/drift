@@ -62,7 +62,7 @@ public class GuestTests
         Assert.Contains("httponly", setCookie); Assert.Contains("samesite=strict", setCookie);
         var me = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/guest/me", cookie)));
         Assert.Equal("Kiwi 7", me.GetProperty("name").GetString());
-        Assert.Equal(0, me.GetProperty("car").GetInt32());
+        Assert.Equal(1, me.GetProperty("car").GetInt32());   // everybody drives the AE86 for now
         Assert.InRange(me.GetProperty("colour").GetInt32(), 0, 23);
         // a guest gets nothing else
         foreach (var url in new[] { "/api/garage", "/api/guest-links", "/api/people", "/api/times", "/api/play/ws", "/api/settings" })
@@ -194,7 +194,7 @@ public class GuestTests
         using var ws = await Connect(app, guest);
         var roster = (await Frame(ws, Wire.Roster))!;
         Assert.Equal("Kiwi 7", System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]));
-        Assert.Equal(0, roster[3]);                                                                     // the first car
+        Assert.Equal(1, roster[3]);                                                                     // the AE86 (the one car for now)
         var ended = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Post, "/api/guest-links/end-all", admin)));
         Assert.Equal(1, ended.GetProperty("ended").GetInt32());
         var bye = await Frame(ws, Wire.Bye);                                                            // within a moment, not after the 30 s check

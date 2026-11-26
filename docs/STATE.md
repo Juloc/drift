@@ -362,3 +362,18 @@ All five milestones of SCOPE are built. Waits for the owner: design and details,
 - **16+ in one world:** the app's lobby relay already allows 64 per world with interest areas (70 m full, the rest in short frames); a relay test with 16 bots on the long map has not been written (not checked on the touge's 2 km).
 - **Not done:** private sessions by link (a guest link opens the same lobby), a second world per link. A hand test with several browsers on the new map.
 - Pictures: `docs/screenshots/game-touge-lobby.png` (the plaza with torii, lanterns and the volcano).
+
+## Release candidate 0.5.0 (look round 8, AE86, camera, white paint, run summary, lobby on the touge)
+- Merged by the chief's say: look round 8 (d28e2c5, cool sky, dark green land, moon), the cars branch (AE86 as car 1 with its fx, exhaust flames on `car.pop`; conflict only in `__drift`). The cars' model comes from `cars.json` (`?car=1` shows the AE86; a new driver's default car in the garage is still car 0, the RX-7 file: the chief decides).
+- **Camera (touge look):** `dist 5.4, height 1.45, lookY 0.4, turnDrift -26, swing 3`. `turnDrift` (new in `LookChase`) turns the view away from the side the car slides to, so the car stands left of the middle in both directions of drift; in the fixed shots the car box is x 0.31 to 0.69, y 0.50 to 0.80 of the picture (the mockup: x 0.25 to 0.58, y 0.42 to 0.68: the car is a little low and a little right). Pictures (AE86, white): `docs/screenshots/game-touge-tal.png`, `game-touge-kehre.png`, `game-touge-tal-phone.png`.
+- Full run on the merge: node 150, .NET 230 (M1_parallel_sign_ups failed once under load, passed alone twice).
+- The wheel-arch orange on the RX-7 was not looked at (the AE86 replaces it).
+
+## 0.5.0 candidate (final list)
+- **One car:** the AE86 (car 1) is the car of everybody: new drivers, guests, the lobby, the fixed shots; `GarageStore.OnlyCar`: what a person saved stays in the table but the store hands out 1; the garage offers only the AE86; the relay is told car 1 for everybody (`PlayEndpoint`, guest page). Other models stay in the code and are not loaded. Neutral names follow the paint (White/Black/Silver Marmot for the paints 24 to 26). The values in `cars.json` (940 kg, power 7.6, top 33) go in as they are; the feel is slice 6.
+- **16 drivers on the touge** (relay test, 16 drivers 8 m apart in a column over 13 s with the map's walls and the lobby's interest areas): no pose refused, nobody dropped, everybody gets snapshots. **Two browsers on the plaza** (a local stack, headless): both see each other, the AE86 in white and black, names White/Black Marmot (`docs/screenshots/game-touge-lobby-two.png`; not checked: more than two, a phone).
+- **A lost respawn frame** costs one refused pose and a fix, not the connection (test); a later respawn works.
+- **Fix found by the browser test:** the app's content policy (`connect-src 'self'`) made the glTF loader's image bitmaps fail ("Couldn't load texture blob:") in the signed-in app only; the loader now reads textures through ordinary images (`carmodel.js`), no errors left.
+- Back button moved under the menu button (it covered the minimap on the PC).
+- Merged on the chief's say: look round 9 (4489347) and the cars branch tip (9604279). Full run: node 159; .NET 232 (a run at 231 with one expectation fixed afterwards, the class run green).
+- Pictures: `game-touge-tal.png` (AE86, white, 1600x900), `game-touge-tal-phone.png` (844x390), `game-touge-kehre.png`. The white AE86 does not burn out in the tal picture.

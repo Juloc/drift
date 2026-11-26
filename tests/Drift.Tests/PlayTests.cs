@@ -59,7 +59,7 @@ public class PlayTests
         Assert.Equal(19, welcome![3]);                      // the hue index
         var roster = (await Frame(ws, Wire.Roster))!;
         Assert.Equal(1, roster[1]);
-        Assert.Equal(2, roster[3]);                         // car
+        Assert.Equal(1, roster[3]);                         // car: everybody drives the AE86 for now (the garage's saved car 2 is kept in the data but not used)
         Assert.Equal(19, roster[4]);                        // hue
         Assert.Equal("Bolt", System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]));
     }
@@ -74,7 +74,7 @@ public class PlayTests
         var roster = (await Frame(ws, Wire.Roster))!;
         var shown = System.Text.Encoding.UTF8.GetString(roster, 6, roster[5]);
         Assert.NotEqual("mia", shown);
-        Assert.Contains(shown.Split(' ')[0], Drift.Relay.WorldRelay.Colours);
+        Assert.Contains(shown.Split(' ')[0], Drift.Relay.WorldRelay.Colours.Concat(Drift.Relay.WorldRelay.PaintWords));   // a colour word, or white, black, silver for the paints 24 to 26
         Assert.Contains(shown.Split(' ')[1], Drift.Relay.WorldRelay.Animals);
     }
 

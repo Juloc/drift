@@ -145,7 +145,9 @@ export async function loadCarModel(name, { tier, materials }) {
   const [{ GLTFLoader }, { loadCarGlb, modelUrls }] = await Promise.all([import('../../vendor/three/addons/loaders/GLTFLoader.js'), import('./carglb.js')]);
   const loader = new GLTFLoader();
   for (const url of modelUrls(new URL('../assets/cars/', import.meta.url), name, tier)) {
-    const car = await loadCarGlb(url, materials, (u) => loader.loadAsync(u));
+    // the app's content policy lets a page fetch only its own address (connect-src 'self'), and the glTF loader's image bitmaps are fetched from blob: addresses: so the loader is told that
+    // image bitmaps do not exist and reads the textures through ordinary images (img-src allows blob:)
+    const car = await loadCarGlb(url, materials, async (u) => { const cib = globalThis.createImageBitmap; globalThis.createImageBitmap = undefined; try { return await loader.loadAsync(u); } finally { globalThis.createImageBitmap = cib; } });
     if (car) return { ...car, url };
   }
   return null;

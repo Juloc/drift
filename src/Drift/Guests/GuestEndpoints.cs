@@ -56,7 +56,7 @@ public static class GuestEndpoints
             return Results.Ok(new { name = m.Guest.Name, expires = m.Guest.Expires });
         });
 
-        app.MapGet("/api/guest/me", (HttpContext ctx) => { var g = ctx.Guest(); return Results.Ok(new { name = g.Name, car = g.Car, colour = g.Colour, expires = g.Expires }); });
+        app.MapGet("/api/guest/me", (HttpContext ctx) => { var g = ctx.Guest(); return Results.Ok(new { name = g.Name, car = Drift.Garage.GarageStore.OnlyCar, colour = g.Colour, expires = g.Expires }); });
 
         app.MapPost("/api/guest/leave", async (HttpContext ctx, GuestService guests, PersonSockets sockets) =>
         {
