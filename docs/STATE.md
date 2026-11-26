@@ -15,6 +15,11 @@ Updated 2026-11-26 (evening) by the building session. Every session updates this
   (over 55 % of idle to limit) and stronger with them; recorded pops play from `assets/sound/pops.json` when the file exists (waiting for the owner's
   download of Freesound 433584; `tools/sound/work.js` job `pops` cuts it), else the made crack. Underglow (C1): lies on `surfaceAt` to 0.0 mm; the
   drawn road has no bank yet (slice 3), so it is buried on one side and floats on the other at banked spots; measure again after slice 3.
+  Review fixes (same day): the white-orange ball beside the right rear window was NOT a halo (the front halos read 0 from behind, the rear ones 0.28 with bloom): a
+  ray through its pixel hit the car's side glass, hiding the glass removed it, switching its env reflection off did not: it was the sun's direct highlight
+  on the glass, so the glass is now a MeshPhysicalMaterial with `specularIntensity` 0.18 and roughness 0.3. The brake lamp: idle 1.7 and pink-red
+  (the red lamp's emissive set to 1, 0.06, 0.16: a pure red over-exposed turned orange-white), braking 3.8x; white lamp parts unchanged. The flame: a sharp
+  cone texture (blue at the root, orange at the tip), 15 to 30 cm, 2 to 4 frames, flash at most 22 cm, ground flash 30 cm at 15 % (no fog ball).
   Pictures `docs/screenshots/cars/ae86-lights-*.png`, `ae86-glow-banked-L.png`, `ae86-pop-rear.png`. No lens pattern (the model's lamps are flat colours
   in the palette). Not checked on a phone.
 - **Recorded engine and music (2026-11-26, downloads with the owner's yes):** the AE86 plays loops cut from a real recording (Honda F20C, Wikimedia,

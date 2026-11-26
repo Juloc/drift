@@ -69,11 +69,11 @@ const poolTexture = () => canvasTexture(128, 256, (x, w, h) => {
   }
   x.putImageData(img, 0, 0);
 });
-const flameTexture = () => canvasTexture(64, 64, (x, w, h) => {
-  // a short tongue seen from the side: white-blue core at the pipe (bottom), yellow, orange at the edge, gone at the top
-  const g = x.createRadialGradient(w / 2, h * 0.92, 0, w / 2, h * 0.92, h * 0.85);
-  g.addColorStop(0, 'rgba(225,235,255,1)'); g.addColorStop(0.18, 'rgba(255,230,150,1)'); g.addColorStop(0.45, 'rgba(255,135,40,0.85)'); g.addColorStop(0.75, 'rgba(120,90,255,0.25)'); g.addColorStop(1, 'rgba(60,40,200,0)');
-  x.fillStyle = g; x.beginPath(); x.moveTo(w * 0.5, 0); x.bezierCurveTo(w * 1.05, h * 0.45, w * 0.8, h, w * 0.5, h); x.bezierCurveTo(w * 0.2, h, -w * 0.05, h * 0.45, w * 0.5, 0); x.fill();
+const flameTexture = () => canvasTexture(64, 128, (x, w, h) => {
+  // a sharp tongue seen from the side, the root at the pipe (bottom) and the tip at the top: blue at the root, white-yellow, orange at the tip; hard edges (no fog)
+  const g = x.createLinearGradient(0, h, 0, 0);
+  g.addColorStop(0, 'rgba(110,150,255,1)'); g.addColorStop(0.18, 'rgba(170,200,255,1)'); g.addColorStop(0.4, 'rgba(255,235,170,1)'); g.addColorStop(0.7, 'rgba(255,150,50,1)'); g.addColorStop(1, 'rgba(255,100,20,0.9)');
+  x.fillStyle = g; x.beginPath(); x.moveTo(w * 0.5, 0); x.bezierCurveTo(w * 0.62, h * 0.3, w * 0.98, h * 0.62, w * 0.62, h); x.lineTo(w * 0.38, h); x.bezierCurveTo(w * 0.02, h * 0.62, w * 0.38, h * 0.3, w * 0.5, 0); x.fill();
 });
 const glowTexture = () => canvasTexture(64, 64, (x, w) => {
   const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)');
@@ -267,7 +267,7 @@ export function dressCar(group, spec = {}, { lite = false } = {}) {
   }
   if (spec.glassUv) {
     let env = null; group.traverse((o) => { if (o.isMesh && !env) env = o.material?.envMap ?? null; });
-    splitPalette(group, spec.glassUv, new THREE.MeshStandardMaterial({ name: 'fx_glass', color: 0x05070b, metalness: 0, roughness: 0.06, envMap: env, envMapIntensity: 0.32 }));
+    splitPalette(group, spec.glassUv, new THREE.MeshPhysicalMaterial({ name: 'fx_glass', color: 0x05070b, metalness: 0, roughness: 0.3, specularIntensity: 0.18, envMap: env, envMapIntensity: 0.9 }));   // not a mirror: the sun's direct highlight on a side window was a white-orange ball (with the bloom it looked like a light beside the car), so the specular is turned down and the sky reflection kept
   }
   const m = measure(group), { box } = m;
   const len = box.max.z - box.min.z, half = Math.max(0.3, m.halfTrack - 0.14);
@@ -347,7 +347,13 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     if (!o.isMesh) return;
     const own = (mat) => {
       if (!/^lamp_rear_/i.test(mat?.name ?? '')) return mat;
-      if (!brakeMats.has(mat)) { const c = mat.clone(); c.userData.base = Math.max(3.2, mat.emissiveIntensity); c.emissiveIntensity = c.userData.base; brakeMats.set(mat, c); }
+      if (!brakeMats.has(mat)) {
+        // the red lamp (the brake light): dim when only the lights are on, 3.5x brighter and a pink-red (a pure red over-exposed turns orange-white and the two states
+        // looked the same) when braking; the white parts (reverse, reflector) stay as they are
+        const c = mat.clone(), red = c.emissive && c.emissive.r > 0.8 && c.emissive.g < 0.3 && c.emissive.b < 0.3;
+        if (red) c.emissive.setRGB(1, 0.06, 0.16);
+        c.userData.base = red ? 1.7 : 2.2; c.userData.boost = red ? 3.8 : 1; c.emissiveIntensity = c.userData.base; brakeMats.set(mat, c);
+      }
       return brakeMats.get(mat);
     };
     o.material = Array.isArray(o.material) ? o.material.map(own) : own(o.material);
@@ -359,11 +365,11 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   const groundFlashMat = new THREE.MeshBasicMaterial({ name: 'fx_flash_ground', map: glowTexture(), color: new THREE.Color(1, 0.55, 0.2).multiplyScalar(0.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const flames = tips.map((tip) => {
     const g = new THREE.Group(); g.position.copy(tip);
-    const plane = new THREE.PlaneGeometry(0.16, 0.3).translate(0, 0.15, 0).rotateX(-Math.PI / 2);   // 30 cm, pointing along -z (backwards)
+    const plane = new THREE.PlaneGeometry(0.13, 0.3).translate(0, 0.15, 0).rotateX(-Math.PI / 2);   // 30 cm long at most, pointing along -z (backwards)
     g.add(new THREE.Mesh(plane, flameMat), new THREE.Mesh(plane.clone().rotateZ(Math.PI / 2), flameMat));
-    const flash = new THREE.Sprite(flashMat); flash.scale.setScalar(0.3); g.add(flash);
+    const flash = new THREE.Sprite(flashMat); flash.scale.setScalar(0.2); g.add(flash);
     // warm on the road under the rear: NOT in the flame's group (that one is turned about the pipe at every pop)
-    const ground = new THREE.Mesh(flat(new THREE.PlaneGeometry(0.55, 0.55)), groundFlashMat); ground.position.set(tip.x, 0.02, tip.z - 0.1); ground.visible = false;
+    const ground = new THREE.Mesh(flat(new THREE.PlaneGeometry(0.3, 0.3)), groundFlashMat); ground.position.set(tip.x, 0.02, tip.z - 0.1); ground.visible = false;
     g.visible = false; g.userData.flash = flash; g.userData.ground = ground;
     return g;
   });
@@ -422,7 +428,7 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
   // pops: one burst per event, its strength sets the size and one or two smaller after-bangs
   let queue = [], life = 0, strength = 0;
   const fire = (s) => {
-    life = 0.06 + 0.06 * s; strength = s;   // 60 to 120 ms
+    life = 0.033 + 0.033 * s; strength = s;   // 2 to 4 frames: a flame is only seen for an instant
     for (const f of flames) { f.visible = true; f.rotation.z = Math.random() * Math.PI; }
   };
   const onPop = (e) => {
@@ -442,7 +448,7 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
     },
     update(dt, s) {
       const braking = s.brake > 0.1;
-      for (const mat of brakeMats.values()) mat.emissiveIntensity = mat.userData.base * (braking ? 2.5 : 1);
+      for (const mat of brakeMats.values()) mat.emissiveIntensity = mat.userData.base * (braking ? mat.userData.boost : 1);
       rearOpacity = braking ? 1 : 0.55; haloK = s.post ? 0.5 : 1;
       for (const h of halos) if (h.userData.rear) h.scale.setScalar(h.userData.base * (braking ? 1.6 : 1));   // braking: the glow jumps in size and strength
       // the headlight pool lies on the road: each of its points 1.5 cm over the ground under it (s.groundAt(x, z) in world space)
@@ -461,10 +467,10 @@ export function carFx(car, spec = {}, { lite = false, listen = typeof window !==
       for (const f of flames) {
         f.visible = on; f.userData.ground.visible = on;
         if (!on) continue;
-        const len = (0.7 + 0.6 * strength) * (0.7 + 0.3 * k);   // 20 to 40 cm
-        f.scale.set(0.8 + 0.4 * strength, 1, len);
-        f.userData.flash.scale.setScalar((0.2 + 0.25 * strength) * k);
-        groundFlashMat.opacity = 0.6 * k * strength;
+        const len = (0.5 + 0.5 * strength) * (0.8 + 0.2 * k);   // 15 to 30 cm
+        f.scale.set(0.7 + 0.3 * strength, 1, len);
+        f.userData.flash.scale.setScalar((0.1 + 0.12 * strength) * k);   // at most 22 cm
+        groundFlashMat.opacity = 0.15 * k * strength;
       }
       for (const l of lights) l.intensity = on ? 6 * strength * k : 0;
     },
