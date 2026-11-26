@@ -1292,6 +1292,195 @@
         "en": "Pebble Square 6 from the Stylized Nature MegaKit by Quaternius, CC0 1.0 (no attribution needed); changed: scaled, textures reduced",
         "de": "Pebble Square 6 aus dem Stylized Nature MegaKit von Quaternius, CC0 1.0 (keine Nennung nötig); verändert: skaliert, Texturen verkleinert"
       }
+    },
+    {
+      "id": "kit-racing",
+      "kind": "model",
+      "name": "Kenney Racing Kit 1.2",
+      "file": [
+        "game/assets/kit/racing/barrierRed.bin",
+        "game/assets/kit/racing/barrierRed.gltf",
+        "game/assets/kit/racing/barrierWhite.bin",
+        "game/assets/kit/racing/barrierWhite.gltf",
+        "game/assets/kit/racing/billboard.bin",
+        "game/assets/kit/racing/billboard.gltf",
+        "game/assets/kit/racing/checkers.png",
+        "game/assets/kit/racing/fenceStraight.bin",
+        "game/assets/kit/racing/fenceStraight.gltf",
+        "game/assets/kit/racing/flagCheckers.bin",
+        "game/assets/kit/racing/flagCheckers.gltf",
+        "game/assets/kit/racing/flagGreen.bin",
+        "game/assets/kit/racing/flagGreen.gltf",
+        "game/assets/kit/racing/flagRed.bin",
+        "game/assets/kit/racing/flagRed.gltf",
+        "game/assets/kit/racing/grandStandCovered.bin",
+        "game/assets/kit/racing/grandStandCovered.gltf",
+        "game/assets/kit/racing/lightColored.bin",
+        "game/assets/kit/racing/lightColored.gltf",
+        "game/assets/kit/racing/net.png",
+        "game/assets/kit/racing/pitsGarage.bin",
+        "game/assets/kit/racing/pitsGarage.gltf",
+        "game/assets/kit/racing/pitsOffice.bin",
+        "game/assets/kit/racing/pitsOffice.gltf",
+        "game/assets/kit/racing/pylon.bin",
+        "game/assets/kit/racing/pylon.gltf",
+        "game/assets/kit/racing/tankcoBanner.png",
+        "game/assets/kit/racing/tent.bin",
+        "game/assets/kit/racing/tent.gltf"
+      ],
+      "author": "Kenney",
+      "authorUrl": "https://kenney.nl",
+      "source": "https://opengameart.org/content/racing-kit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "only the files the corner scene loads are kept (29 files); models unchanged",
+      "use": {
+        "en": "Racing Kit 1.2 by Kenney, CC0 1.0 (no attribution needed): barriers, grandstand, pylon, fence, flags, lights, pits and a tent",
+        "de": "Racing Kit 1.2 von Kenney, CC0 1.0 (keine Nennung nötig): barriers, grandstand, pylon, fence, flags, lights, pits and a tent"
+      }
+    },
+    {
+      "id": "kit-nature",
+      "kind": "model",
+      "name": "Kenney Nature Kit 2.1",
+      "file": [
+        "game/assets/kit/nature/flower_purpleA.glb",
+        "game/assets/kit/nature/flower_redA.glb",
+        "game/assets/kit/nature/flower_yellowA.glb",
+        "game/assets/kit/nature/grass.glb",
+        "game/assets/kit/nature/grass_large.glb",
+        "game/assets/kit/nature/grass_leafsLarge.glb",
+        "game/assets/kit/nature/plant_bush.glb",
+        "game/assets/kit/nature/plant_bushDetailed.glb",
+        "game/assets/kit/nature/plant_bushLarge.glb",
+        "game/assets/kit/nature/rock_largeA.glb",
+        "game/assets/kit/nature/rock_smallA.glb",
+        "game/assets/kit/nature/tree_palmBend.glb",
+        "game/assets/kit/nature/tree_palmDetailedTall.glb",
+        "game/assets/kit/nature/tree_palmTall.glb"
+      ],
+      "author": "Kenney",
+      "authorUrl": "https://kenney.nl",
+      "source": "https://opengameart.org/content/nature-kit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "only the files the corner scene loads are kept (14 files); models unchanged",
+      "use": {
+        "en": "Nature Kit 2.1 by Kenney, CC0 1.0 (no attribution needed): palms, bushes, grass, flowers and rocks",
+        "de": "Nature Kit 2.1 von Kenney, CC0 1.0 (keine Nennung nötig): palms, bushes, grass, flowers and rocks"
+      }
+    },
+    {
+      "id": "kit-city",
+      "kind": "model",
+      "name": "Kenney City Kit (Industrial) 2.0",
+      "file": [
+        "game/assets/kit/city/Textures/colormap.png",
+        "game/assets/kit/city/building-a.glb",
+        "game/assets/kit/city/building-d.glb",
+        "game/assets/kit/city/chimney-large.glb",
+        "game/assets/kit/city/detail-tank-large.glb",
+        "game/assets/kit/city/shipping-container-a.glb",
+        "game/assets/kit/city/shipping-container-b.glb",
+        "game/assets/kit/city/shipping-container-c.glb"
+      ],
+      "author": "Kenney",
+      "authorUrl": "https://kenney.nl",
+      "source": "https://opengameart.org/content/city-kit-industrial",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "only the files the corner scene loads are kept (8 files); models unchanged",
+      "use": {
+        "en": "City Kit (Industrial) 2.0 by Kenney, CC0 1.0 (no attribution needed): buildings, a tank, a chimney and shipping containers",
+        "de": "City Kit (Industrial) 2.0 von Kenney, CC0 1.0 (keine Nennung nötig): buildings, a tank, a chimney and shipping containers"
+      }
+    },
+    {
+      "id": "kit-watercraft",
+      "kind": "model",
+      "name": "Kenney Watercraft Kit",
+      "file": [
+        "game/assets/kit/watercraft/Textures/colormap.png",
+        "game/assets/kit/watercraft/boat-sail-a.glb",
+        "game/assets/kit/watercraft/boat-sail-b.glb",
+        "game/assets/kit/watercraft/buoy.glb",
+        "game/assets/kit/watercraft/ship-cargo-a.glb",
+        "game/assets/kit/watercraft/ship-cargo-b.glb"
+      ],
+      "author": "Kenney",
+      "authorUrl": "https://kenney.nl",
+      "source": "https://opengameart.org/content/watercraft-pack",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "only the files the corner scene loads are kept (6 files); models unchanged",
+      "use": {
+        "en": "Watercraft Kit by Kenney, CC0 1.0 (no attribution needed): cargo ships and a sailing boat",
+        "de": "Watercraft Kit von Kenney, CC0 1.0 (keine Nennung nötig): cargo ships and a sailing boat"
+      }
+    },
+    {
+      "id": "sky-fire",
+      "kind": "picture",
+      "name": "HDRI \"The Sky Is On Fire\" (2k, and 1k made from it)",
+      "file": [
+        "game/assets/sky/the_sky_is_on_fire_2k.hdr",
+        "game/assets/sky/the_sky_is_on_fire_1k.hdr"
+      ],
+      "author": "Poly Haven",
+      "authorUrl": "https://polyhaven.com",
+      "source": "https://polyhaven.com/a/the_sky_is_on_fire",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "2k unchanged; the 1k file for the phone tier is the 2k file with every 2 x 2 texels averaged (tools/make-sky.mjs)",
+      "use": {
+        "en": "Sky picture \"The Sky Is On Fire\" from Poly Haven, CC0 1.0: the sky and the light of the corner scene",
+        "de": "Himmelsbild \"The Sky Is On Fire\" von Poly Haven, CC0 1.0: Himmel und Licht der Ecken-Szene"
+      }
+    },
+    {
+      "id": "tex-asphalt-02",
+      "kind": "picture",
+      "name": "Asphalt 02 (1k: colour, normal, roughness)",
+      "file": [
+        "game/assets/tex/asphalt_02_diff_1k.jpg",
+        "game/assets/tex/asphalt_02_nor_gl_1k.jpg",
+        "game/assets/tex/asphalt_02_rough_1k.jpg"
+      ],
+      "author": "Poly Haven",
+      "authorUrl": "https://polyhaven.com",
+      "source": "https://polyhaven.com/a/asphalt_02",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "unchanged, 1k versions",
+      "use": {
+        "en": "Asphalt textures \"Asphalt 02\" from Poly Haven, CC0 1.0",
+        "de": "Asphalt-Texturen \"Asphalt 02\" von Poly Haven, CC0 1.0"
+      }
+    },
+    {
+      "id": "env-nature-manifest",
+      "kind": "data",
+      "name": "Manifest of the converted Quaternius models (own)",
+      "file": [
+        "game/assets/env/nature.json"
+      ],
+      "author": "Quaternius, list by tools/make-nature.mjs",
+      "authorUrl": "https://quaternius.com",
+      "source": "https://opengameart.org/content/stylized-nature-megakit",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "a list of the 48 converted files (own data)",
+      "use": {
+        "en": "List of the converted Stylized Nature MegaKit models (CC0 1.0)",
+        "de": "Liste der umgewandelten Modelle des Stylized Nature MegaKit (CC0 1.0)"
+      }
     }
   ]
 }
