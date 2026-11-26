@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# The commit that ends a merge with conflicts is a merge too: the same check (scripts/premerge.sh). Any other commit passes untouched.
+[ -f "$(git rev-parse --git-dir)/MERGE_HEAD" ] || exit 0
+exec "$(git rev-parse --show-toplevel)/scripts/premerge.sh"

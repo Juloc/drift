@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# A merge that git commits by itself (no conflict): checked first (scripts/premerge.sh). Turned on by: git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/scripts/premerge.sh"
