@@ -289,7 +289,7 @@ test('maps: each has the ground it is meant to have', () => {
   const de = by.Desert;
   assert.equal(kind(de, 250, 10), 'asphalt');                                      // the patch at the start
   assert.equal(kind(de, 0, 0), 'sand');
-  const wi = by['Winter track'];
+  const wi = by['Winter pass'];
   assert.equal(kind(wi, 0, 0), 'snow');
   assert.ok(wi.zones.filter((z) => z.kind === 'ice').length >= 3);
   assert.ok(surfaceAt(wi, wi.zones[0].x, wi.zones[0].z).mu < surfaceAt(wi, 0, 0).mu);
@@ -300,7 +300,7 @@ test('maps: a steady driver can go round the whole loop on every map without hit
   const dart = CARS[0];
   for (const m of MAPS) {
     const pm = prepareMap(m.json), c = m.json.centre, g = m.json.grid[0];
-    const open = m.json.closed === false, target = m.name === 'Winter track' ? 9 : ['Mountain pass', 'Touge', 'Practice ground'].includes(m.name) ? 11 : 15;   // (hairpins: slower)
+    const open = m.json.closed === false, target = m.name === 'Winter pass' ? 9 : ['Mountain pass', 'Touge', 'Practice ground', 'Autumn drift course'].includes(m.name) ? 11 : 15;   // (hairpins: slower)
     let s = makeCar(g.x, g.z, g.h), hits = 0, passed = 0, idx = 0;
     // start at the centre point nearest the grid slot and count how many points of the loop the car passes in order
     let best = Infinity; for (let i = 0; i < (open ? 30 : c.length); i++) { const d = Math.hypot(c[i][0] - g.x, c[i][1] - g.z); if (d < best) { best = d; idx = i; } }

@@ -14,6 +14,18 @@ Updated 2026-11-26 (evening) by the building session. Every session updates this
   (gentle 6 % climb, long bend, a right-left change, a hairpin, gentle descent; clipping points in all five bends). Track sheet green
   (`docs/screenshots/trackcheck/practice.png`); bot drive `node tools/mapdrive.mjs game/data/maps/07-practice.json`: AE86 clean with the touge's bot numbers,
   45 s, 32 to 41 degrees in every bend (Bruno touches walls here as on the touge). Pictures `docs/screenshots/maps/practice-*.png`.
+- **Winter pass (map 4, replaces the older winter track, 2026-11-26):** `tools/make-winter.mjs` writes `maps/05-winter.json` and a stand-in
+  `scenes/winter.json` (winter look over a hillside following the road). A 1092 m circuit, 3 laps: start straight, two hairpins up the slope, a
+  bend over the shoulder, a change on the top, the top run, sweepers down; 24.5 m of height, road 13 m wide, packed snow (mu 0.6) with four ice
+  patches (0.4) on the line in bends. Track sheet green. Bot drive: the drifting line bot slides into the rail on snow at every speed tried (it does
+  not brake for the hairpin); the steady driver of the map test (32 km/h) drives it clean with all five cars. Pictures `docs/screenshots/maps/winter-*.png`.
+- **Autumn drift course (map 6, 2026-11-26):** `tools/make-course.mjs` writes `maps/08-autumn-course.json` and a stand-in `scenes/autumn.json`
+  (sunset look). A 999 m circuit, 3 laps, 13 m wide: start straight, fast sweeper, change, hairpin, a short climb, chicane, back straight, two long
+  right-hand drift bends; 6 m of height. Run-off of up to 8 m on the outside of every bend with the barrier (`style: 'tyres'`) further out; kerbs
+  (`track.kerbs`: s0, s1, side) and the grandstand and paddock places (theme marks) are data for the look. Track sheet green; the AE86 line bot laps it
+  clean at the touge's numbers in 62 s with 23 to 42 degrees in eight of nine bends; all five cars clean. Pictures `docs/screenshots/maps/autumn-*.png`.
+- Circuits: gate 0 sits at the first centre point (the server counts a lap there). `buildTrack` keeps a bend's tilt from running on past its end onto
+  the straight (an envelope on the tilt); the touge is unchanged by it, the practice course moved by millimetres.
 - **Circuits in the track system:** `buildTrack({ closed: true, ... })`, `bakeTrack`, `surfaceAt`, `frameAt`, `checkTrack`, `packTrack`/`loadTrack` go round
   (the last sample is the first; the seam is smooth in height, slope and tilt); open roads unchanged (the touge regenerates byte for byte). Tests
   `game/sim/trackloop.test.mjs`. The map tests (Node and C#) count the maps from `maps.json` instead of five.

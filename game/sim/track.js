@@ -272,6 +272,18 @@ export function buildTrack(spec, limits = LIMITS) {
   slew(bank, () => -tw, () => tw);
   for (let i = 0; i < flatN; i++) bank[i] = 0;
   slew(bank, () => -tw, () => tw);
+  // where the road is straight again the tilt must already be down to what a straight may have (else a hairpin's tilt runs on past its end and hangs outwards): an envelope
+  // for the size of the tilt, low on the straights (under 1 / 250: a margin over the check's 1 / 400, the baked curvature differs a little) and rising from there no faster
+  // than the tilt may change; the tilt is held inside it (so it starts to come down before the bend ends)
+  const env = new Float64Array(n);
+  for (let i = 0; i < n; i++) env[i] = Math.abs(k[i]) <= 1 / 250 ? L.bankOut * 0.9 : L.bankIn;
+  for (let lap = 0; lap < (closed ? 2 : 1); lap++) {
+    for (let i = 1; i < n; i++) env[i] = Math.min(env[i], env[i - 1] + tw * ds);
+    if (closed) env[0] = env[n - 1] = Math.min(env[0], env[n - 1]);
+    for (let i = n - 2; i >= 0; i--) env[i] = Math.min(env[i], env[i + 1] + tw * ds);
+    if (closed) env[n - 1] = env[0] = Math.min(env[0], env[n - 1]);
+  }
+  for (let i = 0; i < n; i++) bank[i] = clamp(bank[i], -env[i], env[i]);
   // 4. the heights: the grade is solved, then added up. Limits per sample: the grade (lower in a bend, and so low that the inner edge and the tilt together stay inside
   //    the surface's limit), and how fast the grade may change (a crest, a dip: by radius and by the reference speed)
   const vRef = refSpeed(k, n, ds, L, closed), gMax = new Float64Array(n), kvLo = new Float64Array(n), kvHi = new Float64Array(n);

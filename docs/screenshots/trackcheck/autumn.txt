@@ -1,0 +1,28 @@
+track check: autumn (game/data/maps/08-autumn-course.json)
+999 m, 6.0 m of height, 1 hairpins, 500 samples every 2.00 m
+INSIDE EVERY LIMIT
+
+every limit (worst value):
+  ok     width         6.50 m at 0 m (limit 3.50 m)
+  ok     width-max     6.50 m at 0 m (limit 7.00 m)
+  ok     radius        20.78 m at 444 m (limit 15.00 m)
+  ok     radius-inner  14.28 m at 444 m (limit 9.00 m)
+  ok     radius-rail   12.78 m at 444 m (limit 6.00 m)
+  ok     grade         2.8 % at 502 m (limit 10.0 %)
+  ok     slope         5.7 % at 480 m (limit 12.0 %)
+  ok     slope-both    8.4 % at 480 m (limit 13.0 %)
+  ok     crest         radius 133 m at 588 m (limit radius 80 m)
+  ok     crest-load    0.27 g at 202 m (limit 0.30 g)
+  ok     bank          6.6 % at 476 m (limit 8.0 %)
+  ok     bank-out      1.7 % at 506 m (limit 2.0 %)
+  ok     twist         0.90 % in 5 m at 348 m (limit 1.00 % in 5 m)
+  ok     bounds        280.50 m at 400 m (limit 1500.00 m)
+  ok     wheel-plane   0.00 m at 426 m (limit 0.03 m)
+  ok     surface       0.00 m at 376 m (limit 0.01 m)
+  ok     width-change  0.00 m in 10 m at 2 m (limit 0.50 m in 10 m)
+  ok     transition    19.3 m to a full bend at 702 m (limit 12.0 m to a full bend)
+  ok     step          0.06 m at 496 m (limit 0.24 m)
+  ok     dip           radius 79 m at 460 m (limit radius 50 m)
+  ok     dip-load      0.33 g at 835 m (limit 0.50 g)
+  ok     grade-bend    2.8 % at 494 m (limit 8.0 %)
+  ok     branch        26.45 m at 342 m (limit 18.00 m)
