@@ -76,13 +76,13 @@ test('a bumpy road does not shake the chase camera (the owner got sick of the ol
   assert.ok(amp < 0.02, `the camera's height moves by ${amp.toFixed(3)} m over bumps of 0.24 m`);
 });
 
-test('a climb or a crest is followed softly: no jump in one frame', () => {
+test('a climb or a crest is followed softly: no jump in one frame (the camera also rises to see the car over the crest)', () => {
   const hill = (x, z) => 4 * Math.exp(-((z - 150) ** 2) / 800);   // a 4 m crest
   const { camera, rig } = chaseRig(hill);
   let car = state(0, 0, 0, 0, 25); rig.snap(car);
   let worst = 0, prev = camera.position.y;
   for (let i = 0; i < 480; i++) { car = { ...car, z: i * 25 / 60 }; rig.update(car, 35, 1 / 60); worst = Math.max(worst, Math.abs(camera.position.y - prev)); prev = camera.position.y; }
-  assert.ok(worst < 0.06, `the biggest step in one frame: ${worst.toFixed(3)} m`);
+  assert.ok(worst < 0.08, `the biggest step in one frame: ${worst.toFixed(3)} m`);
 });
 
 test('the camera is higher than the old low one, and behind and above the car', () => {
@@ -113,4 +113,21 @@ test('the presets are distinct and ordered from near to far; zoom is limited', (
   const { rig } = chaseRig(() => 0), c = rig.cams.chase;
   for (let i = 0; i < 40; i++) c.zoomBy(2); assert.equal(c.user.zoom, 2.4);
   for (let i = 0; i < 40; i++) c.zoomBy(0.5); assert.equal(c.user.zoom, 0.55);
+});
+
+test('line of sight: a hill between the camera and the car raises the camera (or pulls it closer when it would take over 4 m), and the car is seen over it', () => {
+  const seen = (cam, car, cover) => { const c = cam.position, y0 = 1; let worst = 1e9; for (let i = 1; i <= 8; i++) { const t = i / 9, x = -c.x + (car.x + c.x) * t, z = c.z + (car.z - c.z) * t, y = c.y + (y0 - c.y) * t; worst = Math.min(worst, y - cover(x, z)); } return worst; };
+  // a wall of land between the camera (7.6 m behind) and the car: low enough to see over, or one that needs more than 4 m of lift and so pulls the camera in front of it
+  for (const [name, height, mustSee] of [['a low bank', 3, true], ['a bank of 5 m', 5, true], ['a cliff', 30, false]]) {
+    const hill = (x, z) => (z < -5.2 && z > -6.2 ? height : 0);   // a thin wall 5.2 to 6.2 m behind the car
+    const camera = new THREE.PerspectiveCamera(52, 1.8, 0.1, 500), rig = new CameraRig(camera, { look: LOOK, ground: () => 0 }); rig.setCover(hill);
+    const car = state(0, 0, 0, 0, 10); rig.snap(car);
+    for (let i = 0; i < 240; i++) rig.update(car, 35, 1 / 60);
+    if (mustSee) assert.ok(seen(camera, car, hill) > 0.2, `${name}: the land is ${seen(camera, car, hill).toFixed(2)} m under the line of sight at its closest (camera ${camera.position.toArray().map((v) => v.toFixed(1))})`);
+    assert.ok(camera.position.y < 30 && Math.hypot(camera.position.x, camera.position.z) > 3, `${name}: the camera is at ${camera.position.toArray().map((v) => v.toFixed(1))}`);
+  }
+  // without a cover function the road's height is all there is (as before): nothing changes on level ground
+  const camera = new THREE.PerspectiveCamera(52, 1.8, 0.1, 500), rig = new CameraRig(camera, { look: LOOK, ground: () => 0 });
+  const car = state(0, 0, 0, 0, 10); rig.snap(car); for (let i = 0; i < 90; i++) rig.update(car, 35, 1 / 60);
+  assert.ok(Math.abs(camera.position.y - 3.5) < 0.05, `${camera.position.y}`);
 });

@@ -129,6 +129,7 @@ const pool = new WheelPool(16);   // (only its shadow blobs are used: the cars b
 scene.add(carGroup, pool.blobs);
 const groundAt = (x, z) => stage.field.groundY(x, z);
 const cam = new CameraRig(camera, { look: look.camera, ground: groundAt });
+cam.setCover((x, z) => stage.field.height(x, z));   // the camera sees over the land, not only over the road
 if (['chase', 'bonnet', 'cockpit'].includes(params.get('cam'))) cam.set(params.get('cam'));   // ?cam=bonnet|cockpit for pictures; the key C cycles
 const input = new Input($('touch'));
 // the HUD (view/probehud.js): free driving in the lobby, laps and position in a race; the minimap shows the road of the map
@@ -201,7 +202,7 @@ async function ensureMap(id) {
       if (practice) togglePractice(false);
     }
     carGroup.add(mine.group);
-    cam.setLook(look.camera); cam.setGround(groundAt);
+    cam.setLook(look.camera); cam.setGround(groundAt); cam.setCover((x, z) => stage.field.height(x, z));
     hud.setMap(shapesOf(a));
     stage.skids.clear();
   })();
@@ -670,6 +671,8 @@ function conesStep() {
   if (next === coneState) return;
   coneState = next;
   for (const i of next.event) conesPlace(i, true);
+  // the practice ground only (a map with cones): each cone costs its points from the drift in progress, and from what is banked when nothing is pending (never under zero)
+  if (!creative) { let cut = next.event.length * PENALTY; const fromPending = Math.min(score.pending, cut); cut -= fromPending; const fromBank = Math.min(score.banked, cut); score = { ...score, pending: score.pending - fromPending, banked: score.banked - fromBank }; }
   coneMesh.instanceMatrix.needsUpdate = true; conesShow(); sound.bump?.(1.5);
 }
 function reset() {
