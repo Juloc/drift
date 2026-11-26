@@ -787,9 +787,8 @@ public class BoardTests
         Assert.Equal([58000, 60000, 61000], laps.Select(r => r.Ms));                     // fastest first
         var drifts = await store.TopAsync(1, RaceStore.Drift, 10, a);
         Assert.Equal([1600, 800], drifts.Select(r => r.Ms));                             // most points first
-        Assert.Equal(["Alpha"], laps.Where(r => r.Mine).Select(r => r.Name));
-        Assert.DoesNotContain(laps, r => r.Name.Contains("real-name"));                  // never the account name
-        Assert.Contains(laps, r => r.Name.Split(' ').Length == 2 && WorldRelay.Colours.Contains(r.Name.Split(' ')[0]));   // b has no nickname: a neutral name
+        Assert.Equal(["real-name-a"], laps.Where(r => r.Mine).Select(r => r.Name));      // the account's name, not the nickname "Alpha"
+        Assert.DoesNotContain(laps, r => r.Name is "Alpha" or "Gamma");
         Assert.Empty(await store.TopAsync(2, RaceStore.Lap, 10));                         // another map has its own board
         Assert.Equal(new Standing(61000, 3), await store.StandingAsync(1, RaceStore.Lap, a));
         Assert.Equal(new Standing(800, 2), await store.StandingAsync(1, RaceStore.Drift, a));

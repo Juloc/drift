@@ -6,8 +6,29 @@ if (r.status === 401) {
   let paint = NaN;
   try { paint = Number(localStorage.getItem('drift.paint')); } catch { /* no storage */ }
   if (!Number.isInteger(paint) || paint < 0 || paint > 26) { paint = Math.floor(Math.random() * 24); try { localStorage.setItem('drift.paint', String(paint)); } catch { /* not kept */ } }
-  const url = new URL(location.href);
-  url.searchParams.set('ws', `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/open/ws?colour=${paint}`);
+  // without an account the visitor gives a name once (kept on this device, changeable in the menu); everybody sees it as "Name (Gast)". Free text, at most 20 characters.
+  const de = (new URLSearchParams(location.search).get('lang') ?? navigator.language ?? '').startsWith('de');
+  let name = '';
+  try { name = localStorage.getItem('drift.name') ?? ''; } catch { /* no storage */ }
+  if (!name) {
+    const suggestion = await fetch('/api/open/name').then((x) => x.json()).then((j) => j.name).catch(() => '');
+    name = await new Promise((resolve) => {
+      const box = document.createElement('form'); box.id = 'namebox';
+      const title = Object.assign(document.createElement('h2'), { textContent: de ? 'Wie willst du heißen?' : 'What is your name?' });
+      const note = Object.assign(document.createElement('p'), { textContent: de ? 'Du fährst als Gast. Alle sehen dich als „Name (Gast)“.' : 'You drive as a guest. Everybody sees you as "Name (Guest)".' });
+      const input = Object.assign(document.createElement('input'), { type: 'text', maxLength: 20, value: suggestion, autocomplete: 'off', ariaLabel: de ? 'Name' : 'Name' });
+      const go = Object.assign(document.createElement('button'), { type: 'submit', textContent: de ? 'Fahren' : 'Drive' });
+      box.append(title, note, input, go);
+      box.addEventListener('submit', (e) => { e.preventDefault(); box.remove(); resolve(input.value.trim()); });
+      document.body.append(box); input.select();
+    });
+    try { localStorage.setItem('drift.name', name); } catch { /* not kept */ }
+  }
+  let id = '';
+  try { id = localStorage.getItem('drift.id') ?? ''; if (!/^[0-9a-f-]{36}$/i.test(id)) { id = crypto.randomUUID(); localStorage.setItem('drift.id', id); } } catch { id = crypto.randomUUID(); }
+  const url = new URL(location.href), sock = location.protocol === 'https:' ? 'wss' : 'ws';
+  url.searchParams.set('ws', `${sock}://${location.host}/api/open/ws?colour=${paint}&lang=${de ? 'de' : 'en'}&name=${encodeURIComponent(name)}&id=${id}`);
+  url.searchParams.set('rws', `${sock}://${location.host}/api/open/race/ws?id=${id}&lang=${de ? 'de' : 'en'}&name=${encodeURIComponent(name)}&colour=${paint}`);
   url.searchParams.set('car', '1');
   url.searchParams.set('open', '1');
   history.replaceState(null, '', url);

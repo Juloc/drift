@@ -33,7 +33,8 @@ public class GarageTests
         var id = Guid.NewGuid();
         Assert.Equal(GarageStore.NeutralName(id, 6), GarageStore.NeutralName(id, 6));
         Assert.Equal(GarageStore.NeutralName(id, 6).Split(' ')[1], GarageStore.NeutralName(id, 20).Split(' ')[1]); // the animal follows the person, the colour word the car
-        Assert.Equal("Nick", GarageStore.DisplayName(id, new Profile(0, 6, "Nick")));
+        Assert.Equal("acc", GarageStore.DisplayName(id, new Profile(0, 6, "Nick"), "acc"));        // the account's name, never the nickname
+        Assert.Equal(GarageStore.NeutralName(id, 6), GarageStore.DisplayName(id, new Profile(0, 6, "Nick")));
     }
 
     [Fact]
@@ -45,7 +46,7 @@ public class GarageTests
         var cookie = await app.SignedInAsync(c);
         var first = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/garage", cookie)));
         Assert.Equal(GarageStore.OnlyCar, first.GetProperty("car").GetInt32());   // one car for now: the AE86
-        AssertNeutral(first.GetProperty("name").GetString()!, first.GetProperty("colour").GetInt32()); // no nickname: a neutral name, never the account name "jul"
+        Assert.Equal("jul", first.GetProperty("name").GetString());   // a signed-in person shows the account's name
         Assert.Equal(5, first.GetProperty("cars").GetArrayLength());
 
         var put = await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", cookie, new { car = 3, colour = 17, nick = "  Sky Fox " }));
@@ -54,12 +55,12 @@ public class GarageTests
         Assert.Equal(GarageStore.OnlyCar, again.GetProperty("car").GetInt32());   // the car 3 is kept but the AE86 is the one in use
         Assert.Equal(17, again.GetProperty("colour").GetInt32());
         Assert.Equal("Sky Fox", again.GetProperty("nick").GetString());
-        Assert.Equal("Sky Fox", again.GetProperty("name").GetString());
+        Assert.Equal("jul", again.GetProperty("name").GetString());   // the nickname is kept in the table, the shown name is the account's
 
-        // an empty nickname goes back to the account's name
+        // an empty nickname
         await c.SendAsync(app.Req(HttpMethod.Put, "/api/garage", cookie, new { car = 3, colour = 17, nick = "" }));
         var cleared = await TestApp.Json(await c.SendAsync(app.Req(HttpMethod.Get, "/api/garage", cookie)));
-        AssertNeutral(cleared.GetProperty("name").GetString()!, 17);
+        Assert.Equal("jul", cleared.GetProperty("name").GetString());
     }
 
     [Theory]

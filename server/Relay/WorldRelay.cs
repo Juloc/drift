@@ -260,7 +260,7 @@ public sealed class WorldRelay(TimeProvider time, RelayOptions? options = null, 
     /// <summary>A name as the wire carries it: no control characters, at most 24 characters and 60 bytes.</summary>
     static string Clean(string name)
     {
-        var t = new string(name.Where(c => !char.IsControl(c)).Take(24).ToArray()).Trim();
+        var t = new string(name.Where(c => !char.IsControl(c)).Take(32).ToArray()).Trim();   // (a guest's name is at most 20 characters and a label of 7: "Name (Guest)")
         while (System.Text.Encoding.UTF8.GetByteCount(t) > 60) t = t[..^1];
         return t.Length > 0 ? t : "Driver";
     }
