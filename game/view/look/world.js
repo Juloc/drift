@@ -122,7 +122,7 @@ export function buildWorld(scene, look, tierName = 'high') {
       diffuseColor.rgb *= ${(1 - (look.road.grain ?? 0.32) * 0.7).toFixed(3)} + grain * ${(look.road.grain ?? 0.32).toFixed(3)};`);   // look.road.grain: how strong
   };
   group.add(solid, lights, roadMesh);
-  const poolMesh = lightPools(pools, look);
+  const poolMesh = lightPools(pools, look, f);
   if (poolMesh) group.add(poolMesh);
   if (water) group.add(water);
   if (far) group.add(far);
@@ -869,12 +869,21 @@ function roadLamps(S, G, f, scene, look, sideInfo, lampHeads, pools = []) {
 }
 
 /** The warm pools of light on the ground (one mesh of flat quads with a soft round glow, added on top; nothing is lit for real). */
-function lightPools(pools, look) {
-  if (!pools.length) return null;
-  const pos = [], uv = [], idx = [];
-  pools.forEach(([x, y, z, r], n) => {
-    for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { pos.push(x + a * r, y + 0.08, z + b * r); uv.push((a + 1) / 2, (b + 1) / 2); }
-    idx.push(n * 4, n * 4 + 2, n * 4 + 1, n * 4, n * 4 + 3, n * 4 + 2);
+function lightPools(pools, look, f) {
+  // lights that are close together do not add up to one bright blotch: of two pools that would overlap more than a little only the bigger stays
+  // (its lamp or lantern keeps its glow box and its halo; this is only the warm light on the ground)
+  const kept = [];
+  for (const q of [...pools].sort((a, b) => b[3] - a[3])) if (kept.every((k) => Math.hypot(k[0] - q[0], k[2] - q[2]) >= (k[3] + q[3]) * 0.55)) kept.push(q);
+  if (!kept.length) return null;
+  // each pool is a small net laid on the ground (the road is banked and climbs: a flat square would float over it or sink into it)
+  const N = 6, pos = [], uv = [], idx = [];
+  kept.forEach(([x, y, z, r], n) => {
+    const base = pos.length / 3;
+    for (let b = 0; b <= N; b++) for (let a = 0; a <= N; a++) {
+      const u = (a / N) * 2 - 1, v = (b / N) * 2 - 1, px = x + u * r, pz = z + v * r, h = f ? f.height(X(px), pz) : y;
+      pos.push(px, (Math.abs(h - y) < 3 ? h : y) + 0.06, pz); uv.push((u + 1) / 2, (v + 1) / 2);
+    }
+    for (let b = 0; b < N; b++) for (let a = 0; a < N; a++) { const i0 = base + b * (N + 1) + a, i1 = i0 + 1, i2 = i0 + N + 1, i3 = i2 + 1; idx.push(i0, i2, i1, i1, i2, i3); }
   });
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
   const c = document.createElement('canvas'); c.width = c.height = 64;
