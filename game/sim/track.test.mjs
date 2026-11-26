@@ -122,7 +122,7 @@ test('track: every map file that brings a road of the track system is inside the
     const map = prepareMap(json), T = map.surface, c = checkTrack(T);
     assert.deepEqual(c.problems.map((p) => p.text), [], f);
     for (const g of json.grid) assert.equal(surfaceAt(T, g.x, g.z).kind, 'road', `${f}: a start slot is on the road`);
-    assert.equal(surfaceAt(T, json.lobbySpawn.x, json.lobbySpawn.z).kind, 'plaza');
+    if (json.lobbySpawn) assert.equal(surfaceAt(T, json.lobbySpawn.x, json.lobbySpawn.z).kind, 'plaza');   // (a circuit has no plaza and no spawn of its own)
     // the rails (the physics walls) run along the outer edge of the shoulder
     for (const w of json.walls.filter((x) => x.style === 'rail')) for (const p of w.pts) { const q = surfaceAt(T, p[0], p[1]); if (q.kind !== 'plaza') assert.ok(Math.abs(Math.abs(q.lat) - (json.halfWidth + T.limits.shoulder)) < 0.06, `${f}: rail point ${p} at ${q.lat.toFixed(2)} m`); }
     // the centre line the server reads lies on the road's centre, and the heights fall the whole way down

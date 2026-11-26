@@ -1,0 +1,28 @@
+track check: winter (game/data/maps/05-winter.json)
+1092 m, 24.5 m of height, 2 hairpins, 547 samples every 2.00 m
+INSIDE EVERY LIMIT
+
+every limit (worst value):
+  ok     width         6.50 m at 0 m (limit 3.50 m)
+  ok     width-max     6.50 m at 0 m (limit 7.00 m)
+  ok     radius        18.68 m at 180 m (limit 15.00 m)
+  ok     radius-inner  12.18 m at 180 m (limit 9.00 m)
+  ok     radius-rail   10.68 m at 180 m (limit 6.00 m)
+  ok     grade         8.4 % at 820 m (limit 10.0 %)
+  ok     slope         11.0 % at 1018 m (limit 12.0 %)
+  ok     slope-both    12.4 % at 364 m (limit 13.0 %)
+  ok     dip           radius 100 m at 140 m (limit radius 50 m)
+  ok     dip-load      0.48 g at 6 m (limit 0.50 g)
+  ok     bank          7.2 % at 164 m (limit 8.0 %)
+  ok     bank-out      1.8 % at 212 m (limit 2.0 %)
+  ok     twist         0.90 % in 5 m at 160 m (limit 1.00 % in 5 m)
+  ok     bounds        227.57 m at 722 m (limit 1500.00 m)
+  ok     wheel-plane   0.00 m at 664 m (limit 0.03 m)
+  ok     surface       0.00 m at 938 m (limit 0.01 m)
+  ok     width-change  0.00 m in 10 m at 2 m (limit 0.50 m in 10 m)
+  ok     transition    18.0 m to a full bend at 688 m (limit 12.0 m to a full bend)
+  ok     step          0.17 m at 822 m (limit 0.24 m)
+  ok     crest         radius 167 m at 630 m (limit radius 80 m)
+  ok     crest-load    0.28 g at 796 m (limit 0.30 g)
+  ok     grade-bend    7.8 % at 1062 m (limit 8.0 %)
+  ok     branch        39.21 m at 320 m (limit 18.00 m)

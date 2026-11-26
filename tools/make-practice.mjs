@@ -7,7 +7,7 @@
 //   rails, gates, start slots and clipping points come from the road frame. Cones are soft (`cones`: drawn, knocked over, never a wall), so a missed line costs points, not the car.
 // Run: node tools/make-practice.mjs
 import { writeFileSync } from 'node:fs';
-import { round } from './maplib.mjs';
+import { round, turtle } from './maplib.mjs';
 import { buildTrack, checkTrack, frameAt, surfaceAt, packTrack, LIMITS } from '../game/sim/track.js';
 
 const HW = 5, RAIL = HW + LIMITS.shoulder;
@@ -15,19 +15,8 @@ const HW = 5, RAIL = HW + LIMITS.shoulder;
 const PAD = { x0: -125, x1: 95, z0: -100, z1: 40 };
 const padPts = [[PAD.x0, PAD.z0], [PAD.x1, PAD.z0], [PAD.x1, PAD.z1], [PAD.x0, PAD.z1]];
 
-// ---- the course as a turtle: F = straight on, A = an arc of radius R turning by deg (+ to the right). Heading h: forward = (sin h, cos h).
-const line = [];
-const named = {};
-let x = PAD.x1, z = 20, h = Math.PI / 2;
-line.push([x, z]);
-const F = (L, name) => { const n = Math.max(1, Math.round(L / 5)); for (let i = 1; i <= n; i++) line.push([x + (Math.sin(h) * L * i) / n, z + (Math.cos(h) * L * i) / n]); x += Math.sin(h) * L; z += Math.cos(h) * L; if (name) named[name] = { at: [x, z] }; };
-const A = (R, deg, name) => {
-  const a = (deg * Math.PI) / 180, sg = Math.sign(a), cx = x + Math.cos(h) * R * sg, cz = z - Math.sin(h) * R * sg, n = Math.max(2, Math.round((Math.abs(a) * R) / 4));
-  const mid = h + a / 2;
-  if (name) named[name] = { apex: [cx - Math.cos(mid) * R * sg, cz + Math.sin(mid) * R * sg], turn: deg };
-  for (let i = 1; i <= n; i++) { const hh = h + (a * i) / n; line.push([cx - Math.cos(hh) * R * sg, cz + Math.sin(hh) * R * sg]); }
-  h += a; x = line.at(-1)[0]; z = line.at(-1)[1];
-};
+// ---- the course as a turtle (tools/maplib.mjs): F = straight on, A = an arc of radius R turning by deg (+ to the right)
+const { F, A, line, named } = turtle(PAD.x1, 20, Math.PI / 2);
 F(30); F(90, 'top');           // out of the pad, then a gentle climb (about 6 %)
 A(50, -90, 'long');             // the long bend (left), on the climb's crest
 F(30);

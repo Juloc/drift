@@ -82,3 +82,20 @@ export function distToLoop(centre, x, z) {
 }
 
 export const bbox = (pts) => ({ x0: Math.min(...pts.map((p) => p[0])), x1: Math.max(...pts.map((p) => p[0])), z0: Math.min(...pts.map((p) => p[1])), z1: Math.max(...pts.map((p) => p[1])) });
+
+/**
+ * A road drawn like a turtle (for the track system's control data): start at (x, z) with heading h (forward = (sin h, cos h)); F(L) goes straight on, A(R, deg) follows
+ * an arc of radius R turning by deg (+ to the right). Points every 5 m (straights) or 4 m (arcs). `named[name]`: { at } after a straight, { apex, turn } of an arc.
+ */
+export function turtle(x0, z0, h0) {
+  const line = [[x0, z0]], named = {};
+  let x = x0, z = z0, h = h0;
+  const F = (L, name) => { const n = Math.max(1, Math.round(L / 5)); for (let i = 1; i <= n; i++) line.push([x + (Math.sin(h) * L * i) / n, z + (Math.cos(h) * L * i) / n]); x += Math.sin(h) * L; z += Math.cos(h) * L; if (name) named[name] = { at: [x, z] }; };
+  const A = (R, deg, name) => {
+    const a = (deg * Math.PI) / 180, sg = Math.sign(a), cx = x + Math.cos(h) * R * sg, cz = z - Math.sin(h) * R * sg, n = Math.max(2, Math.round((Math.abs(a) * R) / 4)), mid = h + a / 2;
+    if (name) named[name] = { apex: [cx - Math.cos(mid) * R * sg, cz + Math.sin(mid) * R * sg], turn: deg };
+    for (let i = 1; i <= n; i++) { const hh = h + (a * i) / n; line.push([cx - Math.cos(hh) * R * sg, cz + Math.sin(hh) * R * sg]); }
+    h += a; x = line.at(-1)[0]; z = line.at(-1)[1];
+  };
+  return { F, A, line, named, get end() { return { x, z, h }; } };
+}
