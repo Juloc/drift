@@ -20,6 +20,7 @@ export const PLACES = [
   ['#back', 'ml', 'ml'],
   ['#chips-toggle', 'ml', 'ml'],
   ['#fs', 'ml', 'ml'],
+  ['#modes-open', 'ml', 'ml'],
   ['#chips', 'ml', 'msg'],
   ['#emotes', 'ml', 'msg'],
   ['#reset', 'tr', 'mr'],
