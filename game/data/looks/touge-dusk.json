@@ -2,8 +2,8 @@
  "name": "Touge at dusk",
  "note": "The mountain pass road at dusk (the owner's focus): blue-violet sky with the last orange low in the west, a rising moon, warm street lamps and stone lanterns, dark cedars, a calm crater lake far below, volcano silhouettes.",
  "sky": {
-  "top": "#262e86",
-  "mid": "#6a54a0",
+  "top": "#3a3e98",
+  "mid": "#5e58aa",
   "horizon": "#ff9466",
   "below": "#4a4478",
   "midHeight": 0.09,
@@ -13,9 +13,9 @@
   "sunSize": 0.01,
   "glowStrength": 0.3,
   "clouds": {
-   "lit": "#d08ca8",
-   "shade": "#4a3a78",
-   "amount": 0.7,
+   "lit": "#9c84c0",
+   "shade": "#46407e",
+   "amount": 0.45,
    "layer": 0.75,
    "bright": 1
   },
@@ -55,7 +55,9 @@
    "colour": "#fff0d0",
    "bright": 3,
    "glow": 0.6
-  }
+  },
+  "warmHeight": 0.1,
+  "topHeight": 0.45
  },
  "sun": {
   "dir": [
@@ -84,9 +86,9 @@
  "grade": {
   "exposure": 1.25,
   "bloom": 0.5,
-  "threshold": 2.4,
+  "threshold": 2.8,
   "warmth": 0,
-  "saturation": 0.95,
+  "saturation": 0.85,
   "contrast": 1,
   "grain": 0,
   "lift": "#1c1224",
@@ -101,20 +103,21 @@
   "rock": "#8a7c8e",
   "rockDark": "#685c70",
   "gravel": "#4e4c58",
-  "sand": "#6a6070"
+  "sand": "#6a6070",
+  "moss": "#7a9a62"
  },
  "road": {
-  "asphalt": "#5a4a5e",
-  "asphaltLight": "#665468",
+  "asphalt": "#4a3c50",
+  "asphaltLight": "#544458",
   "edge": "#f4f2f6",
   "centre": "#3c3a4a",
-  "plaza": "#403a48",
+  "plaza": "#584e62",
   "bay": "#cfcad6",
   "kerb": "#8a8494",
   "roughness": 0.8,
   "sheen": 0.12,
   "edgeWidth": 0.34,
-  "track": "#40323e",
+  "track": "#382c3a",
   "grain": 0.12,
   "receiveShadow": false,
   "columns": "mid"
@@ -188,7 +191,7 @@
   "halo": 0.7,
   "haloSize": 2,
   "pool": 7,
-  "poolGlow": 0.5
+  "poolGlow": 0.9
  },
  "smoke": {
   "style": "billows",
@@ -228,9 +231,9 @@
   "lookY": -0.5,
   "travel": 0.6,
   "fov": 52,
-  "turn": 8.0,
+  "turn": 8,
   "swing": 3,
-  "turnDrift": -24.0
+  "turnDrift": -24
  },
  "tiers": {
   "high": {
@@ -292,16 +295,16 @@
    "carpetNear": 30
   },
   "low": {
-   "cell": 12,
+   "cell": 14,
    "far": 56,
-   "pines": 50,
+   "pines": 40,
    "cherries": 0,
-   "nearPines": 60,
+   "nearPines": 40,
    "nearCherries": 0,
    "rocks": 24,
    "ridge": 120,
    "mist": 3,
-   "railPost": 6,
+   "railPost": 9,
    "smoke": 90,
    "smokeDetail": 0,
    "shadows": 0,
@@ -310,13 +313,13 @@
    "scale": 1,
    "env": 32,
    "details": {
-    "tufts": 150,
-    "stones": 60,
+    "tufts": 80,
+    "stones": 40,
     "bushes": 30,
     "petals": 20,
     "poles": 0
    },
-   "carpet": 420,
+   "carpet": 240,
    "billows": 45,
    "carpetNear": 30
   }
@@ -327,10 +330,11 @@
   "tailGlow": 2,
   "painted": false,
   "gloss": {
-   "env": 1,
-   "roughness": 0.22,
-   "coat": 0.06,
-   "clearcoat": 1
+   "env": 1.4,
+   "roughness": 0.28,
+   "coat": 0.3,
+   "clearcoat": 0.15,
+   "specular": 0.12
   }
  },
  "pole": {
