@@ -2,7 +2,7 @@
  "look": "academy-sunset",
  "rails": "none",
  "mode": "area",
- "note": "The drift academy: plain scene until the look work (stages A2 to A4); made by tools/make-academy.mjs.",
+ "note": "The drift academy: scene of the place (its look: data/looks/academy-sunset.json, game/view/look/place.js); made by tools/make-academy.mjs.",
  "road": {
   "centreLine": false
  },

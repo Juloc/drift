@@ -782,3 +782,9 @@ A static page with sample data, no server logic, no inline script; every text th
 - simdrive on three exercises, 10 s each, no page error: circle, slalom (9 cones down driving straight through), wet pad (lowest grip of every wheel 0.55).
 - Pictures: `docs/screenshots/sim2/academy-top.png` (labelled), `academy-chase.png`, `academy-list-640x360|844x390|932x430.png`, `academy-cones.png`.
 - Not checked: the list on a real phone by touch, cones fall look from near, the wet pad's grip by feel.
+
+### Merged: the place's look, first pass (branch chef/place-look)
+- Merged through premerge (`game/view/look/place.js`, `game/data/looks/academy-sunset.json`, scene academy.json, lab-sim wiring); no look value or shader changed; no test needed a change (Node 250/250). `tools/make-academy.mjs` now writes the scene with `look: academy-sunset` (it would have put the old look back).
+- Checked: simdrive circle, slalom, wet pad without page errors; N switches the grip (lowest wheel grip 0.55 on, 1 off) AND the shine (pictures `academy-wet-on.png` / `academy-wet-off.png`). Circle pictures `place-circle-pc.png`, `place-circle-phone.png`.
+- Numbers (844x390, circle spawn, standing, software graphics), before -> after: low 23 calls / 40378 tri -> 27 / 49684 (59.9 fps); high 53 / 176374 -> 64 / 116030 (53.7 fps). Low is far under 60 calls / 150 k triangles.
+- Not checked: the wet shine's initial state with `?wet=0` (the shader starts wet; only the toggle sets it), the look on a real phone GPU.
