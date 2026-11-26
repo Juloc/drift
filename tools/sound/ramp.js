@@ -61,12 +61,12 @@ function fft(re, im) {
 const c = document.getElementById('c'), x = c.getContext('2d'), img = x.createImageData(W, H);
 const fLo = 40, fHi = 6000, rowBin = Array.from({ length: H }, (_, y) => Math.round((fLo * (fHi / fLo) ** (1 - y / (H - 1))) / (SR / N)));
 const col = (v) => { const t = Math.max(0, Math.min(1, v)); return [Math.round(255 * Math.min(1, t * 1.6)), Math.round(255 * Math.max(0, t * 1.6 - 0.45)), Math.round(255 * Math.max(0, (t - 0.7) * 3.3) + 60 * (1 - t))]; };
-let eLow = 0, eAll = 0;   // energy under 100 Hz and in all, over the full-throttle part (1 to 9.5 s)
+let eLow = 0, eAll = 0, eHigh = 0, eSub = 0;   // energy under 100 Hz and in all, over the full-throttle part (1 to 9.5 s)
 for (let px = 0; px < W; px++) {
   const f = Math.floor((px / W) * frames), re = new Float64Array(N), im = new Float64Array(N);
   for (let i = 0; i < N; i++) re[i] = d[f * hop + i] * win[i];
   fft(re, im);
-  const tSec = (f * hop) / SR; if (tSec > 1 && tSec < 9.5) for (let b = 1; b < N / 2; b++) { const e = re[b] * re[b] + im[b] * im[b]; eAll += e; if (b * SR / N < 100) eLow += e; }
+  const tSec = (f * hop) / SR; if (tSec > 1 && tSec < 9.5) for (let b = 1; b < N / 2; b++) { const e = re[b] * re[b] + im[b] * im[b]; eAll += e; const fq = b * SR / N; if (fq < 100) eLow += e; if (fq < 200) eSub += e; if (fq > 3000) eHigh += e; }
   for (let y = 0; y < H; y++) {
     const b = rowBin[y], mag = Math.hypot(re[b], im[b]) + 1e-9, db = 20 * Math.log10(mag);
     const [r, g, bl] = col((db + 30) / 70), k = (y * W + px) * 4;
@@ -87,4 +87,4 @@ pcm.setUint32(24, SR, true); pcm.setUint32(28, SR * 2, true); pcm.setUint16(32, 
 let peak = 1e-9; for (const v of d) peak = Math.max(peak, Math.abs(v));
 for (let i = 0; i < d.length; i++) pcm.setInt16(44 + i * 2, Math.round((d[i] / peak) * 0.89 * 32767), true);
 const b64 = (u8) => { let s2 = ''; for (let i = 0; i < u8.length; i += 0x8000) s2 += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s2); };
-window.__ramp = { png: c.toDataURL('image/png').split(',')[1], wav: b64(new Uint8Array(pcm.buffer)), peak, lowShare: eLow / eAll, renderMs: Math.round(renderMs), seconds: SECS, maxPlaying: s.own.maxPlaying };
+window.__ramp = { png: c.toDataURL('image/png').split(',')[1], wav: b64(new Uint8Array(pcm.buffer)), peak, lowShare: eLow / eAll, subShare: eSub / eAll, highShare: eHigh / eAll, renderMs: Math.round(renderMs), seconds: SECS, maxPlaying: s.own.maxPlaying };

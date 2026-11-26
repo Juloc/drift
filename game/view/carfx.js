@@ -176,6 +176,14 @@ export function treadTyres(group, uvAt, colour = 0x1b1b1d) {
 export function dressCar(group, spec = {}, { lite = false } = {}) {
   // windows: their own dark tinted glass, a weak reflection of the sky (the palette's glass reflected it fully: a pale plate)
   if (spec.tyreUv) treadTyres(group, spec.tyreUv);
+  // rims: their own part (later: wheel size, rim colour and finish); a satin metal with a calm reflection of the sky, not a mirror
+  // that turns orange or blue in the dusk
+  if (spec.rimUv) {
+    let env = null; group.traverse((o) => { if (o.isMesh && !env) env = o.material?.envMap ?? null; });
+    const r = spec.rim ?? {};
+    const rim = new THREE.MeshStandardMaterial({ name: 'fx_rim', color: new THREE.Color().setRGB(...(r.color ?? [0.16, 0.165, 0.175])), metalness: r.metal ?? 0.55, roughness: r.rough ?? 0.35, envMap: env, envMapIntensity: r.env ?? 0.7 });
+    splitPalette(group, spec.rimUv, rim, 0.06, { all: true, only: /^wheel_.._own$/ });
+  }
   // parts of the model's own dark trim that are body panels (the AE86's bonnet): they take the garage paint like the rest of the body
   const paintMesh = group.getObjectByName('body_paint');
   for (const part of spec.paintParts ?? []) {

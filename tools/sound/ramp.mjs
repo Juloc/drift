@@ -20,4 +20,4 @@ fs.mkdirSync(path.join(root, 'docs/sound'), { recursive: true });
 const base = extra.includes('scene=tyres') ? `${name}-tyres` : `${name}-ramp`;
 fs.writeFileSync(path.join(root, `docs/sound/${base}.png`), Buffer.from(r.png, 'base64'));
 fs.writeFileSync(path.join(root, `docs/sound/${base}.wav`), Buffer.from(r.wav, 'base64'));
-console.log(`docs/sound/${base}.png and .wav (peak ${r.peak.toFixed(3)}; energy under 100 Hz at full throttle ${(100 * r.lowShare).toFixed(1)} %; ${r.seconds} s of sound rendered in ${r.renderMs} ms, at most ${r.maxPlaying} loops playing at once)`);
+console.log(`docs/sound/${base}.png and .wav (peak ${r.peak.toFixed(3)}; energy from 1 to 9.5 s: under 100 Hz ${(100 * r.lowShare).toFixed(1)} %, under 200 Hz ${(100 * r.subShare).toFixed(1)} %, over 3 kHz ${(100 * r.highShare).toFixed(1)} %; ${r.seconds} s of sound rendered in ${r.renderMs} ms, at most ${r.maxPlaying} loops playing at once)`);

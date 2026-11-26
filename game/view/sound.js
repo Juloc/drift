@@ -25,9 +25,14 @@ class Voice {
     // tyres (sim/tyresound.js): one looped noise into four layers: roll (low-pass), hiss (band-pass high), squeal (two narrow band-passes,
     // the pitch wobbling at 5.5 Hz), scrub (a wide band-pass low); `tyreGain` is the level of all four (the distance)
     this.tyre = ctx.createBufferSource(); this.tyre.buffer = noise; this.tyre.loop = true;
-    this.tyreGain = ctx.createGain(); this.tyreGain.gain.value = 0; this.tyreGain.connect(this.pan ?? out);
+    this.tyreGain = ctx.createGain(); this.tyreGain.gain.value = 0;
+    // nothing under 80 Hz (a phone's speaker only distorts it), nothing over about 3.2 kHz (white noise up there is only hiss)
+    this.tyreLow = ctx.createBiquadFilter(); this.tyreLow.type = 'highpass'; this.tyreLow.frequency.value = 80; this.tyreLow.Q.value = 0.7;
+    const top = () => { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 3000; f.Q.value = 0.7; return f; };
+    this.tyreTop = top(); this.tyreTop2 = top();   // two stages: 24 dB per octave over 3 kHz
+    this.tyreGain.connect(this.tyreLow); this.tyreLow.connect(this.tyreTop); this.tyreTop.connect(this.tyreTop2); this.tyreTop2.connect(this.pan ?? out);
     const layer = (type, f, q) => { const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = ctx.createGain(); g.gain.value = 0; this.tyre.connect(fl); fl.connect(g); g.connect(this.tyreGain); return { fl, g }; };
-    this.roll = layer('lowpass', 300, 0.7); this.hiss = layer('bandpass', 3200, 0.8); this.squealA = layer('bandpass', 1000, 18); this.squealB = layer('bandpass', 1500, 22); this.scrub = layer('bandpass', 450, 1.2);
+    this.roll = layer('lowpass', 300, 0.7); this.hiss = layer('bandpass', 2300, 1.3); this.squealA = layer('bandpass', 1000, 18); this.squealB = layer('bandpass', 1500, 22); this.scrub = layer('bandpass', 450, 1.2);
     this.wobble = ctx.createOscillator(); this.wobble.frequency.value = 5.5; this.wobbleDepth = ctx.createGain(); this.wobbleDepth.gain.value = 0;
     this.wobble.connect(this.wobbleDepth); this.wobbleDepth.connect(this.squealA.fl.frequency); this.wobble.start();
     this.tyreFilter = this.squealA.fl;   // (the name the first tests used)
@@ -50,7 +55,7 @@ class Voice {
     const ty = tyreLayers(slide, speed, throttle);
     this.tyreGain.gain.setTargetAtTime(level * 0.35, t, 0.05);
     this.roll.g.gain.setTargetAtTime(ty.roll, t, 0.08); this.roll.fl.frequency.setTargetAtTime(ty.rollF, t, 0.08);
-    this.hiss.g.gain.setTargetAtTime(ty.hiss, t, 0.05);
+    this.hiss.g.gain.setTargetAtTime(ty.hiss, t, 0.18);   // in and out softly
     this.squealA.g.gain.setTargetAtTime(ty.squeal * 2.2, t, 0.04); this.squealA.fl.frequency.setTargetAtTime(ty.squealF, t, 0.06);   // (a narrow band lets little through: louder)
     this.squealB.g.gain.setTargetAtTime(ty.squeal * 1.1, t, 0.04); this.squealB.fl.frequency.setTargetAtTime(ty.squealF * 1.52, t, 0.06);
     this.wobbleDepth.gain.setTargetAtTime(ty.squealF * 0.025, t, 0.1);

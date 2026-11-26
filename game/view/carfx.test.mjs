@@ -80,3 +80,18 @@ test('treadTyres takes the tyre faces of each wheel into a tread mesh with UVs r
   let span = 0; for (let t = 0; t < uv.count; t += 3) span = Math.max(span, Math.abs(uv.getX(t) - uv.getX(t + 1)), Math.abs(uv.getX(t) - uv.getX(t + 2)));
   assert.ok(span < 0.5, 'no triangle runs round the seam');
 });
+
+test('dressCar takes the rims out of each wheel into their own satin metal part', () => {
+  const root = new THREE.Group();
+  for (const n of ['wheel_fl', 'wheel_rr']) {
+    const spin = new THREE.Group(); root.add(spin);
+    const g = new THREE.CylinderGeometry(0.2, 0.2, 0.15, 12).rotateZ(Math.PI / 2);
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2).map((_, i) => (i % 2 ? 0.875 : 0.375)), 2));
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ name: 'own_palette' })); m.name = n + '_own'; spin.add(m);
+  }
+  dressCar(root, { rimUv: [0.375, 0.875], rim: { metal: 0.5 } });
+  const rims = []; root.traverse((o) => { if (o.isMesh && o.material.name === 'fx_rim') rims.push(o); });
+  assert.equal(rims.length, 2);
+  assert.equal(rims[0].material, rims[1].material, 'one material for all rims (one place to change colour and finish)');
+  assert.equal(rims[0].material.metalness, 0.5);
+});
