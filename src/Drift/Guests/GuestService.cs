@@ -7,7 +7,7 @@ using Npgsql;
 namespace Drift.Guests;
 
 /// <summary>Who a guest is: the session id stands where a person's id stands for the lobby and the races.</summary>
-public sealed record GuestIdentity(Guid Id, string Name, int Car, int Colour, DateTimeOffset Expires);
+public sealed record GuestIdentity(Guid Id, string Name, int Car, int Colour, DateTimeOffset Expires, Guid LinkId = default);
 
 public sealed record GuestLink(Guid Id, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, int MaxUses, int Uses);
 
@@ -74,18 +74,22 @@ public sealed class GuestService(NpgsqlDataSource db)
               returning id, expires_at)
             insert into drift_guest_session (id, hash, link_id, name, car_id, colour, expires_at)
             select $2, $3, l.id, $4, 0, $5, l.expires_at from l
-            returning expires_at
-            """, r => r.Time(0), ct, Hash(token), id, Hash(cookie), name, (short)colour);
-        return made.Count == 1 ? (new GuestIdentity(id, name, 0, colour, made[0]), cookie) : null;
+            returning expires_at, link_id
+            """, r => (Expires: r.Time(0), Link: r.GetGuid(1)), ct, Hash(token), id, Hash(cookie), name, (short)colour);
+        return made.Count == 1 ? (new GuestIdentity(id, name, 0, colour, made[0].Expires, made[0].Link), cookie) : null;
     }
 
     public Task<GuestIdentity?> ValidateAsync(string cookie, CancellationToken ct = default) =>
         db.FirstAsync(
             """
-            select s.id, s.name, s.car_id, s.colour, s.expires_at
+            select s.id, s.name, s.car_id, s.colour, s.expires_at, s.link_id
             from drift_guest_session s join drift_guest_link l on l.id = s.link_id
             where s.hash = $1 and s.expires_at > now() and l.revoked_at is null and l.expires_at > now()
-            """, r => new GuestIdentity(r.GetGuid(0), r.GetString(1), r.GetInt16(2), r.GetInt16(3), r.Time(4)), ct, Hash(cookie));
+            """, r => new GuestIdentity(r.GetGuid(0), r.GetString(1), r.GetInt16(2), r.GetInt16(3), r.Time(4), r.GetGuid(5)), ct, Hash(cookie));
+
+    /// <summary>Is this guest link still good (not ended, not expired)? A private session lives as long as its link.</summary>
+    public async Task<bool> LinkActiveAsync(Guid linkId, CancellationToken ct = default) =>
+        (await db.QueryAsync("select 1 from drift_guest_link where id = $1 and revoked_at is null and expires_at > now()", r => r.GetInt32(0), ct, linkId)).Count == 1;
 
     public Task EndSessionAsync(Guid id, CancellationToken ct = default) => db.ExecAsync("delete from drift_guest_session where id = $1", ct, id);
 }

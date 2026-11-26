@@ -212,6 +212,7 @@ function guestCard() {
     list.replaceChildren(...(r.links.length
       ? r.links.map((l) => h('div', { class: 'row' },
           h('div', { class: 'row-main' }, h('span', { class: 'row-title', text: t('guest.valid', { until: fmtDate(l.expiresAt) }) }), h('span', { class: 'row-sub', text: t('guest.used', { n: l.uses, max: l.maxUses }) })),
+          h('a', { class: 'btn outline', href: '/play/?world=' + l.id }, icon('bolt'), t('guest.join')),   // the private world of this link: only the people who came in by it, and you
           h('button', { class: 'btn ghost danger', type: 'button', onclick: async () => { await api('DELETE', '/api/guest-links/' + l.id); toast(t('guest.ended'), { kind: 'ok' }); refresh(); } }, t('guest.end'))))
       : [h('p', { class: 'muted', text: t('guest.none') })]));
   }

@@ -17,7 +17,7 @@ public sealed class SessionLife(Npgsql.NpgsqlDataSource db)
 }
 
 /// <summary>Who is playing: a signed-in person or a guest, with what the others see and the check that the session still lives.</summary>
-public sealed record Player(Guid Id, string Name, int Car, int Colour, bool Guest, Func<Task<bool>> StillValid, int? Glow = null, Tuning? Tune = null);
+public sealed record Player(Guid Id, string Name, int Car, int Colour, bool Guest, Func<Task<bool>> StillValid, int? Glow = null, Tuning? Tune = null, string? World = null);
 
 /// <summary>
 /// The lobby of the signed-in people and of the guests: the shared-world relay behind the base's guard (people) or the guest door (guests). The person comes
@@ -47,7 +47,7 @@ public static class PlayEndpoint
             var g = ctx.Guest();
             var cookie = ctx.Request.Cookies[GuestEndpoints.CookieName(ctx.Request)];
             var guests = sp.GetRequiredService<GuestService>();
-            return new Player(g.Id, g.Name, Drift.Garage.GarageStore.OnlyCar, g.Colour, true, async () => cookie is not null && await guests.ValidateAsync(cookie, CancellationToken.None) is not null);
+            return new Player(g.Id, g.Name, Drift.Garage.GarageStore.OnlyCar, g.Colour, true, async () => cookie is not null && await guests.ValidateAsync(cookie, CancellationToken.None) is not null, World: g.LinkId == Guid.Empty ? null : g.LinkId.ToString("N"));   // a guest plays in the private world of the link it came in by
         }
         if (ctx.IsGameAccount())
         {
@@ -59,10 +59,13 @@ public static class PlayEndpoint
         }
         var me = ctx.Person();
         var life = sp.GetRequiredService<SessionLife>();
+        // a signed-in person joins the private world of a guest link with ?world=<link id> (the link must still be good); without it: the public lobby
+        string? world = null;
+        if (Guid.TryParse(ctx.Request.Query["world"], out var linkId) && await sp.GetRequiredService<GuestService>().LinkActiveAsync(linkId, ctx.RequestAborted)) world = linkId.ToString("N");
         var sessionId = me.Id;   // the id stays the same when the cookie value is rotated: a socket must not be thrown out by a rotation
         var profile = await sp.GetRequiredService<GarageStore>().GetAsync(me.UserId, ctx.RequestAborted);
         return new Player(me.UserId, GarageStore.DisplayName(me.UserId, profile), profile.Car, profile.Colour, false,
-            () => life.AliveAsync(sessionId), profile.Glow, await sp.GetRequiredService<TuningStore>().GetAsync(me.UserId, profile.Car, ctx.RequestAborted));
+            () => life.AliveAsync(sessionId), profile.Glow, await sp.GetRequiredService<TuningStore>().GetAsync(me.UserId, profile.Car, ctx.RequestAborted), world);
     }
 
     public static void MapPlay(this WebApplication app)
@@ -76,7 +79,7 @@ public static class PlayEndpoint
         var challenges = app.Services.GetRequiredService<ChallengeTracker>();
         challenges.Follow(relay);
         Task Lobby(HttpContext ctx, Player p) =>
-            RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), p.Car, p.Name, p.Colour, glow: p.Glow,
+            RelayEndpoint.Serve(ctx, relay, ctx.ClientIp(), p.Car, p.Name, p.Colour, glow: p.Glow, worldKey: p.World,
                 stillValid: p.StillValid, checkEvery: SessionCheck,
                 onText: (sess, text) => { hub.OnLobbyText(p.Id, text); challenges.OnText(sess, text); },
                 joined: s => { stats.Join(s, p.Id, p.Guest); tandem.Join(s, p.Id, p.Name, p.Guest, p.Car); challenges.Join(s, p.Id, p.Guest); sockets.Register(p.Id, false, relay, s); hub.LobbyJoined(new LobbyMember(p.Id, p.Name, p.Car, p.Colour, s, p.Guest, p.Tune?.TopFactor ?? 1, p.Tune?.Tuned ?? false)); },

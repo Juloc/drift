@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.TestHost;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -53,6 +54,9 @@ internal sealed class TestApp(TestDb db) : WebApplicationFactory<Program>
         builder.UseSetting("BASE_SETUP_CODE", SetupCode);
         builder.UseSetting("BASE_SECRET_KEY", Key);
         builder.ConfigureServices(s => s.AddTransient<IStartupFilter, LoopbackFilter>());
+        // the password hashing gate sheds a request that waits more than 3 s for a place; under load (a whole suite, pictures being made) eight parallel sign-ups can exceed that and the
+        // test would measure the machine, not the daily limit: tests wait up to 60 s (the gate itself is tested on its own, H1)
+        builder.ConfigureTestServices(s => { foreach (var d in s.Where(x => x.ServiceType == typeof(Drift.GameAccounts.HashGate)).ToList()) s.Remove(d); s.AddSingleton(new Drift.GameAccounts.HashGate(2, TimeSpan.FromSeconds(60))); });
     }
 
     private sealed class LoopbackFilter : IStartupFilter

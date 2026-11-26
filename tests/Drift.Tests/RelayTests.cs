@@ -206,6 +206,29 @@ public class RelayTests
     }
 
     [Fact]
+    public void A_private_world_is_its_own_world_only_for_those_who_name_it_and_the_public_never_lands_in_it()
+    {
+        var (r, _) = Make();
+        var pub1 = r.Join(new FakePeer(), "a1", 1)!;
+        var priv1 = r.Join(new FakePeer(), "a2", 1, "Ann", null, null, "link-one")!;
+        var priv2 = r.Join(new FakePeer(), "a3", 1, "Ben", null, null, "link-one")!;
+        var other = r.Join(new FakePeer(), "a4", 1, "Cy", null, null, "link-two")!;
+        var pub2 = r.Join(new FakePeer(), "a5", 1)!;
+        Assert.Equal(priv1.World, priv2.World);                              // the same link: the same world
+        Assert.NotEqual(priv1.World, pub1.World); Assert.NotEqual(priv1.World, other.World); // another link, the public: other worlds
+        Assert.Equal(pub1.World, pub2.World);                                // the public ones share the public world, though a private one was made in between
+        Assert.Equal(3, r.WorldCount);
+        // the roster of a private world holds only its members
+        var peerA = new FakePeer(); var inA = r.Join(peerA, "a6", 1, "Di", null, null, "link-one")!;
+        Assert.Equal(3, peerA.Last(Wire.Roster)![1]);
+        // when the last one leaves, the world and its key go (a later join with the key makes a new world)
+        r.Leave(other); r.Leave(inA); r.Leave(priv2); r.Leave(priv1);
+        Assert.Equal(1, r.WorldCount);
+        var again = r.Join(new FakePeer(), "a7", 1, "Ed", null, null, "link-one")!;
+        Assert.NotEqual(again.World, pub1.World);
+    }
+
+    [Fact]
     public void Eight_violations_in_ten_seconds_end_the_connection()
     {
         var (r, t) = Make();
