@@ -158,3 +158,14 @@ From `~/projects/drift-mockups/assets-download/QUELLEN.md` (downloaded with the 
 | `game/assets/env/nature.json` | list of the converted Quaternius files | own list | (see the nature kit section) | CC0 1.0 | made by tools/make-nature.mjs |
 
 **three.js addons for the corner scene** (MIT like the vendored core, r186; each has its import of `three` changed to `../../three.module.js`; hashes in `vendor/README.md`): `postprocessing/{EffectComposer,RenderPass,GTAOPass,UnrealBloomPass,OutputPass,ShaderPass,MaskPass,Pass}.js`, `shaders/{CopyShader,GTAOShader,LuminosityHighPassShader,OutputShader,PoissonDenoiseShader}.js`, `math/SimplexNoise.js`, `loaders/HDRLoader.js`.
+
+## The quay (Sketchfab models, CC BY 4.0)
+
+Downloaded with the owner's yes (2026-11-27), listed in `~/projects/drift-mockups/assets-download/QUELLEN.md`; the repository holds only what `view/look/quay.js` loads, made by `tools/make-quay-assets.mjs` from the raw downloads (18 MB -> 3.3 MB). CC BY 4.0: the authors are named in the game's credits (`game/data/credits.json`).
+
+| File | Title | Author | Source | Licence | Changes |
+|---|---|---|---|---|---|
+| `game/assets/skfb/palm-set.glb` | Stylized Palm tree set | Parelaxel (https://sketchfab.com/parelaxel) | https://sketchfab.com/3d-models/stylized-palm-tree-set-b84b734847344cb6a81b9102a64ac63b | CC BY 4.0 | only the trunks of two palms of the set (the crowns are replaced by the game's own, a one-triangle stand-in stays), pictures made smaller (512 px, JPEG), made by tools/make-quay-assets.mjs |
+| `game/assets/skfb/barriers.glb` | Stylized Concrete Barriers, Game Ready | Skipperino (https://sketchfab.com/skipperino) | https://sketchfab.com/3d-models/stylized-concrete-barriers-game-ready-f6086995b6e94790b1932d8aa4e51275 | CC BY 4.0 | only one barrier of the set, pictures made smaller (1024 px, JPEG), made by tools/make-quay-assets.mjs |
+| `game/assets/skfb/fence-set.glb` | Modular Chain Link Fence Set | FrodoUndead (https://sketchfab.com/FrodoUndead) | https://sketchfab.com/3d-models/modular-chain-link-fence-set-bd85a8005ff0403cab2f1e9845016b8f | CC BY 4.0 | only the first panel (with barbed wire), pictures made smaller (1024 px, the alpha kept lossless), made by tools/make-quay-assets.mjs |
+| `game/assets/skfb/crowd.glb` | Low Detail Animated Crowd | Shahriar Shahrabi (https://sketchfab.com/shahriyarshahrabi) | https://sketchfab.com/3d-models/low-detail-animated-crowd-4fe76fdec12d456f9b0db06b45cc53d6 | CC BY 4.0 | unchanged (the figures are frozen in a pose at load and drawn as copies) |

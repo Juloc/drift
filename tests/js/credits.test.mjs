@@ -39,3 +39,13 @@ test('every outside model, picture or sound file under game/assets has its entry
   const files = walk(join(root, 'game/assets')).map((p) => relative(root, p)).filter((f) => !/\/s15-test(-hi)?\.glb$/.test(f));   // the S15 test models are made by our own tools/export-s15.mjs
   for (const f of files) assert.ok(credits.entries.some((e) => [].concat(e.file ?? []).includes(f)), `${f} is not in game/data/credits.json`);
 });
+
+test('the quay\'s Sketchfab models (CC BY 4.0): each has its entry with attribution, and the four files together stay under 4 MB', () => {
+  let total = 0;
+  for (const f of ['palm-set', 'barriers', 'fence-set', 'crowd']) {
+    const path = `game/assets/skfb/${f}.glb`, e = credits.entries.find((c) => (c.file ?? []).includes(path));
+    assert.ok(e, `${path} is in the credits`); assert.equal(e.licence, 'CC BY 4.0'); assert.equal(e.attribution, true); assert.ok(/^https:\/\/sketchfab\.com\//.test(e.source) && e.author && e.changes);
+    total += statSync(join(root, path)).size;
+  }
+  assert.ok(total < 4 * 1024 * 1024, `${(total / 1048576).toFixed(2)} MB`);
+});

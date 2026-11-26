@@ -1481,6 +1481,82 @@
         "en": "List of the converted Stylized Nature MegaKit models (CC0 1.0)",
         "de": "Liste der umgewandelten Modelle des Stylized Nature MegaKit (CC0 1.0)"
       }
+    },
+    {
+      "id": "skfb-palm-set",
+      "kind": "model",
+      "name": "Stylized Palm tree set",
+      "file": [
+        "game/assets/skfb/palm-set.glb"
+      ],
+      "author": "Parelaxel",
+      "authorUrl": "https://sketchfab.com/parelaxel",
+      "source": "https://sketchfab.com/3d-models/stylized-palm-tree-set-b84b734847344cb6a81b9102a64ac63b",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "only the trunks of two palms of the set (the crowns are replaced by the game's own, a one-triangle stand-in stays), pictures made smaller (512 px, JPEG), made by tools/make-quay-assets.mjs",
+      "use": {
+        "en": "\"Stylized Palm tree set\" by Parelaxel, CC BY 4.0; changed: only the trunks of two palms of the set (the crowns are replaced by the game's own, a one-triangle stand-in stays), pictures made smaller (512 px, JPEG)",
+        "de": "„Stylized Palm tree set“ von Parelaxel, CC BY 4.0; verändert: only the trunks of two palms of the set (the crowns are replaced by the game's own, a one-triangle stand-in stays), pictures made smaller (512 px, JPEG)"
+      }
+    },
+    {
+      "id": "skfb-barriers",
+      "kind": "model",
+      "name": "Stylized Concrete Barriers, Game Ready",
+      "file": [
+        "game/assets/skfb/barriers.glb"
+      ],
+      "author": "Skipperino",
+      "authorUrl": "https://sketchfab.com/skipperino",
+      "source": "https://sketchfab.com/3d-models/stylized-concrete-barriers-game-ready-f6086995b6e94790b1932d8aa4e51275",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "only one barrier of the set, pictures made smaller (1024 px, JPEG), made by tools/make-quay-assets.mjs",
+      "use": {
+        "en": "\"Stylized Concrete Barriers, Game Ready\" by Skipperino, CC BY 4.0; changed: only one barrier of the set, pictures made smaller (1024 px, JPEG)",
+        "de": "„Stylized Concrete Barriers, Game Ready“ von Skipperino, CC BY 4.0; verändert: only one barrier of the set, pictures made smaller (1024 px, JPEG)"
+      }
+    },
+    {
+      "id": "skfb-fence-set",
+      "kind": "model",
+      "name": "Modular Chain Link Fence Set",
+      "file": [
+        "game/assets/skfb/fence-set.glb"
+      ],
+      "author": "FrodoUndead",
+      "authorUrl": "https://sketchfab.com/FrodoUndead",
+      "source": "https://sketchfab.com/3d-models/modular-chain-link-fence-set-bd85a8005ff0403cab2f1e9845016b8f",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "only the first panel (with barbed wire), pictures made smaller (1024 px, the alpha kept lossless), made by tools/make-quay-assets.mjs",
+      "use": {
+        "en": "\"Modular Chain Link Fence Set\" by FrodoUndead, CC BY 4.0; changed: only the first panel (with barbed wire), pictures made smaller (1024 px, the alpha kept lossless)",
+        "de": "„Modular Chain Link Fence Set“ von FrodoUndead, CC BY 4.0; verändert: only the first panel (with barbed wire), pictures made smaller (1024 px, the alpha kept lossless)"
+      }
+    },
+    {
+      "id": "skfb-crowd",
+      "kind": "model",
+      "name": "Low Detail Animated Crowd",
+      "file": [
+        "game/assets/skfb/crowd.glb"
+      ],
+      "author": "Shahriar Shahrabi",
+      "authorUrl": "https://sketchfab.com/shahriyarshahrabi",
+      "source": "https://sketchfab.com/3d-models/low-detail-animated-crowd-4fe76fdec12d456f9b0db06b45cc53d6",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "unchanged (the figures are frozen in a pose at load and drawn as copies)",
+      "use": {
+        "en": "\"Low Detail Animated Crowd\" by Shahriar Shahrabi, CC BY 4.0; changed: unchanged (the figures are frozen in a pose at load and drawn as copies)",
+        "de": "„Low Detail Animated Crowd“ von Shahriar Shahrabi, CC BY 4.0; verändert: unchanged (the figures are frozen in a pose at load and drawn as copies)"
+      }
     }
   ]
 }

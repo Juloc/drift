@@ -64,7 +64,7 @@ test('pages: every script and style a page names is there', () => {
 });
 
 test('pages: the development pages of the lab are known (each has its script, no inline script or style) and the vendored addons import three by a relative path', () => {
-  const lab = ['game/lab-sim.html', 'game/lab-look.html', 'game/lab-nature.html', 'game/lab-corner.html', 'game/lab-drive.html'].filter((p) => existsSync(p));
+  const lab = ['game/lab-sim.html', 'game/lab-look.html', 'game/lab-nature.html', 'game/lab-corner.html', 'game/lab-harbour.html', 'game/lab-drive.html'].filter((p) => existsSync(p));
   assert.ok(lab.length >= 4 && lab.includes('game/lab-corner.html'));
   for (const p of lab) {
     const html = readFileSync(p, 'utf8');
