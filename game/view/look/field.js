@@ -3,6 +3,7 @@
 // The cars drive on flat ground at y = 0; the land rises above the road on the uphill side (a cut with rock faces) and
 // falls away on the other (an embankment), following a height profile across the valley. Coordinates are the simulation's.
 import { noise2, smoothstep } from '../../core/rng.js';
+import { loadTrack, surfaceAt as trackSurface } from '../../sim/track.js';
 
 /** Points along an open Catmull-Rom curve through `ctrl`, about `step` metres apart. */
 export function sampleOpen(ctrl, step = 2) {
@@ -123,19 +124,23 @@ export function makeField(scene, { cell = 6 } = {}) {
   const slopeDir = T.mode === 'slope' ? ((d) => { const l = Math.hypot(d[0], d[1]) || 1; return [d[0] / l, d[1] / l]; })(T.dir ?? [0, -1]) : null;
   const hill = (x, z) => profileAt(T.profile, x * slopeDir[0] + z * slopeDir[1]);
   let G = scene.road.grade ?? [[0, 0]];
-  if (scene.road.grade === 'slope') {
+  // a map built with the track system (game/sim/track.js) brings its road: THE source of the height. The road's heights, the ground under any point and the plaza's level
+  // are asked there (`road.track`: the packed track of the map file); nothing is blended or taken from the hillside
+  const trk = scene.road.track ? loadTrack(scene.road.track) : null, _q = {};
+  if (trk) G = info.s.map((sv, i) => [sv, trackSurface(trk, road[i][0], road[i][1], _q).y]);
+  else if (scene.road.grade === 'slope') {
     // the hillside's height along the road, smoothed over about 20 m so the road does not follow every bump; the plaza's end stays at its start
     const raw = road.map(([x, z]) => hill(x, z)), k = 10, sm = raw.map((_, i) => { let a = 0, n = 0; for (let j = Math.max(0, i - k); j <= Math.min(raw.length - 1, i + k); j++) { a += raw[j]; n++; } return a / n; });
     G = info.s.map((sv, i) => [sv, sm[i] - (scene.road.cut ?? 0.5)]);
   }
-  const roadY = (sAlong) => { if (sAlong <= G[0][0]) return G[0][1]; for (let i = 1; i < G.length; i++) if (sAlong <= G[i][0]) { const k = (sAlong - G[i - 1][0]) / (G[i][0] - G[i - 1][0]); return G[i - 1][1] + (G[i][1] - G[i - 1][1]) * k * k * (3 - 2 * k); } return G[G.length - 1][1]; };
+  const roadY = (sAlong) => { if (sAlong <= G[0][0]) return G[0][1]; for (let i = 1; i < G.length; i++) if (sAlong <= G[i][0]) { const k = (sAlong - G[i - 1][0]) / (G[i][0] - G[i - 1][0]); return G[i - 1][1] + (G[i][1] - G[i - 1][1]) * (trk ? k : k * k * (3 - 2 * k)); } return G[G.length - 1][1]; };
   const roadYs = info.s.map(roadY);
   /** the height of the driving ground under a point (the road's height at its nearest point; the plaza and its surroundings at the road's start) */
   const roadGroundY = (x, z) => { const q = distToPath(road, x, z); return roadY(info.s[q.seg] + (info.s[q.seg + 1] - info.s[q.seg]) * q.t); };
   // on a hillside the plaza lies flat at the height where the road starts (its mouth), over the whole of its floor: the nearest road point of a corner of the plaza may belong to a hairpin far
   // below, which put the car (and the land under the plaza) 14 m down; the height blends into the road's own over 40 m beyond the plaza's edge
-  const plazaLevel = slopeDir && plazaPts ? roadGroundY(road[0][0], road[0][1]) : 0;
-  const groundY = slopeDir && plazaPts ? (x, z) => { const k = smoothstep(0, 40, distToPoly(plazaPts, x, z)); return k >= 1 ? roadGroundY(x, z) : plazaLevel * (1 - k) + roadGroundY(x, z) * k; } : roadGroundY;
+  const plazaLevel = trk?.plaza ? trk.plaza.y : slopeDir && plazaPts ? roadGroundY(road[0][0], road[0][1]) : 0;
+  const groundY = trk ? (x, z) => trackSurface(trk, x, z, _q).y : slopeDir && plazaPts ? (x, z) => { const k = smoothstep(0, 40, distToPoly(plazaPts, x, z)); return k >= 1 ? roadGroundY(x, z) : plazaLevel * (1 - k) + roadGroundY(x, z) * k; } : roadGroundY;
   const shelf = T.flat + cell * 1.45;   // up to here from the edge of the road the land stays just under the road
   /** the land without the road: the valley's profile, gently waving, and some noise that is quiet near the river */
   // `terrain.mode`: 'road' keys the profile by the signed distance to a closed road (inside negative: the land rises there, outside it falls away), 'area' by the distance to the
@@ -190,7 +195,7 @@ export function makeField(scene, { cell = 6 } = {}) {
   /** is a point on water (river or lake)? */
   const onIsland = (x, z) => { const I = scene.lake?.island; return !!I && Math.hypot(x - I.x, z - I.z) < I.r * 0.8; };
   const wet = (x, z, margin = 0) => !onIsland(x, z) && ( (R.width > 0 && Math.abs(z - riverZ(x)) < R.width / 2 + margin && x < (R.x1 ?? Infinity)) || (scene.lake && Math.hypot((x - scene.lake.x) / (scene.lake.rx + margin), (z - scene.lake.z) / (scene.lake.rz + margin)) < 1));
-  return { plazaLevel, core: T.rocksBox ?? T.core ?? T.extent, onIsland, slope: !!slopeDir, waterY, closed, insideSide, floor: R.y, lift: scene.road.lift ?? 0, road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
+  return { track: trk, plazaLevel, core: T.rocksBox ?? T.core ?? T.extent, onIsland, slope: !!slopeDir, waterY, closed, insideSide, floor: R.y, lift: scene.road.lift ?? 0, road, info, hw, shelf, base, edge, height, relHeight, groundY, roadY, roadYs, slope, riverZ, wave, wet, bendMin: scene.road.bendMin ?? 0.55, bendSpan: scene.road.bendSpan ?? 20, openValley: T.openValley ?? 0 };
 }
 
 /** Bends of a road: places where the heading turns by more than `min` rad over `span` metres; the sign is the turn (+ = right). */
