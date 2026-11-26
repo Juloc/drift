@@ -113,10 +113,13 @@ test('frame rate does not change the result: 30, 60 and 144 fps run the same ste
   assert.deepEqual(to(30), to(60)); assert.deepEqual(to(60), to(144));
 });
 
-test('a stall is dropped, not caught up', () => {
+test('a long stall is dropped, not caught up; a short hitch is caught up in full (the car does not fall behind)', () => {
   const loop = new FixedLoop(); let n = 0;
   loop.advance(5, () => n++);
-  assert.ok(n <= 0.1 / DT + 1);
+  assert.ok(n <= 0.25 / DT + 1);
+  const hitch = new FixedLoop(); let m = 0;
+  hitch.advance(0.15, () => m++);
+  assert.equal(m, Math.round(0.15 / DT));
 });
 
 test('a million random steps: no NaN, never absurdly fast, never outside the map', () => {

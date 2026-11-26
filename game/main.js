@@ -862,7 +862,7 @@ function frame(now) {
   const { smoke } = stage;   // (the tyre marks are made in the simulation step, so a run-up before the first frame has them too)
   // damage: the paint darkens with it, smoke comes from the nose over half, and a small readout
   if (dmg !== shownDmg) { shownDmg = dmg; Fleet.colour(mine, ownColour, dmg); }
-  if (dmg > 0.5 && !paused && info.frames % 3 === 0) { const np = new THREE.Vector3(0, 0.7, 2.2).applyMatrix4(carGroup.matrix); smoke.emit(np.x, 0.5 + gy, np.z, 0, 0, 0.35 * dmg); }
+  if (dmg > 0.5 && !paused && info.frames % 3 === 0) { const np = new THREE.Vector3(0, 0.7, 2.2).applyMatrix4(mine.group.matrix); smoke.emit(np.x, 0.5 + gy, np.z, 0, 0, 0.35 * dmg); }
   const dmgText = dmg > 0.02 ? `${T.damageLabel} ${Math.round(dmg * 100)} %` : '';
   if (damageEl.textContent !== dmgText) { damageEl.textContent = dmgText; damageEl.hidden = dmgText === ''; }
   camera.updateMatrixWorld(); smoke.aim?.(camera);   // smoke that would hide the car on the picture fades out (billows.js)
@@ -940,5 +940,5 @@ function roadProbe(step = 5) {
   }
   return out;
 }
-window.__drift = { roadProbe, get ghost() { return ghostCar; }, floorAt, startSpots, showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return carGroup; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; }, get pose() { return minePose; }, roadSurface };
+window.__drift = { roadProbe, get ghost() { return ghostCar; }, floorAt, startSpots, showSummary, modeResult(kind, j) { runMode = kind; return showModeResult(j, kind); }, get carGroup() { return mine.group; }, get camera() { return camera; }, get state() { return cur; }, get score() { return score; }, stage, renderer, info, car, get map() { return map; }, get mapId() { return mapId; }, ensureMap, reset, input, get fleet() { return fleet; }, get fx() { return mineFx; }, get pose() { return minePose; }, roadSurface };
 requestAnimationFrame(frame);

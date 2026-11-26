@@ -77,14 +77,21 @@ export class LookChase {
   /** the player is dragging: the camera follows the hand and does not go back */
   nudge(dyaw, dlift) { this.user.yaw += dyaw; this.user.lift = clamp(this.user.lift + dlift, -1.5, 9); this.idle = 0; }
   zoomBy(f) { this.user.zoom = clamp(this.user.zoom * f, 0.55, 2.4); }
-  snap(s) { this.ready = false; this.sw = undefined; this.update(s, 0, 0); }
+  snap(s) { this.ready = false; this.sw = undefined; this.td = undefined; this.update(s, 0, 0); }
   update(s, top, dt) {
     const C = this.C, g = this.ground ?? (() => 0), U = this.user, P = PRESETS[U.preset] ?? PRESETS.follow;
-    const reversing = s.vx * Math.sin(s.h) + s.vz * Math.cos(s.h) < -1;
-    const travel = speedOf(s) > 4 && !reversing ? Math.atan2(s.vx, s.vz) : s.h;
+    // the way the car goes counts the faster it rolls forward (nothing at a crawl or backwards: then the nose alone), blended in softly: a switch at one speed made the
+    // view jump when a car slowed down in a slide or turned round (14 degrees in one picture, measured by tools/ridecheck.mjs)
+    const vf = s.vx * Math.sin(s.h) + s.vz * Math.cos(s.h), sp = speedOf(s), moving = Math.max(0, Math.min(1, (sp - 2) / 4)) * Math.max(0, Math.min(1, (vf + 1) / 2));
+    const travel = s.h + (sp > 0.5 ? angDiff(s.h, Math.atan2(s.vx, s.vz)) : 0) * moving;
     const aim = s.h + angDiff(s.h, travel) * C.travel;
+    if (this.ready && Math.hypot(s.x - this.x, s.z - this.z) > 12) this.ready = false;   // the car was put somewhere else (a restart, a start place): the camera is there at once, it does not fly after it
     if (!this.ready) { this.yaw = aim; this.x = s.x; this.z = s.z; this.gy = g(s.x, s.z); this.ex = 0; this.ready = true; }
     // everything that follows the car is damped: its place, the height of the road under it, the direction (slowly: a slide does not swing the picture)
+    // the point the camera follows MOVES WITH the car (its speed carries it along) and only what is left over is damped: a knock or a wall is still softened, but the
+    // camera no longer hangs on an elastic band (it used to trail by the speed over 8: three metres at 100 km/h, so the car slid away and came back with every
+    // change of speed: the owner's "rubber-banding")
+    this.x += s.vx * dt; this.z += s.vz * dt;
     this.x = damp(this.x, s.x, 8, dt); this.z = damp(this.z, s.z, 8, dt);
     this.gy = damp(this.gy, g(s.x, s.z), 3.5, dt);
     this.yaw += angDiff(this.yaw, aim) * (1 - Math.exp(-2.2 * dt));
@@ -93,7 +100,10 @@ export class LookChase {
     if (U.auto && this.idle > 1.4) { const k = 1 - Math.exp(-1.6 * dt); U.yaw -= angDiff(0, U.yaw) * k; U.lift -= U.lift * k; }
     const yaw = this.yaw + U.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw), rx = fz, rz = -fx;
     // `turn` (degrees, + = to the right) turns the view away from the road; `turnDrift`: the car stays towards one side of the picture in a slide; `swing`: the camera swings out with the drift angle, softly
-    const slip = angDiff(travel, s.h), ty = this.yaw + (((C.turn ?? 0) + (C.turnDrift ?? 0) * clamp(slip / 0.6, -1, 1)) * Math.PI) / 180;
+    // (the turn with the drift follows the angle softly too: in a spin the angle flips from one side to the other in an instant)
+    const slip = angDiff(travel, s.h), driftTo = clamp(slip / 0.6, -1, 1) * (Math.abs(slip) > 2 ? 0 : 1);
+    this.td = dt > 0 && this.td !== undefined ? damp(this.td, driftTo, 3, dt) : driftTo;
+    const ty = this.yaw + (((C.turn ?? 0) + (C.turnDrift ?? 0) * this.td) * Math.PI) / 180;
     const swingTo = (C.swing ?? 0) * angDiff(travel, s.h);
     this.sw = (this.sw ?? swingTo) + (swingTo - (this.sw ?? swingTo)) * (1 - Math.exp(-2 * dt));
     const side = C.side + this.sw, dist = P.dist * U.zoom, up = (P.up + U.lift) * U.zoom;

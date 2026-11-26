@@ -3,7 +3,7 @@
 import { DT } from './physics.js';
 
 export class FixedLoop {
-  constructor(dt = DT, maxFrame = 0.1) {
+  constructor(dt = DT, maxFrame = 0.25) {   // (0.25 s: a hitch of a tenth of a second is caught up, so the car does not fall behind and seem pulled back; it used to be 0.1)
     this.dt = dt;
     this.maxFrame = maxFrame; // a stall longer than this is dropped, not caught up (no spiral of death)
     this.acc = 0;

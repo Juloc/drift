@@ -3,7 +3,8 @@
 // stands on the drawn ground (under 5 cm), (c) every key has a button by touch, (d) no part of the HUD overlaps another or is cut off. Prints a text report, writes a picture per
 // size and an overview picture to docs/screenshots/playcheck/, and exits with 1 when anything fails. The machine's graphics when there is a render node (tools/chrome.mjs), else software; one browser at a time (a few minutes).
 // It runs the track check and the drive check first (tools/trackcheck.mjs, tools/drivecheck.mjs; --no-road skips them) and stops when one is red.
-// Usage: node tools/playcheck.mjs [--tier=low] [--only=phone-landscape,pc] [--out=docs/screenshots/playcheck] [--no-road]
+// Then it drives the page for real and measures every picture (tools/ridecheck.mjs; --no-ride skips it).
+// Usage: node tools/playcheck.mjs [--tier=low] [--only=phone-landscape,pc] [--out=docs/screenshots/playcheck] [--no-road] [--no-ride]
 import { spawn, spawnSync } from 'node:child_process';
 import { GL_FLAGS } from './chrome.mjs';
 import { writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
@@ -29,6 +30,16 @@ if (!opt['no-road']) {
     const r = spawnSync(process.execPath, args, { encoding: 'utf8' });
     if (r.status !== 0) { console.log(`play check FAILED before the browser: the ${what} is red\n` + r.stdout.split('\n').filter((l) => /BROKEN|FAILED|LIMITS/.test(l)).slice(0, 12).join('\n')); process.exit(1); }
     console.log(`${what}: green`);
+  }
+}
+// then a real drive in the browser, measured picture by picture (tools/ridecheck.mjs, on the page served from the repository): the car or the camera jumping between two
+// pictures, the camera on an elastic band, the view snapping round ("rubber-banding"). The track bot down the road, and the orbit bot against the walls. --no-ride skips it.
+if (!opt['no-ride']) {
+  for (const [what, extra] of [['ride down the road', ['--seconds=30']], ['ride against the walls', ['--seconds=20', '--demo=orbit']]]) {
+    const r = spawnSync(process.execPath, ['tools/ridecheck.mjs', '--static', '--phys=1', ...extra], { encoding: 'utf8' });
+    let j = null; try { j = JSON.parse(r.stdout.trim().split('\n').pop()); } catch { /* no result */ }
+    if (!j || j.error || j.broken?.length) { console.log(`play check FAILED: the ${what}: ${j?.error ?? j?.broken?.join('; ') ?? r.stdout.slice(-300) + r.stderr.slice(-300)}`); process.exit(1); }
+    console.log(`${what}: green (${j.fps} pictures a second, camera ${j.camDistance[0]} to ${j.camDistance[1]} m from the car, biggest jump ${Math.max(j.carJump, j.camJump)} m, view turns at most ${j.camTurnDegPerFrame} degrees a picture)`);
   }
 }
 
