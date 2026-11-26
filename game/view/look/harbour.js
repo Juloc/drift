@@ -30,7 +30,8 @@ export function fbm(px, py) { return F(F(F(vn(px, py) * 0.5) + F(vn(F(F(px * 2.0
 /** How deep the puddle is at a point of the world's ground (x, z): 0 dry .. 1 water (the shader's `smoothstep(wet0, wet1, hollow)`). */
 export const hollowAt = (wx, wz, wet0 = 0.46, wet1 = 0.58) => smooth(wet0, wet1, fbm(F(F(wx * 0.16) + 31), F(F(wz * 0.16) + 31)));
 
-export async function buildHarbour({ renderer, params, still = true }) {
+export async function buildHarbour({ renderer, params, still = true, tier = 'high' }) {
+let low = tier === 'low';   // the phone tier: no ambient occlusion, bloom at half size, shadow map 1024, pixel ratio at most 1.5, a quarter of the grass and flowers, the sky as a 1k file
 const q = (k, d) => (params.has(k) ? +params.get(k) : d);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = q('exp', 0.42);
@@ -41,7 +42,8 @@ const rnd = (() => { let s = 20261127; return () => { s = (s * 16807) % 21474836
 // ---- the sky: a real sunset as background, as the light of everything and as what the wet asphalt and the paint mirror. The sun is found in the
 // picture itself; the whole place is turned so that the sea lies towards it.
 const skyName = params.get('sky') || 'the_sky_is_on_fire';
-const hdr = await new HDRLoader().setDataType(THREE.FloatType).loadAsync(`assets/sky/${skyName}_2k.hdr`);
+const SKY = (name, isLow) => `assets/sky/${name}_${isLow && !params.has('sky') ? '1k' : '2k'}.hdr`;   // (the 1k file only exists for the default sky)
+let skyFile = SKY(skyName, low), hdr = await new HDRLoader().setDataType(THREE.FloatType).loadAsync(skyFile);
 hdr.mapping = THREE.EquirectangularReflectionMapping;
 const sunDir = (() => {
   const { data, width, height } = hdr.image; let best = 0, bu = 0, bv = 0;
@@ -79,7 +81,7 @@ async function scatter(path, spots, { shadow = true, receive = true, tint = null
     mat.color.getHSL(hc); if (green && hc.h > 0.36 && hc.h < 0.56 && hc.s > 0.2) mat.color.setHSL(hc.h - 0.14 + (green[0] ?? 0), hc.s * (green[1] ?? 0.75), hc.l * (green[2] ?? 0.82));   // the kit's teal greens to the place's warm green
     const mesh = new THREE.InstancedMesh(o.geometry, mat, spots.length);
     spots.forEach(([x, z, ry = 0, sc = 1, y = 0], i) => mesh.setMatrixAt(i, m.compose(p.set(x, y, z), qt.setFromAxisAngle(up, ry), s.set(sc, sc, sc)).multiply(fix).multiply(o.matrixWorld)));
-    mesh.instanceMatrix.needsUpdate = true; mesh.castShadow = shadow; mesh.receiveShadow = receive; mesh.computeBoundingSphere(); if (add) root.add(mesh); made.push(mesh);
+    mesh.instanceMatrix.needsUpdate = true; mesh.castShadow = shadow; mesh.receiveShadow = receive; mesh.computeBoundingSphere(); mesh.userData.base = { spots, fix, mw: o.matrixWorld.clone() }; mesh.userData.full = spots.length; mesh.userData.thin = /grass|flower/.test(path); if (add) root.add(mesh); made.push(mesh);   // (`base`: how an instance's matrix is made, for a page that moves them)
   });
   return made;
 }
@@ -181,12 +183,16 @@ sun.target.position.copy(toWorld(0, 0, -10)); sun.position.copy(sun.target.posit
 const composer = new EffectComposer(renderer); composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
 const flats = [];   // flat pictures that stay out of the ambient occlusion's shape pass (the page adds its own)
-if (q('ao', 1)) { const ao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+let aoPass = null;
+if (q('ao', 1)) { const ao = aoPass = new GTAOPass(scene, camera, innerWidth, innerHeight);
   // smoke and lamp glows are flat pictures facing the camera: they must not take part in the pass that reads the scene's shapes (it went black with them)
   root.traverse((o) => { if (o.isSprite) flats.push(o); });
   const hide = ao._overrideVisibility.bind(ao), show = ao._restoreVisibility.bind(ao);
   ao._overrideVisibility = () => { hide(); for (const o of flats) o.visible = false; }; ao._restoreVisibility = () => { show(); for (const o of flats) o.visible = true; }; ao.updateGtaoMaterial({ radius: q('aoR', 0.9), distanceExponent: 1.4, thickness: 1.2, scale: q('aoS', 1.25), samples: 16 }); ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 }); composer.addPass(ao); }
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), q('bloom', 0.18), 0.5, q('bloomT', 1.6)));
+const half = (v) => (low ? Math.max(1, Math.round(v / 2)) : v);
+const bloom = new UnrealBloomPass(new THREE.Vector2(half(innerWidth), half(innerHeight)), q('bloom', 0.18), 0.5, q('bloomT', 1.6)), bloomSize = bloom.setSize.bind(bloom);
+bloom.setSize = (w, h) => bloomSize(half(w), half(h));   // (the composer sets every pass to the full size: the phone tier's bloom stays at half)
+composer.addPass(bloom);
 composer.addPass(new OutputPass());
 composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null }, uSat: { value: q('sat', 1.12) }, uCon: { value: q('con', 1.06) }, uVig: { value: q('vig', 0.32) } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -198,12 +204,37 @@ const arcPts = []; for (let a = 2.1; a < 4.6; a += 0.082) arcPts.push([+(14 + Ma
 const walls = [[[-42, 22], [-42, -52]], [[-42, -55], [40, -55]], [[-16, 22], [-42, 22]], arcPts];
 const bounds = [[-42, 26], [42, 26], [42, -58], [-42, -58]];   // the asphalt's edge
 const disposeAll = () => { root.traverse((o) => { o.geometry?.dispose?.(); for (const m of [].concat(o.material ?? [])) { for (const k of ['map', 'normalMap', 'roughnessMap']) m[k]?.dispose?.(); m.dispose?.(); } }); composer.dispose?.(); hdr.dispose(); };
-return {
+const api = {
   scene, root, camera, composer, sun, toWorld, yaw, still: still ? { car } : null, walls, bounds, cones: cones.map(([x, z]) => [x, z]), coneSpots: cones, flats, scatter, cloudTex,
   /** how deep the puddle is at a point in the scene's own axes (0 dry .. 1 water) */
   puddleAt: hollow,
   resize(w, h) { renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); },
-  setTier() {}, dispose: disposeAll,
+  /** The tier: 'high' or 'low' (the phone). Returns a promise (the sky file may change). */
+  async setTier(name) {
+    low = name === 'low';
+    if (aoPass) aoPass.enabled = !low;
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1.5 : 2)); composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight);
+    sun.shadow.mapSize.set(low ? 1024 : 4096, low ? 1024 : 4096); sun.shadow.map?.dispose(); sun.shadow.map = null;
+    root.traverse((o) => { if (o.isInstancedMesh && o.userData.thin) o.count = low ? Math.ceil(o.userData.full / 4) : o.userData.full; });
+    const want = SKY(skyName, low);   // (the sun's direction and the scene's turn stay as the file loaded at the build gave them)
+    if (want !== skyFile) {
+      const next = await new HDRLoader().setDataType(THREE.FloatType).loadAsync(want); next.mapping = THREE.EquirectangularReflectionMapping;
+      const old = hdr; hdr = next; skyFile = want; scene.background = hdr; scene.environment = hdr; old.dispose();
+    }
+    return api;
+  },
+  /** An estimate of the pictures in graphics memory in MB: the textures of the materials and the sky (uncompressed, with mip levels where the texture has them) and the post passes' targets. */
+  memoryEstimate() {
+    const seen = new Set(); let tex = 0;
+    const add = (t) => { if (!t || seen.has(t) || !t.image) return; seen.add(t); const w = t.image.width ?? 0, hh = t.image.height ?? 0, bytes = t.type === THREE.FloatType ? 16 : t.type === THREE.HalfFloatType ? 8 : 4; tex += w * hh * bytes * (t.generateMipmaps !== false && !t.isCompressedTexture && t.minFilter !== THREE.LinearFilter && t.minFilter !== THREE.NearestFilter ? 1.33 : 1); };
+    scene.traverse((o) => { for (const m of [].concat(o.material ?? [])) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap']) add(m[k]); });
+    const rest = tex; tex = 0; add(hdr); const sky = tex; tex += rest;
+    const pr = renderer.getPixelRatio(), W = Math.round(innerWidth * pr), H = Math.round(innerHeight * pr);
+    const targets = (2 * W * H * 8) /* the composer's two half-float targets */ + (aoPass && !low ? (W * H * 8 + W * H * 4 * 3) : 0) /* depth/normal/AO */ + (W * H * 8 * (low ? 0.25 : 1) * 1.33) /* the bloom mip chain */ + (sun.shadow.mapSize.x ** 2) * 4 /* the shadow map: one depth texture */;
+    return { texturesMB: +(tex / 1048576).toFixed(1), skyMB: +(sky / 1048576).toFixed(1), targetsMB: +(targets / 1048576).toFixed(1), totalMB: +((tex + targets) / 1048576).toFixed(1), note: 'estimate: sizes of the uploaded pictures, not what the driver reports' };
+  },
+  dispose: disposeAll,
   debug: () => ({ sun: sunDir.toArray().map((v) => +v.toFixed(3)), yaw: +yaw.toFixed(3), cam: camera.position.toArray().map((v) => +v.toFixed(1)), children: root.children.length, hdr: [hdr.image.width, hdr.image.height, hdr.image.data?.constructor?.name], px: Array.from(hdr.image.data.slice(0, 4)) }),
 };
+return api;
 }

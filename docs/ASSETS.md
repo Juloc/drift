@@ -153,7 +153,7 @@ From `~/projects/drift-mockups/assets-download/QUELLEN.md` (downloaded with the 
 | `game/assets/kit/nature/` (14 files) | Nature Kit 2.1 | Kenney (https://kenney.nl) | https://opengameart.org/content/nature-kit | CC0 1.0 | only the files the scene loads; palms, bushes, grass, flowers and rocks |
 | `game/assets/kit/city/` (8 files) | City Kit (Industrial) 2.0 | Kenney (https://kenney.nl) | https://opengameart.org/content/city-kit-industrial | CC0 1.0 | only the files the scene loads; buildings, a tank, a chimney and shipping containers |
 | `game/assets/kit/watercraft/` (6 files) | Watercraft Kit | Kenney (https://kenney.nl) | https://opengameart.org/content/watercraft-pack | CC0 1.0 | only the files the scene loads; cargo ships and a sailing boat |
-| `game/assets/sky/the_sky_is_on_fire_2k.hdr` | HDRI "The Sky Is On Fire" | Poly Haven (https://polyhaven.com) | https://polyhaven.com/a/the_sky_is_on_fire | CC0 1.0 | none (2k version); the other sky of the download was removed |
+| `game/assets/sky/the_sky_is_on_fire_{2k,1k}.hdr` | HDRI "The Sky Is On Fire" | Poly Haven (https://polyhaven.com) | https://polyhaven.com/a/the_sky_is_on_fire | CC0 1.0 | 2k unchanged; `the_sky_is_on_fire_1k.hdr` for the phone tier is made from it (2 x 2 texels averaged, `tools/make-sky.mjs`); the other sky of the download was removed |
 | `game/assets/tex/asphalt_02_{diff,nor_gl,rough}_1k.jpg` | Asphalt 02 | Poly Haven | https://polyhaven.com/a/asphalt_02 | CC0 1.0 | none (1k versions) |
 | `game/assets/env/nature.json` | list of the converted Quaternius files | own list | (see the nature kit section) | CC0 1.0 | made by tools/make-nature.mjs |
 

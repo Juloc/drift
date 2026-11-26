@@ -1425,9 +1425,10 @@
     {
       "id": "sky-fire",
       "kind": "picture",
-      "name": "HDRI \"The Sky Is On Fire\" (2k)",
+      "name": "HDRI \"The Sky Is On Fire\" (2k, and 1k made from it)",
       "file": [
-        "game/assets/sky/the_sky_is_on_fire_2k.hdr"
+        "game/assets/sky/the_sky_is_on_fire_2k.hdr",
+        "game/assets/sky/the_sky_is_on_fire_1k.hdr"
       ],
       "author": "Poly Haven",
       "authorUrl": "https://polyhaven.com",
@@ -1435,7 +1436,7 @@
       "licence": "CC0 1.0",
       "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "attribution": false,
-      "changes": "unchanged, 2k version",
+      "changes": "2k unchanged; the 1k file for the phone tier is the 2k file with every 2 x 2 texels averaged (tools/make-sky.mjs)",
       "use": {
         "en": "Sky picture \"The Sky Is On Fire\" from Poly Haven, CC0 1.0: the sky and the light of the corner scene",
         "de": "Himmelsbild \"The Sky Is On Fire\" von Poly Haven, CC0 1.0: Himmel und Licht der Ecken-Szene"
