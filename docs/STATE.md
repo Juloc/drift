@@ -688,3 +688,16 @@ A static page with sample data, no server logic, no inline script; every text th
   without it (the frame is capped by the display rate here, so this only says "not slower"); phone 130k / 23 (before 116k / 22; the rocks are 14k of it; the aim is about 120k).
   To fit: the tier's carpet 2000 to 400, near pines 160 to 130, rocks 40 to 8 (each a cluster of 516 triangles). Palette on shot=tal: mean 69 (the sky changed meanwhile).
 - Not checked: a real phone's frame time. Not done: L7 (clouds, stars: the drift chat), the pine thickening on the slope above the road (plan L6 item 5).
+
+## Look chat: the 895 m sample, frame time per part, props near the camera, the rock face, smoke size
+- **Play check at 895 m (7 cm):** the shelf under the land was too shallow for the coarse grid on that hairpin: field.relHeight's `sink` now grows with the grid's cell size (`-0.4 - (cell - 6) * 0.03` on a hillside).
+  Play check green again (5 sizes, 0 problems; track, drive and interface checks green).
+- **Frame time per part** (PC high tier, shot=kehre, headless Chromium on the machine's graphics, median of 5 runs, the part hidden or shown; 16.5 ms is the display's rate, so a cost of
+  0 means "not slower"): smoke -0.2 ms, light pools +0.16, halos -0.15, stars +0.31, **clouds +2.0**, foliage +0.75, rocks +1.3, lantern models 0, mist +0.16.
+  So the 53 to 42 fps in the ride check is not the smoke, the pools or the stars; the clouds (L7, the drift chat) are the biggest single part, then the rocks. Phone (low tier): everything under 1 ms.
+- **Props within 3 m of the camera** (the black lamp post): the land mesh (posts, lanterns, trees) and the model meshes dissolve in a fine dither inside 3 m, above the ground the camera looks over.
+- **Rock face** (`look.rockFace`, `rockFace()` in world.js): a closed, layered band of grey-violet rock with moss patches and a mossy ledge on the uphill side of every cut (rise 3.5 m or more),
+  4.4 m high with a batter, part of the world mesh (no extra draw call); the Ghibli rocks stand in front of it as accents. Not yet the plan's "retaining wall on the fill side" and not a face
+  built from the rock models themselves (the model is one cluster: a wall of 100 of them would be 50k triangles).
+- **Smoke** 1.5 times bigger (size 1.5, maxSize 5.4, opacity 1).
+- **Draw calls**: 61 at shot=tal; the car alone is about 30 of them (4 wheels, body, lamps, glass: twice with the shadow pass); grass, plants, rocks and lantern together 5. Triangles: high 402k, phone 132k.

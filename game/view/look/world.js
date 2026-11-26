@@ -83,7 +83,9 @@ export function buildWorld(scene, look, tierName = 'high') {
   trees(S, f, scene, look, tier, rnd, lite);
   // no loose boulders where a hairpin has its own set (scene.road.bendSets): the wall is there
   const sets = scene.road.bendSets ? bends(f.info, { min: f.bendMin, span: f.bendSpan }).filter((b) => Math.abs(b.turn) > 1).map((b) => pointAt(f.road, f.info, b.s + 15)) : [];
-  rocks(S, f, look, tier, rnd, sideInfo, lite, (x, z) => sets.some((p) => Math.hypot(p.x - x, p.z - z) < 38));
+  const nearSet = (x, z) => sets.some((p) => Math.hypot(p.x - x, p.z - z) < 38);
+  rockFace(S, f, look, tier, sideInfo, lite, nearSet);
+  rocks(S, f, look, tier, rnd, sideInfo, lite, nearSet);
   details(S, G, f, scene, look, tier, mulberry32(29), lite, sideInfo, onPlaza);
   if (scene.road.lamps) roadLamps(S, G, f, scene, look, sideInfo, lampHeads, pools);
   if (scene.props) props(S, G, f, scene, look, lite, lampHeads);
@@ -105,7 +107,10 @@ export function buildWorld(scene, look, tierName = 'high') {
       vec3 facet = normalize(cross(dFdx(vLandPos), dFdy(vLandPos)));
       float tone = (lh(floor(facet * 23.0) + floor(vLandPos * 0.25)) - 0.5) * ${(look.surface?.facet ?? 0.12).toFixed(3)}
         + (ln(vLandPos * 0.08) - 0.5) * ${(look.surface?.blotch ?? 0.2).toFixed(3)} + (ln(vLandPos * 1.3) - 0.5) * ${(look.surface?.grain ?? 0.08).toFixed(3)};
-      diffuseColor.rgb *= 1.0 + tone;`);
+      diffuseColor.rgb *= 1.0 + tone;
+      // props (posts, lanterns, trees) within 3 m of the camera and above the ground it looks over dissolve in a fine dither: no black pole in front of the lens; the ground itself stays
+      float dcam = distance(vLandPos, cameraPosition);
+      if (dcam < 3.0 && vLandPos.y > cameraPosition.y - 0.9 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) > smoothstep(0.8, 3.0, dcam)) discard;`);
   };
   const lights = new THREE.Mesh(G.build(), makeGlow());
   const far = Far.count ? new THREE.Mesh(Far.build(), new THREE.MeshBasicMaterial({ vertexColors: true })) : null;
@@ -648,6 +653,43 @@ function trees(S, f, scene, look, tier, rnd, lite) {
 }
 
 // ---------------------------------------------------------------- rocks: faceted boulders at the foot of the cut and on steep slopes
+/**
+ * A closed rock face on the uphill side of the road (look.rockFace): where the road is cut into the hill, a faceted band of grey-violet rock stands from just beside the
+ * road's shoulder up the slope, 2 to 5 m high with a batter and noise, rock lighter high up, a mossy ledge on top. One net along the road (about 10 triangles a road point),
+ * part of the world mesh: no extra draw call. The rock models (rocks()) stand in front of it as accents. Not where a hairpin has its own set (`clear`), not on the plaza.
+ */
+function rockFace(S, f, look, tier, sideInfo, lite, clear) {
+  const F = look.rockFace; if (!F) return;
+  const L = look.land, hw = f.hw, rows = lite ? 2 : 3, step = lite ? 3 : 2, rockC = C(L.rock), darkC = C(L.rockDark), mossC = C(L.moss ?? '#7a9a62').lerp(C(L.high), 0.35), k = new THREE.Color();
+  const right = (d) => [d[1], -d[0]];
+  const ok = (i) => { const si = sideInfo[i], p = f.road[i]; return si.rise >= (F.minRise ?? 3.5) && f.info.s[i] > 40 && f.edge(p[0], p[1]) === 0 && !clear(p[0], p[1]); };
+  const n = f.road.length; let i = 0;
+  while (i < n) {
+    if (!ok(i)) { i++; continue; }
+    // a run of road points on the same cut side (at most 8 points, so each net stays small)
+    const run = [i], side = -sideInfo[i].valley; let j = i + step;
+    while (j < n && run.length < 8 && ok(j) && -sideInfo[j].valley === side) { run.push(j); j += step; }
+    i = j - (step > 1 ? 0 : 1);
+    if (run.length < 2) { i = Math.max(i, run[0] + 1); continue; }
+    const g = gridGeo(run.length, rows + 2, (r, c) => {
+      const ii = run[r], p = f.road[ii], rv = right(f.info.dir[ii]), s0 = f.info.s[ii];
+      const hFace = (F.height ?? 3.4) * (0.7 + 0.6 * noise2(s0 / 41, 3)) + 0.8 * noise2(s0 / 9, 8);
+      const kk = Math.min(c, rows) / rows, o = hw + (F.gap ?? 1.0) + kk * (F.batter ?? 1.3) + (c > rows ? 1.1 : 0) + (noise2(s0 / 5 + c, 4) - 0.5) * 0.7;
+      const px = p[0] + rv[0] * side * o, pz = p[1] + rv[1] * side * o, yb = f.height(p[0] + rv[0] * side * (hw + (F.gap ?? 1.0)), p[1] + rv[1] * side * (hw + (F.gap ?? 1.0))) - 0.35;
+      const y = yb + kk * hFace + (c > rows ? 0.05 : 0) + (c > 0 && c <= rows ? (noise2(s0 / 3.1 + c * 2.3, 6) - 0.5) * 0.7 : 0);
+      const tone = noise2(s0 / 6 + c * 1.7, 11);
+      // strata and blotches: a band of lighter and darker rock across the face (the rock reads as layered, not as a smooth bank), darker at the foot, moss patches higher up and on the ledge
+      const strata = noise2(s0 / 7 + c * 2.9, 17) - 0.5;
+      k.copy(rockC).lerp(darkC, Math.min(1, 0.45 * (1 - kk) + 0.5 * tone)).multiplyScalar(0.62 + 0.5 * kk + 0.5 * strata);
+      if (c >= rows - 1) k.lerp(mossC, c > rows ? 0.9 : 0.25 + 0.7 * tone);
+      return [X(px), y, pz, k.clone()];
+    });
+    const mid = f.road[run[run.length >> 1]], rvm = right(f.info.dir[run[run.length >> 1]]);
+    orient(g, () => new THREE.Vector3(X(-rvm[0] * side), 0.15, -rvm[1] * side));   // the face looks at the road
+    S.add(g, null, { keepColors: true, jitter: 0, wobble: 0 });
+  }
+}
+
 function rocks(S, f, look, tier, rnd, sideInfo, lite, clear = () => false) {
   const L = look.land, right = (d) => [d[1], -d[0]];
   // the normal of the ground at a point (drawing axes: x mirrored)

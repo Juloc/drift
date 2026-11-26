@@ -36,6 +36,10 @@ export async function fillSlots(world, look, alive = () => true) {
       const sat = P ? undefined : M.saturation?.[kind];   // look.models.saturation: how much of the file's own colour stays (0 grey, 1 as painted)
       if (sat !== undefined) material.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
         diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114))), diffuseColor.rgb, ${sat.toFixed(3)});`); };
+      // the props of the models dissolve within 3 m of the camera too (a dither: nothing stands in front of the lens)
+      const prev = material.onBeforeCompile;
+      material.onBeforeCompile = (sh, r) => { prev?.(sh, r); sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+        { float dc = length(vViewPosition); if (dc < 3.0 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) > smoothstep(0.8, 3.0, dc)) discard; }`); };
       const mesh = new THREE.InstancedMesh(o.geometry.clone().applyMatrix4(o.matrixWorld), material, places.length);
       // a place may bring the ground's normal: the model's up turns to it, then it turns about it by ry
       const q2 = new THREE.Quaternion(), nv = new THREE.Vector3();
