@@ -887,3 +887,14 @@ A static page with sample data, no server logic, no inline script; every text th
 - Merged `chef/quay2` (b60932a: the plain-images plugin on the loaders, `h.loadModel`, `tests/js/model-pictures.test.mjs`) as d322a8e.
 - **`tools/staticserver.mjs`**: the repository on a small node server that answers with the app's own headers (the content policy is read from `base/src/Base.Web/SecurityHeaders.cs`, one source; `DRIFT_PLAIN_SERVER=1` serves without it). `tools/simdrive.mjs` and `tools/playcheck.mjs` use it now instead of python's file server; `simdrive` also records `securitypolicyviolation` events and calls a page broken when one occurs (`contentPolicy` in its answer). `scripts/premerge.sh` has a fourth step: `lab-drive.html` (quay), `lab-drive.html?scene=harbour` and `lab-harbour.html` at 640x360 must start and run under the policy without an error or a violation (about 1.5 minutes more).
 - Shown to work: the page of the commit before the fix (0579871) now stops with "THREE.GLTFLoader: Couldn't load texture blob:..." (`"error": "the page did not start"`); a blob fetch from any page under the server is refused and recorded (`connect-src blob`); the current head passes all three.
+
+### Quay after 0.7.20 (merge of chef/quay2 30d085a, 0e5811d): numbers again
+Sliding (`lab-drive.html?drive=13&angle=0.55&adapt=0`, after 9 s, best of 40 renders, GPU Intel ADL GT2, machine shared, so smallest of tries; `__sim.measure`):
+| | before (part 3) | now | calls | triangles |
+|---|---|---|---|---|
+| high 1280x720 | 17.1 ms | **16.6 ms** | 118 | 732 k |
+| high 844x390 | 12.2 ms | **10.1 ms** | 124 | 741 k |
+| low 1280x720 | 11.5 ms | **11.5 ms** | 95 | 318 k |
+| low 844x390 | 10.2 ms | **7.9 ms** | 104 | 319 k |
+- With `adapt=0` `h.adapt.k` stays 1 (the resolution is not touched). With it on (low, 1280x720, headless, 20 s sliding) it went down to 0.85 (1088x612) and the run held 56 fps; this machine's headless run is slower than a phone-less desktop would be, so the share is only a sign that the loop works.
+- Not measured: a real phone; the chief's numbers (high 19.1, low 9.2 at 1280x720) are for his own scene (still), not the slide. Premerge (with the policy step) passed on the merge.
