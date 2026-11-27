@@ -1652,6 +1652,44 @@
         "en": "\"Race Track/ Stadium Viewing Stand and Seating\" by william.p7, CC BY 4.0; changed: pictures made smaller (256 px, the adverts 512 px)",
         "de": "„Race Track/ Stadium Viewing Stand and Seating“ von william.p7, CC BY 4.0; verändert: Bilder verkleinert (256 px, die Werbetafeln 512 px)"
       }
+    },
+    {
+      "id": "fx-smoke-puffs",
+      "kind": "picture",
+      "name": "Smoke puffs (four pictures of the Particle Pack)",
+      "file": [
+        "game/assets/fx/smoke-puffs.png"
+      ],
+      "author": "Kenney",
+      "authorUrl": "https://kenney.nl",
+      "source": "https://opengameart.org/content/particle-pack-80-sprites",
+      "licence": "CC0 1.0",
+      "licenceUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": false,
+      "changes": "smoke_04, 06, 07 and 08 made grey, scaled to 256 px and put side by side in one file",
+      "use": {
+        "en": "Smoke puffs from the \"Particle Pack\" by Kenney, CC0 1.0",
+        "de": "Rauchwolken aus dem \"Particle Pack\" von Kenney, CC0 1.0"
+      }
+    },
+    {
+      "id": "skfb-palm-chunky",
+      "kind": "model",
+      "name": "Palm tree",
+      "file": [
+        "game/assets/skfb/palm-chunky.glb"
+      ],
+      "author": "galaxxxy",
+      "authorUrl": "https://sketchfab.com/galaxxxy",
+      "source": "https://sketchfab.com/3d-models/95cd1a77789241ee82a960bad5dfe809",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "unchanged file (to be shrunk); in the scene its trunk is drawn out and its crown enlarged",
+      "use": {
+        "en": "\"Palm tree\" by galaxxxy, CC BY 4.0",
+        "de": "\"Palm tree\" von galaxxxy, CC BY 4.0"
+      }
     }
   ]
 }
