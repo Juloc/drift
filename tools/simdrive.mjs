@@ -14,7 +14,7 @@ const web = spawn('python3', ['-m', 'http.server', String(21000 + Math.floor(Mat
 const webPort = web.spawnargs[3]; stops.push(() => { try { process.kill(-web.pid, 'SIGKILL'); } catch {} }); await sleep(800);
 async function browser() {
   const port = 22000 + Math.floor(Math.random() * 6000), profile = `/tmp/claude-1000/drift-tandemcheck-${port}`;
-  const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
+  const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', ...(process.env.PAGEEVAL_FLAGS ? process.env.PAGEEVAL_FLAGS.split(' ') : []), 'about:blank'], { stdio: 'ignore', detached: true });
   let target;
   for (let i = 0; i < 60 && !target; i++) { await sleep(300); try { target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((t) => t.type === 'page'); } catch {} }
   if (!target) throw new Error('no browser');
@@ -61,8 +61,9 @@ const f0 = await b.ev('__sim.frames'), t0 = Date.now(); let top = 0, minX = 1e9,
 let steering = !steerAfter;
 while (Date.now() - t0 < seconds * 1000) { await sleep(500); if (!steering && Date.now() - t0 > steerAfter * 1000) { steering = true; for (const k of steerKeys) await press(k, 'rawKeyDown'); } const st = JSON.parse(await b.ev('JSON.stringify({ v: __sim.state.speed, x: __sim.state.x, z: __sim.state.z, beta: __sim.state.beta, gear: __sim.state.gear, rpm: __sim.state.rpm })')); top = Math.max(top, st.v * 3.6); minX = Math.min(minX, st.x); maxX = Math.max(maxX, st.x); maxBeta = Math.max(maxBeta, Math.abs(st.beta)); gearTop = Math.max(gearTop, st.gear); }
 const end = JSON.parse(await b.ev('JSON.stringify({ v: __sim.state.speed, x: __sim.state.x, z: __sim.state.z, h: __sim.state.h, gear: __sim.state.gear, rpm: __sim.state.rpm, finite: Object.values({ x: __sim.state.x, z: __sim.state.z, vx: __sim.state.vx, vz: __sim.state.vz, rpm: __sim.state.rpm, y: __sim.state.y }).every(Number.isFinite), frames: __sim.frames })'));
+if (opt.evalFirst && opt.eval) console.log('eval:', JSON.stringify(await b.ev(opt.eval)));   // --evalFirst: the eval (may wait) runs before the picture is taken
 if (opt.shot) { const s = await b.send('Page.captureScreenshot', { format: 'png' }); writeFileSync(opt.shot, Buffer.from(s.result.data, 'base64')); }
-if (opt.eval) console.log('eval:', JSON.stringify(await b.ev(opt.eval)));
+if (opt.eval && !opt.evalFirst) console.log('eval:', JSON.stringify(await b.ev(opt.eval)));
 if (opt.probe) {
   const p = await b.ev('__sim.stopProbe()'); let maxJ = 0, maxT = 0, n = 0, aMin = 1e9, aMax = -1e9;
   for (let i = 1; i < p.length; i++) {

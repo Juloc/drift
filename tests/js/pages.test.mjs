@@ -64,7 +64,7 @@ test('pages: every script and style a page names is there', () => {
 });
 
 test('pages: the development pages of the lab are known (each has its script, no inline script or style) and the vendored addons import three by a relative path', () => {
-  const lab = ['game/lab-sim.html', 'game/lab-look.html', 'game/lab-nature.html', 'game/lab-corner.html', 'game/lab-harbour.html', 'game/lab-drive.html'].filter((p) => existsSync(p));
+  const lab = ['game/lab-sim.html', 'game/lab-look.html', 'game/lab-nature.html', 'game/lab-corner.html', 'game/lab-harbour.html', 'game/lab-sound.html', 'game/lab-drive.html'].filter((p) => existsSync(p));
   assert.ok(lab.length >= 4 && lab.includes('game/lab-corner.html'));
   for (const p of lab) {
     const html = readFileSync(p, 'utf8');
@@ -72,4 +72,11 @@ test('pages: the development pages of the lab are known (each has its script, no
     assert.ok(!/<script(?![^>]*\ssrc=)[^>]*>\s*\S/.test(html) && !/<style/i.test(html) && !/\sstyle="/.test(html), `${p} has no inline script or style`);
   }
   for (const f of walk('vendor/three/addons').filter((f) => f.endsWith('.js'))) assert.ok(!/from\s+['"]three['"]/.test(readFileSync(f, 'utf8')), `${f} still imports the bare name three`);
+});
+
+test('pages: the computed sound\'s worklet is there and its imports (the models) resolve; the drive page loads it', () => {
+  assert.ok(existsSync('game/audio/engine-worklet.js') && existsSync('game/sim/enginemodel.js') && existsSync('game/sim/tyremodel.js'));
+  assert.match(readFileSync('game/audio/engine-worklet.js', 'utf8'), /registerProcessor\('engine'/);
+  assert.match(readFileSync('game/audio/engine-worklet.js', 'utf8'), /registerProcessor\('tyres'/);
+  assert.match(readFileSync('game/lab-drive-quay.js', 'utf8'), /audio\/engine-worklet\.js/);
 });

@@ -7,7 +7,7 @@ import { GLTFLoader } from '../vendor/three/addons/loaders/GLTFLoader.js';
 import { buildQuay } from './view/look/quay.js';
 import { Skids } from './view/fx.js';
 import { prepareMap } from './sim/map.js';
-import { createDrive, makeTexts, rigCar, $, FLAT, smokeOf } from './lab-drive-core.js';
+import { createDrive, makeTexts, rigCar, $, FLAT, smokeOf, squealOf } from './lab-drive-core.js';
 import { X } from './view/space.js';
 
 window.__err = []; addEventListener('error', (e) => window.__err.push(String(e.message))); addEventListener('unhandledrejection', (e) => window.__err.push(String(e.reason?.message ?? e.reason)));
@@ -67,13 +67,39 @@ const driver = DRIVE > 0 ? (s, dt) => {
   const tan = [dSign * (dz / d), -dSign * (dx / d)], push = Math.max(-0.7, Math.min(0.7, 0.06 * (d - LINE))), want = Math.atan2(tan[0] - (dx / d) * Math.tan(push), tan[1] - (dz / d) * Math.tan(push)) + dSign * +(params.get("angle") ?? 0.3);
   return { steer: dT < 0.5 ? dSign : Math.max(-1, Math.min(1, 1.6 * angTo(s.h, want))), gas: s.speed < DRIVE, hand: dT < 0.35 };
 } : undefined;
+// ---- the computed sound (sim/enginemodel.js, sim/tyremodel.js, audio/engine-worklet.js: two AudioWorklet voices), only on this page; the old engine and squeal voices stay silent.
+// After the first key or touch (the page's own sound switch: `?sound=1` unmutes, else the saved choice of the game): the engine gets `rpm` and `throttle` every frame, the tyres per wheel
+// [squeal (squealOf), slide (sim2's `slip`: the contact patch's speed over the road in m/s, the number whose product with the tyre force is the heat), load (fz over the static load)]
+// and `speed`, 30 times a second; a pop of the engine fires a flame at the tail pipe (at most one per 60 ms).
+let engineNode = null, tyreNode = null, popsDue = 0, lastTyres = 0, lastFlame = 0, audioCtx = null, flameCount = 0;
+async function startAudio(snd) {
+  if (params.get('sound') === '1') snd.setMuted?.(false);
+  audioCtx = snd.ctx;
+  try {
+    await audioCtx.audioWorklet.addModule('audio/engine-worklet.js');
+    engineNode = new AudioWorkletNode(audioCtx, 'engine', { outputChannelCount: [1] }); tyreNode = new AudioWorkletNode(audioCtx, 'tyres', { outputChannelCount: [1] });
+    const eg = audioCtx.createGain(), tg = audioCtx.createGain(); eg.gain.value = 0.75; tg.gain.value = 0.6;
+    engineNode.connect(eg); tyreNode.connect(tg); eg.connect(snd.master); tg.connect(snd.master);   // into the page's master volume and mute
+    engineNode.port.onmessage = (m) => { popsDue += m.data.pops ?? 0; };
+  } catch (e) { window.__err.push('worklet: ' + String(e.message ?? e)); engineNode = tyreNode = null; }
+}
+const statics = (C) => [0, 1, 2, 3].map((i) => (C.mass * 9.81 * (i < 2 ? C.b : C.a)) / C.wheelbase / 2);
+function audio(s, d, dt) {
+  if (!engineNode) return;
+  const now = audioCtx.currentTime, C = drive.car;
+  engineNode.parameters.get('rpm').setTargetAtTime(s.rpm, now, 0.02); engineNode.parameters.get('throttle').setTargetAtTime(s.load, now, 0.02);
+  const t = performance.now();
+  if (t - lastTyres > 33) { lastTyres = t; const z0 = statics(C); tyreNode.port.postMessage({ wheels: [0, 1, 2, 3].map((i) => [squealOf(s, C, i), s.slip[i], s.fz[i] / z0[i]]), speed: s.speed }); }
+  if (popsDue > 0) { popsDue = 0; if (t - lastFlame > 60) { lastFlame = t; flameCount++; const ex = h.exhaustOf(car.group); h.flames.fire(ex.pos, ex.dir, 0.5 + 0.5 * Math.random()); } }
+}
 const hooks = {
+  onUnlock: startAudio, audio,
   driver,
   beforeStep(s, wheelPts, muW) { for (let i = 0; i < 4; i++) { muW[i] = h.puddleAt(-wheelPts[i][0], wheelPts[i][1]) > 0.5 ? PUDDLE_MU : 1; if (muW[i] < minMu[i]) minMu[i] = muW[i]; } },
   fixed(s, steps) { if (steps % 2 === 0) marksAndSmoke(s, steps); const r = Math.hypot(-s.x - h.ring.cx, s.z - h.ring.cz); ring.min = Math.min(ring.min, r); ring.max = Math.max(ring.max, r); },
   onReset() { h.smoke.clear(); skids.clear(); h.motion._prev = null; },   // (a cut: the streaks start again)
 };
-const drive = createDrive({ params, t, camera, rig: car, wheelLocal: car.wheelLocal, spawn: () => ({ x: -start.x, z: start.z, h: -start.yaw }), env: ENV, map, groundAt: () => 0, lookCamera: { dist: 5.6, height: 1.2, side: 0, look: 14, lookY: 0.5, travel: 0.6, fov: 52, turn: 8, swing: 3, turnDrift: -24 }, soundId: 1, hooks });
+const drive = createDrive({ params, t, camera, rig: car, wheelLocal: car.wheelLocal, spawn: () => ({ x: -start.x, z: start.z, h: -start.yaw }), env: ENV, map, groundAt: () => 0, lookCamera: { dist: 5.6, height: 1.2, side: 0, look: 14, lookY: 0.5, travel: 0.6, fov: 52, turn: 8, swing: 3, turnDrift: -24 }, soundId: 1, oldSound: false, hooks });
 $('simhint').textContent = t('hint');
 
 // ---- the loop
@@ -90,7 +116,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 // for the checking tools (tools/simdrive.mjs --sim)
-window.__sim = { get state() { return drive.s; }, get frames() { return drive.frames; }, get mode() { return drive.mode; }, held: drive.held, reset: drive.reset, setMode: drive.setMode, minMu, ring, drive, harbour: h, renderer, camera, car, puddleAt: h.puddleAt };
+window.__sim = { get state() { return drive.s; }, get frames() { return drive.frames; }, get mode() { return drive.mode; }, held: drive.held, reset: drive.reset, setMode: drive.setMode, minMu, ring, drive, get audio() { return { running: !!engineNode, state: audioCtx?.state, flames: flameCount }; }, fire: (k = 1) => { const ex = h.exhaustOf(car.group); h.flames.fire(ex.pos, ex.dir, k); }, harbour: h, renderer, camera, car, puddleAt: h.puddleAt };
 /** The numbers of the picture now: draw calls and triangles of one whole picture (all passes), the cost of one picture in ms (the render and a wait for the graphics to finish, the smallest of
  * `n` tries), the pixel size and the memory estimate. */
 window.__sim.measure = (n = 12) => {

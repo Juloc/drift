@@ -59,7 +59,7 @@ export function rigCar(scene) {
 
 /**
  * The driving: `cfg`: { params, t, camera, rig ({ group, pivots, bodyLean }), wheelLocal, spawn(), env (the ground: FLAT with `muW`), map (prepareMap), groundAt(x, z), cover?(x, z),
- * lookCamera (the look's chase camera values), soundId, hooks: { beforeStep(s, wheelPts, muW), afterStep(s), fixed(s, simSteps), onReset(), key(code) -> true when handled, rows() -> [[k, v]],
+ * lookCamera (the look's chase camera values), soundId, hooks: { onUnlock(soundSystem), audio(s, d, dt), beforeStep(s, wheelPts, muW), afterStep(s), fixed(s, simSteps), onReset(), key(code) -> true when handled, rows() -> [[k, v]],
  * driver(s, dt) -> { steer, gas, hand } or nothing, overrideCamera(d, dt) -> true when the page placed the camera, afterPlace(d, ground) } }.
  */
 export function createDrive(cfg) {
@@ -121,7 +121,7 @@ export function createDrive(cfg) {
   // ---- sound: the engine of the AE86 with the model's own revs; the squeal on the wheels' slip
   const sound = new SoundSystem({ recorded: { [cfg.soundId ?? 1]: 'assets/sound/ae86-engine.json' }, squeal: 'assets/sound/squeal.json', pops: 'assets/sound/pops.json' });
   let unlocked = false;
-  function unlockSound() { if (unlocked) return; unlocked = true; try { sound.unlock(); } catch { /* no audio */ } }
+  function unlockSound() { if (unlocked) return; unlocked = true; try { if (sound.unlock()) hooks.onUnlock?.(sound); } catch { /* no audio */ } }
 
   // ---- the read-outs (HTML, the HUD's glass style; built once, updated every frame)
   const hud = $('simhud');
@@ -221,7 +221,8 @@ export function createDrive(cfg) {
     if (!hooks.overrideCamera?.(d, dt)) activeCam().update(d, 55, dt);
     place(d);
     readout();
-    if (unlocked && sound.unlocked) sound.update({ speed: s.speed, throttle: s.load, slide: Math.max(...[0, 1, 2, 3].map((i) => squealOf(s, CARS[D.carNo], i))), car: cfg.soundId ?? 1, top: 55, surface: 'asphalt', rpm: s.rpm, gear: s.gear }, [], { x: d.x, z: d.z, heading: d.h });
+    if (hooks.audio) hooks.audio(s, d, dt);   // (a page with its own sound: `cfg.oldSound === false` keeps the old engine and squeal voices silent)
+    if (cfg.oldSound !== false && unlocked && sound.unlocked) sound.update({ speed: s.speed, throttle: s.load, slide: Math.max(...[0, 1, 2, 3].map((i) => squealOf(s, CARS[D.carNo], i))), car: cfg.soundId ?? 1, top: 55, surface: 'asphalt', rpm: s.rpm, gear: s.gear }, [], { x: d.x, z: d.z, heading: d.h });
     frames++;
     return { d, alpha, dt };
   }
