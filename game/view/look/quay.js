@@ -17,6 +17,7 @@ import { OutputPass } from '../../../vendor/three/addons/postprocessing/OutputPa
 import { ShaderPass } from '../../../vendor/three/addons/postprocessing/ShaderPass.js';
 import { hollowAt } from './harbour.js';
 import { makeFlames } from './flames.js';
+import { carLights } from './carlights.js';
 
 export async function buildQuay({ renderer, params = new URLSearchParams(), still = true, tier = 'high' }) {
 const q = (k, d) => (params.has(k) ? +params.get(k) : d), OFF = new Set((params.get('off') || '').split(','));   // ?off=crowd,smoke,palms,shadow,ao,bloom switches a part off, to see what it costs
@@ -280,8 +281,8 @@ const smoke = (() => { const MAX = q('smokeMax', 240), K = q('smokeK', 0.74) / E
 const flames = makeFlames({ parent: scene, flats });
 /** The tail pipe's mouth and the way it points, in the scene's axes (the AE86: low on the left under the bumper; other cars get their own place later). */
 function exhaustOf(model, local = [q('exX', 0.33), q('exY', 0.24), q('exZ', -2.02)]) { model.updateWorldMatrix(true, false); const pos = new THREE.Vector3(...local).applyMatrix4(model.matrixWorld), dir = new THREE.Vector3(0, -0.08, -1).transformDirection(model.matrixWorld); return { pos, dir }; }
-/** The car's look in this light: it casts and takes shadows, its tail lamps glow a deep red that stays red through the film curve. */
-function dressCar(model) { model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (/lamp_rear/.test(o.material.name)) { o.material = o.material.clone(); o.material.color = new THREE.Color(0.4, 0.0, 0.02); o.material.emissive = new THREE.Color(1, 0.0, 0.04); o.material.emissiveIntensity = q('tail', 1.5); } } }); return model; }
+/** The car's look in this light: it casts and takes shadows, and its lamps are lit (look/carlights.js): `model.userData.lights.set({ brake, head })`. */
+function dressCar(model) { model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); carLights(model, { flats, beam: tier !== 'low' }).set({ brake: q('brake', 0), head: q('head', 1) }); return model; }
 
 // ---- the still: the car sliding through the bend with its smoke, the camera at the mockup's place
 const CAR_T = q('carT', 0.09), carAt = (([x, z]) => new THREE.Vector3(x, 0, z))(onArc(q('carR', 26.6), CAR_T)), bearing = CAR_T + q('slip', 0.3), carYaw = Math.PI - bearing;
@@ -297,10 +298,10 @@ if (still) { car = dressCar((await loader.loadAsync('assets/cars/ae86-hi.glb')).
 
 // ---- the camera's place and the picture's finish
 if (q('top', 0)) { scene.fog = null; camera.position.set(q('cx', 10), q('cy', 190), q('cz', -60)); camera.lookAt(q('cx', 10), 0, q('cz', -60) - 0.01); }
-else { const tan = new THREE.Vector3(Math.sin(CAR_T), 0, -Math.cos(CAR_T)), inside = new THREE.Vector3(Math.cos(CAR_T), 0, Math.sin(CAR_T)), cam = carAt.clone().addScaledVector(tan, -q('back', 5.0)).addScaledVector(inside, q('in', 1.5));
-  camera.position.set(q('cx', cam.x), q('cy', 1.95), q('cz', cam.z)); const aim = camera.position.clone().addScaledVector(tan, 15).addScaledVector(inside, q('aim', -1.45)); camera.lookAt(q('lx', aim.x), q('ly', 0.5), q('lz', aim.z)); }
+else { const tan = new THREE.Vector3(Math.sin(CAR_T), 0, -Math.cos(CAR_T)), inside = new THREE.Vector3(Math.cos(CAR_T), 0, Math.sin(CAR_T)), cam = carAt.clone().addScaledVector(tan, -q('back', 4.5)).addScaledVector(inside, q('in', 1.25));
+  camera.position.set(q('cx', cam.x), q('cy', 1.55), q('cz', cam.z)); const aim = camera.position.clone().addScaledVector(tan, 15).addScaledVector(inside, q('aim', -1.5)); camera.lookAt(q('lx', aim.x), q('ly', 1.0), q('lz', aim.z)); }
 const composer = new EffectComposer(renderer); composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(SIZE.x, SIZE.y); composer.addPass(new RenderPass(scene, camera));
-scene.traverse((o) => { if (o.isSprite) flats.push(o); });
+scene.traverse((o) => { if (o.isSprite && !flats.includes(o)) flats.push(o); });
 let aoPass = null; const AOS = q('aoScale', 0.5);   // the ambient occlusion at half size: it is soft anyway, and it was the dearest part of the picture
 if (q('ao', 1) && !OFF.has('ao')) { const ao = aoPass = new GTAOPass(scene, camera, SIZE.x, SIZE.y), size = ao.setSize.bind(ao); ao.setSize = (w, h) => size(Math.ceil(w * AOS), Math.ceil(h * AOS));
   const hide = ao._overrideVisibility.bind(ao), show = ao._restoreVisibility.bind(ao), was = []; ao._overrideVisibility = () => { hide(); was.length = 0; for (const o of flats) { was.push(o.visible); o.visible = false; } }; ao._restoreVisibility = () => { show(); flats.forEach((o, i) => { o.visible = was[i]; }); };
