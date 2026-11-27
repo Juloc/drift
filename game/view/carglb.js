@@ -13,18 +13,24 @@ export function slotOf(materialName) {
 
 /**
  * Replaces the material of every mesh by the game's material of its slot. Meshes with several primitives (a material array) are handled per entry.
+ * What a file may bring along and keeps: a base colour texture (`map`) and vertex colours (COLOR_0). Both multiply the slot's
+ * colour (so the garage paint still decides the paint), on a copy of the slot's material that all meshes with the same texture share.
  * @returns {{ unknown: string[], used: Set<string> }} material names that are no slot (they get the plastic material, so nothing is left unlit) and the slots in use
  */
 export function applySlots(root, materials) {
-  const unknown = [], used = new Set();
-  const pick = (m) => {
+  const unknown = [], used = new Set(), copies = new Map();
+  const pick = (m, geometry) => {
     const slot = slotOf(m?.name);
-    if (!slot) { unknown.push(m?.name ?? '(none)'); return materials.plastic; }
-    used.add(slot); return materials[slot];
+    if (!slot) unknown.push(m?.name ?? '(none)'); else used.add(slot);
+    const base = materials[slot ?? 'plastic'], map = m?.map ?? null, vc = !!geometry.attributes.color && !base.vertexColors;
+    if (!map && !vc) return base;
+    const key = `${slot}|${map?.uuid ?? ''}|${vc}`;
+    if (!copies.has(key)) { const c = base.clone(); c.name = base.name; if (map) c.map = map; if (vc) c.vertexColors = true; copies.set(key, c); }
+    return copies.get(key);
   };
   root.traverse((o) => {
     if (!o.isMesh) return;
-    o.material = Array.isArray(o.material) ? o.material.map(pick) : pick(o.material);
+    o.material = Array.isArray(o.material) ? o.material.map((m) => pick(m, o.geometry)) : pick(o.material, o.geometry);
     o.castShadow = !(Array.isArray(o.material) ? o.material[0] : o.material).isMeshBasicMaterial;   // the lamps (unlit) cast none
     o.receiveShadow = false;
   });

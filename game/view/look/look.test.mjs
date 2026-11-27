@@ -1,0 +1,86 @@
+// Tests of the look probe's pure parts: the land around the road, bends, the HUD's helpers, the line bot on the probe's road,
+// and that a whole world builds within its budget on both tiers. Run: node --test game/
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { makeField, sampleOpen, pathInfo, bends, distToPath, profileAt, insidePoly } from './field.js';
+import { gearOf, fmtTime, fmtNum, fmtMult } from '../probehud.js';
+import { lineBot } from '../../sim/linebot.js';
+import { step, makeCar, bodySlip, speedOf, DT } from '../../sim/physics.js';
+
+const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
+const scene = read('../../data/probe-sunset.json'), look = read('../../data/looks/sunset.json'), cars = read('../../data/cars.json').cars;
+
+test('look: the road and the plaza are the ground just under the cars (the road at its drawn height), the land rises on one side and falls on the other', () => {
+  const f = makeField(scene, { cell: 3.5 });
+  for (let i = 0; i < f.road.length; i += 7) {
+    const [x, z] = f.road[i];
+    assert.ok(Math.abs(f.height(x, z) - f.roadYs[i] + 0.15) < 1e-9, 'on the road, at its drawn height');
+    const d = f.info.dir[i], r = [d[1], -d[0]];
+    // nothing of the land comes above the road within the road and a metre beside it
+    for (const o of [-f.hw - 1, 0, f.hw + 1]) assert.ok(f.relHeight(x + r[0] * o, z + r[1] * o) <= 0);
+  }
+  for (const [x, z] of scene.plaza.pts) assert.ok(f.height(x * 0.9, z * 0.9) <= 0, 'the plaza');
+  assert.ok(f.height(0, 200) > 50, 'uphill to the south');
+  assert.ok(f.height(0, -300) < -8, 'the valley to the north');
+  // on the valley side the land falls away right behind the road's edge (a cliff behind the guardrail)
+  { const i = 30, [x, z] = f.road[i], d = f.info.dir[i], r = [d[1], -d[0]], side = f.base(x + r[0] * 20, z + r[1] * 20) < f.base(x - r[0] * 20, z - r[1] * 20) ? 1 : -1;
+    assert.ok(f.relHeight(x + r[0] * side * (f.hw + 6), z + r[1] * side * (f.hw + 6)) < -3, 'a drop behind the rail'); }
+  assert.ok(f.relHeight(40, f.riverZ(40)) < scene.river.y, 'the river bed is under the water');
+  // the road's drawn height falls along it (the pass goes down into the valley); the plaza stays at 0
+  assert.equal(f.roadYs[0], 0); assert.ok(f.roadYs.at(-1) < -20);
+});
+
+test('look: the shelf beside the road is wide enough that no grid triangle lifts the land over the road edge', () => {
+  for (const cell of [look.tiers.high.cell, look.tiers.low.cell]) {
+    const f = makeField(scene, { cell });
+    assert.ok(f.shelf >= cell * Math.SQRT2, `cell ${cell}: shelf ${f.shelf}`);
+  }
+});
+
+test('look: helpers of the field', () => {
+  const pts = sampleOpen([[0, 0], [10, 0], [20, 0]], 2);
+  assert.deepEqual(pts[0], [0, 0]); assert.deepEqual(pts.at(-1), [20, 0]);
+  assert.ok(Math.abs(pathInfo(pts).length - 20) < 1e-6);
+  assert.equal(distToPath(pts, 5, 3).d, 3);
+  assert.equal(distToPath(pts, 5, 3).side, -distToPath(pts, 5, -3).side);
+  assert.equal(profileAt([[0, 0], [10, 10]], -5), 0); assert.equal(profileAt([[0, 0], [10, 10]], 5), 5);
+  assert.ok(insidePoly(scene.plaza.pts, 0, 0) && !insidePoly(scene.plaza.pts, 100, 0));
+});
+
+test('look: the probe road has bends both ways', () => {
+  const f = makeField(scene);
+  const b = bends(f.info, { min: f.bendMin, span: f.bendSpan });
+  assert.ok(b.length >= 2, JSON.stringify(b));
+  assert.ok(b.some((x) => x.turn > 0) && b.some((x) => x.turn < 0), 'bends both ways');
+});
+
+test('look: the line bot drifts through the first bend of the probe road and stays on the road there', () => {
+  const f = makeField(scene), D = scene.driver, bot = lineBot(f.road, D.bot);
+  let s = makeCar(D.x, D.z, D.h), maxSlip = 0, maxOff = 0;
+  for (let i = 0; i < Math.round(D.t / DT); i++) {
+    s = step(s, bot(i * DT, s), cars[0], 1);
+    maxSlip = Math.max(maxSlip, Math.abs(bodySlip(s)));
+    maxOff = Math.max(maxOff, distToPath(f.road, s.x, s.z).d);
+  }
+  assert.ok(maxSlip > 0.45, `slip ${maxSlip}`);
+  assert.ok(maxOff < f.hw, `off the road by ${maxOff}`);
+  assert.ok(speedOf(s) > 5);
+});
+
+test('look: HUD helpers (a gear from the speed, times, numbers in both languages)', () => {
+  assert.equal(gearOf(0), 'N'); assert.equal(gearOf(10), '1'); assert.equal(gearOf(43), '2'); assert.equal(gearOf(124), '5'); assert.equal(gearOf(200), '6'); assert.equal(gearOf(10, -1), 'R');
+  assert.equal(fmtTime(72400), '01:12.400'); assert.equal(fmtTime(6500), '00:06.500');
+  assert.equal(fmtNum(18460, 'de'), '18.460'); assert.equal(fmtNum(18460.9, 'en'), '18,460');
+  assert.equal(fmtMult(4.2, 'de'), '\u00d74,2'); assert.equal(fmtMult(4.2, 'en'), '\u00d74.2'); assert.equal(fmtMult(1, 'de'), '\u00d71,0');
+});
+
+test('look: a whole world builds on both tiers within its budget (one lit mesh, one unlit, the water, the road)', async () => {
+  const { buildWorld } = await import('./world.js');
+  const high = buildWorld(scene, look, 'high'), low = buildWorld(scene, look, 'low');
+  assert.equal(high.group.children.length, 4); assert.equal(low.group.children.length, 4);
+  assert.ok(low.triangles < high.triangles);
+  assert.ok(low.triangles < 70000, `phone tier: ${low.triangles} triangles`);   // the whole picture on a phone: about 120k with cars and smoke
+  assert.ok(high.triangles < 450000, `high tier: ${high.triangles} triangles`);
+  assert.equal(high.lampHeads.length, scene.plaza.lamps.length);
+});

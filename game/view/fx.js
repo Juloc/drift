@@ -54,17 +54,18 @@ export class Skids {
     this.mesh.frustumCulled = false; this.mesh.renderOrder = 2;
     this.last = new Map();
   }
-  /** wheel key (a small integer per wheel), ground position, forward direction (for the width), `on` = marking now. */
-  mark(wheel, x, z, fx, fz, on) {
+  /** wheel key (a small integer per wheel), ground position, forward direction (for the width), `on` = marking now, `y` = the ground's drawn height (0 in the game). */
+  mark(wheel, x, z, fx, fz, on, y = 0) {
     const prev = this.last.get(wheel);
     if (!on) { this.last.delete(wheel); return; }
-    this.last.set(wheel, [x, z]);
+    this.last.set(wheel, [x, z, y]);
     if (!prev) return;
     const dx = x - prev[0], dz = z - prev[1], l = Math.hypot(dx, dz);
     if (l < 0.15) { this.last.set(wheel, prev); return; }
     const nx = (-dz / l) * 0.14, nz = (dx / l) * 0.14, i = this.next * 12;
     this.next = (this.next + 1) % this.cap;
-    this.pos.set([prev[0] - nx, 0.02, prev[1] - nz, prev[0] + nx, 0.02, prev[1] + nz, x - nx, 0.02, z - nz, x + nx, 0.02, z + nz], i);
+    const y0 = (prev[2] ?? 0) + 0.02, y1 = y + 0.02;
+    this.pos.set([prev[0] - nx, y0, prev[1] - nz, prev[0] + nx, y0, prev[1] + nz, x - nx, y1, z - nz, x + nx, y1, z + nz], i);
     this.mesh.geometry.attributes.position.needsUpdate = true;
   }
   clear() { this.pos.fill(0); this.last = new Map(); this.mesh.geometry.attributes.position.needsUpdate = true; }

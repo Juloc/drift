@@ -33,8 +33,8 @@ export class WheelPool {
     m.premultiply(parent);
     this.mesh.setMatrixAt(this.n++, m);
   }
-  blob(x, z, sx, sz, ry) {
-    const m = this._m.compose(_p.set(x, 0.03, z), _q.setFromAxisAngle(_up, ry), _s.set(sx, 1, sz));
+  blob(x, z, sx, sz, ry, y = 0) {
+    const m = this._m.compose(_p.set(x, 0.03 + y, z), _q.setFromAxisAngle(_up, ry), _s.set(sx, 1, sz));
     this.blobs.setMatrixAt(this.blobCount++, m);
   }
   end() {

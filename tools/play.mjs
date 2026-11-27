@@ -1,16 +1,16 @@
 // Plays the game in headless Chromium through the DevTools protocol and writes numbers and pictures.
 // No packages: node's own WebSocket and fetch. One browser at a time, software graphics (there is no GPU here), so
 // frame times are NOT phone numbers: they show that the page runs and what it draws.
-// Usage: node tools/play.mjs <width> <height> <name> [--touch] [--tier=low|medium|high] [--secs=8] [--dpr=1]
+// Usage: node tools/play.mjs <width> <height> <name> [--touch] [--tier=low|medium|high] [--secs=8] [--dpr=1] [--port=8150] [--query=a=1&b=2]
 import { spawn } from 'node:child_process';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 
 const [w, h, name, ...rest] = process.argv.slice(2);
-const opt = Object.fromEntries(rest.map((a) => a.replace(/^--/, '').split('=')).map(([k, v]) => [k, v ?? true]));
+const opt = Object.fromEntries(rest.map((a) => { const t = a.replace(/^--/, ''), i = t.indexOf('='); return i < 0 ? [t] : [t.slice(0, i), t.slice(i + 1)]; }).map(([k, v]) => [k, v ?? true]));
 const chrome = `${homedir()}/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`;
 const port = 20000 + Math.floor(Math.random() * 20000); // a free one of our own: other projects' browsers may listen on others
-const url = `http://127.0.0.1:8150/game/index.html?debug=1${opt.touch ? '&touch=1' : ''}${opt.tier ? '&tier=' + opt.tier : ''}${opt.query ? '&' + opt.query : ''}`;
+const url = `http://127.0.0.1:${opt.port ?? 8150}/game/index.html?debug=1${opt.touch ? '&touch=1' : ''}${opt.tier ? '&tier=' + opt.tier : ''}${opt.query ? '&' + opt.query : ''}`;
 const profile = `/tmp/claude-1000/drift-play-${port}`;
 const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore', detached: true });
 const stop = () => { try { process.kill(-proc.pid, 'SIGKILL'); } catch {} };
