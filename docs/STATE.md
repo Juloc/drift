@@ -909,3 +909,25 @@ Sliding (`lab-drive.html?drive=13&angle=0.55&adapt=0`, after 9 s, best of 40 ren
 - BRZ (`car-brz.glb`, raw 8.9 MB), looked at, not built: see the report to the chief in this chat (SketchUp export: flat list of 58 meshes, no wheel nodes, outline meshes of lines, 4 wheels merged into shared meshes).
 
 - Look and asset work for another machine: read [docs/HANDOVER-WORKSHOP.md](HANDOVER-WORKSHOP.md) first. Not in STATE before: after e11514b (merge 11419b9) the slide at 1280x720 with `adapt=0` measures high 15.2 ms (108 calls, 746 k triangles), low 9.7 ms (86, 320 k); black frames 0 of 229 (high).
+
+## Mock stage: the mountain pass at sunset as a proof of the look (2026-11-27, pictures only, waits for the owner's decision)
+
+`game/lab-mock.html` (`lab-mock.js`, `game/mock/*.js`): one still scene built to stand next to the owner's first mockup (the pass at sunset; the
+mockup is not in the repository). Nothing of the game uses it yet. What it shows: **one light model for the whole world** (`mock/toon.js`, after the
+open-source folio of Bruno Simon, MIT: base colour x light where the sun reaches, base colour x a violet shadow colour where not, a soft edge, a
+warm rim, a haze that takes the sky's colour with distance; a time of day is a handful of colours, `KEY`), a land of real facets from a height
+function (`mock/land.js`: the road on a ledge, a rock flank, the valley with river, lake, bridge, mist, wooded hills, four rings of peaks), the
+CC0 nature kit's models through the same light, cherry trees as a kit trunk with faceted blossom lumps, guardrails with lamps, chevron boards
+(`mock/props.js`), lump smoke (`mock/smoke.js`: coarse balls pushed by noise, soft at the edge, one draw call), a small finish (`mock/finish.js`:
+glow at three sizes, a soft shoulder instead of a film curve so colours stay as set, violet shadows, a dark edge), the S14 model with physical
+paint mirroring the sky, the mockup's driving display as a page overlay with sample values. `?tier=low`, `?hud=0`, `?orbit=1`, `?off=smoke,props,finish`.
+Picture: `docs/screenshots/mock/pass-sunset-r1.jpg`.
+
+Numbers (desk PC, 1600 x 900, real graphics card): 60 fps (the screen's rate; the frame time itself was not measured), 113 draw calls, **2.6 million
+triangles**, of which most are the 215 near pines of the kit (about 10k each): far too many for a phone, the low tier is not thinned yet.
+
+Open against the mockup: the valley floor with river, lake and bridge hides behind the rim of the bend from the low camera; the smoke covers the
+near rear wheel; clouds are faint; the car is the S14 (the mockup shows a kitted S15); the land's colours near the road are plain (no ledges of
+grass on the rock); no time-of-day blend yet (one key). **Not checked:** a real phone, the frame time, the app's content policy (the page was
+served by a plain file server), the C# tests. `node --test` on this Windows machine fails in 4 tests with and without this work (paths: `E:\E:\...`
+in the credits test, a `\r` in the page tests); the other 278 pass.
