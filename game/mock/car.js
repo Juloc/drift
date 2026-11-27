@@ -8,7 +8,7 @@ import { loadGlb } from './props.js';
 export async function loadCar(url, envMap, { paint = '#f7f5f2' } = {}) {
   const car = (await loadGlb(url)).scene, P = (o) => new THREE.MeshPhysicalMaterial({ envMap, ...o });
   const rear = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 0.12, 0.22), toneMapped: false });
-  const mats = { paint: P({ color: paint, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.6 }), glass: P({ color: '#171222', roughness: 0.06, envMapIntensity: 1.5 }),
+  const mats = { paint: P({ color: paint, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.5 }), glass: P({ color: '#171222', roughness: 0.06, envMapIntensity: 1.5 }),
     chrome: P({ color: '#e4dfe8', metalness: 0.7, roughness: 0.3 }), plastic: P({ color: '#1c1822', roughness: 0.7, envMapIntensity: 0.4 }), carbon: P({ color: '#15121a', roughness: 0.45, envMapIntensity: 0.6 }),
     rubber: P({ color: '#1b1820', roughness: 0.92, envMapIntensity: 0.2 }), light_front: P({ color: '#fff4dc', emissive: '#fff0cc', emissiveIntensity: 0.6, roughness: 0.2 }), light_rear: rear };
   let frontZ = 1; car.updateMatrixWorld(true);

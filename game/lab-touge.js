@@ -32,10 +32,10 @@ const coarse = matchMedia('(pointer: coarse)').matches || params.has('touch'), l
 const canvas = $('view'), info = $('info'), renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1.25 : 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.info.autoReset = false;
 const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(56, innerWidth / innerHeight, 0.3, 9000), finish = makeFinish(renderer, { low, sun: KEY.sunDir });
-KEY.sunDir.set(0.9, 0.33, -0.4).normalize();   // the low sun stands across the pass: every second leg drives into it
-const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.8, 0.6), 4.2); sun.castShadow = true; sun.shadow.mapSize.set(low ? 1024 : 4096, low ? 1024 : 4096);
+KEY.sunDir.set(0.9, 0.24, -0.4).normalize();   // the low sun stands across the pass: every second leg drives into it
+const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.56, 0.5), 1.7); sun.castShadow = true; sun.shadow.mapSize.set(low ? 1024 : 4096, low ? 1024 : 4096);
 Object.assign(sun.shadow.camera, { left: -52, right: 52, top: 52, bottom: -52, near: 10, far: 320 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05; sun.shadow.radius = 3;
-scene.add(sun, sun.target, new THREE.HemisphereLight(new THREE.Color('#cfc0f2'), new THREE.Color('#6c5a78'), 1.25), makeSky());
+scene.add(sun, sun.target, new THREE.HemisphereLight(new THREE.Color(0.95, 0.5, 0.62), new THREE.Color(0.34, 0.16, 0.2), 0.95), makeSky());
 const size = () => { const w = innerWidth, h = innerHeight, r = renderer.getPixelRatio(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); finish.setSize(Math.floor(w * r), Math.floor(h * r)); };
 size(); addEventListener('resize', size);
 

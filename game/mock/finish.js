@@ -18,8 +18,8 @@ export function makeFinish(renderer, { low = false, sun = null } = {}) {
     void main() { vec3 c = texture2D(tMap, vUv).rgb * 0.227; c += (texture2D(tMap, vUv + uStep * 1.385).rgb + texture2D(tMap, vUv - uStep * 1.385).rgb) * 0.316; c += (texture2D(tMap, vUv + uStep * 3.231).rgb + texture2D(tMap, vUv - uStep * 3.231).rgb) * 0.0703; gl_FragColor = vec4(c, 1.0); }`, { tMap: { value: null }, uStep: { value: new THREE.Vector2() } });
   const rays = mat(`uniform sampler2D tMap; uniform vec2 uSunUV; uniform float uOn; varying vec2 vUv;
     void main() { vec2 d = (uSunUV - vUv) * 0.045, uv = vUv; vec3 c = vec3(0.0); float w = 1.0; for (int i = 0; i < 20; i++) { c += texture2D(tMap, uv).rgb * w; w *= 0.93; uv += d; } gl_FragColor = vec4(c * 0.085 * uOn, 1.0); }`, { tMap: { value: null }, uSunUV: { value: new THREE.Vector2(0.5, 0.5) }, uOn: { value: 0 } });
-  const U = { tDepth: { value: scene.depthTexture ?? null }, tRays: { value: raysRT?.texture ?? null }, uNear: { value: 0.3 }, uFar: { value: 9000 }, uAspect: { value: 1 }, uAO: { value: 0.75 }, uRays: { value: 0.7 }, tScene: { value: scene.texture }, tG0: { value: levels[0][0].texture }, tG1: { value: (levels[1] ?? levels[0])[0].texture }, tG2: { value: (levels[2] ?? levels[0])[0].texture },
-    uGlow: { value: low ? new THREE.Vector3(0.7, 0, 0) : new THREE.Vector3(0.36, 0.24, 0.16) }, uSat: { value: 1.16 }, uCon: { value: 1.12 }, uVig: { value: 0.3 }, uShadowTint: { value: new THREE.Color(0.03, 0.0, 0.07) } };
+  const U = { tDepth: { value: scene.depthTexture ?? null }, tRays: { value: raysRT?.texture ?? null }, uNear: { value: 0.3 }, uFar: { value: 9000 }, uAspect: { value: 1 }, uAO: { value: 0.75 }, uRays: { value: 0.4 }, tScene: { value: scene.texture }, tG0: { value: levels[0][0].texture }, tG1: { value: (levels[1] ?? levels[0])[0].texture }, tG2: { value: (levels[2] ?? levels[0])[0].texture },
+    uGlow: { value: low ? new THREE.Vector3(0.7, 0, 0) : new THREE.Vector3(0.36, 0.24, 0.16) }, uSat: { value: 1.06 }, uCon: { value: 1.04 }, uVig: { value: 0.3 }, uShadowTint: { value: new THREE.Color(0.012, 0.0, 0.008) } };
   const last = mat(`${low ? '' : '#define RICH'}
     uniform sampler2D tScene, tG0, tG1, tG2, tDepth, tRays; uniform float uNear, uFar, uAspect, uAO, uRays;
     float metres(float d) { float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); } uniform vec3 uGlow, uShadowTint; uniform float uSat, uCon, uVig; varying vec2 vUv;
@@ -29,12 +29,12 @@ export function makeFinish(renderer, { low = false, sun = null } = {}) {
       { float z = metres(texture2D(tDepth, vUv).x);
         if (z < 260.0) { float occ = 0.0, turn = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2832, rad = clamp(0.75 / z, 0.0025, 0.07);
           for (int i = 0; i < 8; i++) { float a = turn + float(i) * 2.39996, r = rad * (0.3 + 0.7 * fract(float(i) * 0.618 + 0.25)); float dz = z - metres(texture2D(tDepth, vUv + vec2(cos(a) / uAspect, sin(a)) * r).x); occ += smoothstep(0.03, 0.3, dz) * (1.0 - smoothstep(0.7, 2.0, dz)); }
-          c *= mix(vec3(1.0), vec3(0.5, 0.4, 0.7), occ * 0.125 * uAO * (1.0 - smoothstep(70.0, 260.0, z))); } }
+          c *= mix(vec3(1.0), vec3(0.42, 0.3, 0.36), occ * 0.125 * uAO * (1.0 - smoothstep(70.0, 260.0, z))); } }
       c += texture2D(tRays, vUv).rgb * uRays;
       #endif
       c += texture2D(tG0, vUv).rgb * uGlow.x + texture2D(tG1, vUv).rgb * uGlow.y + texture2D(tG2, vUv).rgb * uGlow.z;
       c = knee(c); float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-      c += uShadowTint * (1.0 - smoothstep(0.0, 0.45, l)); c *= mix(vec3(1.0), vec3(1.05, 1.0, 0.93), smoothstep(0.45, 0.95, l));   // violet in the dark, a little gold in the light
+      c += uShadowTint * (1.0 - smoothstep(0.0, 0.45, l)); // (the stage's colours carry the evening: the finish only deepens the darks a touch)
       c = mix(vec3(l), c, uSat); c = (c - 0.4) * uCon + 0.4;
       vec2 e = vUv - 0.5; c *= 1.0 - uVig * smoothstep(0.25, 0.95, length(e * vec2(1.0, 1.25)));
       c = mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));

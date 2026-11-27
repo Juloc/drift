@@ -997,3 +997,26 @@ the smoke is greyer and smaller than the mockups' banks. Not checked: a real pho
 Numbers (desk PC, RTX 5070 Ti, **not a phone**): high tier 1600 x 900: 1.8 to 2.3 ms a picture, 86 draw calls, 1.0 million triangles (0.39 before:
 the grass); low tier 844 x 390: 0.9 ms, 64 draw calls, 457k triangles (6,000 tufts, no flowers or petals, no tree shadows, no depth shade or shafts).
 Pictures: `docs/screenshots/mock/touge-r3-*.jpg`. Not checked: a real phone (the low tier's triangle count went up by half), a whole run by a person.
+
+## The evening light, by measurement (2026-11-27; step 1 of the plan the owner agreed after "it does not look like evening")
+
+Measured, not judged by eye: the mockup and our picture as a grid of 12 x 7 mean colours. Before: the mockup's rows from the top were 0.54 0.52 0.38
+0.42 0.43 0.38 0.30 in brightness (a bright sky over a dark land), ours 0.42 0.35 0.39 0.50 0.56 0.62 0.63 (the other way round), and our hue was
+blue-violet where the mockup is rose and plum throughout (its "white" car is #bb8b98, its smoke #c998aa to #987284, its rail #804f52, its road #6a4250).
+- **A new light model** (`mock/toon.js`): surfaces have their true colour; the time of day is `light` (what the low sun adds), `skyFill` and
+  `groundFill` (what reaches a face the sun does not: from above, from below), all rose, taken from the mockup's white things in sun and shadow.
+  A face is lit only as far as it turns to the sun, so level ground under a low sun stays nearly in shadow. The violet shadow tint, the wandering
+  hue and the warm band are gone; haze, sky, clouds, water, mist and smoke took the mockup's rose.
+- **The land's own shadow, worked out** (`land.js gridSampler`, `bakeSun`; the `bake` attribute): for every vertex a walk towards the sun over the
+  land's heights, once per sun position (well under a second), so slopes and valleys lie in shadow at any hour without a baked picture.
+- **True colours** for rock, gravel, rails, posts, trunks, mountains and asphalt (they were tinted violet to fake the mood); the car's physical
+  lights follow the same rose evening.
+- `lab-mock.js` has `__mock.grid()`: the picture as that grid, read in the same breath as it is drawn, to measure against the mockup's numbers
+  (which stay outside the repository).
+After: the mock stage's rows are 0.52 0.43 0.39 0.38 0.45 0.41 0.36 (mockup 0.54 0.52 0.38 0.42 0.43 0.38 0.30); red minus blue over the picture 0.19
+(mockup 0.17). The cells still differ by 0.11 on average (of 1): the framing is not the mockup's, and the points below are open.
+Pictures: `docs/screenshots/mock/evening-*.jpg`.
+
+Open, in the agreed order: 2. take the grass tufts and the busy detail back, large clean faces; 3. road, rail and boards with textures and relief
+(the asphalt texture in `game/assets/tex` is not used yet; two thick arrows flush in the board); 4. smoke as solid faceted lumps; 5. the car (no S15
+file in the repository: a detailed model has to be downloaded by the owner); 6. the far land (silhouette trees, mist between the ridges, cloud shapes).

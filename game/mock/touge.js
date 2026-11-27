@@ -5,12 +5,12 @@
 import * as THREE from '../../vendor/three/three.module.js';
 import { mergeGeometries } from '../../vendor/three/addons/utils/BufferGeometryUtils.js';
 import { surfaceAt, frameAt } from '../sim/track.js';
-import { toon, shared } from './toon.js';
-import { roadMaterial, waterMaterial, fbm, rnd } from './land.js';
+import { toon, shared, KEY } from './toon.js';
+import { roadMaterial, waterMaterial, gridSampler, bakeSun, fbm, rnd } from './land.js';
 import { faceted, paintGeo, chevronTexture } from './props.js';
 
 const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const C = { grass: new THREE.Color('#7f9647'), grassDry: new THREE.Color('#a39a4c'), rock: new THREE.Color('#9a7480'), rockDark: new THREE.Color('#7a5d76'), floor: new THREE.Color('#55805a'), wood: new THREE.Color('#3f6b58'), gravel: new THREE.Color('#a78d95'), moss: new THREE.Color('#6f8f4a') };
+const C = { grass: new THREE.Color('#7f9647'), grassDry: new THREE.Color('#a39a4c'), rock: new THREE.Color('#9b918c'), rockDark: new THREE.Color('#756c6a'), floor: new THREE.Color('#55805a'), wood: new THREE.Color('#3f6b58'), gravel: new THREE.Color('#9c9590'), moss: new THREE.Color('#6f8f4a') };
 
 /** The land's height for a track: `field.at(x, z)` in the simulation's axes, and what the road says there (`field.road`: surfaceAt's answer, `edge` metres beyond the road's edge). */
 export function makeField(T) {
@@ -60,7 +60,8 @@ function landMesh(T, F) {
   // (x is mirrored, so the corners go round the other way to face up)
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const p = j * (nx + 1) + i, q = p + nx + 1; if ((i + j) & 1) { tri(p, p + 1, q); tri(p + 1, q + 1, q); } else { tri(p, q + 1, q); tri(p, p + 1, q + 1); } }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
-  const mesh = new THREE.Mesh(g, toon({ vertexColors: true, soft: 0.3, rim: 0.25 })); mesh.receiveShadow = true; mesh.name = 'land';
+  { const gs = gridSampler(xs, zs, P.map((v, i) => (i % 3 === 0 ? -v : v))); g.setAttribute('bake', new THREE.Float32BufferAttribute(bakeSun(pos, (x, z) => gs(-x, z), KEY.sunDir), 1)); }   // the land's own shadow under this sun (the grid's lines are in the simulation's x)
+  const mesh = new THREE.Mesh(g, toon({ vertexColors: true, soft: 0.3, rim: 0.25, bake: true })); mesh.receiveShadow = true; mesh.name = 'land';
   return mesh;
 }
 
@@ -97,8 +98,8 @@ function rails(T, walls) {
       if (i) for (let k = 0; k < np - 1; k++) { const p = (i - 1) * np + k, r = i * np + k; idx.push(p, r, p + 1, p + 1, r, r + 1); }
       if (i % 2 === 0) { posts.push([-x, y, z]); if (i % 8 === 0) lamps.push([-x, y + 0.92, z]); } });
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); parts.push(g); }
-  const group = new THREE.Group(), rail = new THREE.Mesh(mergeGeometries(parts), toon({ color: '#c9b8cf', side: THREE.DoubleSide, gloss: 0.35, soft: 0.5 })); rail.castShadow = true;
-  const m = new THREE.Matrix4(), post = new THREE.InstancedMesh(new THREE.BoxGeometry(0.11, 0.86, 0.14).translate(0, 0.43, 0), toon({ color: '#8d7c96' }), posts.length);
+  const group = new THREE.Group(), rail = new THREE.Mesh(mergeGeometries(parts), toon({ color: '#aa9a92', side: THREE.DoubleSide, gloss: 0.5, soft: 0.5 })); rail.castShadow = true;
+  const m = new THREE.Matrix4(), post = new THREE.InstancedMesh(new THREE.BoxGeometry(0.11, 0.86, 0.14).translate(0, 0.43, 0), toon({ color: '#746864' }), posts.length);
   posts.forEach((p, i) => post.setMatrixAt(i, m.makeTranslation(p[0], p[1], p[2])));
   const lamp = new THREE.InstancedMesh(new THREE.BoxGeometry(0.2, 0.16, 0.2), new THREE.MeshBasicMaterial({ color: new THREE.Color(5.5, 3.3, 0.7), toneMapped: false }), lamps.length);
   lamps.forEach((p, i) => lamp.setMatrixAt(i, m.makeTranslation(p[0], p[1], p[2])));
@@ -108,7 +109,7 @@ function rails(T, walls) {
 
 /** Chevron boards round the outside of every hairpin, their arrows pointing the way of the climb. */
 function chevrons(T, F, hairpins, down) {
-  const tex = chevronTexture(), face = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(2.6, 2.2, 2.4), toneMapped: false, side: THREE.DoubleSide }), back = toon({ color: '#4a3a5a' }), group = new THREE.Group();
+  const tex = chevronTexture(), face = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(2.6, 2.2, 2.4), toneMapped: false, side: THREE.DoubleSide }), back = toon({ color: '#3a2c36' }), group = new THREE.Group();
   for (const hp of hairpins) for (const ds of [-21, -14, -7, 0, 7, 14, 21]) {
     const s = hp.s + ds; if (s < 0 || s > T.len) continue; const i = Math.min(T.x.length - 1, Math.round(s / T.ds)), lat = (hp.right ? -1 : 1) * ((hp.right ? T.hwL[i] : T.hwR[i]) + 2.6), f = frameAt(T, s, lat);
     const g = new THREE.Group(), w = ds === 0 ? 2.4 : 1.7, h = w / 2, inX = (hp.right ? 1 : -1) * f.r[0], inZ = (hp.right ? 1 : -1) * f.r[2];   // (inX, inZ): towards the road, in the simulation's axes
@@ -132,13 +133,13 @@ function oldMarks(T, hairpins, r) {
         if (k) { const q = base + k * 2; idx.push(q - 2, q, q - 1, q - 1, q, q + 1); } } } }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('alpha', new THREE.Float32BufferAttribute(al, 1)); g.setIndex(idx);
   const mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, toneMapped: false,
-    vertexShader: 'attribute float alpha; varying float vA; void main() { vA = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: 'varying float vA; void main() { gl_FragColor = vec4(0.06, 0.04, 0.09, vA); }' }));
+    vertexShader: 'attribute float alpha; varying float vA; void main() { vA = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: 'varying float vA; void main() { gl_FragColor = vec4(0.045, 0.02, 0.03, vA); }' }));
   mesh.name = 'old-marks'; mesh.renderOrder = 1; return mesh;
 }
 
 /** Where the pass reaches the plaza: a red gate over the road and stone lanterns with a warm light, up the last stretch. */
 function plazaGate(T, F) {
-  const group = new THREE.Group(), red = toon({ color: '#d8483f', soft: 0.4, rim: 0.4 }), stone = toon({ color: '#9b8a9c', flat: true }), glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(5.0, 2.9, 0.9), toneMapped: false });
+  const group = new THREE.Group(), red = toon({ color: '#d8483f', soft: 0.4, rim: 0.4 }), stone = toon({ color: '#948b87', flat: true }), glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(5.0, 2.9, 0.9), toneMapped: false });
   const box = (w, h, d, x, y, z, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; return b; };
   { const f = frameAt(T, 16, 0), gate = new THREE.Group(), half = T.hwL[8] + 1.6;
     for (const k of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 7.4, 8), red); post.position.set(k * half, 3.7, 0); post.castShadow = true; gate.add(post, box(1.1, 0.5, 1.1, k * half, 0.25, 0, stone)); }
@@ -152,7 +153,7 @@ function plazaGate(T, F) {
 
 /** A street lamp at the outside of every hairpin: a post with an arm over the road, a glowing head and a warm pool of light on the asphalt under it. */
 function lamps(T, F, hairpins) {
-  const group = new THREE.Group(), metal = toon({ color: '#6f6480', gloss: 0.3 }), glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(6.0, 3.6, 1.3), toneMapped: false });
+  const group = new THREE.Group(), metal = toon({ color: '#6c6260', gloss: 0.3 }), glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(6.0, 3.6, 1.3), toneMapped: false });
   const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'), gr = c.createRadialGradient(64, 64, 2, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 128, 128);
   const pool = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), color: new THREE.Color(0.95, 0.5, 0.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), pools = [];
   for (const hp of hairpins) for (const ds of [-18, 0, 18]) { const s = hp.s + ds; if (s < 2 || s > T.len - 2) continue; const i = Math.round(s / T.ds), out = hp.right ? -1 : 1, hw = hp.right ? T.hwL[i] : T.hwR[i], f = frameAt(T, s, out * (hw + F.VERGE - 0.4)), l = new THREE.Group();
@@ -175,13 +176,13 @@ function mistBanks(F, r) {
   const parts = [];
   for (let i = 0; i < 400 && parts.length < 34; i++) { const a = r() * 6.28, d = 260 + r() * 1300, x = F.cx + Math.cos(a) * d, z = F.cz + Math.sin(a) * d; if (F.base(x, z) > F.lo + 22) continue;
     const g = new THREE.PlaneGeometry(240 + r() * 460, 80 + r() * 150).rotateX(-Math.PI / 2); g.rotateY(r() * 3.14); g.translate(-x, F.lo + 7 + r() * 16, z); parts.push(g); }
-  const mesh = new THREE.Mesh(parts.length ? mergeGeometries(parts) : new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), color: new THREE.Color(1.2, 1.0, 1.06), transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+  const mesh = new THREE.Mesh(parts.length ? mergeGeometries(parts) : new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), color: new THREE.Color(0.62, 0.27, 0.34), transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
   mesh.name = 'mist'; mesh.renderOrder = 2; return mesh;
 }
 
 /** A pine as the mockup draws it: a trunk and four tiers of faceted cones. */
 function pineGeometry(r) {
-  const parts = [], green = [new THREE.Color('#3f7a5a'), new THREE.Color('#35694f'), new THREE.Color('#487f58')], trunk = new THREE.CylinderGeometry(0.035, 0.05, 0.3, 5, 1, true).translate(0, 0.15, 0).toNonIndexed(); trunk.deleteAttribute('uv'); trunk.computeVertexNormals(); parts.push(paintGeo(trunk, new THREE.Color('#5a4252')));
+  const parts = [], green = [new THREE.Color('#3f7a5a'), new THREE.Color('#35694f'), new THREE.Color('#487f58')], trunk = new THREE.CylinderGeometry(0.035, 0.05, 0.3, 5, 1, true).translate(0, 0.15, 0).toNonIndexed(); trunk.deleteAttribute('uv'); trunk.computeVertexNormals(); parts.push(paintGeo(trunk, new THREE.Color('#5b4238')));
   for (let t = 0; t < 4; t++) { const g = faceted(new THREE.ConeGeometry(0.3 - t * 0.055, 0.34 - t * 0.02, 7, 1, true), r, 0.22); g.translate(0, 0.33 + t * 0.19, 0); parts.push(paintGeo(g, green[t % 3].clone().multiplyScalar(0.9 + t * 0.07))); }
   return mergeGeometries(parts);
 }
@@ -215,7 +216,7 @@ export function buildTouge(map, T, { tier = 'high', down = false } = {}) {
   for (const list of pines) { const mesh = new THREE.InstancedMesh(pineGeometry(r), toon({ vertexColors: true, soft: 0.55, rim: 0.45 }), list.length);
     list.forEach(([x, y, z, ry, h], i) => mesh.setMatrixAt(i, m4.compose(p3.set(x, y, z), q4.setFromAxisAngle(up, ry), s3.set(h * 1.05, h, h * 1.05)))); mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingSphere(); mesh.castShadow = !low; mesh.name = 'pines'; group.add(mesh); }
   // rocks and blossom: merged, faceted
-  { const parts = [], cA = new THREE.Color('#a47f88'), cB = new THREE.Color('#86688a'), moss = new THREE.Color('#718f4c'), k = new THREE.Color();
+  { const parts = [], cA = new THREE.Color('#9d938d'), cB = new THREE.Color('#7b716e'), moss = new THREE.Color('#718f4c'), k = new THREE.Color();
     const stone = (x, z, size, sink, mossy) => { const g = faceted(new THREE.IcosahedronGeometry(1, size > 0.5 ? 1 : 0), r, 0.5); g.scale(size * (0.8 + r() * 0.6), size * (0.6 + r() * 0.5), size * (0.8 + r() * 0.6)); g.rotateY(r() * 6.28); g.translate(-x, F.at(x, z) + size * sink, z); g.computeVertexNormals();
       const base = cA.clone().lerp(cB, r()).multiplyScalar(0.9 + r() * 0.2), n = g.attributes.normal, col = new Float32Array(n.count * 3);
       for (let v = 0; v < n.count; v++) { k.copy(base); if (mossy) k.lerp(moss, ss(0.55, 0.9, n.getY(v)) * 0.75); else k.multiplyScalar(0.85 + 0.3 * Math.max(0, n.getY(v))); k.toArray(col, v * 3); }
@@ -227,7 +228,7 @@ export function buildTouge(map, T, { tier = 'high', down = false } = {}) {
     const parts = [], greens = ['#6f9a4c', '#5c8a4a', '#86a650', '#4f7d52'].map((h) => new THREE.Color(h));
     for (const [x, z, size] of bushes) { const y = F.at(x, z), n = 2 + Math.floor(r() * 2); for (let i = 0; i < n; i++) { const g = faceted(new THREE.IcosahedronGeometry(1, 1), r, 0.4), sz = size * (0.6 + r() * 0.5); g.scale(sz * 1.2, sz * 0.85, sz * 1.2); g.rotateY(r() * 6.28); g.translate(-x + (r() - 0.5) * size * 1.3, y + sz * 0.5, z + (r() - 0.5) * size * 1.3); parts.push(paintGeo(g, greens[Math.floor(r() * 4)].clone().multiplyScalar(0.9 + r() * 0.2))); } }
     if (parts.length) { const mesh = new THREE.Mesh(mergeGeometries(parts), toon({ vertexColors: true, soft: 0.6, rim: 0.45 })); mesh.castShadow = !low; mesh.name = 'bushes'; group.add(mesh); } }
-  { const parts = [], pinks = ['#f48fb9', '#ea76ab', '#f9aecb', '#dd6aa2'].map((h) => new THREE.Color(h)), places = [];
+  { const parts = [], pinks = ['#f7a3c4', '#f08fb8', '#fbbdd3', '#e884b0'].map((h) => new THREE.Color(h)), places = [];
     for (const [x, z, h] of cherries) { const y = F.at(x, z) - 0.3; places.push([-x, y, z, r() * 6.28, h * 0.82]);
       const n = low ? 7 : 11 + Math.floor(r() * 5); for (let i = 0; i < n; i++) { const a = r() * 6.28, rad = h * 0.36 * Math.sqrt(r()), size = h * (0.13 + r() * 0.12), g = faceted(new THREE.IcosahedronGeometry(1, 1), r, 0.35);
         g.scale(size * 1.25, size * 0.9, size * 1.25); g.rotateY(r() * 6.28); g.translate(-x + Math.cos(a) * rad, y + h * (0.62 + r() * 0.36) - rad * 0.25, z + Math.sin(a) * rad); parts.push(paintGeo(g, pinks[Math.floor(r() * 4)].clone().multiplyScalar(0.92 + r() * 0.16))); } }
@@ -242,7 +243,7 @@ export function buildTouge(map, T, { tier = 'high', down = false } = {}) {
     // the trunks: a leaning stem that forks into three boughs (a few faceted tubes), one instanced mesh
     const tube = (x0, y0, z0, x1, y1, z1, r0, r1) => { const len = Math.hypot(x1 - x0, y1 - y0, z1 - z0), g = new THREE.CylinderGeometry(r1, r0, len, 5, 1, true).translate(0, len / 2, 0); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, new THREE.Vector3(x1 - x0, y1 - y0, z1 - z0).normalize())); g.translate(x0, y0, z0); const n = g.toNonIndexed(); n.deleteAttribute('uv'); n.computeVertexNormals(); return n; };
     const stem = mergeGeometries([tube(0, 0, 0, 0.06, 0.5, 0.02, 0.07, 0.05), tube(0.06, 0.5, 0.02, 0.3, 0.86, 0.1, 0.045, 0.02), tube(0.06, 0.5, 0.02, -0.24, 0.9, -0.08, 0.045, 0.02), tube(0.06, 0.5, 0.02, 0.02, 0.95, -0.26, 0.04, 0.02)]);
-    const trunks = new THREE.InstancedMesh(stem, toon({ color: '#5a3d52', soft: 0.5 }), places.length);
+    const trunks = new THREE.InstancedMesh(stem, toon({ color: '#5b4238', soft: 0.5 }), places.length);
     places.forEach(([x, y, z, ry, h], i) => trunks.setMatrixAt(i, m4.compose(p3.set(x, y, z), q4.setFromAxisAngle(up, ry), s3.set(h, h, h)))); trunks.instanceMatrix.needsUpdate = true; trunks.computeBoundingSphere(); trunks.castShadow = true; trunks.name = 'cherry-trunk'; group.add(trunks); }
   { // grass: a tuft is five thin blades, dark at the foot and light at the tip
     const pos = [], col = [], dark = new THREE.Color('#5d7d3c'), light = new THREE.Color('#b9b25a');

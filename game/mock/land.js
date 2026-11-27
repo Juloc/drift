@@ -3,7 +3,7 @@
 // the facets are real (every triangle has its own normal), the softness comes from the light model and the haze (toon.js).
 import * as THREE from '../../vendor/three/three.module.js';
 import { mergeGeometries } from '../../vendor/three/addons/utils/BufferGeometryUtils.js';
-import { toon, shared, HAZE_PARS } from './toon.js';
+import { toon, shared, HAZE_PARS, KEY } from './toon.js';
 
 export const rnd = (seed) => () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 const h2 = (x, z) => { const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -11,6 +11,22 @@ const vn = (x, z) => { const xi = Math.floor(x), zi = Math.floor(z), fx = x - xi
   return (h2(xi, zi) * (1 - u) + h2(xi + 1, zi) * u) * (1 - v) + (h2(xi, zi + 1) * (1 - u) + h2(xi + 1, zi + 1) * u) * v; };
 export const fbm = (x, z, o = 4) => { let a = 0.5, s = 0; for (let i = 0; i < o; i++) { s += a * vn(x, z); x = x * 2.03 + 7.1; z = z * 2.03 + 3.7; a *= 0.5; } return s; };
 const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+
+/** Heights of a grid (xs, zs: its lines; P: x, y, z per corner, row by row) as a function of a place: `sample(x, z)`; far below everything outside the grid. */
+export function gridSampler(xs, zs, P) {
+  const nx = xs.length, find = (a, v) => { let lo = 0, hi = a.length - 2; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (a[m] <= v) lo = m; else hi = m - 1; } return lo; };
+  return (x, z) => { if (x < xs[0] || x > xs[nx - 1] || z < zs[0] || z > zs[zs.length - 1]) return -1e9; const i = find(xs, x), j = find(zs, z), u = (x - xs[i]) / (xs[i + 1] - xs[i]), v = (z - zs[j]) / (zs[j + 1] - zs[j]), k = (j * nx + i) * 3;
+    return (P[k + 1] * (1 - u) + P[k + 4] * u) * (1 - v) + (P[k + nx * 3 + 1] * (1 - u) + P[k + nx * 3 + 4] * u) * v; };
+}
+/** How much of the sun reaches each vertex past the land (1 all, 0 none; a soft edge): a walk from the vertex towards the sun over the heights. For a `bake` attribute (toon.js). */
+export function bakeSun(pos, sample, sun, far = 520) {
+  const out = new Float32Array(pos.length / 3), h = Math.hypot(sun.x, sun.z) || 1e-6, dx = sun.x / h, dz = sun.z / h, rise = sun.y / h;
+  for (let v = 0; v < out.length; v++) { const x = pos[v * 3], y = pos[v * 3 + 1], z = pos[v * 3 + 2]; let worst = 0;
+    for (let t = 6; t < far; t *= 1.22) { const over = (sample(x + dx * t, z + dz * t) - (y + 0.4 + rise * t)) / t; if (over > worst) worst = over; }
+    out[v] = 1 - ss(0, 0.07, worst); }
+  return out;
+}
 
 // ---- the road's centre line: from behind the camera straight ahead (towards -z), then a long right-hander, then away to the right
 export const HALF = 4.6, SHOULDER = 6.4;
@@ -60,7 +76,7 @@ export function heightAt(x, z) {
 }
 
 // ---- colours of the land (before the light)
-const C = { grass: new THREE.Color('#7f9647'), grassDry: new THREE.Color('#a39a4c'), rock: new THREE.Color('#9a7480'), rockDark: new THREE.Color('#7a5d76'), floor: new THREE.Color('#55805a'), wood: new THREE.Color('#3f6b58'), gravel: new THREE.Color('#a78d95') };
+const C = { grass: new THREE.Color('#7f9647'), grassDry: new THREE.Color('#a39a4c'), rock: new THREE.Color('#9b918c'), rockDark: new THREE.Color('#756c6a'), floor: new THREE.Color('#55805a'), wood: new THREE.Color('#3f6b58'), gravel: new THREE.Color('#9c9590') };
 
 function landMesh() {
   const r = rnd(77), axis = (from, to, mid) => { const out = [from]; while (out[out.length - 1] < to) { const v = out[out.length - 1]; out.push(v + 2.6 + 13 * ss(70, 460, Math.abs(v - mid))); } return out; };
@@ -84,27 +100,28 @@ function landMesh() {
   };
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const p = j * (nx + 1) + i, q = p + nx + 1; if ((i + j) & 1) { tri(p, q, p + 1); tri(p + 1, q, q + 1); } else { tri(p, q, q + 1); tri(p, q + 1, p + 1); } }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
-  const mesh = new THREE.Mesh(g, toon({ vertexColors: true, soft: 0.3, rim: 0.25 })); mesh.receiveShadow = true; mesh.name = 'land';
+  g.setAttribute('bake', new THREE.Float32BufferAttribute(bakeSun(pos, gridSampler(xs, zs, P), KEY.sunDir), 1));   // the land's own shadow under this sun
+  const mesh = new THREE.Mesh(g, toon({ vertexColors: true, soft: 0.3, rim: 0.25, bake: true })); mesh.receiveShadow = true; mesh.name = 'land';
   return mesh;
 }
 
 /** The asphalt: `uv.x` is metres from the centre line, `uv.y` metres along the road. Lines, worn patches, wheel tracks and a gravel shoulder are painted from those. */
 export function roadMaterial() {
-  return toon({ color: 0xffffff, gloss: 0.5, vary: 0.35, rim: 0.0, soft: 0.5,
+  return toon({ color: 0xffffff, gloss: 0.24, vary: 0.2, rim: 0.0, soft: 0.5,
     pars: /* glsl */ `float rh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float rn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(rh(i), rh(i + vec2(1.0, 0.0)), f.x), mix(rh(i + vec2(0.0, 1.0)), rh(i + vec2(1.0, 1.0)), f.x), f.y); }`,
     paint: /* glsl */ `{ float u = vUv2.x, au = abs(u), s = vUv2.y;
       float big = rn(vec2(u * 0.35, s * 0.08)), grain = rn(vec2(u * 9.0, s * 9.0)), wear = rn(vec2(u * 1.7, s * 0.5));
-      vec3 c = vec3(0.262, 0.222, 0.318) * (0.9 + 0.16 * big + 0.05 * grain);
+      vec3 c = vec3(0.25, 0.2, 0.225) * (0.9 + 0.16 * big + 0.05 * grain);
       c *= 1.0 - 0.07 * (smoothstep(0.75, 0.15, abs(au - 2.3)) );                                   // the lanes' wheel tracks, a shade darker
-      c = mix(c, vec3(0.35, 0.3, 0.4), 0.5 * smoothstep(0.62, 0.8, rn(vec2(u * 0.22 + 3.0, s * 0.045))));   // lighter patches
+      c = mix(c, vec3(0.32, 0.27, 0.29), 0.5 * smoothstep(0.62, 0.8, rn(vec2(u * 0.22 + 3.0, s * 0.045))));   // lighter patches
       c *= 1.0 - 0.34 * smoothstep(0.014, 0.0, abs(rn(vec2(u * 0.8 + 11.0, s * 0.3)) - 0.5)) * smoothstep(0.35, 0.6, rn(vec2(u * 0.11, s * 0.05 + 4.0)));   // cracks: thin wandering lines, in places
       c *= 1.0 - 0.2 * smoothstep(0.05, 0.0, abs(abs(u) - 2.25 - 0.25 * sin(s * 0.11))) * step(0.55, rn(vec2(1.0, floor(s / 23.0))));                                 // a tar seam along a lane, on some stretches
       float edge = smoothstep(0.1, 0.06, abs(au - 4.12)) * (0.55 + 0.45 * smoothstep(0.25, 0.55, wear));
       c = mix(c, vec3(0.93, 0.88, 0.9), edge);
       float dash = smoothstep(0.085, 0.055, abs(u)) * step(fract(s / 9.0), 0.36) * (0.6 + 0.4 * smoothstep(0.2, 0.5, wear));
       c = mix(c, vec3(0.98, 0.7, 0.26), dash);
-      c = mix(c, vec3(0.56, 0.47, 0.52) * (0.9 + 0.2 * rn(vec2(u * 2.3, s * 2.3))), smoothstep(4.45, 4.75, au));         // the gravel shoulder
+      c = mix(c, vec3(0.42, 0.38, 0.37) * (0.9 + 0.2 * rn(vec2(u * 2.3, s * 2.3))), smoothstep(4.45, 4.75, au));         // the gravel shoulder
       diffuseColor.rgb = c; }` });
 }
 
@@ -133,13 +150,13 @@ function tyreMarks(extra = []) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('alpha', new THREE.Float32BufferAttribute(al, 1)); g.setIndex(idx);
   const mat = new THREE.ShaderMaterial({ uniforms: shared, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, toneMapped: false,
     vertexShader: 'attribute float alpha; varying float vA; void main() { vA = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'varying float vA; void main() { gl_FragColor = vec4(0.07, 0.045, 0.1, vA); }' });
+    fragmentShader: 'varying float vA; void main() { gl_FragColor = vec4(0.045, 0.02, 0.03, vA); }' });
   const mesh = new THREE.Mesh(g, mat); mesh.name = 'marks'; mesh.renderOrder = 1; return mesh;
 }
 
 /** Rings of faceted peaks round the valley; the haze makes the far ones pale. */
 export function mountains(cx = 0, cz = 0, base = VALLEY - 20) {
-  const r = rnd(31), parts = [], RINGS = [[900, 1150, 34, 150, 300, '#5f4f98'], [1500, 1900, 40, 260, 520, '#5b4d96'], [2500, 3000, 44, 420, 760, '#584b93'], [3900, 4500, 46, 620, 1000, '#554990']];
+  const r = rnd(31), parts = [], RINGS = [[900, 1150, 34, 150, 300, '#7a6c74'], [1500, 1900, 40, 260, 520, '#766972'], [2500, 3000, 44, 420, 760, '#73666f'], [3900, 4500, 46, 620, 1000, '#70636c']];
   for (const [r0, r1, n, h0, h1, hex] of RINGS) for (let i = 0; i < n; i++) {
     const az = (i + r() * 0.8) / n * Math.PI * 2, R = r0 + r() * (r1 - r0), h = h0 + r() * r() * (h1 - h0) * 1.3, rad = h * (1.1 + r() * 0.9);
     if (Math.abs(az - 0.72) < 0.2 && R < 3500) continue;                                                   // the valley stays open towards the sun
@@ -154,7 +171,7 @@ export function mountains(cx = 0, cz = 0, base = VALLEY - 20) {
 
 /** Still water: it takes the sky's colour (cool away from the sun, bright gold towards it) and long soft ripples break the glitter. */
 export function waterMaterial() {
-  return new THREE.ShaderMaterial({ uniforms: { ...shared, uA: { value: new THREE.Color('#c79ad2') }, uB: { value: new THREE.Color('#ffe2b8') } }, toneMapped: false,
+  return new THREE.ShaderMaterial({ uniforms: { ...shared, uA: { value: new THREE.Color(0.5, 0.2, 0.26) }, uB: { value: new THREE.Color(1.0, 0.72, 0.5) } }, toneMapped: false,
     vertexShader: 'varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
     fragmentShader: `varying vec3 vW; uniform vec3 uA, uB; ${HAZE_PARS}
       void main() { vec3 v = normalize(vW - cameraPosition); float t = pow(max(dot(normalize(vec3(v.x, 0.0, v.z)), normalize(vec3(uSun.x, 0.0, uSun.z))), 0.0), 5.0);
@@ -177,7 +194,7 @@ function mist() {
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); cx.fillStyle = gr; cx.fillRect(0, 0, 128, 128);
   const tex = new THREE.CanvasTexture(cv), r = rnd(9), parts = [];
   for (let i = 0; i < 26; i++) { const x = -500 + r() * 1900, z = riverZ(x) + (r() - 0.6) * 560, g = new THREE.PlaneGeometry(260 + r() * 420, 90 + r() * 130).rotateX(-Math.PI / 2); g.rotateY((r() - 0.5) * 0.8); g.translate(x, VALLEY + 6 + r() * 16, z); parts.push(g); }
-  const mesh = new THREE.Mesh(mergeGeometries(parts), new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(1.25, 1.02, 1.06), transparent: true, opacity: 0.62, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+  const mesh = new THREE.Mesh(mergeGeometries(parts), new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(0.62, 0.27, 0.34), transparent: true, opacity: 0.6, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
   mesh.name = 'mist'; mesh.renderOrder = 2; return mesh;
 }
 
@@ -188,7 +205,7 @@ function bridge() {
   for (let i = 0; i <= n; i++) parts.push(new THREE.BoxGeometry(7, 26, 4.5).translate(x0, y - 13, z + i * span));
   for (let i = 0; i < n; i++) parts.push(new THREE.TorusGeometry(span / 2 - 2, 1.6, 4, 10, Math.PI).rotateY(Math.PI / 2).translate(x0, y - 20, z + (i + 0.5) * span));
   const g = mergeGeometries(parts.map((p) => { const q = p.toNonIndexed(); q.deleteAttribute('uv'); q.computeVertexNormals(); return q; }));
-  const mesh = new THREE.Mesh(g, toon({ color: '#a892b8', flat: true })); mesh.name = 'bridge'; return mesh;
+  const mesh = new THREE.Mesh(g, toon({ color: '#9a908c', flat: true })); mesh.name = 'bridge'; return mesh;
 }
 
 export function buildLand({ marks = [] } = {}) {

@@ -5,8 +5,8 @@ import * as THREE from '../../vendor/three/three.module.js';
 import { KEY } from './toon.js';
 
 export const SKY = {
-  top: new THREE.Color('#9d86d8'), mid: new THREE.Color('#ee93b4'), warm: new THREE.Color('#ffc890'), cool: new THREE.Color('#e9a0bd'),
-  sun: new THREE.Color(3.6, 3.1, 2.0), glow: new THREE.Color('#ffd9a0'), cloudLit: new THREE.Color('#ffdcb4'), cloudShade: new THREE.Color('#9a76c4'),
+  top: new THREE.Color('#d98fba'), mid: new THREE.Color('#f599a5'), warm: new THREE.Color('#fba27e'), cool: new THREE.Color('#ee8f9a'),
+  sun: new THREE.Color(2.6, 2.2, 1.45), glow: new THREE.Color('#ffc48a'), cloudLit: new THREE.Color('#ffb98e'), cloudShade: new THREE.Color('#b56f8e'),
 };
 
 export function makeSky(radius = 6000) {
@@ -25,7 +25,7 @@ export function makeSky(radius = 6000) {
         vec3 hor = mix(uCool, uWarm, pow(toSun, 1.6));
         vec3 col = mix(hor, uMid, smoothstep(0.0, 0.2, e)); col = mix(col, uTop, smoothstep(0.16, 0.62, e));
         col = mix(col, hor * 0.86, smoothstep(0.0, -0.12, e));
-        col += uGlow * (pow(c, 6.0) * 0.16 + pow(c, 50.0) * 0.3);
+        col += uGlow * (pow(c, 6.0) * 0.1 + pow(c, 50.0) * 0.22);
         // clouds as the mockup paints them: banks with a clear edge, a bright side towards the sun and below, a violet body; a second, thin layer high up
         float az = atan(d.x, -d.z);
         vec2 p = vec2(az * 1.9 + uTime * 0.003, e * 9.5);

@@ -48,8 +48,8 @@ function guardrails() {
       if (i % 2 === 0) { posts.push([p.x + p.tz * (off + side * 0.08), p.y, p.z - p.tx * (off + side * 0.08)]); if (i % 6 === 0) lamps.push([p.x + p.tz * (off + side * 0.08), p.y + 0.92, p.z - p.tx * (off + side * 0.08)]); } });
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); parts.push(g);
   }
-  const group = new THREE.Group(), rail = new THREE.Mesh(mergeGeometries(parts), toon({ color: '#c9b8cf', side: THREE.DoubleSide, gloss: 0.35, soft: 0.5 })); rail.castShadow = true; rail.receiveShadow = true;
-  const m = new THREE.Matrix4(), post = new THREE.InstancedMesh(new THREE.BoxGeometry(0.11, 0.86, 0.14).translate(0, 0.43, 0), toon({ color: '#8d7c96' }), posts.length);
+  const group = new THREE.Group(), rail = new THREE.Mesh(mergeGeometries(parts), toon({ color: '#aa9a92', side: THREE.DoubleSide, gloss: 0.5, soft: 0.5 })); rail.castShadow = true; rail.receiveShadow = true;
+  const m = new THREE.Matrix4(), post = new THREE.InstancedMesh(new THREE.BoxGeometry(0.11, 0.86, 0.14).translate(0, 0.43, 0), toon({ color: '#746864' }), posts.length);
   posts.forEach((p, i) => post.setMatrixAt(i, m.makeTranslation(p[0], p[1], p[2]))); post.castShadow = true;
   const lamp = new THREE.InstancedMesh(new THREE.BoxGeometry(0.2, 0.16, 0.2), new THREE.MeshBasicMaterial({ color: new THREE.Color(5.5, 3.3, 0.7), toneMapped: false }), lamps.length);
   lamps.forEach((p, i) => lamp.setMatrixAt(i, m.makeTranslation(p[0], p[1], p[2])));
@@ -66,7 +66,7 @@ export function chevronTexture() {
 
 function chevrons() {
   const tex = chevronTexture();
-  const face = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(2.6, 2.2, 2.4), toneMapped: false }), back = toon({ color: '#4a3a5a' }), group = new THREE.Group();
+  const face = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(2.6, 2.2, 2.4), toneMapped: false }), back = toon({ color: '#3a2c36' }), group = new THREE.Group();
   const board = (s, off, w, turn = 0) => { const p = at(s, off), g = new THREE.Group(), h = w / 2;
     const f = new THREE.Mesh(new THREE.PlaneGeometry(w, h), face); f.position.y = 0.95 + h / 2; const b = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, h + 0.12, 0.08), back); b.position.set(0, 0.95 + h / 2, -0.05); b.castShadow = true;
     const legs = [-0.36, 0.36].map((k) => { const l = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.95 + h / 2, 0.09), back); l.position.set(k * w, (0.95 + h / 2) / 2, -0.09); return l; });
@@ -78,7 +78,7 @@ function chevrons() {
 }
 
 function rocks() {
-  const r = rnd(41), parts = [], cA = new THREE.Color('#a47f88'), cB = new THREE.Color('#86688a');
+  const r = rnd(41), parts = [], cA = new THREE.Color('#9d938d'), cB = new THREE.Color('#7b716e');
   const rock = (x, z, size, sink = 0.35) => { const g = faceted(new THREE.IcosahedronGeometry(1, 1), r, 0.5); g.scale(size * (0.8 + r() * 0.6), size * (0.6 + r() * 0.5), size * (0.8 + r() * 0.6)); g.rotateY(r() * 6.28); g.translate(x, heightAt(x, z) + size * (0.5 - sink), z); g.computeVertexNormals(); parts.push(paintGeo(g, cA.clone().lerp(cB, r()).multiplyScalar(0.9 + r() * 0.2))); };
   for (let sP = -20; sP < 60; sP += 5 + r() * 9) { const p = at(sP, 8.6 + r() * 3.5); rock(p.x, p.z, 1.2 + r() * r() * 3.4); }           // the foot of the flank
   for (let i = 0; i < 150; i++) { const p = at(-40 + r() * 105, 12 + r() * r() * 110); rock(p.x, p.z, 1 + r() * r() * 5.5, 0.45); }                 // on the flank
@@ -90,7 +90,7 @@ function rocks() {
 /** Cherry trees: where, how tall. The blossom is a cloud of faceted lumps in three pinks. */
 const CHERRIES = [[27, 14, 11], [37, 19, 12], [47, 12.5, 8.5], [14, 12, 9], [57, 16, 9], [4, 18, 10], [-14, 13, 9], [62, -13, 7.5], [84, -16, 8], [48, -17, 6.5], [112, -15, 7], [100, 12, 6]].map(([sP, d, h]) => { const p = at(sP, d); return [p.x, p.z, h]; });
 async function cherries() {
-  const r = rnd(63), trunk = await kit('deadtree-2', '#5a3d52'), pinks = ['#f48fb9', '#ea76ab', '#f9aecb', '#dd6aa2'].map((h) => new THREE.Color(h)), parts = [], places = [];
+  const r = rnd(63), trunk = await kit('deadtree-2', '#5b4238'), pinks = ['#f7a3c4', '#f08fb8', '#fbbdd3', '#e884b0'].map((h) => new THREE.Color(h)), parts = [], places = [];
   for (const [x, z, h] of CHERRIES) { const y = heightAt(x, z) - 0.3; places.push([x, y, z, r() * 6.28, h * 0.82]);
     const n = 10 + Math.floor(r() * 6); for (let i = 0; i < n; i++) { const a = r() * 6.28, rad = h * 0.36 * Math.sqrt(r()), size = h * (0.13 + r() * 0.12);
       const g = faceted(new THREE.IcosahedronGeometry(1, 1), r, 0.35); g.scale(size * 1.25, size * 0.9, size * 1.25); g.rotateY(r() * 6.28); g.translate(x + Math.cos(a) * rad, y + h * (0.62 + r() * 0.36) - rad * 0.25, z + Math.sin(a) * rad);
@@ -113,7 +113,7 @@ async function pines() {
   kits.forEach((k, i) => group.add(instances(k, near[i], 'pine', true)));
   // the far carpet: two stacked cones a tree, in the dark green of the valley's woods
   const cone = mergeGeometries([new THREE.ConeGeometry(0.34, 0.62, 6, 1, true).translate(0, 0.69, 0), new THREE.ConeGeometry(0.44, 0.6, 6, 1, true).translate(0, 0.34, 0)]).toNonIndexed(); cone.computeVertexNormals();
-  const carpet = new THREE.InstancedMesh(cone, toon({ color: '#3f6f5f', flat: true, soft: 0.6, rim: 0.5 }), far.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), k = new THREE.Color();
+  const carpet = new THREE.InstancedMesh(cone, toon({ color: '#2f5a40', flat: true, soft: 0.6, rim: 0.5 }), far.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), k = new THREE.Color();
   far.forEach(([x, y, z, h], i) => { carpet.setMatrixAt(i, m.compose(p.set(x, y - 1, z), q, s.set(h * 0.85, h, h * 0.85))); carpet.setColorAt(i, k.set('#ffffff').multiplyScalar(0.8 + r() * 0.4)); });
   carpet.instanceMatrix.needsUpdate = true; carpet.computeBoundingSphere(); carpet.name = 'pine-carpet'; group.add(carpet);
   group.userData = { near: near.reduce((a, b) => a + b.length, 0), far: far.length };

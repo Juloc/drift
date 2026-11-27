@@ -28,9 +28,9 @@ const trail = (rw, back, i) => { const p = at(rw.s - back, rw.d - (i ? -1 : 1) *
 const marks = rear.map((rw, i) => ({ w: 0.17, a: 0.85, pts: Array.from({ length: 30 }, (_, k) => trail(rw, 44 * (1 - k / 29), i)) }));
 
 // ---- light: the sun for the shadows and for the car's own (physical) materials; the world's colours come from toon.js
-const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.74, 0.52), 3.2); sun.position.copy(carPos).addScaledVector(KEY.sunDir, 120); sun.target.position.copy(carPos);
+const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.56, 0.5), 1.7); sun.position.copy(carPos).addScaledVector(KEY.sunDir, 120); sun.target.position.copy(carPos);
 sun.castShadow = true; sun.shadow.mapSize.set(low ? 1024 : 2048, low ? 1024 : 2048); Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 10, far: 260 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05; sun.shadow.radius = 3;
-scene.add(sun, sun.target, new THREE.HemisphereLight(new THREE.Color('#d9b3ee'), new THREE.Color('#7a5a7a'), 1.5));
+scene.add(sun, sun.target, new THREE.HemisphereLight(new THREE.Color(0.95, 0.5, 0.62), new THREE.Color(0.34, 0.16, 0.2), 0.95));   // (the car's own light: the same rose evening as the world's, in the units of the physical materials)
 
 scene.add(makeSky(), buildLand({ marks }));
 const envMap = skyEnv(renderer);
@@ -38,7 +38,7 @@ const envMap = skyEnv(renderer);
 async function buildCar() {
   const gltf = await loadGlb(new URL('./assets/cars/s14-hi.glb', import.meta.url).href), car = gltf.scene;
   const P = (o) => new THREE.MeshPhysicalMaterial({ envMap, ...o });
-  const mats = { paint: P({ color: '#f1ecf0', roughness: 0.34, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 0.85 }), glass: P({ color: '#171222', roughness: 0.06, envMapIntensity: 1.5 }),
+  const mats = { paint: P({ color: '#f4f1ee', roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 0.5 }), glass: P({ color: '#171222', roughness: 0.06, envMapIntensity: 1.5 }),
     chrome: P({ color: '#e4dfe8', metalness: 0.7, roughness: 0.3 }), plastic: P({ color: '#1c1822', roughness: 0.7, envMapIntensity: 0.4 }), carbon: P({ color: '#15121a', roughness: 0.45, envMapIntensity: 0.6 }),
     rubber: P({ color: '#1b1820', roughness: 0.92, envMapIntensity: 0.2 }), light_front: P({ color: '#fff4dc', emissive: '#fff0cc', emissiveIntensity: 0.6, roughness: 0.2 }),
     light_rear: new THREE.MeshBasicMaterial({ color: new THREE.Color(5.2, 0.5, 0.95), toneMapped: false }) };
@@ -72,7 +72,7 @@ if (!off.has('smoke')) {
 
 // ---- the camera of the mockup: low behind the car, a little to its left, the horizon above the middle
 const eye = carPos.clone().addScaledVector(T, -CAM.back).addScaledVector(L, CAM.d + CAR.off).setY(carPos.y + CAM.up), aim = carPos.clone().addScaledVector(T, 8).addScaledVector(L, -1.9).setY(carPos.y - 0.35);
-const finish = makeFinish(renderer, { low });
+const finish = makeFinish(renderer, { low, sun: KEY.sunDir });
 const size = () => { const w = innerWidth, h = innerHeight, r = renderer.getPixelRatio(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); finish.setSize(Math.floor(w * r), Math.floor(h * r)); };
 size(); addEventListener('resize', size);
 
@@ -90,4 +90,7 @@ const frame = () => {
 frame();
 const [props] = await Promise.all([off.has('props') ? null : buildProps(), buildCar()]);
 if (props) { scene.add(props); counts = ` · ${props.userData.near} pines near, ${props.userData.far} far`; }
-ready = true; window.__mock = { scene, camera, renderer, eye, aim, smoke, finish, KEY };
+/** The picture now as a grid of mean colours (nx by ny cells, '#rrggbb'), for measuring against the mockup: the scene is drawn and read in the same breath. */
+const grid = (nx = 12, ny = 7) => { finish.render(scene, camera); const c = document.createElement('canvas'); c.width = nx * 8; c.height = ny * 8; const g = c.getContext('2d'); g.drawImage(canvas, 0, 0, c.width, c.height); const d = g.getImageData(0, 0, c.width, c.height).data, rows = [];
+  for (let j = 0; j < ny; j++) { const row = []; for (let i = 0; i < nx; i++) { const a = [0, 0, 0]; for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const k = ((j * 8 + y) * c.width + i * 8 + x) * 4; a[0] += d[k]; a[1] += d[k + 1]; a[2] += d[k + 2]; } row.push('#' + a.map((v) => Math.round(v / 64).toString(16).padStart(2, '0')).join('')); } rows.push(row); } return rows; };
+ready = true; window.__mock = { scene, camera, renderer, eye, aim, smoke, finish, KEY, grid };

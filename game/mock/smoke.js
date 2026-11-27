@@ -9,7 +9,7 @@ export class Smoke {
     const g = new THREE.InstancedBufferGeometry().copy(new THREE.IcosahedronGeometry(1, 3));
     this.max = max; this.puffs = [];
     this.aSeed = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3); g.setAttribute('aSeed', this.aSeed);
-    this.uniforms = { ...shared, uTime: { value: 0 }, uLit: { value: new THREE.Color(1.12, 0.97, 1.0) }, uShade: { value: new THREE.Color(0.66, 0.5, 0.76) }, uGround: { value: 0 } };
+    this.uniforms = { ...shared, uTime: { value: 0 }, uLit: { value: new THREE.Color(0.64, 0.34, 0.43) }, uShade: { value: new THREE.Color(0.3, 0.16, 0.22) }, uGround: { value: 0 } };
     const mat = new THREE.ShaderMaterial({ uniforms: this.uniforms, transparent: true, depthWrite: false, toneMapped: false,
       vertexShader: /* glsl */ `
         attribute vec3 aSeed; uniform float uTime; varying vec3 vN, vW; varying float vA, vG;
