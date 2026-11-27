@@ -115,7 +115,9 @@
   "rockDark": "#685c70",
   "gravel": "#4e4c58",
   "sand": "#6a6070",
-  "moss": "#7a9a62"
+  "moss": "#5f8a5e",
+  "mossReach": 24,
+  "mossMix": 0.85
  },
  "road": {
   "asphalt": "#4a3c50",
@@ -258,9 +260,9 @@
    "far": 20,
    "pines": 260,
    "cherries": 0,
-   "nearPines": 100,
+   "nearPines": 160,
    "nearCherries": 0,
-   "rocks": 8,
+   "rocks": 40,
    "ridge": 140,
    "mist": 7,
    "railPost": 3,
@@ -278,11 +280,13 @@
     "petals": 70,
     "poles": 0
    },
-   "carpet": 300,
+   "carpet": 2000,
    "billows": 140,
    "carpetNear": 30,
-   "grass": 3000,
-   "plants": 50
+   "grass": 24000,
+   "plants": 1200,
+   "ferns": 500,
+   "blossoms": 240
   },
   "medium": {
    "cell": 8,
@@ -312,8 +316,10 @@
    "carpet": 1300,
    "billows": 100,
    "carpetNear": 30,
-   "grass": 3000,
-   "plants": 80
+   "grass": 6000,
+   "plants": 350,
+   "ferns": 200,
+   "blossoms": 100
   },
   "low": {
    "cell": 16,
@@ -403,7 +409,10 @@
   }
  },
  "foliage": {
-  "reach": 12
+  "reach": 16,
+  "tip": "#6f9a54",
+  "plantDark": "#2c4a42",
+  "plantLight": "#4e7a62"
  },
  "rockFace": {
   "height": 4.4,

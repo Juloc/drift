@@ -128,7 +128,7 @@ export function buildWorld(scene, look, tierName = 'high') {
       diffuseColor.rgb *= ${(1 - (look.road.grain ?? 0.32) * 0.7).toFixed(3)} + grain * ${(look.road.grain ?? 0.32).toFixed(3)};`);   // look.road.grain: how strong
   };
   group.add(solid, lights, roadMesh);
-  const foliage = makeFoliage(f, scene, look, tier, mulberry32(61));   // grass and low plants beside the road (view/look/foliage.js; none on the phone)
+  const foliage = makeFoliage(f, scene, look, tier, mulberry32(61), (S.slots.rocks ?? []).map((r) => [-r[0], r[2], r[4]]));   // grass and low plants beside the road (view/look/foliage.js; none on the phone)
   if (foliage) group.add(foliage);
   const poolMesh = lightPools(pools, look, f);
   if (poolMesh) group.add(poolMesh);
@@ -171,6 +171,13 @@ function land(S, f, scene, look, tier) {
     // the ground of the driving area (and the strip beside the road): `groundVar` > 0 lets it vary in patches (a sand field, a snow field, a quay) instead of one flat colour
     if (L.groundVar) { const gv = gravel.clone().lerp(noise2(x / 23 + 4, z / 23) > 0 ? warm : cool, Math.abs(noise2(x / 17, z / 17 + 8)) * L.groundVar); k.lerp(gv, 1 - smoothstep(1.5, 4.5, e)); }
     else k.lerp(gravel, 1 - smoothstep(1.5, 4.5, e));
+    // look.land.moss + `mossReach` (metres): a carpet of moss and low plants beside the road, green-violet with lighter and darker patches, fading out over the reach: the slopes the
+    // camera sees are not bare violet (on every tier: it is only a colour). Not on steep rock, not under water.
+    if (L.moss && L.mossReach) {
+      const patch = noise2(x / 6 + 2, z / 6 - 3) * 0.5 + noise2(x / 2.3, z / 2.3 + 7) * 0.25, mk = C(L.moss).lerp(cool, 0.35 + 0.3 * noise2(x / 11, z / 11));
+      mk.multiplyScalar(0.8 + 0.5 * patch);
+      k.lerp(mk, (L.mossMix ?? 0.8) * (1 - smoothstep(L.mossReach * 0.35, L.mossReach, e)) * (1 - smoothstep(0.55, 0.9, slope)) * smoothstep(0.4, 1.5, e));
+    }
     k.lerp(sand, smoothstep(ry + 4, ry + 0.8, h));
     // a little irregularity in the grid away from the road, so the facets do not look like a chessboard
     const cw = Math.min(xs[i1] - xs[i0], zs[j1] - zs[j0]) / 2, jit = e > f.shelf + cw * 2 ? cw * 0.28 : 0;
