@@ -4,7 +4,7 @@
 // ?tier=low is the phone's tier; ?s=<metres along the track> starts somewhere else; ?down=1 drives the pass downhill; H or the Data chip
 // shows the test read-outs. The simulation's x is the scene's x mirrored (view/space.js).
 import * as THREE from '../vendor/three/three.module.js';
-import { KEY } from './mock/toon.js';
+import { KEY, shared } from './mock/toon.js';
 import { makeSky, skyEnv } from './mock/sky.js';
 import { mountains } from './mock/land.js';
 import { buildTouge } from './mock/touge.js';
@@ -30,11 +30,11 @@ const coarse = matchMedia('(pointer: coarse)').matches || params.has('touch'), l
 
 // ---- the picture
 const canvas = $('view'), info = $('info'), renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1.25 : 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.info.autoReset = false;
-const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(56, innerWidth / innerHeight, 0.3, 9000), finish = makeFinish(renderer, { low });
-KEY.sunDir.set(0.9, 0.2, -0.4).normalize();   // the low sun stands across the pass: every second leg drives into it
-const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.8, 0.6), 4.2); sun.castShadow = true; sun.shadow.mapSize.set(low ? 1024 : 2048, low ? 1024 : 2048);
-Object.assign(sun.shadow.camera, { left: -38, right: 38, top: 38, bottom: -38, near: 10, far: 260 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05; sun.shadow.radius = 3;
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1.25 : 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.info.autoReset = false;
+const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(56, innerWidth / innerHeight, 0.3, 9000), finish = makeFinish(renderer, { low, sun: KEY.sunDir });
+KEY.sunDir.set(0.9, 0.33, -0.4).normalize();   // the low sun stands across the pass: every second leg drives into it
+const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.8, 0.6), 4.2); sun.castShadow = true; sun.shadow.mapSize.set(low ? 1024 : 4096, low ? 1024 : 4096);
+Object.assign(sun.shadow.camera, { left: -52, right: 52, top: 52, bottom: -52, near: 10, far: 320 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05; sun.shadow.radius = 3;
 scene.add(sun, sun.target, new THREE.HemisphereLight(new THREE.Color('#cfc0f2'), new THREE.Color('#6c5a78'), 1.25), makeSky());
 const size = () => { const w = innerWidth, h = innerHeight, r = renderer.getPixelRatio(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); finish.setSize(Math.floor(w * r), Math.floor(h * r)); };
 size(); addEventListener('resize', size);
@@ -113,7 +113,7 @@ function frame(now) {
   const { d, dt } = drive.frame(now);
   lamps.set(drive.inp.brake); hud(d, dt);
   at.set(X(d.x), groundAt(d.x, d.z), d.z); sun.target.position.copy(at); sun.position.copy(at).addScaledVector(KEY.sunDir, 120);   // the sun's shadow box follows the car
-  smoke.tick(dt); smoke.update((now - t0) / 1000, camera);
+  shared.uTime.value = (now - t0) / 1000; smoke.tick(dt); smoke.update((now - t0) / 1000, camera);
   renderer.info.reset(); finish.render(scene, camera);
   if (++frames % 30 === 0) { perfLine = `${Math.round(1000 / ms)} fps · ${renderer.info.render.calls} calls · ${Math.round(renderer.info.render.triangles / 1000)}k tri · ${low ? 'low' : 'high'}`; info.textContent = perfLine; }
   if (frames === 10) window.__ready = true;

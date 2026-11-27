@@ -9,7 +9,7 @@ export class Smoke {
     const g = new THREE.InstancedBufferGeometry().copy(new THREE.IcosahedronGeometry(1, 3));
     this.max = max; this.puffs = [];
     this.aSeed = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3); g.setAttribute('aSeed', this.aSeed);
-    this.uniforms = { ...shared, uTime: { value: 0 }, uLit: { value: new THREE.Color(1.0, 0.87, 0.93) }, uShade: { value: new THREE.Color(0.62, 0.46, 0.72) }, uGround: { value: 0 } };
+    this.uniforms = { ...shared, uTime: { value: 0 }, uLit: { value: new THREE.Color(1.12, 0.97, 1.0) }, uShade: { value: new THREE.Color(0.66, 0.5, 0.76) }, uGround: { value: 0 } };
     const mat = new THREE.ShaderMaterial({ uniforms: this.uniforms, transparent: true, depthWrite: false, toneMapped: false,
       vertexShader: /* glsl */ `
         attribute vec3 aSeed; uniform float uTime; varying vec3 vN, vW; varying float vA, vG;
@@ -40,8 +40,8 @@ export class Smoke {
   add(x, y, z, size, alpha = 1) { if (this.puffs.length < this.max) this.puffs.push({ p: new THREE.Vector3(x, y, z), size, alpha, ground: 0, seed: Math.random() * 10, spin: Math.random() * 6.28 }); }
   /** A lump from a sliding tyre: at the contact point (ground height y), strength k 0..1, drifting with (vx, vz) m/s; it grows, rises and fades over its life. The oldest goes when the pool is full. */
   emit(x, y, z, k, vx = 0, vz = 0) { if (this.puffs.length >= this.max) this.puffs.splice(this.puffs.findIndex((u) => u.life), 1);
-    const size0 = 0.22 + 0.2 * k; this.puffs.push({ p: new THREE.Vector3(x + (Math.random() - 0.5) * 0.3, y + size0 * 0.6, z + (Math.random() - 0.5) * 0.3), v: new THREE.Vector3(vx * 0.12 + (Math.random() - 0.5) * 0.5, 0.35 + Math.random() * 0.5, vz * 0.12 + (Math.random() - 0.5) * 0.5),
-      size: size0, size0, grow: (0.6 + Math.random() * 0.6) * (0.5 + k), alpha: 0, top: 0.5 + 0.4 * k, age: 0, life: 1.6 + 1.8 * k + Math.random() * 0.8, ground: y - this.uniforms.uGround.value, seed: Math.random() * 10, spin: Math.random() * 6.28 }); }
+    const size0 = 0.26 + 0.24 * k; this.puffs.push({ p: new THREE.Vector3(x + (Math.random() - 0.5) * 0.3, y + size0 * 0.6, z + (Math.random() - 0.5) * 0.3), v: new THREE.Vector3(vx * 0.12 + (Math.random() - 0.5) * 0.5, 0.35 + Math.random() * 0.5, vz * 0.12 + (Math.random() - 0.5) * 0.5),
+      size: size0, size0, grow: (0.85 + Math.random() * 0.8) * (0.5 + k), alpha: 0, top: 0.62 + 0.34 * k, age: 0, life: 2.0 + 2.2 * k + Math.random() * 0.9, ground: y - this.uniforms.uGround.value, seed: Math.random() * 10, spin: Math.random() * 6.28 }); }
   /** Moves the living lumps on by dt seconds. */
   tick(dt) { for (let i = this.puffs.length - 1; i >= 0; i--) { const u = this.puffs[i]; if (!u.life) continue; u.age += dt; if (u.age >= u.life) { this.puffs.splice(i, 1); continue; }
     const t = u.age / u.life; u.p.addScaledVector(u.v, dt); u.v.multiplyScalar(1 - 1.4 * dt); u.v.y = Math.max(u.v.y, 0.12); u.size = u.size0 + u.grow * (1 - Math.exp(-u.age * 1.1)); u.alpha = u.top * Math.min(1, u.age * 9) * (1 - t * t); } }

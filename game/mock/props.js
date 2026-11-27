@@ -33,7 +33,7 @@ export function instances(k, places, name, shadow = false) {
 }
 
 export function faceted(g, r, amount) {   // moves every corner (the same way for all triangles that share it) and gives each triangle its own normal
-  const n = g.toNonIndexed(), p = n.attributes.position, seen = new Map();
+  const n = g.index ? g.toNonIndexed() : g, p = n.attributes.position, seen = new Map();
   for (let v = 0; v < p.count; v++) { const key = `${p.getX(v).toFixed(3)}|${p.getY(v).toFixed(3)}|${p.getZ(v).toFixed(3)}`; let j = seen.get(key); if (!j) { j = 1 + (r() - 0.5) * amount; seen.set(key, j); } p.setXYZ(v, p.getX(v) * j, p.getY(v) * j, p.getZ(v) * j); }
   n.deleteAttribute('uv'); n.computeVertexNormals(); return n;
 }

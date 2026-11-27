@@ -979,3 +979,21 @@ Numbers (desk PC, RTX 5070 Ti, **not a phone**): high tier 1600 x 900: 1.9 ms a 
 Open against the mockups: the lake is hardly seen from the road (it lies 35 m under the lowest leg); the car's rear lamp is one full-width panel
 (the S14 file), the mockups show two lamps; no roadside props beyond trees, rocks, rails, boards and lanterns (no power poles, huts, bridge);
 the smoke is greyer and smaller than the mockups' banks. Not checked: a real phone, a whole run by a person, the lake seen from above.
+
+## Touge look, round 3 (2026-11-27): richer light, more detail (the owner: "too little detail, style and light too simple")
+
+- **Light model** (`mock/toon.js`): the colour wanders a little over every surface (two slow waves through the world: lighter and darker, warmer and
+  cooler; `vary`); shadows take the sky's cool light from above and the ground's warm one from below; a warm band where light turns to shadow; a
+  cast shadow is 74 % as deep as a turned-away face. Instances can wave in the wind (`sway`, `shared.uTime`).
+- **Shadows:** pines, cherry blossom, rocks, bushes and lamp posts cast them (high tier); the sun's box is 104 m with a 4096 map; the sun stands
+  19 degrees high (at 11 the trees' shadows covered the whole road).
+- **Finish** (`mock/finish.js`, high tier only): a soft violet shade where something stands close in front of something else (eight depth samples a
+  pixel) and shafts of light from the sun (the bright parts smeared towards its place on the screen, 20 samples at a quarter of the size).
+- **Detail** (`mock/touge.js`): 33,000 grass tufts in five tints that wave, 1,100 flowers, 520 bushes, fallen petals round every cherry tree (on the
+  road too), 1,100 pebbles on the shoulder, moss on the rocks' tops and on the rock that is not too steep, strata in the rock's colour, a broken rock
+  cut above the road (ridged noise in the field), cracks and tar seams in the asphalt, street lamps with a warm pool of light at every hairpin.
+- **Smoke:** bigger, brighter, longer lived.
+
+Numbers (desk PC, RTX 5070 Ti, **not a phone**): high tier 1600 x 900: 1.8 to 2.3 ms a picture, 86 draw calls, 1.0 million triangles (0.39 before:
+the grass); low tier 844 x 390: 0.9 ms, 64 draw calls, 457k triangles (6,000 tufts, no flowers or petals, no tree shadows, no depth shade or shafts).
+Pictures: `docs/screenshots/mock/touge-r3-*.jpg`. Not checked: a real phone (the low tier's triangle count went up by half), a whole run by a person.

@@ -90,7 +90,7 @@ function landMesh() {
 
 /** The asphalt: `uv.x` is metres from the centre line, `uv.y` metres along the road. Lines, worn patches, wheel tracks and a gravel shoulder are painted from those. */
 export function roadMaterial() {
-  return toon({ color: 0xffffff, gloss: 0.5, rim: 0.0, soft: 0.5,
+  return toon({ color: 0xffffff, gloss: 0.5, vary: 0.35, rim: 0.0, soft: 0.5,
     pars: /* glsl */ `float rh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float rn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(rh(i), rh(i + vec2(1.0, 0.0)), f.x), mix(rh(i + vec2(0.0, 1.0)), rh(i + vec2(1.0, 1.0)), f.x), f.y); }`,
     paint: /* glsl */ `{ float u = vUv2.x, au = abs(u), s = vUv2.y;
@@ -98,6 +98,8 @@ export function roadMaterial() {
       vec3 c = vec3(0.262, 0.222, 0.318) * (0.9 + 0.16 * big + 0.05 * grain);
       c *= 1.0 - 0.07 * (smoothstep(0.75, 0.15, abs(au - 2.3)) );                                   // the lanes' wheel tracks, a shade darker
       c = mix(c, vec3(0.35, 0.3, 0.4), 0.5 * smoothstep(0.62, 0.8, rn(vec2(u * 0.22 + 3.0, s * 0.045))));   // lighter patches
+      c *= 1.0 - 0.34 * smoothstep(0.014, 0.0, abs(rn(vec2(u * 0.8 + 11.0, s * 0.3)) - 0.5)) * smoothstep(0.35, 0.6, rn(vec2(u * 0.11, s * 0.05 + 4.0)));   // cracks: thin wandering lines, in places
+      c *= 1.0 - 0.2 * smoothstep(0.05, 0.0, abs(abs(u) - 2.25 - 0.25 * sin(s * 0.11))) * step(0.55, rn(vec2(1.0, floor(s / 23.0))));                                 // a tar seam along a lane, on some stretches
       float edge = smoothstep(0.1, 0.06, abs(au - 4.12)) * (0.55 + 0.45 * smoothstep(0.25, 0.55, wear));
       c = mix(c, vec3(0.93, 0.88, 0.9), edge);
       float dash = smoothstep(0.085, 0.055, abs(u)) * step(fract(s / 9.0), 0.36) * (0.6 + 0.4 * smoothstep(0.2, 0.5, wear));

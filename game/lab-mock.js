@@ -15,7 +15,7 @@ const params = new URLSearchParams(location.search), off = new Set((params.get('
 const low = params.get('tier') === 'low' || (!params.has('tier') && matchMedia('(pointer: coarse)').matches);
 if (params.get('hud') === '0') document.getElementById('hud').hidden = true;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1.5 : 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.info.autoReset = false;
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1.5 : 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.info.autoReset = false;
 const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(46, 16 / 9, 0.3, 9000);
 
 // ---- the car: where it is in its slide (in the right-hander, its nose turned further in than the road)

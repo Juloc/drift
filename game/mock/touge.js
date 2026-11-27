@@ -10,7 +10,7 @@ import { roadMaterial, waterMaterial, fbm, rnd } from './land.js';
 import { faceted, paintGeo, chevronTexture } from './props.js';
 
 const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const C = { grass: new THREE.Color('#7f9647'), grassDry: new THREE.Color('#a39a4c'), rock: new THREE.Color('#9a7480'), rockDark: new THREE.Color('#7a5d76'), floor: new THREE.Color('#55805a'), wood: new THREE.Color('#3f6b58'), gravel: new THREE.Color('#a78d95') };
+const C = { grass: new THREE.Color('#7f9647'), grassDry: new THREE.Color('#a39a4c'), rock: new THREE.Color('#9a7480'), rockDark: new THREE.Color('#7a5d76'), floor: new THREE.Color('#55805a'), wood: new THREE.Color('#3f6b58'), gravel: new THREE.Color('#a78d95'), moss: new THREE.Color('#6f8f4a') };
 
 /** The land's height for a track: `field.at(x, z)` in the simulation's axes, and what the road says there (`field.road`: surfaceAt's answer, `edge` metres beyond the road's edge). */
 export function makeField(T) {
@@ -31,7 +31,8 @@ export function makeField(T) {
   const at = (x, z) => { const q = road(x, z), yr = q.y - 0.22; if (q.edge < VERGE) return yr;
     const f = base(x, z), e = q.edge - VERGE, up = f > q.y;
     const t = up ? ss(0, 4.5, e) : ss(0, 11, e), rough = (fbm(x * 0.035, z * 0.035) - 0.5) * 10 * ss(2, 30, e) + (fbm(x * 0.12, z * 0.12, 3) - 0.5) * 2.6 * ss(0.5, 10, e);
-    return yr * (1 - t) + (f + rough + (up ? 2.2 : -1.6) * ss(0, 6, e)) * t; };
+    const crag = up ? (Math.abs(fbm(x * 0.21 + 3, z * 0.21, 3) - 0.5) * 2) ** 0.7 * 3.4 * ss(0.5, 5, e) * (1 - ss(26, 60, e)) : 0;   // above the road the cut is broken rock: ridges and ledges
+    return yr * (1 - t) + (f + rough + crag + (up ? 2.2 : -1.6) * ss(0, 6, e)) * t; };
   return { at, road, base, VERGE, lo, hi, yMin, yMax, cx: mx, cz: mz };
 }
 
@@ -50,7 +51,8 @@ function landMesh(T, F) {
     const cx = -(a.x + b.x + c.x) / 3, cy = (a.y + b.y + c.y) / 3, cz = (a.z + b.z + c.z) / 3, q = F.road(cx, cz);
     k.copy(C.grass).lerp(C.grassDry, fbm(cx * 0.02, cz * 0.02, 2));
     if (cy < F.yMin - 14) k.lerp(C.floor, ss(F.yMin - 14, F.yMin - 28, cy)).lerp(C.wood, 0.5 * ss(0.45, 0.6, fbm(cx * 0.012 + 5, cz * 0.012, 3)));
-    { const rk = ss(0.88, 0.7, n.y); k.lerp(r() > 0.5 ? C.rock : C.rockDark, rk).multiplyScalar(1 + rk * (r() - 0.5) * 0.3); }
+    { const rk = ss(0.9, 0.72, n.y), band = 0.5 + 0.5 * Math.sin(cy * 1.15 + fbm(cx * 0.05, cz * 0.05, 2) * 9); k.lerp(C.rock.clone().lerp(C.rockDark, band * 0.8 + (r() - 0.5) * 0.3), rk).multiplyScalar(1 + rk * (r() - 0.5) * 0.22);
+      if (rk > 0.1 && rk < 0.75) k.lerp(C.moss, 0.5 * (1 - rk)); }                                                                          // moss where the rock is not too steep
     if (q.edge < F.VERGE + 1.5) k.lerp(C.gravel, ss(F.VERGE + 1.5, F.VERGE - 1.5, q.edge) * 0.8);
     k.multiplyScalar(0.93 + r() * 0.14);
     pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z); for (let v = 0; v < 3; v++) col.push(k.r, k.g, k.b);
@@ -148,6 +150,24 @@ function plazaGate(T, F) {
   return mergedByMaterial(group, 'gate');
 }
 
+/** A street lamp at the outside of every hairpin: a post with an arm over the road, a glowing head and a warm pool of light on the asphalt under it. */
+function lamps(T, F, hairpins) {
+  const group = new THREE.Group(), metal = toon({ color: '#6f6480', gloss: 0.3 }), glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(6.0, 3.6, 1.3), toneMapped: false });
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'), gr = c.createRadialGradient(64, 64, 2, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, 128, 128);
+  const pool = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), color: new THREE.Color(0.95, 0.5, 0.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), pools = [];
+  for (const hp of hairpins) for (const ds of [-18, 0, 18]) { const s = hp.s + ds; if (s < 2 || s > T.len - 2) continue; const i = Math.round(s / T.ds), out = hp.right ? -1 : 1, hw = hp.right ? T.hwL[i] : T.hwR[i], f = frameAt(T, s, out * (hw + F.VERGE - 0.4)), l = new THREE.Group();
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 6.4, 6), metal); post.position.y = 3.2; post.castShadow = true;
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.09, 0.09), metal); arm.position.set(-out * 1.25, 6.35, 0);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.14, 0.3), glow); head.position.set(-out * 2.4, 6.24, 0);
+    l.add(post, arm, head); l.position.set(-f.x, F.at(f.x, f.z), f.z); l.rotation.y = -f.head; group.add(l);
+    const g = frameAt(T, s, out * (hw - 2.6)), pg = new THREE.PlaneGeometry(15, 15, 6, 6).rotateX(-Math.PI / 2), pp = pg.attributes.position;
+    for (let v = 0; v < pp.count; v++) { const wx = g.x - pp.getX(v), wz = g.z + pp.getZ(v), q = F.road(wx, wz); pp.setXYZ(v, -wx, (q.edge < F.VERGE ? q.y : F.at(wx, wz)) + 0.03, wz); }
+    pools.push(pg); }
+  const out = mergedByMaterial(group, 'lamps');
+  if (pools.length) { const mesh = new THREE.Mesh(mergeGeometries(pools), pool); mesh.renderOrder = 3; mesh.name = 'lamp-pools'; out.add(mesh); }
+  return out;
+}
+
 /** Mist: soft flat sheets over the lake and low land round the pass. */
 function mistBanks(F, r) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128; const cx = cv.getContext('2d'), gr = cx.createRadialGradient(64, 64, 4, 64, 64, 64);
@@ -185,20 +205,39 @@ export function buildTouge(map, T, { tier = 'high', down = false } = {}) {
   for (let i = 0; i < (low ? 1200 : 3000); i++) { const x = F.cx + (r() - 0.5) * 1500, z = F.cz + (r() - 0.5) * 1700; if (!free(x, z, 40) || fbm(x * 0.012 + 5, z * 0.012, 3) < 0.46) continue; pines[i & 1].push([-x, F.at(x, z) - 0.5, z, r() * 6.28, 11 + r() * 12]); }
   for (let i = 0; i < 520; i++) { const [x, z] = beside(r() * T.len, (r() < 0.5 ? 1 : -1) * (F.VERGE + 0.8 + r() * r() * 34)); if (!free(x, z, 0.6)) continue; rocks.push([x, z, 0.7 + r() * r() * 3.6]); }
   for (let s = 20; s < T.len; s += 16 + r() * 26) { const [x, z] = beside(s, (r() < 0.5 ? 1 : -1) * (F.VERGE + 2.5 + r() * 9)); if (free(x, z, 2)) cherries.push([x, z, 6.5 + r() * 5]); }
-  for (let i = 0; i < (low ? 1400 : 4200); i++) { const [x, z] = beside(r() * T.len, (r() < 0.5 ? 1 : -1) * (F.VERGE - 2.6 + r() * r() * 9)); if (F.road(x, z).edge < T.limits.shoulder + 0.9) continue; tufts[i & 1].push([-x, F.at(x, z) - 0.04, z, r() * 6.28, 0.3 + r() * 0.45]); }
+  for (let i = 0; i < (low ? 6000 : 34000); i++) { const [x, z] = beside(r() * T.len, (r() < 0.5 ? 1 : -1) * (F.VERGE - 2.6 + r() * r() * 30)); if (F.road(x, z).edge < T.limits.shoulder + 0.9) continue; tufts[i & 1].push([-x, F.at(x, z) - 0.04, z, r() * 6.28, 0.3 + r() * 0.5]); }
+  const flowers = [], bushes = [], pebbles = [];
+  if (!low) for (let i = 0; i < 7000; i++) { const [x, z] = beside(r() * T.len, (r() < 0.5 ? 1 : -1) * (F.VERGE - 2 + r() * r() * 22)); if (F.road(x, z).edge < T.limits.shoulder + 1.2 || fbm(x * 0.08, z * 0.08, 2) < 0.5) continue; flowers.push([-x, F.at(x, z) + 0.2 + r() * 0.16, z]); }
+  for (let i = 0; i < (low ? 180 : 520); i++) { const [x, z] = beside(r() * T.len, (r() < 0.5 ? 1 : -1) * (F.VERGE + 0.6 + r() * r() * 16)); if (free(x, z, 0.4)) bushes.push([x, z, 0.5 + r() * 0.9]); }
+  for (let i = 0; i < (low ? 300 : 1100); i++) { const [x, z] = beside(r() * T.len, (r() < 0.5 ? 1 : -1) * (F.VERGE - 3.0 + r() * r() * 8)); if (F.road(x, z).edge > T.limits.shoulder + 0.3) pebbles.push([x, z, 0.08 + r() * r() * 0.3]); }
 
   // pines: one instanced mesh per shape
   for (const list of pines) { const mesh = new THREE.InstancedMesh(pineGeometry(r), toon({ vertexColors: true, soft: 0.55, rim: 0.45 }), list.length);
-    list.forEach(([x, y, z, ry, h], i) => mesh.setMatrixAt(i, m4.compose(p3.set(x, y, z), q4.setFromAxisAngle(up, ry), s3.set(h * 1.05, h, h * 1.05)))); mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingSphere(); mesh.name = 'pines'; group.add(mesh); }
+    list.forEach(([x, y, z, ry, h], i) => mesh.setMatrixAt(i, m4.compose(p3.set(x, y, z), q4.setFromAxisAngle(up, ry), s3.set(h * 1.05, h, h * 1.05)))); mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingSphere(); mesh.castShadow = !low; mesh.name = 'pines'; group.add(mesh); }
   // rocks and blossom: merged, faceted
-  { const parts = [], cA = new THREE.Color('#a47f88'), cB = new THREE.Color('#86688a');
-    for (const [x, z, size] of rocks) { const g = faceted(new THREE.IcosahedronGeometry(1, 1), r, 0.5); g.scale(size * (0.8 + r() * 0.6), size * (0.6 + r() * 0.5), size * (0.8 + r() * 0.6)); g.rotateY(r() * 6.28); g.translate(-x, F.at(x, z) + size * 0.1, z); g.computeVertexNormals(); parts.push(paintGeo(g, cA.clone().lerp(cB, r()).multiplyScalar(0.9 + r() * 0.2))); }
-    const mesh = new THREE.Mesh(mergeGeometries(parts), toon({ vertexColors: true, soft: 0.25, rim: 0.4 })); mesh.receiveShadow = true; mesh.name = 'rocks'; group.add(mesh); }
+  { const parts = [], cA = new THREE.Color('#a47f88'), cB = new THREE.Color('#86688a'), moss = new THREE.Color('#718f4c'), k = new THREE.Color();
+    const stone = (x, z, size, sink, mossy) => { const g = faceted(new THREE.IcosahedronGeometry(1, size > 0.5 ? 1 : 0), r, 0.5); g.scale(size * (0.8 + r() * 0.6), size * (0.6 + r() * 0.5), size * (0.8 + r() * 0.6)); g.rotateY(r() * 6.28); g.translate(-x, F.at(x, z) + size * sink, z); g.computeVertexNormals();
+      const base = cA.clone().lerp(cB, r()).multiplyScalar(0.9 + r() * 0.2), n = g.attributes.normal, col = new Float32Array(n.count * 3);
+      for (let v = 0; v < n.count; v++) { k.copy(base); if (mossy) k.lerp(moss, ss(0.55, 0.9, n.getY(v)) * 0.75); else k.multiplyScalar(0.85 + 0.3 * Math.max(0, n.getY(v))); k.toArray(col, v * 3); }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3)); parts.push(g); };
+    for (const [x, z, size] of rocks) stone(x, z, size, 0.1, r() < 0.6);
+    for (const [x, z, size] of pebbles) stone(x, z, size, 0.25, false);
+    const mesh = new THREE.Mesh(mergeGeometries(parts), toon({ vertexColors: true, soft: 0.25, rim: 0.4 })); mesh.receiveShadow = true; mesh.castShadow = true; mesh.name = 'rocks'; group.add(mesh); }
+  { // bushes: two or three green lumps each, in the greens of the land
+    const parts = [], greens = ['#6f9a4c', '#5c8a4a', '#86a650', '#4f7d52'].map((h) => new THREE.Color(h));
+    for (const [x, z, size] of bushes) { const y = F.at(x, z), n = 2 + Math.floor(r() * 2); for (let i = 0; i < n; i++) { const g = faceted(new THREE.IcosahedronGeometry(1, 1), r, 0.4), sz = size * (0.6 + r() * 0.5); g.scale(sz * 1.2, sz * 0.85, sz * 1.2); g.rotateY(r() * 6.28); g.translate(-x + (r() - 0.5) * size * 1.3, y + sz * 0.5, z + (r() - 0.5) * size * 1.3); parts.push(paintGeo(g, greens[Math.floor(r() * 4)].clone().multiplyScalar(0.9 + r() * 0.2))); } }
+    if (parts.length) { const mesh = new THREE.Mesh(mergeGeometries(parts), toon({ vertexColors: true, soft: 0.6, rim: 0.45 })); mesh.castShadow = !low; mesh.name = 'bushes'; group.add(mesh); } }
   { const parts = [], pinks = ['#f48fb9', '#ea76ab', '#f9aecb', '#dd6aa2'].map((h) => new THREE.Color(h)), places = [];
     for (const [x, z, h] of cherries) { const y = F.at(x, z) - 0.3; places.push([-x, y, z, r() * 6.28, h * 0.82]);
       const n = low ? 7 : 11 + Math.floor(r() * 5); for (let i = 0; i < n; i++) { const a = r() * 6.28, rad = h * 0.36 * Math.sqrt(r()), size = h * (0.13 + r() * 0.12), g = faceted(new THREE.IcosahedronGeometry(1, 1), r, 0.35);
         g.scale(size * 1.25, size * 0.9, size * 1.25); g.rotateY(r() * 6.28); g.translate(-x + Math.cos(a) * rad, y + h * (0.62 + r() * 0.36) - rad * 0.25, z + Math.sin(a) * rad); parts.push(paintGeo(g, pinks[Math.floor(r() * 4)].clone().multiplyScalar(0.92 + r() * 0.16))); } }
-    const blossom = new THREE.Mesh(mergeGeometries(parts), toon({ vertexColors: true, soft: 0.55, rim: 0.5 })); blossom.name = 'blossom';
+    const blossom = new THREE.Mesh(mergeGeometries(parts), toon({ vertexColors: true, soft: 0.55, rim: 0.5 })); blossom.name = 'blossom'; blossom.castShadow = true;
+    if (!low) { // fallen petals round every cherry tree, on the grass and on the road
+      const pp = [], pc = [], pk = new THREE.Color();
+      for (const [x, z, h] of cherries) for (let i = 0; i < 70; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * h * 0.95, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, q = F.road(px, pz), y = (q.edge < F.VERGE ? q.y : F.at(px, pz)) + 0.025, w = 0.05 + r() * 0.06, t = r() * 6.28, cx = Math.cos(t) * w, cz = Math.sin(t) * w;
+        pp.push(-px - cx, y, pz - cz, -px + cz, y, pz - cx, -px + cx, y, pz + cz, -px - cx, y, pz - cz, -px + cx, y, pz + cz, -px - cz, y, pz + cx); pk.copy(pinks[Math.floor(r() * 4)]).multiplyScalar(1.05); for (let v = 0; v < 6; v++) pc.push(pk.r, pk.g, pk.b); }
+      const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.Float32BufferAttribute(pp, 3)); pg.setAttribute('color', new THREE.Float32BufferAttribute(pc, 3)); pg.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(pp.length).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+      const petals = new THREE.Mesh(pg, toon({ vertexColors: true, side: THREE.DoubleSide, vary: 0, rim: 0 })); petals.material.polygonOffset = true; petals.material.polygonOffsetFactor = -3; petals.material.polygonOffsetUnits = -3; petals.receiveShadow = true; petals.name = 'petals'; group.add(petals); }
     group.add(blossom);
     // the trunks: a leaning stem that forks into three boughs (a few faceted tubes), one instanced mesh
     const tube = (x0, y0, z0, x1, y1, z1, r0, r1) => { const len = Math.hypot(x1 - x0, y1 - y0, z1 - z0), g = new THREE.CylinderGeometry(r1, r0, len, 5, 1, true).translate(0, len / 2, 0); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, new THREE.Vector3(x1 - x0, y1 - y0, z1 - z0).normalize())); g.translate(x0, y0, z0); const n = g.toNonIndexed(); n.deleteAttribute('uv'); n.computeVertexNormals(); return n; };
@@ -209,9 +248,15 @@ export function buildTouge(map, T, { tier = 'high', down = false } = {}) {
     const pos = [], col = [], dark = new THREE.Color('#5d7d3c'), light = new THREE.Color('#b9b25a');
     for (let b = 0; b < 5; b++) { const a = (b / 5) * 6.28 + 0.4, lean = 0.25 + (b % 2) * 0.2, cx = Math.cos(a), cz = Math.sin(a), w = 0.09, tx = cx * lean, tz = cz * lean, h = 0.75 + (b % 3) * 0.14;
       pos.push(cx * 0.08 - cz * w, 0, cz * 0.08 + cx * w, cx * 0.08 + cz * w, 0, cz * 0.08 - cx * w, tx, h, tz); col.push(dark.r, dark.g, dark.b, dark.r, dark.g, dark.b, light.r, light.g, light.b); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
-    const all = [...tufts[0], ...tufts[1]], grass = new THREE.InstancedMesh(g, toon({ vertexColors: true, side: THREE.DoubleSide, soft: 0.8, rim: 0.2 }), all.length);
-    all.forEach(([x, y, z, ry, h], i) => grass.setMatrixAt(i, m4.compose(p3.set(x, y, z), q4.setFromAxisAngle(up, ry), s3.set(h * 1.3, h * 1.2, h * 1.3)))); grass.instanceMatrix.needsUpdate = true; grass.computeBoundingSphere(); grass.name = 'grass'; group.add(grass); }
-  group.userData = { pines: pines[0].length + pines[1].length, rocks: rocks.length, cherries: cherries.length };
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(pos.length).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));       // (the blades take the light as the ground under them does)
+    const all = [...tufts[0], ...tufts[1]], grass = new THREE.InstancedMesh(g, toon({ vertexColors: true, side: THREE.DoubleSide, soft: 0.8, rim: 0.2, sway: 0.16 }), all.length), tint = new THREE.Color(), tints = ['#ffffff', '#e6f0c0', '#fff0b0', '#cfe6b4', '#f2d9a0'];
+    all.forEach(([x, y, z, ry, h], i) => { grass.setMatrixAt(i, m4.compose(p3.set(x, y, z), q4.setFromAxisAngle(up, ry), s3.set(h * 1.3, h * 1.2, h * 1.3))); grass.setColorAt(i, tint.set(tints[i % 5]).multiplyScalar(0.85 + r() * 0.3)); });
+    grass.instanceMatrix.needsUpdate = true; grass.computeBoundingSphere(); grass.receiveShadow = true; grass.name = 'grass'; group.add(grass); }
+  if (flowers.length) { // flowers: small bright heads among the grass
+    const head = new THREE.OctahedronGeometry(0.075, 0), mesh = new THREE.InstancedMesh(head, toon({ color: 0xffffff, soft: 0.9, rim: 0.3, vary: 0, sway: 0.25 }), flowers.length), tint = new THREE.Color(), tints = ['#ff9ac4', '#fff4f0', '#ffe07a', '#c9a6ff', '#ff7fae'];
+    flowers.forEach(([x, y, z], i) => { mesh.setMatrixAt(i, m4.compose(p3.set(x, y, z), q4.identity(), s3.set(1, 0.7, 1))); mesh.setColorAt(i, tint.set(tints[Math.floor(r() * 5)])); }); mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingSphere(); mesh.name = 'flowers'; group.add(mesh); }
+  group.add(lamps(T, F, map.track?.hairpins ?? []));
+  group.userData = { pines: pines[0].length + pines[1].length, rocks: rocks.length, cherries: cherries.length, grass: tufts[0].length + tufts[1].length, flowers: flowers.length, bushes: bushes.length };
   return { group, field: F };
 }
