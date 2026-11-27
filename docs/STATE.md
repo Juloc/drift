@@ -847,3 +847,14 @@ A static page with sample data, no server logic, no inline script; every text th
 - Proof: `?drive=13&angle=0.55` is a measuring driver (handbrake kick, then it steers to keep the ring's line with the nose inside): 8 s, sport, **46-48 km/h, body angle up to 26 degrees, the car's middle always 20.5 to 26.6 m from the ring's middle** (walls at 18.4 and 33.2), no page error. Pictures `docs/screenshots/sim2/quay-slide-pc.png` (1280x720), `quay-slide-phone.png` (844x390, low).
 - **Found, not mine to change (quay.js): black frames.** With the smoke on and the bloom on, single frames come out completely black: 12 of 71 frames after 8 s standing in the smoke, 4 of 128 while sliding (1280x720, high, the real GPU); none with `?off=smoke` or `?off=bloom`; the same with the emit values clamped and without speed, so it is not the page's input. Probably a lump pixel that becomes infinite or NaN and the bloom blurs it over the picture. Method: wrap `composer.render` and read 5 pixels after each render.
 - Also seen: after a spin the camera sits inside a lump (the picture is one pink veil, `quay-first.png`).
+
+### Quay part 3: numbers (GPU of this machine: Intel ADL GT2; the machine was shared with other sessions, load 6 to 10, so each number is the smallest of repeated tries)
+| | still (`lab-harbour.html?bench=1`, best of 3 runs of best-of-40) | sliding (`lab-drive.html`, `?drive=13&angle=0.55` after 8 s, best of 40 renders) |
+|---|---|---|
+| high 1280x720 | 25.6 ms | 17.1 ms, 132 calls, 1 202 k triangles, ~116 MB |
+| low 1280x720 | 15.1 ms | 11.5 ms, 71 calls, 498 k triangles, ~99 MB |
+| high 844x390 | 19.7 ms | 12.2 ms, 132 calls, 1 206 k triangles, ~98 MB |
+| low 844x390 | 14.2 ms | 10.2 ms, 72 calls, 505 k triangles, ~84 MB |
+- Download: the drive page loads 56 files, 14.1 MB; the still page 40 files, 13.9 MB (nothing is compressed on the test server: these are the file sizes).
+- Smoke while sliding: about 82 lumps alive (one lump per wheel every 1/30 s lives 1.3 to 2.2 s: the pool of 240 is not reached at that rate).
+- Over 16.7 ms: the still in high at both sizes (25.6, 19.7), the slide in high at 1280x720 (17.1, just over). The still is dearer than the slide (the posed smoke, a camera that sees the whole stand). Memory is an estimate of the uploaded pictures. Not measured: a real phone; the black-frame flicker (part 2) was present in these runs and is not in the numbers.
