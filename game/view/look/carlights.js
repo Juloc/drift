@@ -20,7 +20,7 @@ export function carLights(model, { flats = [], beam = true } = {}) {
   let spot = null; if (beam && front.length) { spot = new THREE.SpotLight(new THREE.Color(1, 0.9, 0.72), 0, 38, 0.48, 0.7, 1.4); spot.position.set(0, mid(boxF), boxF.max.z - 0.1); spot.target.position.set(0, -0.6, boxF.max.z + 14); model.add(spot, spot.target); }
   const api = { state: { brake: 0, head: 1 },
     /** `brake` 0..1 (the pedal), `head` 0 or 1 (the head lamps and the tail lamps' own light; off, only the brake shows). */
-    set({ brake = api.state.brake, head = api.state.head } = {}) { api.state.brake = brake; api.state.head = head; const tail = 1.3 * head + 1.5 * brake;
+    set({ brake = api.state.brake, head = api.state.head } = {}) { api.state.brake = brake; api.state.head = head; const tail = 1.0 * head + 0.9 * brake;   // (kept low: a brighter lamp turns white through the film curve; the halo and the red on the road say "brake")
       for (const m of rear) m.emissiveIntensity = tail; for (const s of tails) { s.scale.setScalar(0.34 * head + 0.75 * brake + 1e-3); s.material.opacity = Math.min(1, 0.55 * head + 0.75 * brake); }
       if (spill) spill.intensity = 0.25 * head + 1.3 * brake;
       for (const m of front) m.emissiveIntensity = 2.2 * head; for (const s of heads) { s.scale.setScalar(0.62 * head + 1e-3); s.material.opacity = 0.85 * head; } if (spot) spot.intensity = 46 * head; return api; },

@@ -68,6 +68,7 @@ scene.fog = new THREE.FogExp2(shown(1.0, 0.62, 0.42), q('fogD', 0.0034));
 const CX = 30, CZ = -4, R_INF = 17.95, R_IN = 18.4, R_KERB = 20.1, R_OUT = 33.2, R_OUTF = 33.8, R_QUAY = 40;
 const onArc = (r, t) => [CX - r * Math.cos(t), CZ - r * Math.sin(t)], facing = (t) => -Math.PI / 2 - t;   // `facing`: the turn that points an object's own -z at the bend's middle (its x along the wall)
 const arcTs = (r, t0, t1, step) => { const out = []; for (let t = t0; t < t1; t += step / r) out.push(t); return out; };
+const SEA_WALL = q('seaWall', 0.6), seaward = (t) => { const u = ((t % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); return u > q('sea0', 1.08) && u < q('sea1', 2.5); };   // the stretch of the ring that faces the open water
 const ringTs = (r, step, even = 1) => { const n = Math.round(2 * Math.PI * r / step / even) * even, out = []; for (let i = 0; i < n; i++) out.push(-0.9 + i * 2 * Math.PI / n); return out; };   // a whole ring of pieces without a gap (`even`: a count that divides by it)
 const tex = new THREE.TextureLoader(), wrap = (t, rep, srgb) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
 const REP = 1 / 4.5;
@@ -137,11 +138,13 @@ const along = (g) => { const s = sizeOf(g); return s.x >= s.z ? 0 : Math.PI / 2;
 // ---- the walls of the bend: concrete barriers outside and inside, chain-link fences with barbed wire on both, the kerb inside
 { const g = await file('skfb/barriers.glb'), parts = meshesOf(g.scene).map((o) => ({ o, s: sizeOf(o.geometry) })).filter((p) => p.s.y > 1).sort((a, b) => a.s.x - b.s.x);
   const pick = parts[q('barrier', 1)] ?? parts[0], geo = standing(pick.o, 1.05), len = lengthOf(geo), a = along(geo), mat = pick.o.material.clone(); mat.envMapIntensity = 0.2; mat.roughness = 1; mat.color.multiplyScalar(q('barK', 0.85));
-  instances(geo, mat, [...ringTs(R_OUT, len + 0.05).map((t) => [...onArc(R_OUT, t), facing(t) + a]), ...ringTs(R_IN, len + 0.05).map((t) => [...onArc(R_IN, t), facing(t) + a])]); }
+  // (towards the sea the outside wall is lower and carries no fence, so the water shows over it)
+  const outer = []; for (let t = -0.9; t < -0.9 + 2 * Math.PI - 0.01;) { const sc = seaward(t) ? SEA_WALL : 1; outer.push([...onArc(R_OUT, t), facing(t) + a, sc]); t += (len * sc + 0.05) / R_OUT; }
+  instances(geo, mat, [...outer, ...ringTs(R_IN, len + 0.05).map((t) => [...onArc(R_IN, t), facing(t) + a])]); }
 { const g = await file('skfb/fence-set.glb'), parts = meshesOf(g.scene), mat = parts[0].material.clone(); mat.side = THREE.DoubleSide; mat.alphaTest = 0.02; mat.transparent = true; mat.depthWrite = false; mat.envMapIntensity = 0.3; mat.color.multiplyScalar(0.6); mat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.a = min(1.0, diffuseColor.a * 1.9);'); };   // blended, not cut out: a far chain-link fence is a grey veil, a cut-out one vanishes
   const tall = standing(parts[q('fence', 0)], 4.5), low = standing(parts[q('fence2', 0)], 2.9);
   instances(tall, mat, ringTs(R_INF, lengthOf(tall) - 0.04).map((t) => [...onArc(R_INF, t), facing(t) + along(tall) + Math.PI]), { shadow: false });
-  instances(low, mat, ringTs(R_OUTF, lengthOf(low) - 0.04).map((t) => [...onArc(R_OUTF, t), facing(t) + along(low)]), { shadow: false }); }
+  instances(low, mat, ringTs(R_OUTF, lengthOf(low) - 0.04).filter((t) => !seaward(t + 0.06) && !seaward(t - 0.06)).map((t) => [...onArc(R_OUTF, t), facing(t) + along(low)]), { shadow: false }); }
 { const shape = new THREE.Shape(); shape.moveTo(-1.2, 0); shape.lineTo(1.2, 0); shape.lineTo(1.2, 0.14); shape.lineTo(-1.2, 0.02); shape.closePath();   // low at the road, higher at the wall
   const geo = new THREE.ExtrudeGeometry(shape, { depth: 1.2, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 2 }).translate(0, 0, -0.6).rotateY(Math.PI / 2);
   const ts = ringTs(R_KERB, 1.24, 2), spot = (t) => [...onArc(R_KERB, t), facing(t) + Math.PI / 2];   // the block's own x points at the middle
@@ -261,17 +264,23 @@ const smoke = (() => { const MAX = q('smokeMax', 240), K = q('smokeK', 0.74) / E
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime; attribute float aFade, aSeed; varying float vFade;').replace('#include <begin_vertex>', `#include <begin_vertex>
       { vFade = aFade; vec3 p = position * 2.0 + aSeed; transformed *= 1.0 + 0.13 * (sin(p.x * 1.7 + p.y * 1.1) * sin(p.y * 1.9 - p.z * 1.3) + 0.5 * sin(p.z * 3.1 + p.x * 2.3 + uTime * 0.6)) + 0.03 * sin(uTime * 1.1 + aSeed); }`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uSun, uLit, uShade, uRim; varying float vFade;').replace('#include <opaque_fragment>', `
-      { vec3 nV = normalize(vNormal), nW = normalize((vec4(nV, 0.0) * viewMatrix).xyz), vD = normalize(vViewPosition); float fres = 1.0 - max(dot(nV, vD), 0.0), w = dot(nW, uSun) * 0.5 + 0.5, k = smoothstep(0.34, 0.84, 0.72 * (nW.y * 0.5 + 0.5) + 0.28 * w);
+      { vec3 nV = normalize(vNormal), nW = normalize((vec4(nV, 0.0) * viewMatrix).xyz), vD = normalize(vViewPosition); float fres = clamp(1.0 - dot(nV, vD), 0.0, 1.0), w = clamp(dot(nW, uSun) * 0.5 + 0.5, 0.0, 1.0),   /* clamped: two unit vectors' product can come out a hair over 1, and a power of a negative number is not a number: one such pixel and the glow pass turns the whole picture black */
+        k = smoothstep(0.34, 0.84, 0.72 * (nW.y * 0.5 + 0.5) + 0.28 * w);
         outgoingLight = mix(uShade, uLit, k) + uRim * pow(fres, 2.5) * w; ${shell ? 'diffuseColor.a = (1.0 - smoothstep(0.3, 1.0, fres)) * 0.92 * vFade;' : ''} }
       #include <opaque_fragment>`); }; return m; };
   const core = new THREE.InstancedMesh(geo, mat(false), MAX), shell = new THREE.InstancedMesh(geo, mat(true), MAX); for (const m of [core, shell]) { m.count = 0; m.frustumCulled = false; scene.add(m); } core.castShadow = tier !== 'low'; shell.renderOrder = 5; flats.push(shell);
   const P = [], m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), pos = new THREE.Vector3(), sc = new THREE.Vector3(), SHELL = q('shell', 1.22), sm = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
-  const write = () => { let n = 0; for (const p of P) { const u = p.age / p.life, r = p.r0 + (p.r1 - p.r0) * (1 - Math.exp(-2.6 * p.age)), y = p.y0 + r * 0.62 + p.lift * (1 - Math.exp(-1.5 * p.age)), ck = p.fixed ? 1 : 1 - sm(0.3, 0.75, u); qt.setFromAxisAngle(up, p.turn);
-      core.setMatrixAt(n, m4.compose(pos.set(p.x, y, p.z), qt, sc.setScalar(Math.max(1e-4, r * ck)))); shell.setMatrixAt(n, m4.compose(pos, qt, sc.setScalar(r * SHELL))); aFade.array[n] = p.fixed ? 1 : 1 - sm(0.5, 1, u); aSeed.array[n] = p.seed; n++; }
+  // How much of a lump shows: none right at the camera, and only a veil of what lies between the camera and the car the page names (`view.focus`,
+  // a point; null in the still), so a camera that follows through its own car's plume still sees the car. Beyond and beside the car the smoke is whole.
+  const view = { near: [q('smokeNear0', 0.8), q('smokeNear1', 2.2)], focus: null, veil: q('smokeVeil', 0.05) }, cp = new THREE.Vector3();
+  const seen = (x, y, z, r) => { const d = cp.set(x, y, z).distanceTo(camera.position); let k2 = sm(view.near[0], view.near[1], d - r * 0.5); if (view.focus) { const fd = view.focus.distanceTo(camera.position); k2 *= view.veil + (1 - view.veil) * sm(fd - 1.0, fd + 1.5, d + r * 0.6); } return k2; };
+  const write = () => { let n = 0; for (const p of P) { const u = p.age / p.life, r = p.r0 + (p.r1 - p.r0) * (1 - Math.exp(-2.6 * p.age)), y = p.y0 + r * 0.62 + p.lift * (1 - Math.exp(-1.5 * p.age)), ck = p.fixed ? 1 : (1 - sm(0.3, 0.75, u)) * p.core, see = seen(p.x, y, p.z, r); qt.setFromAxisAngle(up, p.turn);
+      core.setMatrixAt(n, m4.compose(pos.set(p.x, y, p.z), qt, sc.setScalar(Math.max(1e-4, r * ck * sm(0.8, 1, see))))); shell.setMatrixAt(n, m4.compose(pos, qt, sc.setScalar(r * SHELL))); aFade.array[n] = (p.fixed ? 1 : (1 - sm(0.5, 1, u)) * p.a) * see; aSeed.array[n] = p.seed; n++; }
     core.count = shell.count = n; core.instanceMatrix.needsUpdate = shell.instanceMatrix.needsUpdate = aFade.needsUpdate = aSeed.needsUpdate = true; };
-  return { core, shell, get alive() { return P.length; },
+  return { core, shell, view, get alive() { return P.length; },
     /** A new lump at a tyre: the place in the scene's axes, `k` 0..1 how hard the tyre smokes, the car's speed there (m/s; the lump keeps a little of it). */
-    emit(x, z, k = 1, vx = 0, vz = 0) { if (OFF.has('smoke')) return; if (P.length >= MAX) P.shift(); P.push({ x, z, y0: 0, vx: vx * 0.15, vz: vz * 0.15, r0: 0.16 + 0.1 * k, r1: 0.7 + 1.3 * k + rnd() * 0.4, lift: 0.3 + 1.2 * k * rnd(), life: 1.3 + 0.9 * k, age: 0, turn: rnd() * 6.28, seed: rnd() * 40 }); },
+    emit(x, z, k = 1, vx = 0, vz = 0) { if (OFF.has('smoke') || k <= 0.02 || rnd() > 0.15 + 0.85 * k) return; if (P.length >= MAX) P.shift();   // (a faint slide: few lumps, small, pale, soon gone; a hard one: all of it)
+      P.push({ x, z, y0: 0, vx: vx * 0.15, vz: vz * 0.15, r0: 0.1 + 0.12 * k, r1: 0.28 + 1.55 * k + rnd() * 0.3, lift: 0.15 + 1.2 * k * rnd(), life: 0.7 + 1.4 * k, age: 0, turn: rnd() * 6.28, seed: rnd() * 40, a: 0.3 + 0.7 * Math.min(1, k * 1.4), core: sm(0.25, 0.6, k) }); },
     /** Lumps that stand still, for the still picture: [x, z, radius, lift]. */
     pose(list) { for (const [x, z, r, lift] of list) P.push({ x, z, y0: 0, vx: 0, vz: 0, r0: r, r1: r, lift: 0, life: 1, age: 0, turn: rnd() * 6.28, seed: rnd() * 40, fixed: true, }), (P[P.length - 1].y0 = lift); write(); },
     update(dt) { if (!P.length) { if (core.count) write(); return; } for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; if (p.fixed) continue; p.age += dt; if (p.age >= p.life) { P.splice(i, 1); continue; } const d = Math.exp(-3 * p.age); p.x += p.vx * d * dt; p.z += p.vz * d * dt; } write(); },

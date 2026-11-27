@@ -103,9 +103,12 @@ const drive = createDrive({ params, t, camera, rig: car, wheelLocal: car.wheelLo
 $('simhint').textContent = t('hint');
 
 // ---- the loop
+h.smoke.view.near = [1.5, 4];   // the smoke between the camera and the car is only a veil (the scene's own numbers for driving)
+const focusV = new THREE.Vector3(); h.smoke.view.focus = focusV;
 let lastCam = drive.camNo;
 function frame(now) {
   const { d, dt } = drive.frame(now);
+  focusV.set(X(d.x), 0.6, d.z);   // the car's place in the scene's axes: the smoke in front of it thins out
   if (drive.camNo !== lastCam) { lastCam = drive.camNo; h.motion._prev = null; }   // (a camera cut)
   model.userData.lights?.set({ brake: drive.inp.brake });   // the brake pedal 0..1 lights the lamps (the handbrake does not)
   h.tick(dt);   // after the camera is placed: palms, flags, people, sea, clouds, smoke, flames and the streaks (from the camera's real movement)
@@ -116,7 +119,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 // for the checking tools (tools/simdrive.mjs --sim)
-window.__sim = { get state() { return drive.s; }, get frames() { return drive.frames; }, get mode() { return drive.mode; }, held: drive.held, reset: drive.reset, setMode: drive.setMode, minMu, ring, drive, get audio() { return { running: !!engineNode, state: audioCtx?.state, flames: flameCount }; }, fire: (k = 1) => { const ex = h.exhaustOf(car.group); h.flames.fire(ex.pos, ex.dir, k); }, harbour: h, renderer, camera, car, puddleAt: h.puddleAt };
+window.__sim = { get state() { return drive.s; }, get frames() { return drive.frames; }, get mode() { return drive.mode; }, held: drive.held, reset: drive.reset, setMode: drive.setMode, minMu, ring, smokeNow: () => [0, 1, 2, 3].map((i) => +smokeOf(drive.s, drive.car, i).toFixed(2)), drive, get audio() { return { running: !!engineNode, state: audioCtx?.state, flames: flameCount }; }, fire: (k = 1) => { const ex = h.exhaustOf(car.group); h.flames.fire(ex.pos, ex.dir, k); }, harbour: h, renderer, camera, car, puddleAt: h.puddleAt };
 /** The numbers of the picture now: draw calls and triangles of one whole picture (all passes), the cost of one picture in ms (the render and a wait for the graphics to finish, the smallest of
  * `n` tries), the pixel size and the memory estimate. */
 window.__sim.measure = (n = 12) => {
