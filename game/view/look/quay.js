@@ -21,9 +21,9 @@ import { carLights } from './carlights.js';
 import { makeFinish } from './finish.js';
 
 export async function buildQuay({ renderer, params = new URLSearchParams(), still = true, tier = 'high' }) {
-// ?style=mock is the look of the owner's mockups as one preset (being matched): the drawn shading, the painted road, plain colours instead of photographed
+// The look of the owner's mockups as one preset: the drawn shading, the painted road, plain colours instead of photographed
 // textures, light violet shadows, a pink haze over what is far, people in plain bright shirts, soft smoke, almost no outlines. `qm(k, d, m)`: m with it.
-const STYLE = params.get('style') === 'mock';
+const STYLE = params.get('style') !== 'plain';   // (the default since 0.7.22; ?style=plain is the look before it)
 const q = (k, d) => (params.has(k) ? +params.get(k) : d), qm = (k, d, m) => q(k, STYLE ? m : d), OFF = new Set((params.get('off') || '').split(','));   // ?off=crowd,smoke,palms,shadow,ao,bloom switches a part off, to see what it costs
 const SIZE = renderer.getSize(new THREE.Vector2());
 renderer.shadowMap.enabled = !OFF.has('shadow'); renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -220,7 +220,7 @@ const people = await (async () => { const g = await file('skfb/crowd.glb'), mixe
 const CROWD_YAW = q('crowdYaw', Math.PI);
 const crowdMeshes = [];
 function crowd(spots, parent = scene) { if (OFF.has('crowd')) return; const by = people.geos.map(() => []); for (const s of spots) by[Math.floor(rnd() * by.length)].push(s);
-  by.forEach((list, i) => list.length && crowdMeshes.push(instances(people.geos[i], people.mat, list.map(([x, z, ry, y = 0]) => [x, z, ry + CROWD_YAW + (rnd() - 0.5) * 0.7, 1.62 + rnd() * 0.22, y]), { parent, colors: list.map(() => (STYLE ? new THREE.Color().setHSL(rnd(), 0.62, 0.5 + rnd() * 0.16).multiplyScalar(1.5) : new THREE.Color().setHSL(rnd(), 0.3, 0.7 + rnd() * 0.25).multiplyScalar(1.35))), shadow: false }))); }   // (no shadows of the people: they stand under a roof and behind a wall, and they are most of the scene's triangles)
+  by.forEach((list, i) => list.length && crowdMeshes.push(instances(people.geos[i], people.mat, list.map(([x, z, ry, y = 0]) => [x, z, ry + CROWD_YAW + (rnd() - 0.5) * 0.7, 1.62 + rnd() * 0.22, y]), { parent, colors: list.map(() => (STYLE ? new THREE.Color().setHSL(rnd(), 0.62, 0.52 + rnd() * 0.16).multiplyScalar(2.1) : new THREE.Color().setHSL(rnd(), 0.3, 0.7 + rnd() * 0.25).multiplyScalar(1.35))), shadow: false }))); }   // (no shadows of the people: they stand under a roof and behind a wall, and they are most of the scene's triangles)
 
 // ---- the stand outside the bend: steps full of people under a flat roof with lamps, a rail, banners in front
 { // a grandstand model, three of it side by side (seats, stairs, rails), a person at most of its seats, a slim roof with lamps over it
@@ -269,7 +269,9 @@ function crowd(spots, parent = scene) { if (OFF.has('crowd')) return; const by =
       const top = new THREE.Vector3((fc.x - bc.x) * k, (fc.y - box.min.y) * k, (fc.z - bc.z) * k);
       if (STYLE) { const TH = q('palmTrunkH', 9.4), trunkH = geos[ti].boundingBox.max.y - box.min.y, kc = q('palmCrown', 3.3), kt = q('palmTrunk', 2.3); top.set(0, TH, 0);   // the model is short and broad: its trunk is drawn out to a tall palm's, its crown set on top in its own measure
         return ms.map((o, n) => { const m = sway(o.material, top, n === fi); m.normalMap = null; m.color.multiplyScalar(n === fi ? 1.15 : 1.3); const u = 1.6 / trunkH, g2 = geos[n].translate(-bc.x, -box.min.y, -bc.z).scale(u, u, u);   // (the file's own measure varies: first the trunk to 1.6 units)
-          if (n === fi) g2.translate(0, -1.6, 0).scale(kc, kc, kc).translate(0, TH - 0.2, 0); else g2.scale(kt, TH / 1.6, kt); return { geo: g2, mat: m }; }); }
+          if (n === fi) { g2.translate(0, -1.6, 0).scale(kc, kc, kc); const more = g2.clone().rotateY(1.05).scale(0.86, 1.12, 0.86), low = g2.clone().rotateY(2.2).scale(1.08, 0.72, 1.08);   // a fuller crown: the model's fronds three times, turned, one set more upright and one hanging
+            return { geo: mergeGeometries([g2, more, low]).translate(0, TH - 0.2, 0), mat: m }; }
+          g2.scale(kt, TH / 1.6, kt); return { geo: g2, mat: m }; }); }
       return ms.map((o, n) => { const m = sway(o.material, top, n === fi); if (STYLE) { m.normalMap = null; m.color.multiplyScalar(n === fi ? 1.15 : 1.3); } else if (n === fi) { m.transparent = false; m.alphaTest = q('frondCut', 0.35); m.depthWrite = true; if (TOON) m.color.setRGB(0.62, 0.84, 0.42); else m.color.setRGB(1.25, 1.6, 0.85); m.emissive = new THREE.Color(0.55, 0.75, 0.18); m.emissiveMap = m.map; m.emissiveIntensity = q('frondGlow', TOON ? 0.2 : 0.55); } else m.color.multiplyScalar(1.5); return { geo: geos[n].translate(-bc.x, -box.min.y, -bc.z).scale(k, k, k), mat: m }; }); });
     if (!OFF.has('palms')) kinds.forEach((parts, n) => { const mine = spots.filter((_, k2) => k2 % kinds.length === n).map(([x, z, h]) => [x, z, rnd() * 6.28, h / 12]); for (const pt of parts) instances(pt.geo, pt.mat, mine); });
   }
