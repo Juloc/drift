@@ -104,7 +104,7 @@ const hooks = {
 };
 let fpsNow = 0, fpsCount = 0, fpsSince = performance.now();
 // the chase camera, close and low as the mockup frames the car (tunable from the address while the look is being matched)
-const qn = (k, v) => (params.has(k) ? +params.get(k) : v), CAM = { dist: qn('cd', 4.3), height: qn('ch', 0.95), side: qn('cs', 0), look: qn('cl', 14), lookY: qn('cy', 0.85), travel: qn('ct', 0.6), fov: qn('cf', 56), turn: qn('cturn', 8), swing: qn('csw', 3), turnDrift: qn('ctd', -24) };
+const qn = (k, v) => (params.has(k) ? +params.get(k) : v), CAM = { dist: qn('cd', 4.9), height: qn('ch', 1.75), side: qn('cs', 0), look: qn('cl', 14), lookY: qn('cy', 0.35), travel: qn('ct', 0.6), fov: qn('cf', 56), turn: qn('cturn', 8), swing: qn('csw', 3), turnDrift: qn('ctd', -24) };
 // the driving display in the mockups' style (lab-drive-hud.js); ?hud=test keeps the test page's read-outs
 const hud = params.get('hud') === 'test' ? null : makeHud({ T: t, ring: h.ring });
 const drive = createDrive({ params, t, camera, rig: car, wheelLocal: car.wheelLocal, spawn: () => ({ x: -start.x, z: start.z, h: -start.yaw }), env: ENV, map, groundAt: () => 0, lookCamera: CAM, soundId: 1, oldSound: false, hooks });
