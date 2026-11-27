@@ -8,6 +8,7 @@
 // Usage: node tools/playcheck.mjs [--tier=low] [--only=phone-landscape,pc] [--out=docs/screenshots/playcheck] [--no-road] [--no-ride] [--no-ui]
 import { spawn, spawnSync } from 'node:child_process';
 import { GL_FLAGS } from './chrome.mjs';
+import { serveRepo } from './staticserver.mjs';
 import { writeFileSync, mkdirSync, rmSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { KEYS } from '../game/view/touchmap.js';
@@ -53,8 +54,8 @@ if (!opt['no-ride']) {
 
 // a static server for the repository (the game page and the vendor files)
 const webPort = 21000 + Math.floor(Math.random() * 3000);
-const web = spawn('python3', ['-m', 'http.server', String(webPort), '--bind', '127.0.0.1'], { stdio: 'ignore', detached: true });
-const stops = [() => { try { process.kill(-web.pid, 'SIGKILL'); } catch {} }];
+const web = await serveRepo({ port: webPort });   // (with the app's own content policy: tools/staticserver.mjs)
+const stops = [() => web.close()];
 process.on('exit', () => stops.forEach((f) => f()));
 await sleep(800);
 

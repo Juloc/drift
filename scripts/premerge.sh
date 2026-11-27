@@ -3,7 +3,8 @@
 # had each added the same line and git merged them without a conflict. Stops the commit when
 #   1. a script of a page does not parse, imports a file that is not there or a name that is not exported (tests/js/pages.test.mjs),
 #   2. a test of the game's own logic fails (node --test game/ tests/js),
-#   3. the game page does not start in a real browser (tools/playcheck.mjs at the PC size, through devq when there is one).
+#   3. the game page does not start in a real browser (tools/playcheck.mjs at the PC size, through devq when there is one),
+#   4. a lab page that loads models errs or breaks the app's content policy (tools/simdrive.mjs on a server that sends the policy, tools/staticserver.mjs).
 # The play check's other findings (a HUD overlap, a road height) are shown, they do not stop a merge: they have their own place in the release check.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -17,5 +18,14 @@ command -v devq >/dev/null 2>&1 && run=(devq "${run[@]}")
 "${run[@]}" >/tmp/drift-premerge-$$.log 2>&1
 if grep -q "did not start" /tmp/drift-premerge-$$.log || ! grep -q "^play check" /tmp/drift-premerge-$$.log; then tail -5 /tmp/drift-premerge-$$.log; echo "premerge: STOP, the game page does not start"; rm -rf /tmp/drift-premerge-$$.log /tmp/drift-premerge-playcheck-$$; exit 1; fi
 grep -E "^play check|^PROBLEM" /tmp/drift-premerge-$$.log | sed 's/^/premerge:   /'
+# 4. the lab pages that load models, under the app's own content policy (tools/staticserver.mjs sends it): 0.7.18 showed black models when live because the glTF loader's blob fetches are
+#    forbidden by connect-src 'self' and no local check ran under that policy. A page that errs, does not start or breaks the policy stops the merge.
+echo "premerge: the lab pages under the app's content policy ..."
+for pg in "--page=lab-drive.html --sim --seconds=2 --keys=ArrowUp --minkmh=0" "--page=lab-drive.html --sim --seconds=2 --keys=ArrowUp --minkmh=0 --query=scene=harbour" "--page=lab-harbour.html --ready=window.__ready===true"; do
+  run=(node tools/simdrive.mjs --tier=low --size=640x360 $pg)
+  command -v devq >/dev/null 2>&1 && run=(devq "${run[@]}")
+  out=$("${run[@]}" 2>&1 | tail -1)
+  if echo "$out" | grep -qE '"error"|"broken":\["|"contentPolicy":\["|"errors":[1-9]'; then echo "premerge:   $pg -> $out"; echo "premerge: STOP, a lab page fails under the app's content policy"; rm -rf /tmp/drift-premerge-$$.log /tmp/drift-premerge-playcheck-$$; exit 1; fi
+done
 rm -rf /tmp/drift-premerge-$$.log /tmp/drift-premerge-playcheck-$$
 echo "premerge: ok (the page loads; findings above, if any, are for the release check)"

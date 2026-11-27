@@ -4,14 +4,15 @@
 // Usage: node tools/simdrive.mjs [--seconds=20] [--steerAfter=6 (the steering keys go down after that many seconds)] [--mode=arcade|sport|sim] [--car=stock] [--keys=ArrowUp,ArrowRight] [--size=1280x720] [--touch] [--tier=high] [--shot=file.png] [--minkmh=30] [--query=...] [--jitter[=raw]]
 import { spawn } from 'node:child_process';
 import { GL_FLAGS } from './chrome.mjs';
+import { serveRepo } from './staticserver.mjs';
 import { writeFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 const opt = Object.fromEntries(process.argv.slice(2).map((a) => { const t = a.replace(/^--/, ''), i = t.indexOf('='); return i < 0 ? [t, true] : [t.slice(0, i), t.slice(i + 1)]; }));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const chrome = `${homedir()}/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`;
 const stops = []; process.on('exit', () => stops.forEach((f) => f()));
-const web = spawn('python3', ['-m', 'http.server', String(21000 + Math.floor(Math.random() * 3000)), '--bind', '127.0.0.1'], { stdio: 'ignore', detached: true });
-const webPort = web.spawnargs[3]; stops.push(() => { try { process.kill(-web.pid, 'SIGKILL'); } catch {} }); await sleep(800);
+// the repository is served with the app's own content policy (tools/staticserver.mjs): a page that fails under it fails here (DRIFT_PLAIN_SERVER=1 turns it off)
+const web = await serveRepo(), webPort = web.port; stops.push(() => web.close());
 async function browser() {
   const port = 22000 + Math.floor(Math.random() * 6000), profile = `/tmp/claude-1000/drift-tandemcheck-${port}`;
   const proc = spawn('nice', ['-n', '10', chrome, '--headless=new', '--no-sandbox', ...GL_FLAGS, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--hide-scrollbars', ...(process.env.PAGEEVAL_FLAGS ? process.env.PAGEEVAL_FLAGS.split(' ') : []), 'about:blank'], { stdio: 'ignore', detached: true });
@@ -30,6 +31,7 @@ async function browser() {
 }
 const [w, h] = (opt.size ?? '1280x720').split('x').map(Number), seconds = +(opt.seconds ?? 20), keys = (opt.keys ?? 'ArrowUp,ArrowRight').split(',').filter(Boolean);
 const b = await browser();
+await b.send('Page.addScriptToEvaluateOnNewDocument', { source: "window.__csp = []; addEventListener('securitypolicyviolation', (e) => window.__csp.push(e.violatedDirective + ' ' + String(e.blockedURI).slice(0, 60)));" });
 await b.send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: !!opt.touch });
 if (opt.touch) await b.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
 await b.send('Page.navigate', { url: `http://127.0.0.1:${webPort}/game/${opt.page ?? 'lab-sim.html'}?tier=${opt.tier ?? 'high'}${opt.mode ? '&mode=' + opt.mode : ''}${opt.car ? '&car=' + opt.car : ''}${opt.touch ? '&touch=1' : ''}${opt.jitter ? '&cruise=13.9' + (opt.jitter === 'raw' ? '&raw=1' : '') : ''}${opt.query ? '&' + opt.query : ''}` });
@@ -39,7 +41,8 @@ if (opt.page && opt.page !== 'lab-sim.html' && !opt.sim) {   // another page of 
   await sleep(+(opt.wait ?? 800));
   if (opt.eval) console.log('eval:', JSON.stringify(await b.ev(opt.eval)));
   if (opt.shot) { const sh = await b.send('Page.captureScreenshot', { format: 'png' }); writeFileSync(opt.shot, Buffer.from(sh.result.data, 'base64')); }
-  console.log(JSON.stringify({ errors: b.logs.length, logs: b.logs.slice(0, 3) })); b.close(); process.exit(b.logs.length ? 1 : 0);
+  const csp = await b.ev('window.__csp ?? []');
+  console.log(JSON.stringify({ errors: b.logs.length, logs: b.logs.slice(0, 3), contentPolicy: csp })); b.close(); process.exit(b.logs.length || csp.length ? 1 : 0);
 }
 let ok = false; for (let i = 0; i < 240 && !(ok = await b.ev('!!window.__sim && __sim.frames > 5')); i++) await sleep(500);
 if (!ok) { console.log(JSON.stringify({ error: 'the page did not start', logs: b.logs.slice(0, 3) })); process.exit(1); }
@@ -76,5 +79,5 @@ if (opt.probe) {
 }
 for (const k of keys) await press(k, 'keyUp');
 const out = { seconds, fps: +(((end.frames - f0) * 1000) / (Date.now() - t0)).toFixed(1), topKmh: Math.round(top), endKmh: Math.round(end.v * 3.6), topGear: gearTop, maxBodyAngleDeg: Math.round((maxBeta * 180) / Math.PI), end: { x: +end.x.toFixed(1), z: +end.z.toFixed(1), rpm: Math.round(end.rpm) }, finite: end.finite, errors: b.logs.length, logs: b.logs.slice(0, 3) };
-const broken = []; if (b.logs.length) broken.push('page errors'); if (!end.finite) broken.push('not finite'); if (top < +(opt.minkmh ?? 30)) broken.push(`top speed only ${Math.round(top)} km/h`);
+const broken = []; const csp = await b.ev('window.__csp ?? []'); if (csp.length) broken.push(`content policy violated: ${[...new Set(csp)].slice(0, 3).join('; ')}`); if (b.logs.length) broken.push('page errors'); if (!end.finite) broken.push('not finite'); if (top < +(opt.minkmh ?? 30)) broken.push(`top speed only ${Math.round(top)} km/h`);
 console.log(JSON.stringify({ ...out, broken })); b.close(); process.exit(broken.length ? 1 : 0);
