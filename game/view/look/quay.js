@@ -18,6 +18,7 @@ import { ShaderPass } from '../../../vendor/three/addons/postprocessing/ShaderPa
 import { hollowAt } from './harbour.js';
 import { makeFlames } from './flames.js';
 import { carLights } from './carlights.js';
+import { makeFinish } from './finish.js';
 
 export async function buildQuay({ renderer, params = new URLSearchParams(), still = true, tier = 'high' }) {
 const q = (k, d) => (params.has(k) ? +params.get(k) : d), OFF = new Set((params.get('off') || '').split(','));   // ?off=crowd,smoke,palms,shadow,ao,bloom switches a part off, to see what it costs
@@ -52,7 +53,9 @@ const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: fals
       c *= uK;
       float disc = smoothstep(0.99915, 0.99935, s); c = mix(c, vec3(1.0, 0.78, 0.4) * ${q('disc', 2.6).toFixed(2)}, disc);             // the sun itself, bright enough to bloom
       gl_FragColor = vec4(c, 1.0);
-    }` });
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }` });   // (the two includes do the film curve here when the picture is drawn straight to the screen; in the pass chain they are empty and the last pass does it)
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(4500, 48, 24), skyMat));
 // what the paint and the wet road mirror: the same sky, rendered once into a reflection map
 { const pm = new THREE.PMREMGenerator(renderer), s2 = new THREE.Scene(); s2.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), skyMat)); scene.environment = pm.fromScene(s2, 0, 1, 200).texture; scene.environmentIntensity = q('env', 0.9); }
@@ -60,7 +63,7 @@ const sun = new THREE.DirectionalLight(shown(1, 0.66, 0.4, 1), q('sun', 3.0));
 const sunLift = new THREE.Vector3(sunDir.x, Math.max(sunDir.y, q('sunEl', 0.24)), sunDir.z).normalize();
 sun.castShadow = true; sun.shadow.mapSize.set(q('shadowMap', 2048), q('shadowMap', 2048)); Object.assign(sun.shadow.camera, { left: -48, right: 48, top: 48, bottom: -48, near: 1, far: 300 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.05; sun.shadow.radius = 4; sun.shadow.intensity = q('shadowK', 0.5);
 sun.target.position.set(-2, 0, -14); sun.position.copy(sun.target.position).addScaledVector(sunLift, 140); scene.add(sun, sun.target);
-scene.add(new THREE.HemisphereLight(shown(0.95, 0.62, 0.74, 1), shown(1, 0.64, 0.5, 1), q('hemi', 1.45)));   // violet from above, warm from the ground: the shadows' colour
+scene.add(new THREE.HemisphereLight(shown(0.95, 0.62, 0.74, 1), shown(1, 0.64, 0.5, 1), q('hemi', tier === 'low' ? 1.75 : 1.45)));   // (a little more on the phone, where the plain scenery does not take the sky's light from the mirror map)   // violet from above, warm from the ground: the shadows' colour
 { const fill = new THREE.DirectionalLight(shown(1, 0.72, 0.74, 1), q('fill', 1.1)); fill.position.set(-30, 40, 60); scene.add(fill); }   // a soft pink light from behind the viewer, without shadow: what faces us is never left dark
 scene.fog = new THREE.FogExp2(shown(1.0, 0.62, 0.42), q('fogD', 0.0034));
 
@@ -73,23 +76,30 @@ const ringTs = (r, step, even = 1) => { const n = Math.round(2 * Math.PI * r / s
 const tex = new THREE.TextureLoader(), wrap = (t, rep, srgb) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
 const REP = 1 / 4.5;
 const asphalt = new THREE.MeshStandardMaterial({ map: wrap(await tex.loadAsync('assets/tex/asphalt_02_diff_1k.jpg'), REP, true), normalMap: wrap(await tex.loadAsync('assets/tex/asphalt_02_nor_gl_1k.jpg'), REP), roughnessMap: wrap(await tex.loadAsync('assets/tex/asphalt_02_rough_1k.jpg'), REP), color: new THREE.Color(params.get('asph') || '#d0b0a8').multiplyScalar(q('asphK', 1.7)), roughness: 1, envMapIntensity: 0.7 });
-asphalt.onBeforeCompile = (sh) => {
+// The road's patterns (the rubber of earlier slides, the hollows that hold water, the large light and dark) cost about thirty noise look-ups a pixel
+// when computed in the road's shader, on most of the screen. They never change: they are drawn once into a picture round the ring, and the shader reads it.
+const MASK_HALF = 46, maskRT = new THREE.WebGLRenderTarget(tier === 'low' ? 1024 : 2048, tier === 'low' ? 1024 : 2048, { depthBuffer: false, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter });
+{ const sc = new THREE.Scene(), cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({ depthTest: false, depthWrite: false, toneMapped: false,
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: `varying vec2 vUv;
+      float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+      float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p) { return vn(p) * 0.5 + vn(p * 2.03 + 7.1) * 0.3 + vn(p * 4.1 + 3.7) * 0.2; }
+      void main() { vec2 w = vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)}) + (vUv * 2.0 - 1.0) * ${MASK_HALF.toFixed(1)};
+        float big = fbm(w * 0.05), hollow = fbm(w * 0.16 + 31.0);
+        float rr = distance(w, vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)})), lane = smoothstep(${(R_KERB + 1.2).toFixed(1)}, ${(R_KERB + 2.2).toFixed(1)}, rr) * (1.0 - smoothstep(${(R_OUT - 1.2).toFixed(1)}, ${(R_OUT - 0.4).toFixed(1)}, rr)), rub = 0.0;
+        for (int j = 0; j < 7; j++) { float fj = float(j); vec2 cj = vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)}) + vec2(sin(fj * 2.4), cos(fj * 1.7)) * 2.6; float rj = 23.6 + fj * 1.15 + sin(fj * 5.1) * 0.6, dj = distance(w, cj) - rj, gap = 0.72, wj = 0.035 + 0.02 * sin(fj * 3.3);   // seven slides, each two tyre lines
+          float on = smoothstep(0.35, 0.6, fbm(w * 0.11 + fj * 9.0)); rub += (exp(-(dj - gap) * (dj - gap) / wj) + exp(-(dj + gap) * (dj + gap) / wj)) * on * (0.45 + 0.3 * sin(fj * 1.9)); }
+        rub += exp(-(rr - 26.6) * (rr - 26.6) / 9.0) * 0.14;                                                     // and the line itself a shade darker
+        float wet = smoothstep(${q('wet0', 0.6).toFixed(3)}, ${q('wet1', 0.74).toFixed(3)}, hollow) * 0.95 + 0.06 * smoothstep(0.35, 0.6, big);
+        gl_FragColor = vec4(clamp(rub, 0.0, 0.8) * lane, wet, big, 1.0); }` }));
+  sc.add(quad); const before = renderer.getRenderTarget(); renderer.setRenderTarget(maskRT); renderer.render(sc, cam); renderer.setRenderTarget(before); quad.geometry.dispose(); quad.material.dispose(); }
+asphalt.onBeforeCompile = (sh) => { sh.uniforms.uMask = { value: maskRT.texture };
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWp = (modelMatrix * vec4(position, 1.0)).xyz;');
-  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-    varying vec3 vWp; float wetK;
-    float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-    float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
-    float fbm(vec2 p) { return vn(p) * 0.5 + vn(p * 2.03 + 7.1) * 0.3 + vn(p * 4.1 + 3.7) * 0.2; }`)
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp; uniform sampler2D uMask; float wetK;')
     .replace('#include <map_fragment>', `#include <map_fragment>
-    float big = fbm(vWp.xz * 0.05), hollow = fbm(vWp.xz * 0.16 + 31.0);
-    diffuseColor.rgb *= 0.86 + 0.26 * big;
-    float rr = distance(vWp.xz, vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)})), lane = smoothstep(${(R_KERB + 1.2).toFixed(1)}, ${(R_KERB + 2.2).toFixed(1)}, rr) * (1.0 - smoothstep(${(R_OUT - 1.2).toFixed(1)}, ${(R_OUT - 0.4).toFixed(1)}, rr)), rub = 0.0;
-    for (int j = 0; j < 7; j++) { float fj = float(j); vec2 cj = vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)}) + vec2(sin(fj * 2.4), cos(fj * 1.7)) * 2.6; float rj = 23.6 + fj * 1.15 + sin(fj * 5.1) * 0.6, dj = distance(vWp.xz, cj) - rj, gap = 0.72, wj = 0.035 + 0.02 * sin(fj * 3.3);   // seven slides, each two tyre lines
-      float on = smoothstep(0.35, 0.6, fbm(vWp.xz * 0.11 + fj * 9.0)); rub += (exp(-(dj - gap) * (dj - gap) / wj) + exp(-(dj + gap) * (dj + gap) / wj)) * on * (0.45 + 0.3 * sin(fj * 1.9)); }
-    rub += exp(-(rr - 26.6) * (rr - 26.6) / 9.0) * 0.14;                                                       // and the line itself a shade darker
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.022, 0.035), clamp(rub, 0.0, 0.8) * lane);
-    wetK = smoothstep(${q('wet0', 0.6).toFixed(3)}, ${q('wet1', 0.74).toFixed(3)}, hollow) * 0.95 + 0.06 * smoothstep(0.35, 0.6, big);
-    diffuseColor.rgb *= mix(1.0, 0.62, wetK);`)
+    vec2 mu = (vWp.xz - vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)})) / ${(2 * MASK_HALF).toFixed(1)} + 0.5; vec3 mk = (mu.x > 0.0 && mu.x < 1.0 && mu.y > 0.0 && mu.y < 1.0) ? texture2D(uMask, mu).rgb : vec3(0.0, 0.0, 0.5);   // (rubber, water, light and dark; away from the ring: plain)
+    diffuseColor.rgb *= 0.86 + 0.26 * mk.b; diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.022, 0.035), mk.r); wetK = mk.g; diffuseColor.rgb *= mix(1.0, 0.62, wetK);`)
     .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, ${q('wetR', 0.66).toFixed(2)}, wetK);`)
     .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = normalize(mix(normal, nonPerturbedNormal, wetK));');
 };
@@ -122,7 +132,11 @@ const meshesOf = (root) => { const out = []; root.updateMatrixWorld(true); root.
 const sizeOf = (g) => { g.computeBoundingBox(); return g.boundingBox.getSize(new THREE.Vector3()); };
 /** A mesh's geometry in the world's axes, centred, standing on y = 0, `height` metres high. */
 function standing(mesh, height) { const g = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld); g.computeBoundingBox(); const b = g.boundingBox, s = height / (b.max.y - b.min.y); g.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2); g.scale(s, s, s); return g; }
-function instances(geo, mat, spots, { shadow = true, parent = scene, colors = null } = {}) {
+// The phone tier shades the scenery plainly: one light sum a pixel instead of the full surface model with its mirrored sky (the car, the road and the
+// sea keep the full model). A material is made plain once and reused; what it did to its shader (sway, a stronger alpha) goes along.
+const plain = new Map(), LITE = tier === 'low' && q('lite', 1) > 0;
+function lite(mat) { if (!LITE || !mat.isMeshStandardMaterial) return mat; if (!plain.has(mat)) { const m = new THREE.MeshLambertMaterial({ name: mat.name, map: mat.map, color: mat.color, emissive: mat.emissive, emissiveMap: mat.emissiveMap, emissiveIntensity: mat.emissiveIntensity, side: mat.side, alphaTest: mat.alphaTest, transparent: mat.transparent, opacity: mat.opacity, depthWrite: mat.depthWrite, vertexColors: mat.vertexColors }); m.onBeforeCompile = mat.onBeforeCompile; plain.set(mat, m); } return plain.get(mat); }
+function instances(geo, mat, spots, { shadow = true, parent = scene, colors = null } = {}) { mat = lite(mat);
   const mesh = new THREE.InstancedMesh(geo, mat, spots.length), m = new THREE.Matrix4(), qt = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
   spots.forEach(([x, z, ry = 0, sc = 1, y = 0], i) => { mesh.setMatrixAt(i, m.compose(p.set(x, y, z), qt.setFromAxisAngle(up, ry), s.set(sc, sc, sc))); if (colors) mesh.setColorAt(i, colors[i]); });
   mesh.instanceMatrix.needsUpdate = true; mesh.castShadow = shadow; mesh.receiveShadow = true; mesh.computeBoundingSphere(); parent.add(mesh); return mesh;
@@ -165,7 +179,7 @@ const people = await (async () => { const g = await file('skfb/crowd.glb'), mixe
       for (let i = 0; i < n; i++) { o.getVertexPosition(i, v).applyMatrix4(o.matrixWorld); pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z; }
       const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', src.attributes.uv); geo.setIndex(src.index); geo.computeVertexNormals(); geo.computeBoundingBox();
       const b = geo.boundingBox, k = 1 / (b.max.y - b.min.y); geo.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2); geo.scale(k, k, k); out.push(geo); } }
-  const mat = skinned[0].material.clone(); mat.roughness = 1; mat.metalness = 0; mat.envMapIntensity = 0.4; mat.emissive = new THREE.Color(1, 0.8, 0.7); mat.emissiveMap = mat.map; mat.emissiveIntensity = q('crowdGlow', 0.45);   // a little light of their own: the glow under the roof
+  const mat = tier === 'low' ? new THREE.MeshLambertMaterial({ map: skinned[0].material.map }) : skinned[0].material.clone(); mat.roughness = 1; mat.metalness = 0; mat.envMapIntensity = 0.4; mat.emissive = new THREE.Color(1, 0.8, 0.7); mat.emissiveMap = mat.map; mat.emissiveIntensity = q('crowdGlow', 0.45);   // a little light of their own: the glow under the roof
   mat.onBeforeCompile = (sh) => { sh.uniforms.uTime = time; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime;').replace('#include <begin_vertex>', '#include <begin_vertex>\n{ float ph = instanceMatrix[3][0] * 7.3 + instanceMatrix[3][2] * 3.1; transformed.y *= 1.0 + 0.035 * max(0.0, sin(uTime * 5.0 + ph)); transformed.x += sin(uTime * 2.3 + ph) * 0.03 * transformed.y; }'); };
   return { geos: out, mat }; })();
 const CROWD_YAW = q('crowdYaw', Math.PI);
@@ -188,7 +202,7 @@ function crowd(spots, parent = scene) { if (OFF.has('crowd')) return; const by =
   const RY = SH + q('roofUp', 2.3);
   add(rb(W + 2.4, 0.3, SD + 3.6), roofM, 0, RY, -2.4).rotation.x = -0.05; add(rb(W + 2.4, 0.5, 0.3), flat('#ec3f86', 0.6), 0, RY - 0.35, -2.7);
   for (let x = -W / 2; x <= W / 2 + 0.1; x += W / 6) { add(new THREE.CylinderGeometry(0.15, 0.18, RY + 0.3, 12), dark, x, (RY + 0.3) / 2, SD + 0.5); add(new THREE.CylinderGeometry(0.09, 0.09, RY + 0.2, 10), dark, x, (RY + 0.2) / 2, -1.4); }
-  for (let x = -W / 2 + 3.5; x < W / 2; x += 7) { add(new THREE.BoxGeometry(1.8, 0.1, 0.6), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.8, 0.5).multiplyScalar(q('roofLamp', 3)) }), x, RY - 0.1, SD * 0.4, false); const l = new THREE.PointLight(shown(1, 0.8, 0.55, 1), 9, 14, 1.6); l.position.set(x, RY - 0.7, SD * 0.4); stand.add(l); }
+  for (let x = -W / 2 + 3.5; x < W / 2; x += 7) { add(new THREE.BoxGeometry(1.8, 0.1, 0.6), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.8, 0.5).multiplyScalar(q('roofLamp', 3)) }), x, RY - 0.1, SD * 0.4, false); if (tier !== 'low' && Math.abs(x) < 4 && q('standLight', 1)) { const l = new THREE.PointLight(shown(1, 0.8, 0.55, 1), 22, 22, 1.6); l.position.set(x, RY - 0.7, SD * 0.4); stand.add(l); } }   // (one lamp's light for the whole roof: every light is paid for on every lit pixel of the picture; the people glow a little by themselves)
   const seats = []; for (const [mx, mz] of modSpots) sm.forEach((o, n) => { if (!isSeat(o) || rnd() > q('seatsFull', 0.82)) return; const b = sgeo[n].boundingBox; seats.push([mx + (b.min.x + b.max.x) / 2, mz + (b.min.z + b.max.z) / 2 - 0.1, 0, b.min.y - q('seatDrop', 0.3)]); });
   window.__stand = { SD: +SD.toFixed(2), SH: +SH.toFixed(2), seats: seats.length, mats: [...byMat.keys()].map((m) => m.name) };
   crowd(seats, stand);
@@ -318,14 +332,21 @@ if (still) { car = dressCar((await loader.loadAsync('assets/cars/ae86-hi.glb')).
 if (q('top', 0)) { scene.fog = null; camera.position.set(q('cx', 10), q('cy', 190), q('cz', -60)); camera.lookAt(q('cx', 10), 0, q('cz', -60) - 0.01); }
 else { const tan = new THREE.Vector3(Math.sin(CAR_T), 0, -Math.cos(CAR_T)), inside = new THREE.Vector3(Math.cos(CAR_T), 0, Math.sin(CAR_T)), cam = carAt.clone().addScaledVector(tan, -q('back', 4.5)).addScaledVector(inside, q('in', 1.25));
   camera.position.set(q('cx', cam.x), q('cy', 1.55), q('cz', cam.z)); const aim = camera.position.clone().addScaledVector(tan, 15).addScaledVector(inside, q('aim', -1.5)); camera.lookAt(q('lx', aim.x), q('ly', 1.0), q('lz', aim.z)); }
-const composer = new EffectComposer(renderer); composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(SIZE.x, SIZE.y); composer.addPass(new RenderPass(scene, camera));
+// The picture's finish (look/finish.js): one scene render, a small glow, and one pass for streaks, drawn outlines, a contact shade, the film curve, soft
+// colour steps and colour: the drawn look of the mockups at a fraction of a pass chain's cost. `composer` stays the thing the page renders with.
+// For comparison: ?chain=1 is the old chain of ready-made passes, ?direct=1 draws straight to the screen with no finish at all.
+const direct = q('direct', 0) > 0, legacy = !direct && q('chain', 0) > 0;
+const finish = direct || legacy ? null : makeFinish({ renderer, scene, camera, low: tier === 'low', opts: { glow: q('glow', 0.5), glowWide: q('glowWide', 0.55), glowFrom: q('glowFrom', 1.5), line: q('line', 0.6), lineWidth: q('lineWidth', 1.0), steps: q('steps', 0.3), shade: q('shade', tier === 'low' ? 0 : 0.45), sat: q('sat', 1.12), con: q('con', 1.04), vig: q('vig', 0.2) } });
+const composer = finish ?? (direct ? { passes: [], render() { renderer.render(scene, camera); }, setSize() {}, setPixelRatio() {}, dispose() {} } : new EffectComposer(renderer));
+if (legacy) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(SIZE.x, SIZE.y); composer.addPass(new RenderPass(scene, camera)); }
+if (direct) { for (const [size, k] of [[1500, 0.5], [420, 1.1]]) { const g = glow(0, 0, 0, size, [1, 0.72, 0.38], k); g.position.copy(sunDir).multiplyScalar(3600); g.renderOrder = -1; } }
 scene.traverse((o) => { if (o.isSprite && !flats.includes(o)) flats.push(o); });
 let aoPass = null; const AOS = q('aoScale', 0.5);   // the ambient occlusion at half size: it is soft anyway, and it was the dearest part of the picture
-if (q('ao', 1) && !OFF.has('ao')) { const ao = aoPass = new GTAOPass(scene, camera, SIZE.x, SIZE.y), size = ao.setSize.bind(ao); ao.setSize = (w, h) => size(Math.ceil(w * AOS), Math.ceil(h * AOS));
+if (legacy && q('ao', 1) && !OFF.has('ao')) { const ao = aoPass = new GTAOPass(scene, camera, SIZE.x, SIZE.y), size = ao.setSize.bind(ao); ao.setSize = (w, h) => size(Math.ceil(w * AOS), Math.ceil(h * AOS));
   const hide = ao._overrideVisibility.bind(ao), show = ao._restoreVisibility.bind(ao), was = []; ao._overrideVisibility = () => { hide(); was.length = 0; for (const o of flats) { was.push(o.visible); o.visible = false; } }; ao._restoreVisibility = () => { show(); flats.forEach((o, i) => { o.visible = was[i]; }); };
   ao.updateGtaoMaterial({ radius: q('aoR', 0.9), distanceExponent: 1.4, thickness: 1.2, scale: q('aoS', 1.3), samples: q('aoN', 8) }); ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: q('aoN', 8) }); composer.addPass(ao); }
-const bloom = OFF.has('bloom') ? null : new UnrealBloomPass(new THREE.Vector2(SIZE.x, SIZE.y), q('bloom', 0.26), 0.6, q('bloomT', 1.6)); let bloomScale = tier === 'low' ? 0.5 : 1; if (bloom) { const size = bloom.setSize.bind(bloom); bloom.setSize = (w, h) => size(Math.ceil(w * bloomScale), Math.ceil(h * bloomScale)); composer.addPass(bloom); }   // (the glow at half size on the phone)
-composer.addPass(new OutputPass());
+const bloom = OFF.has('bloom') || !legacy ? null : new UnrealBloomPass(new THREE.Vector2(SIZE.x, SIZE.y), q('bloom', 0.26), 0.6, q('bloomT', 1.6)); let bloomScale = tier === 'low' ? 0.5 : 1; if (bloom) { const size = bloom.setSize.bind(bloom); bloom.setSize = (w, h) => size(Math.ceil(w * bloomScale), Math.ceil(h * bloomScale)); composer.addPass(bloom); }   // (the glow at half size on the phone)
+if (legacy) composer.addPass(new OutputPass());
 // the picture's finish: at speed the world streaks the way it really moves past the camera (each point is taken as lying on the ground, which is right for the
 // road and near enough for the rest), the car left sharp (an ellipse round it); then colour and a soft dark edge
 const grade = new ShaderPass({ uniforms: { tDiffuse: { value: null }, uSat: { value: q('sat', 1.12) }, uCon: { value: q('con', 1.04) }, uVig: { value: q('vig', 0.2) }, uBlur: { value: 0 }, uInvVP: { value: new THREE.Matrix4() }, uPrevVP: { value: new THREE.Matrix4() }, uCam: { value: new THREE.Vector3() }, uCarC: { value: new THREE.Vector2(0.5, 0.5) }, uCarR: { value: new THREE.Vector2(0, 0) } },
@@ -339,7 +360,7 @@ const grade = new ShaderPass({ uniforms: { tDiffuse: { value: null }, uSat: { va
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat); c = (c - 0.5) * uCon + 0.5; vec2 e = vUv - 0.5; c *= 1.0 - uVig * dot(e, e) * 1.6; gl_FragColor = vec4(c, 1.0); }` });
 /** The streaks at speed. `strength` 0 switches them off; `car` is what stays sharp (any object: its box on the screen); `shutter` the share of a frame's way that streaks. */
 const motion = { strength: q('blur', 1), shutter: q('shutter', 0.4), car: null, _vp: new THREE.Matrix4(), _prev: null, _box: new THREE.Box3(), _v: new THREE.Vector3(),
-  update(dt, fakeStep) { const u = grade.uniforms; camera.updateMatrixWorld(); this._vp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  update(dt, fakeStep) { if (direct) return; const u = finish ? finish.uniforms : grade.uniforms; camera.updateMatrixWorld(); this._vp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     if (fakeStep) { const back = camera.clone(); back.position.sub(fakeStep); back.updateMatrixWorld(); u.uPrevVP.value.multiplyMatrices(back.projectionMatrix, back.matrixWorldInverse); }   // the still: as if the camera had just come from there
     else if (this._prev) u.uPrevVP.value.copy(this._prev); else u.uPrevVP.value.copy(this._vp);
     (this._prev ??= new THREE.Matrix4()).copy(this._vp); u.uInvVP.value.copy(this._vp).invert(); u.uCam.value.copy(camera.position);
@@ -347,23 +368,32 @@ const motion = { strength: q('blur', 1), shutter: q('shutter', 0.4), car: null, 
     if (this.car) { this._box.setFromObject(this.car); const b = this._box; let x0 = 2, x1 = -2, y0 = 2, y1 = -2; for (let n = 0; n < 8; n++) { this._v.set(n & 1 ? b.max.x : b.min.x, n & 2 ? b.max.y : b.min.y, n & 4 ? b.max.z : b.min.z).project(camera); x0 = Math.min(x0, this._v.x); x1 = Math.max(x1, this._v.x); y0 = Math.min(y0, this._v.y); y1 = Math.max(y1, this._v.y); }
       u.uCarC.value.set((x0 + x1) / 4 + 0.5, (y0 + y1) / 4 + 0.5); u.uCarR.value.set((x1 - x0) / 4 * 1.05, (y1 - y0) / 4 * 1.05); } else u.uCarR.value.set(0, 0); } };
 motion.car = stillCar;
-composer.addPass(grade);
+if (legacy) composer.addPass(grade);
 
 // ---- what the driving page needs
 const circle = (r) => { const pts = []; for (let i = 0; i <= 96; i++) pts.push(onArc(r, i * Math.PI / 48).map((v) => +v.toFixed(2))); return pts; };
 const walls = [circle(R_OUT - 0.32), circle(R_IN + 0.32)], bounds = [[CX - 36, CZ - 36], [CX + 36, CZ - 36], [CX + 36, CZ + 36], [CX - 36, CZ + 36]];
 const sunOffset = sun.position.clone().sub(sun.target.position);
-const api = { scene, root: scene, camera, composer, sun, sunOffset, yaw: 0, toWorld: (x, y, z) => new THREE.Vector3(x, y, z), still: still ? { car } : null, motion, walls, bounds, cones: [], coneSpots: [], flats, smoke, flames, exhaustOf, dressCar, loadModel: (path) => loader.loadAsync(path),   // (`loadModel`: a model file read the way the app's content policy allows)
+let lowNow = tier === 'low', frameNo = 0; const adapt = { on: !still && q('adapt', 1) > 0, base: renderer.getPixelRatio(), k: 1, best: 1, min: q('adaptMin', 0.6), t: 0, n: 0, wait: 3, tried: null };
+const gpuName = (() => { try { const gl = renderer.getContext(), e = gl.getExtension('WEBGL_debug_renderer_info'); return String(e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)).replace(/^ANGLE \(|\)$/g, '').slice(0, 60); } catch { return '?'; } })();
+const api = { scene, root: scene, adapt,
+  /** One line for a page to show: the tier, the picture's size in pixels, how far the resolution was taken back, the graphics chip. */
+  perf() { const c = renderer.domElement; return `${lowNow ? 'low' : 'high'} · ${c.width}x${c.height} · ${Math.round(adapt.k * 100)} % · ${gpuName}`; }, camera, composer, sun, sunOffset, yaw: 0, toWorld: (x, y, z) => new THREE.Vector3(x, y, z), still: still ? { car } : null, motion, walls, bounds, cones: [], coneSpots: [], flats, smoke, flames, exhaustOf, dressCar, loadModel: (path) => loader.loadAsync(path),   // (`loadModel`: a model file read the way the app's content policy allows)
   /** The ring: its middle, the walls' radii, the line a car slides on, and where the still's car stands (start there, heading along the ring). */
   ring: { cx: CX, cz: CZ, inner: R_IN, outer: R_OUT, line: 26.6, start: { x: carAt.x, z: carAt.z, yaw: Math.PI - CAR_T } },   // (`yaw` as three.js turns a model whose nose is +z: here along the ring, clockwise seen from above, a right-hand bend)
   /** how deep the puddle is at a point (0 dry .. 1 water): the asphalt shader's own noise */
   puddleAt: (x, z) => hollowAt(x, z, q('wet0', 0.6), q('wet1', 0.74)),
   /** Once a frame before the render (after the page has placed the camera): the time of everything that moves, the smoke's lumps, the streaks at speed. */
-  tick(dt) { time.value += dt; smoke.update(dt); flames.update(dt); motion.update(dt, stillStep); },
+  tick(dt) { time.value += dt; smoke.update(dt); flames.update(dt); motion.update(dt, stillStep);
+    if (lowNow) { sun.shadow.autoUpdate = false; sun.shadow.needsUpdate = (frameNo++ % 2) === 0; }   // the phone draws the shadows every second picture (they and their matrix stay together, nothing swims)
+    if (adapt.on) { adapt.t += dt; adapt.wait -= dt; if (++adapt.n >= 30) { const avg = adapt.t / adapt.n; adapt.t = 0; adapt.n = 0; let k = adapt.k;   // the picture's resolution follows the frame rate: down fast when pictures are late, up again slowly
+        if (adapt.tried !== null) { if (avg > adapt.tried * 0.94) { adapt.min = Math.min(1, adapt.k + 0.1); k = adapt.min; } adapt.tried = null; }   // the last step down bought nothing (the processor is the limit, not the picture's size): take it back and go no lower
+        else if (avg > 1 / 48 && k > adapt.min) { adapt.tried = avg; k = Math.max(adapt.min, k - 0.1); adapt.wait = adapt.k > adapt.best ? 30 : 5; adapt.best = Math.min(adapt.best, k); } else if (avg < 1 / 57 && k < 1 && adapt.wait <= 0) { k = Math.min(1, k + 0.05); adapt.wait = 3; }
+        if (k !== adapt.k) { adapt.k = k; renderer.setPixelRatio(adapt.base * k); composer.setPixelRatio(renderer.getPixelRatio()); const sz = renderer.getSize(new THREE.Vector2()); composer.setSize(sz.x, sz.y); } } } },
   resize(w, h) { renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); },
   /** 'high' or 'low' (the phone): low has no ambient occlusion, a smaller shadow map, the glow at half size, a pixel ratio of at most 1.5, four people in ten (and, fixed when the scene is built: shorter streaks, plainer smoke, ribbed boxes for all containers, no head-lamp beam). */
-  async setTier(name) { const low = name === 'low'; if (aoPass) aoPass.enabled = !low; bloomScale = low ? 0.5 : 1;
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1.5 : 2)); composer.setPixelRatio(renderer.getPixelRatio()); const s = renderer.getSize(new THREE.Vector2()); composer.setSize(s.x, s.y);
+  async setTier(name) { const low = name === 'low'; if (aoPass) aoPass.enabled = !low; bloomScale = low ? 0.5 : 1; lowNow = low; if (!low) sun.shadow.autoUpdate = true;
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1.5 : 2)); composer.setPixelRatio(renderer.getPixelRatio()); const s = renderer.getSize(new THREE.Vector2()); composer.setSize(s.x, s.y); adapt.base = renderer.getPixelRatio(); adapt.k = 1; adapt.best = 1;
     sun.shadow.mapSize.set(low ? 1024 : 2048, low ? 1024 : 2048); sun.shadow.map?.dispose(); sun.shadow.map = null;
     for (const m of crowdMeshes) { m.userData.full ??= m.count; m.count = low ? Math.ceil(m.userData.full * 0.4) : m.userData.full; }
     smoke.core.castShadow = !low; return api; },

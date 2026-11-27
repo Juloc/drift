@@ -93,11 +93,14 @@ function audio(s, d, dt) {
 }
 const hooks = {
   onUnlock: startAudio, audio,
+  rows: () => [['fps', `${fpsNow} · ${h.perf()}`]],   // how it runs here: pictures a second, the tier, the picture's size, the resolution's share, the graphics chip
+
   driver,
   beforeStep(s, wheelPts, muW) { for (let i = 0; i < 4; i++) { muW[i] = h.puddleAt(-wheelPts[i][0], wheelPts[i][1]) > 0.5 ? PUDDLE_MU : 1; if (muW[i] < minMu[i]) minMu[i] = muW[i]; } },
   fixed(s, steps) { if (steps % 2 === 0) marksAndSmoke(s, steps); const r = Math.hypot(-s.x - h.ring.cx, s.z - h.ring.cz); ring.min = Math.min(ring.min, r); ring.max = Math.max(ring.max, r); },
   onReset() { h.smoke.clear(); skids.clear(); h.motion._prev = null; },   // (a cut: the streaks start again)
 };
+let fpsNow = 0, fpsCount = 0, fpsSince = performance.now();
 const drive = createDrive({ params, t, camera, rig: car, wheelLocal: car.wheelLocal, spawn: () => ({ x: -start.x, z: start.z, h: -start.yaw }), env: ENV, map, groundAt: () => 0, lookCamera: { dist: 5.6, height: 1.2, side: 0, look: 14, lookY: 0.5, travel: 0.6, fov: 52, turn: 8, swing: 3, turnDrift: -24 }, soundId: 1, oldSound: false, hooks });
 $('simhint').textContent = t('hint');
 
@@ -114,6 +117,7 @@ function frame(now) {
   sunAt.set(X(d.x), 0, d.z); sun.target.position.copy(sunAt); sun.position.copy(sunAt).add(h.sunOffset);   // the sun's shadow box follows the car
   if (innerWidth !== frame.w || innerHeight !== frame.h) { frame.w = innerWidth; frame.h = innerHeight; h.resize(innerWidth, innerHeight); }
   renderer.info.reset(); h.composer.render();   // (one picture is several renders: the passes are counted together)
+  { const now = performance.now(); fpsCount++; if (now - fpsSince > 500) { fpsNow = Math.round(fpsCount * 1000 / (now - fpsSince)); fpsCount = 0; fpsSince = now; } }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
