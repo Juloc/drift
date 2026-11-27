@@ -97,12 +97,15 @@ const seaMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(params.ge
 seaMat.onBeforeCompile = (sh) => { sh.uniforms.uTime = time;   // small waves that move: the sun's path on the water glitters
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWp = (modelMatrix * vec4(position, 1.0)).xyz;');
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp; uniform float uTime;')
-    .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n{ vec2 p = vWp.xz * 0.3; float t = uTime * 0.9; vec3 w = vec3(sin(p.x * 1.3 + t) + sin(p.y * 2.1 - t * 1.3) * 0.7 + sin((p.x + p.y) * 3.7 + t * 1.7) * 0.4, 0.0, cos(p.y * 1.7 + t * 1.1) + cos(p.x * 2.9 - t) * 0.6 + cos((p.x - p.y) * 4.3 + t * 2.1) * 0.4); normal = normalize(normal + (viewMatrix * vec4(w.x, 0.0, w.z, 0.0)).xyz * 0.085); }'); };
+    .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n{ vec2 p = vWp.xz * 0.9; float t = uTime * 1.1; vec3 w = vec3(sin(p.x * 1.3 + t) + sin(p.y * 2.1 - t * 1.3) * 0.7 + sin((p.x + p.y) * 3.7 + t * 1.7) * 0.4, 0.0, cos(p.y * 1.7 + t * 1.1) + cos(p.x * 2.9 - t) * 0.6 + cos((p.x - p.y) * 4.3 + t * 2.1) * 0.4); normal = normalize(normal + (viewMatrix * vec4(w.x, 0.0, w.z, 0.0)).xyz * 0.085); }'); };
 const sea = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000).rotateX(-Math.PI / 2), seaMat); sea.position.set(0, -1.6, -1500); scene.add(sea);
 
 // ---- helpers: each file once; a part of a model as geometry standing on the ground; copies as instances
 const loader = new GLTFLoader(), files = new Map();
 const file = (name) => { if (!files.has(name)) files.set(name, loader.loadAsync(`assets/${name}`)); return files.get(name); };
+/** Files in the older "specular-glossiness" material format come out without their colour picture: fetch it from the file's own description. */
+async function oldMaterials(gltf) { const defs = gltf.parser.json.materials ?? []; for (const [obj, ref] of gltf.parser.associations) { const ext = obj.isMaterial && ref.materials !== undefined ? defs[ref.materials]?.extensions?.KHR_materials_pbrSpecularGlossiness : null; if (!ext) continue;
+    if (ext.diffuseTexture) { obj.map = await gltf.parser.getDependency('texture', ext.diffuseTexture.index); obj.map.colorSpace = THREE.SRGBColorSpace; } if (ext.diffuseFactor) obj.color.setRGB(ext.diffuseFactor[0], ext.diffuseFactor[1], ext.diffuseFactor[2]); obj.metalness = 0; obj.roughness = 1 - (ext.glossinessFactor ?? 0.3); obj.needsUpdate = true; } return gltf; }
 const meshesOf = (root) => { const out = []; root.updateMatrixWorld(true); root.traverse((o) => { if (o.isMesh) out.push(o); }); return out; };
 const sizeOf = (g) => { g.computeBoundingBox(); return g.boundingBox.getSize(new THREE.Vector3()); };
 /** A mesh's geometry in the world's axes, centred, standing on y = 0, `height` metres high. */
@@ -112,6 +115,11 @@ function instances(geo, mat, spots, { shadow = true, parent = scene, colors = nu
   spots.forEach(([x, z, ry = 0, sc = 1, y = 0], i) => { mesh.setMatrixAt(i, m.compose(p.set(x, y, z), qt.setFromAxisAngle(up, ry), s.set(sc, sc, sc))); if (colors) mesh.setColorAt(i, colors[i]); });
   mesh.instanceMatrix.needsUpdate = true; mesh.castShadow = shadow; mesh.receiveShadow = true; mesh.computeBoundingSphere(); parent.add(mesh); return mesh;
 }
+/** A whole model file as parts (one per mesh) in one common measure: centred, standing on y = 0, `size` metres along `dim` (0 x, 1 y, 2 z, or 'long' for the longer of x and z). */
+function modelParts(gltf, dim, size) { const ms = meshesOf(gltf.scene), box = new THREE.Box3(), geos = ms.map((o) => { const g = o.geometry.clone().applyMatrix4(o.matrixWorld); g.computeBoundingBox(); box.union(g.boundingBox); return g; });
+  const c = box.getCenter(new THREE.Vector3()), ext = box.getSize(new THREE.Vector3()), d = dim === 'long' ? (ext.x >= ext.z ? 0 : 2) : dim, k = size / ext.getComponent(d);
+  const out = ms.map((o, i) => ({ geo: geos[i].translate(-c.x, -box.min.y, -c.z).scale(k, k, k), mat: o.material })); out.size = ext.multiplyScalar(k); return out; }
+const placeParts = (ps, spots, opts) => ps.map((pt) => instances(pt.geo, pt.mat, spots, opts));
 const flat = (c, rough = 0.8, extra = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: rough, envMapIntensity: 0.5, ...extra });
 /** A slim box from a to b: the beams of cranes and rails. */
 const beamO = new THREE.Object3D();
@@ -152,15 +160,23 @@ function crowd(spots, parent = scene) { if (OFF.has('crowd')) return; const by =
   by.forEach((list, i) => list.length && crowdMeshes.push(instances(people.geos[i], people.mat, list.map(([x, z, ry, y = 0]) => [x, z, ry + CROWD_YAW + (rnd() - 0.5) * 0.7, 1.62 + rnd() * 0.22, y]), { parent, colors: list.map(() => new THREE.Color().setHSL(rnd(), 0.3, 0.7 + rnd() * 0.25).multiplyScalar(1.35)), shadow: false }))); }   // (no shadows of the people: they stand under a roof and behind a wall, and they are most of the scene's triangles)
 
 // ---- the stand outside the bend: steps full of people under a flat roof with lamps, a rail, banners in front
-{ const T = q('standT', 0.45), W = 34, stand = new THREE.Group(), grey = flat('#857f8e', 0.85), dark = flat('#3f3a4c', 0.6, { metalness: 0.3 }), roofM = flat('#8b8296', 0.7);
-  const rb = (w, h, d, r = 0.06) => { const s = new THREE.Shape(); s.moveTo(-w / 2 + r, 0); s.lineTo(w / 2 - r, 0); s.quadraticCurveTo(w / 2, 0, w / 2, r); s.lineTo(w / 2, h - r); s.quadraticCurveTo(w / 2, h, w / 2 - r, h); s.lineTo(-w / 2 + r, h); s.quadraticCurveTo(-w / 2, h, -w / 2, h - r); s.lineTo(-w / 2, r); s.quadraticCurveTo(-w / 2, 0, -w / 2 + r, 0); return new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03, bevelSegments: 2 }); };
+{ // a grandstand model, three of it side by side (seats, stairs, rails), a person at most of its seats, a slim roof with lamps over it
+  const T = q('standT', 0.45), MODW = q('standModW', 14), stand = new THREE.Group(), dark = flat('#3f3a4c', 0.6, { metalness: 0.3 }), roofM = flat('#8b8296', 0.7);
+  const sg = await file('skfb/stand.glb'), sm = meshesOf(sg.scene), sbox = new THREE.Box3(), sgeo = sm.map((o) => { const g = o.geometry.clone().applyMatrix4(o.matrixWorld); for (const a of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(a)) g.deleteAttribute(a); g.computeBoundingBox(); sbox.union(g.boundingBox); return g; });
+  const ext = sbox.getSize(new THREE.Vector3()), cen = sbox.getCenter(new THREE.Vector3()), alongZ = ext.z > ext.x, k = MODW / Math.max(ext.x, ext.z), isSeat = (o) => /seat|lambert/i.test(o.material.name);
+  for (const g of sgeo) { g.translate(-cen.x, -sbox.min.y, -cen.z).scale(k, k, k); if (alongZ) g.rotateY(Math.PI / 2); g.computeBoundingBox(); }   // the width along x
+  { let lo = 0, hi = 0, nl = 0, nh = 0; sm.forEach((o, n) => { if (!isSeat(o)) return; const c = sgeo[n].boundingBox.getCenter(new THREE.Vector3()); if (c.z < 0) { lo += c.y; nl++; } else { hi += c.y; nh++; } }); if (lo / Math.max(1, nl) > hi / Math.max(1, nh)) for (const g of sgeo) { g.rotateY(Math.PI); g.computeBoundingBox(); } }   // the low rows to the front (-z)
+  const SD = (alongZ ? ext.x : ext.z) * k, SH = ext.y * k, MODS = q('standMods', 3), W = MODW * MODS, byMat = new Map(); sm.forEach((o, n) => { if (!byMat.has(o.material)) byMat.set(o.material, []); byMat.get(o.material).push(sgeo[n]); });
+  const modSpots = Array.from({ length: MODS }, (_, n) => [(n - (MODS - 1) / 2) * MODW, SD / 2]);
+  for (const [mat, geos] of byMat) { const m = mat.clone(); m.envMapIntensity = 0.4; instances(mergeGeometries(geos.map((g) => (g.index ? g.toNonIndexed() : g))), m, modSpots, { parent: stand }); }
+  const rb = (w, h, d, r = 0.06) => { const sh2 = new THREE.Shape(); sh2.moveTo(-w / 2 + r, 0); sh2.lineTo(w / 2 - r, 0); sh2.quadraticCurveTo(w / 2, 0, w / 2, r); sh2.lineTo(w / 2, h - r); sh2.quadraticCurveTo(w / 2, h, w / 2 - r, h); sh2.lineTo(-w / 2 + r, h); sh2.quadraticCurveTo(-w / 2, h, -w / 2, h - r); sh2.lineTo(-w / 2, r); sh2.quadraticCurveTo(-w / 2, 0, -w / 2 + r, 0); return new THREE.ExtrudeGeometry(sh2, { depth: d, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03, bevelSegments: 2 }); };
   const add = (geo, mat, x, y, z, shadow = true) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = shadow; m.receiveShadow = true; stand.add(m); return m; };
-  for (let k = 0; k < 7; k++) add(rb(W, 0.5 + k * 0.5, 1.0), grey, 0, 0, k);
-  add(rb(W + 2.4, 0.3, 10), roofM, 0, 7.1, -2.2).rotation.x = -0.05; add(rb(W + 2.4, 0.5, 0.3), flat('#ec3f86', 0.6), 0, 6.75, -2.5);
-  for (let x = -W / 2; x <= W / 2 + 0.1; x += W / 5) { add(new THREE.CylinderGeometry(0.15, 0.18, 7.4, 12), dark, x, 3.7, 7.2); add(new THREE.CylinderGeometry(0.09, 0.09, 7.3, 10), dark, x, 3.6, -1.2); }
-  for (let x = -W / 2 + 3.4; x < W / 2; x += 6.8) { add(new THREE.BoxGeometry(1.8, 0.1, 0.6), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.8, 0.5).multiplyScalar(q('roofLamp', 3)) }), x, 7.0, 2.2, false); const l = new THREE.PointLight(shown(1, 0.8, 0.55, 1), 9, 14, 1.6); l.position.set(x, 6.4, 2.2); stand.add(l); }
-  const railG = [beam([-W / 2, 1.15, -0.5], [W / 2, 1.15, -0.5], 0.06), beam([-W / 2, 0.6, -0.5], [W / 2, 0.6, -0.5], 0.04)]; for (let x = -W / 2; x <= W / 2; x += 1.9) railG.push(beam([x, 0, -0.5], [x, 1.15, -0.5], 0.05)); add(mergeGeometries(railG), dark, 0, 0, 0);
-  const seats = []; for (let k = 0; k < 7; k++) for (let x = -W / 2 + 0.5; x < W / 2 - 0.4; x += 0.6) if (rnd() < 0.88) seats.push([x + (rnd() - 0.5) * 0.15, k + 0.45 + rnd() * 0.2, 0, 0.5 + k * 0.5]);
+  const RY = SH + q('roofUp', 2.3);
+  add(rb(W + 2.4, 0.3, SD + 3.6), roofM, 0, RY, -2.4).rotation.x = -0.05; add(rb(W + 2.4, 0.5, 0.3), flat('#ec3f86', 0.6), 0, RY - 0.35, -2.7);
+  for (let x = -W / 2; x <= W / 2 + 0.1; x += W / 6) { add(new THREE.CylinderGeometry(0.15, 0.18, RY + 0.3, 12), dark, x, (RY + 0.3) / 2, SD + 0.5); add(new THREE.CylinderGeometry(0.09, 0.09, RY + 0.2, 10), dark, x, (RY + 0.2) / 2, -1.4); }
+  for (let x = -W / 2 + 3.5; x < W / 2; x += 7) { add(new THREE.BoxGeometry(1.8, 0.1, 0.6), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.8, 0.5).multiplyScalar(q('roofLamp', 3)) }), x, RY - 0.1, SD * 0.4, false); const l = new THREE.PointLight(shown(1, 0.8, 0.55, 1), 9, 14, 1.6); l.position.set(x, RY - 0.7, SD * 0.4); stand.add(l); }
+  const seats = []; for (const [mx, mz] of modSpots) sm.forEach((o, n) => { if (!isSeat(o) || rnd() > q('seatsFull', 0.82)) return; const b = sgeo[n].boundingBox; seats.push([mx + (b.min.x + b.max.x) / 2, mz + (b.min.z + b.max.z) / 2 - 0.1, 0, b.min.y - q('seatDrop', 0.3)]); });
+  window.__stand = { SD: +SD.toFixed(2), SH: +SH.toFixed(2), seats: seats.length, mats: [...byMat.keys()].map((m) => m.name) };
   crowd(seats, stand);
   const [sx, sz] = onArc(q('standR', 44), T); stand.position.set(sx, 0, sz); stand.rotation.y = facing(T); scene.add(stand);
   // feather banners between the fence and the stand: they wave
@@ -189,9 +205,21 @@ function frondCrown(seed) { let s0 = seed; const R = () => { s0 = (s0 * 16807) %
   const nut = new THREE.SphereGeometry(0.17, 8, 6).toNonIndexed(), nuts = []; for (let i = 0; i < 6; i++) { const a = i * 1.05, n = nut.clone().translate(Math.cos(a) * 0.28, -0.3 - (i % 2) * 0.12, Math.sin(a) * 0.28), cc = new Float32Array(n.attributes.position.count * 3); for (let j = 0; j < cc.length; j += 3) { cc[j] = 0.2; cc[j + 1] = 0.11; cc[j + 2] = 0.04; } n.setAttribute('color', new THREE.BufferAttribute(cc, 3)); n.deleteAttribute('uv'); nuts.push(n); }
   return mergeGeometries([g, ...nuts]); }
 // ---- palms (the set's straightest two, their trunks drawn out so they stand tall): a row behind the outside fence, more behind the stand and on the pier; they sway
-{ const g = await file('skfb/palm-set.glb'), groups = new Map(); for (const o of meshesOf(g.scene)) { const key = o.parent.name; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(o); }
-  const sway = (src, top, crown) => { const m = src.clone(); m.envMapIntensity = 0.25; m.roughness = 0.9; m.metalness = 0; m.roughnessMap = null; m.metalnessMap = null; m.side = THREE.DoubleSide; if (crown && !m.vertexColors) m.color.multiply(new THREE.Color(1.0, 0.86, 0.6));
+{ const sway = (src, top, crown) => { const m = src.clone(); m.envMapIntensity = 0.25; m.roughness = 0.9; m.metalness = 0; m.roughnessMap = null; m.metalnessMap = null; m.side = THREE.DoubleSide; if (crown && !m.vertexColors) m.color.multiply(new THREE.Color(1.0, 0.86, 0.6));
     m.onBeforeCompile = (sh) => { sh.uniforms.uTime = time; sh.uniforms.uTop = { value: top }; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime; uniform vec3 uTop;').replace('#include <begin_vertex>', `#include <begin_vertex>\n{ float hh = max(transformed.y, 0.0) / 12.0; float ph = instanceMatrix[3][0] * 0.3 + instanceMatrix[3][2] * 0.2;${crown ? ' float tip = length(transformed.xz - uTop.xz); transformed.y += sin(uTime * 2.6 + ph + tip * 1.3) * 0.07 * tip;' : ''} transformed.x += sin(uTime * 1.1 + ph) * 0.35 * hh * hh; transformed.z += cos(uTime * 0.8 + ph) * 0.25 * hh * hh; }`); }; return m; };
+  const spots = [[...onArc(35.6, 0.12), 13.5], [...onArc(36.4, -0.12), 12.5]];
+  for (const t of [0.62, 0.86, 1.06, 1.24, 1.4, 1.56]) spots.push([...onArc(35.3 + rnd() * 1.2, t + (rnd() - 0.5) * 0.04), 8.5 + rnd() * 3]);
+  for (let i = 0; i < 4; i++) spots.push([...onArc(54 + rnd() * 6, -0.05 + i * 0.22 + rnd() * 0.05), 12 + rnd() * 4]);
+  for (let z = -52; z > -230; z -= 13 + rnd() * 10) spots.push([-5 - rnd() * 3, z, 10 + rnd() * 4]);
+  for (let t = 1.9; t < 5.9; t += 0.34) spots.push([...onArc(36 + (t * 7 % 1) * 1.5, t), 9.5 + (t * 13 % 1) * 3.5]);   // and on round the rest of the ring
+  if (q('palmPack', 1)) {   // three tall palms from a pack (trunk, fronds as cards, root), each brought to 12 m in its own measure; the fronds a fresher green, and the low sun shines through them
+    const g = await file('skfb/palm-pack.glb'), groups = new Map(); for (const o of meshesOf(g.scene)) { const key = o.parent.name; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(o); }
+    const kinds = [...groups.values()].map((ms) => { const geos = ms.map((o) => o.geometry.clone().applyMatrix4(o.matrixWorld)), box = new THREE.Box3(); for (const gg of geos) { gg.computeBoundingBox(); box.union(gg.boundingBox); }
+      const bi = Math.max(0, ms.findIndex((o) => /Base/i.test(o.name))), fi = ms.findIndex((o) => /Frond/i.test(o.name)), bc = geos[bi].boundingBox.getCenter(new THREE.Vector3()), fc = geos[Math.max(0, fi)].boundingBox.getCenter(new THREE.Vector3()), k = 12 / (box.max.y - box.min.y);
+      const top = new THREE.Vector3((fc.x - bc.x) * k, (fc.y - box.min.y) * k, (fc.z - bc.z) * k);
+      return ms.map((o, n) => { const m = sway(o.material, top, n === fi); if (n === fi) { m.transparent = false; m.alphaTest = q('frondCut', 0.35); m.depthWrite = true; m.color.setRGB(1.25, 1.6, 0.85); m.emissive = new THREE.Color(0.55, 0.75, 0.18); m.emissiveMap = m.map; m.emissiveIntensity = q('frondGlow', 0.55); } else m.color.multiplyScalar(1.5); return { geo: geos[n].translate(-bc.x, -box.min.y, -bc.z).scale(k, k, k), mat: m }; }); });
+    if (!OFF.has('palms')) kinds.forEach((parts, n) => { const mine = spots.filter((_, k2) => k2 % kinds.length === n).map(([x, z, h]) => [x, z, rnd() * 6.28, h / 12]); for (const pt of parts) instances(pt.geo, pt.mat, mine); });
+  } else { const g = await file('skfb/palm-set.glb'), groups = new Map(); for (const o of meshesOf(g.scene)) { const key = o.parent.name; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(o); }
   const kinds = ['PalmTreeSet_LP020', 'PalmTreeSet_LP024'].map((name, n) => { const ms = groups.get(name) ?? [...groups.values()][n], trunkM = ms.find((o) => /Palm\.001/.test(o.name)) ?? ms[0], crownM = ms.find((o) => /Plam\.002/.test(o.name)) ?? ms[1], K = n ? 1.6 : 1.45;
     const trunk = trunkM.geometry.clone().applyMatrix4(trunkM.matrixWorld), crown = crownM.geometry.clone().applyMatrix4(crownM.matrixWorld); trunk.computeBoundingBox(); const b = trunk.boundingBox, p = trunk.attributes.position; let bx = 0, bz = 0, bn = 0, tx = 0, tz = 0, tn = 0;
     for (let i = 0; i < p.count; i++) { if (p.getY(i) < b.min.y + 0.4) { bx += p.getX(i); bz += p.getZ(i); bn++; } if (p.getY(i) > b.max.y - 0.4) { tx += p.getX(i); tz += p.getZ(i); tn++; } }
@@ -201,54 +229,31 @@ function frondCrown(seed) { let s0 = seed; const R = () => { s0 = (s0 * 16807) %
     const U = 12 / (H * K); trunk.scale(U, U, U); crown.scale(U, U, U);   // every palm 12 m high in its own measure, so the sway is in metres
     const top = new THREE.Vector3(lx * keep * U, 12, lz * keep * U), own = q('ownCrown', 1) ? frondCrown(31 + n * 17).translate(top.x, top.y - 0.25, top.z) : null;
     return { trunk, crown: own ?? crown, tm: sway(trunkM.material, top, false), cm: sway(own ? frondMat : crownM.material, top, true), H: 12 }; });
-  const spots = [[...onArc(35.6, 0.12), 13.5], [...onArc(36.4, -0.12), 12.5]];
-  for (const t of [0.62, 0.86, 1.06, 1.24, 1.4, 1.56]) spots.push([...onArc(35.3 + rnd() * 1.2, t + (rnd() - 0.5) * 0.04), 8.5 + rnd() * 3]);
-  for (let i = 0; i < 4; i++) spots.push([...onArc(54 + rnd() * 6, -0.05 + i * 0.22 + rnd() * 0.05), 12 + rnd() * 4]);
-  for (let z = -52; z > -230; z -= 13 + rnd() * 10) spots.push([-5 - rnd() * 3, z, 10 + rnd() * 4]);
-  for (let t = 1.9; t < 5.9; t += 0.34) spots.push([...onArc(36 + (t * 7 % 1) * 1.5, t), 9.5 + (t * 13 % 1) * 3.5]);   // and on round the rest of the ring
   if (!OFF.has('palms')) kinds.forEach((kd, n) => { const mine = spots.filter((_, i) => (i % 3 === 2 ? 1 : 0) === n).map(([x, z, h]) => [x, z, rnd() * 6.28, h / kd.H]); instances(kd.trunk, kd.tm, mine); instances(kd.crown, kd.cm, mine); }); }
+}
 
 // ---- the harbour: containers on the pier, cranes and a ship across the basin, a lighthouse on its rock, a sail
 const rib = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 8; const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 16, 0); gr.addColorStop(0, '#8a8a8a'); gr.addColorStop(0.5, '#ffffff'); gr.addColorStop(1, '#8a8a8a'); x.fillStyle = gr; for (let i = 0; i < 4; i++) { x.save(); x.translate(i * 16, 0); x.fillRect(0, 0, 16, 8); x.restore(); } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 1); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 const boxCols = ['#c9564a', '#4f79a8', '#dcb25a', '#5b9a8c', '#c35f84', '#e9e1d8', '#7a62a8', '#d9773f'], boxGeo = new THREE.BoxGeometry(12.2, 2.6, 2.44), boxMats = boxCols.map((c) => new THREE.MeshStandardMaterial({ color: c, map: rib, roughness: 0.7, envMapIntensity: 0.4 }));
-function containers(stacks, parent = scene) { const by = boxCols.map(() => []); for (const [x, z, ry, h, y0 = 0] of stacks) for (let k = 0; k < h; k++) by[Math.floor(rnd() * by.length)].push([x, z, ry + (rnd() - 0.5) * 0.02, 1, y0 + 1.3 + k * 2.62]); by.forEach((l, i) => l.length && instances(boxGeo, boxMats[i], l, { parent })); }
+const boxModel = await (async () => { const ps = modelParts(await file('skfb/container.glb'), 'long', 12.2), g = ps[0].geo; if (ps.size.z > ps.size.x) g.rotateY(Math.PI / 2); const m = ps[0].mat.clone(); m.envMapIntensity = 0.4; m.color.set('#ffffff'); return { geo: g, mat: m, h: ps.size.y }; })();
+function containers(stacks, parent = scene, near = false) { if (near) { const spots = [], cols = []; for (const [x, z, ry, h, y0 = 0] of stacks) for (let k2 = 0; k2 < h; k2++) { spots.push([x, z, ry + (rnd() - 0.5) * 0.02 + (rnd() < 0.5 ? Math.PI : 0), 1, y0 + k2 * (boxModel.h + 0.02)]); cols.push(new THREE.Color(boxCols[Math.floor(rnd() * boxCols.length)]).multiplyScalar(1.5)); } instances(boxModel.geo, boxModel.mat, spots, { parent, colors: cols }); return; }
+  const by = boxCols.map(() => []); for (const [x, z, ry, h, y0 = 0] of stacks) for (let k = 0; k < h; k++) by[Math.floor(rnd() * by.length)].push([x, z, ry + (rnd() - 0.5) * 0.02, 1, y0 + 1.3 + k * 2.62]); by.forEach((l, i) => l.length && instances(boxGeo, boxMats[i], l, { parent })); }
 { const stacks = []; for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) stacks.push([-52 + i * 12.7, -58 - r * 2.7, 0, r === 0 ? 2 + Math.floor(rnd() * 2) : 3 + Math.floor(rnd() * 2)]);
-  for (let z = -95; z > -280; z -= 16) for (let c = 0; c < 2; c++) if (rnd() < 0.8) stacks.push([-22 - c * 3 - rnd(), z, Math.PI / 2, 1 + Math.floor(rnd() * 4)]); containers(stacks); }
+  for (let z = -95; z > -280; z -= 16) for (let c = 0; c < 2; c++) if (rnd() < 0.8) stacks.push([-22 - c * 3 - rnd(), z, Math.PI / 2, 1 + Math.floor(rnd() * 4)]); containers(stacks.filter((st) => st[1] > -150), scene, true); containers(stacks.filter((st) => st[1] <= -150)); }
 const FQX = q('fqx', 8), farQuay = new THREE.Mesh(new THREE.BoxGeometry(104, 3, 30), flat('#a39aa4', 0.9)); farQuay.position.set(FQX, -0.6, -265); scene.add(farQuay);
-{ // a ship-to-shore crane from slim beams: legs, a portal, a lattice boom over the water, the mast with its stays
-  const crane = (raised) => { const g = [], B = (a, b, th = 0.7) => g.push(beam(a, b, th));
-    for (const x of [-9, 9]) { for (const z of [-8, 8]) B([x, 0, z], [x, 27, z], 1.0); B([x, 1, -8], [x, 1, 8], 0.9); B([x, 14, -8], [x, 14, 8], 0.8); B([x, 27, -8], [x, 27, 8], 0.9); B([x, 1, -8], [x, 14, 8], 0.45); B([x, 14, -8], [x, 27, 8], 0.45); B([x, 14, 8], [x, 27, -8], 0.45); }
-    for (const z of [-8, 8]) { B([-9, 14, z], [9, 14, z], 0.8); B([-9, 27, z], [9, 27, z], 0.9); B([-9, 14, z], [9, 27, z], 0.4); B([9, 14, z], [-9, 27, z], 0.4); }
-    const hinge = 10, tilt = raised ? 1.25 : 0, P = (x, y, z) => { if (z <= hinge) return [x, y, z]; const dz = z - hinge, dy = y - 27; return [x, 27 + dz * Math.sin(tilt) + dy * Math.cos(tilt), hinge + dz * Math.cos(tilt) - dy * Math.sin(tilt)]; };
-    const cuts = [-18, -14, -10, -6, -2, 2, 6, 10, 14, 18, 22, 26, 30, 34, 38, 42];
-    for (const x of [-3, 3]) for (let i = 0; i < cuts.length - 1; i++) { const z = cuts[i] + (cuts[i] === hinge ? 0.01 : 0), z2 = cuts[i + 1]; B(P(x, 27, z), P(x, 27, z2), 0.6); B(P(x, 29.6, z), P(x, 29.6, z2), 0.5); B(P(x, 27, z), P(x, 29.6, z2), 0.3); B(P(x, 27, z2), P(x, 29.6, z2), 0.3); }
-    for (let i = 0; i < cuts.length; i += 2) B(P(-3, 27, cuts[i] + 0.01), P(3, 27, cuts[i] + 0.01), 0.4);
-    const top = [0, 45, 6]; for (const x of [-3, 3]) { B([x, 27, 8], top, 0.6); B([x, 27, -8], top, 0.6); B(top, P(x, 29.6, 26), 0.22); B(top, P(x, 29.6, 42), 0.22); B(top, [x, 29.6, -17], 0.22); }
-    g.push(new THREE.BoxGeometry(8, 4.2, 11).translate(0, 31.8, -11), new THREE.BoxGeometry(3, 2.6, 3.4).translate(0, 25.4, raised ? 4 : 22));
-    return mergeGeometries(g.map((x) => x.toNonIndexed())); };
-  const red = flat('#cf4a66', 0.7);
-  instances(crane(false), red, [[FQX - 36, -253, 0, 1], [FQX - 6, -253, 0, 1.08], [FQX + 42, -253, 0, 0.95]]); instances(crane(true), red, [[FQX + 20, -253, 0, 1]]);
+{ // ship-to-shore cranes on the far quay (one model, four times), their booms out over the water
+  const cr = modelParts(await file('skfb/crane.glb'), 1, q('craneH', 46)), turn = (cr.size.x > cr.size.z ? Math.PI / 2 : 0) + q('craneTurn', 0); for (const pt of cr) { pt.mat = pt.mat.clone(); pt.mat.envMapIntensity = 0.4; }
+  placeParts(cr, [[FQX - 36, -253, turn, 1], [FQX - 6, -253, turn, 1.08], [FQX + 20, -253, turn, 1], [FQX + 42, -253, turn, 0.95]]);
   containers([-44, -30, -18, 2, 14, 34, 44].map((dx) => [FQX + dx, -270, 0, 1 + Math.floor(rnd() * 4), 0.9])); }
-{ // the ship, lying side on in front of the far quay
-  const ship = new THREE.Group(), L = 96, Bm = 14, s = new THREE.Shape(); s.moveTo(-L / 2 + 3, -Bm / 2); s.lineTo(L / 2 - 20, -Bm / 2); s.quadraticCurveTo(L / 2 - 6, -Bm / 2, L / 2, 0); s.quadraticCurveTo(L / 2 - 6, Bm / 2, L / 2 - 20, Bm / 2); s.lineTo(-L / 2 + 3, Bm / 2); s.quadraticCurveTo(-L / 2, Bm / 2, -L / 2, Bm / 2 - 3); s.lineTo(-L / 2, -Bm / 2 + 3); s.quadraticCurveTo(-L / 2, -Bm / 2, -L / 2 + 3, -Bm / 2);
-  const hull = (h, mat, y, k = 1) => { const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 10 }).rotateX(-Math.PI / 2), mat); m.position.y = y; m.scale.set(k, 1, k); ship.add(m); };
-  hull(7.5, flat('#3a3058', 0.6), 0); hull(1.3, flat('#b8434f', 0.6), -0.2, 1.004); hull(0.5, flat('#d9d0cc', 0.6), 7.5, 1.004);
-  const house = new THREE.Mesh(new THREE.BoxGeometry(9, 13, Bm - 1.5), flat('#f1e9e2', 0.6)); house.position.set(-L / 2 + 10, 14, 0); ship.add(house);
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(5, 2.2, Bm + 3), flat('#f1e9e2', 0.6)); wing.position.set(-L / 2 + 11, 19.4, 0); ship.add(wing);
-  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2, 6, 14), flat('#c9475a', 0.6)); funnel.position.set(-L / 2 + 5.5, 21, 0); ship.add(funnel);
-  const stacks = []; for (let i = 0; i < 5; i++) for (let r = 0; r < 5; r++) stacks.push([-L / 2 + 24 + i * 12.7, -5.2 + r * 2.6, 0, 2 + Math.floor(rnd() * 3), 8]); containers(stacks, ship);
-  ship.position.set(q('shipX', 62), -1.4, q('shipZ', -232)); ship.rotation.y = q('shipYaw', 0.06); scene.add(ship); }
+{ // the container ship, lying side on in front of the far quay
+  const sp = modelParts(await file('skfb/ship.glb'), 'long', q('shipL', 110)), turn = (sp.size.x >= sp.size.z ? 0 : Math.PI / 2) + q('shipYaw', 0.06); for (const pt of sp) { pt.mat = pt.mat.clone(); pt.mat.envMapIntensity = 0.4; }
+  placeParts(sp, [[q('shipX', 62), q('shipZ', -232), turn, 1, q('shipY', -2.2)]]); }
 const glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 2, 64, 64, 62); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.4, 'rgba(255,255,255,0.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
 const glow = (x, y, z, size, col, k) => { const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(...col).multiplyScalar(k), blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); g.position.set(x, y, z); g.scale.setScalar(size); scene.add(g); return g; };
-{ // the lighthouse: a turned white tower with red bands, a gallery, the lamp room and its cap, on a rock in the basin
-  const lh = new THREE.Group(), white = flat('#f3ebe4', 0.6), red = flat('#cf3d45', 0.6), dark = flat('#3f3a4c', 0.6), rAt = (y) => 2.6 - 0.9 * y / 16, lathe = (pts, mat) => { const m = new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 28), mat); m.castShadow = true; lh.add(m); return m; };
-  lathe([[2.9, 0], [2.9, 0.5], [rAt(0.5), 0.5], [rAt(16), 16], [0, 16]], white);
-  for (const [y0, y1] of [[4, 7], [10.5, 13.5]]) lathe([[rAt(y0) + 0.03, y0], [rAt(y1) + 0.03, y1]], red);
-  lathe([[0, 16], [2.5, 16], [2.5, 16.35], [0, 16.35]], dark); const rail = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.04, 6, 28).rotateX(Math.PI / 2), dark); rail.position.y = 17.3; lh.add(rail);
-  const lamp = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 2.3, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.85, 0.55).multiplyScalar(2) })); lamp.position.y = 17.5; lh.add(lamp);
-  lathe([[1.6, 18.65], [1.45, 19.0], [0.25, 20.3], [0, 20.5]], red);
+{ // the lighthouse (a model: white with red bands), its lamp glowing, on rocks in the basin
+  const lhParts = modelParts(await oldMaterials(await file('skfb/lighthouse.glb')), 1, q('lhH', 22)); for (const pt of lhParts) { pt.mat = pt.mat.clone(); pt.mat.envMapIntensity = 0.4; }
   const rocks = await file('env/rocks.glb'), rm = meshesOf(rocks.scene)[0], rg = standing(rm, 1), rmat = rm.material.clone(); rmat.color = new THREE.Color('#8d7a86'); rmat.envMapIntensity = 0.3;
-  const LX = q('lhx', 96), LZ = q('lhz', -160); lh.position.set(LX, 3.6, LZ); scene.add(lh); glow(LX, 21.1, LZ, 7, [1, 0.8, 0.5], 1.6);
+  const LX = q('lhx', 96), LZ = q('lhz', -160); placeParts(lhParts, [[LX, LZ, q('lhTurn', 0), 1, 3.2]]); glow(LX, 3.2 + q('lhH', 22) * 0.86, LZ, 7, [1, 0.8, 0.5], 1.6);
   instances(rg, rmat, [[LX, LZ, 0.4, 6.5, -2.2], [LX - 9, LZ + 2, 2.1, 4.2, -2.4], [LX + 8, LZ - 1, 4.0, 4.6, -2.6], [LX + 3, LZ + 6, 1.2, 3.4, -2.3], [LX - 4, LZ - 6, 5.2, 3.8, -2.5], [LX + 15, LZ + 3, 0.9, 2.2, -1.9], [LX - 16, LZ + 5, 3.3, 2.0, -1.9]]);
   const sail = new THREE.Group(), tri = (pts) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts.flat(), 3)); g.computeVertexNormals(); return new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#fff3e6', side: THREE.DoubleSide, roughness: 0.8 })); };
   sail.add(tri([[0, 1, 0], [0, 11, 0], [4.6, 1.4, 0]]), tri([[-0.3, 1, 0], [-0.3, 9, 0], [-3.4, 1.2, 0]])); const hull = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 8).scale(4.2, 0.9, 1.2), flat('#f1e9e2', 0.5)); hull.position.y = 0.2; sail.add(hull);
