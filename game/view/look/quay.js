@@ -28,7 +28,7 @@ const q = (k, d) => (params.has(k) ? +params.get(k) : d), qm = (k, d, m) => q(k,
 const SIZE = renderer.getSize(new THREE.Vector2());
 renderer.shadowMap.enabled = !OFF.has('shadow'); renderer.shadowMap.type = THREE.PCFShadowMap;
 const EXP = q('exp', 0.78); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = EXP;
-const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(q('fov', 58), SIZE.x / SIZE.y, 0.3, 6000);
+const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(q('fov', 55), SIZE.x / SIZE.y, 0.3, 6000);
 const rnd = (() => { let s = 77123; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; })();
 const time = { value: q('t', 0) }, up = new THREE.Vector3(0, 1, 0);
 // a colour as it should come out on the screen: back through the screen curve and the exposure (the film curve's own squeeze is tuned by eye with `skyK`)
@@ -74,7 +74,7 @@ scene.fog = new THREE.FogExp2(STYLE ? shown(1.0, 0.6, 0.52) : shown(1.0, 0.62, 0
 const CX = 30, CZ = -4, R_INF = 17.95, R_IN = 18.4, R_KERB = 20.1, R_OUT = 33.2, R_OUTF = 33.8, R_QUAY = 40;
 const onArc = (r, t) => [CX - r * Math.cos(t), CZ - r * Math.sin(t)], facing = (t) => -Math.PI / 2 - t;   // `facing`: the turn that points an object's own -z at the bend's middle (its x along the wall)
 const arcTs = (r, t0, t1, step) => { const out = []; for (let t = t0; t < t1; t += step / r) out.push(t); return out; };
-const SEA_WALL = q('seaWall', 0.6), seaward = (t) => { const u = ((t % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); return u > q('sea0', 1.08) && u < q('sea1', 2.5); };   // the stretch of the ring that faces the open water
+const SEA_WALL = q('seaWall', 0.45), seaward = (t) => { const u = ((t % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); return u > q('sea0', 1.08) && u < q('sea1', 2.5); };   // the stretch of the ring that faces the open water
 const ringTs = (r, step, even = 1) => { const n = Math.round(2 * Math.PI * r / step / even) * even, out = []; for (let i = 0; i < n; i++) out.push(-0.9 + i * 2 * Math.PI / n); return out; };   // a whole ring of pieces without a gap (`even`: a count that divides by it)
 const tex = new THREE.TextureLoader(), wrap = (t, rep, srgb) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
 const REP = 1 / 4.5;
@@ -386,8 +386,8 @@ if (still) { car = dressCar((await loader.loadAsync('assets/cars/ae86-hi.glb')).
 
 // ---- the camera's place and the picture's finish
 if (q('top', 0)) { scene.fog = null; camera.position.set(q('cx', 10), q('cy', 190), q('cz', -60)); camera.lookAt(q('cx', 10), 0, q('cz', -60) - 0.01); }
-else { const tan = new THREE.Vector3(Math.sin(CAR_T), 0, -Math.cos(CAR_T)), inside = new THREE.Vector3(Math.cos(CAR_T), 0, Math.sin(CAR_T)), cam = carAt.clone().addScaledVector(tan, -q('back', 4.5)).addScaledVector(inside, q('in', 1.25));
-  camera.position.set(q('cx', cam.x), q('cy', 1.55), q('cz', cam.z)); const aim = camera.position.clone().addScaledVector(tan, 15).addScaledVector(inside, q('aim', -1.5)); camera.lookAt(q('lx', aim.x), q('ly', 1.0), q('lz', aim.z)); }
+else { const tan = new THREE.Vector3(Math.sin(CAR_T), 0, -Math.cos(CAR_T)), inside = new THREE.Vector3(Math.cos(CAR_T), 0, Math.sin(CAR_T)), cam = carAt.clone().addScaledVector(tan, -q('back', 5.3)).addScaledVector(inside, q('in', 1.25));
+  camera.position.set(q('cx', cam.x), q('cy', 2.5), q('cz', cam.z)); const aim = camera.position.clone().addScaledVector(tan, 15).addScaledVector(inside, q('aim', -1.5)); camera.lookAt(q('lx', aim.x), q('ly', 0.68), q('lz', aim.z)); }
 seaMat.userData.noToon = true; toonU.uToonRef.value = sun.intensity * (sun.color.r + sun.color.g + sun.color.b) / 3 / Math.PI;
 toonAll(scene);
 // The picture's finish (look/finish.js): one scene render, a small glow, and one pass for streaks, drawn outlines, a contact shade, the film curve, soft
