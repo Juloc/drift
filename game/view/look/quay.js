@@ -270,11 +270,14 @@ const smoke = (() => { const MAX = q('smokeMax', 240), K = q('smokeK', 0.74) / E
       #include <opaque_fragment>`); }; return m; };
   const core = new THREE.InstancedMesh(geo, mat(false), MAX), shell = new THREE.InstancedMesh(geo, mat(true), MAX); for (const m of [core, shell]) { m.count = 0; m.frustumCulled = false; scene.add(m); } core.castShadow = tier !== 'low'; shell.renderOrder = 5; flats.push(shell);
   const P = [], m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), pos = new THREE.Vector3(), sc = new THREE.Vector3(), SHELL = q('shell', 1.22), sm = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
-  // How much of a lump shows: none right at the camera, and only a veil of what lies between the camera and the car the page names (`view.focus`,
-  // a point; null in the still), so a camera that follows through its own car's plume still sees the car. Beyond and beside the car the smoke is whole.
-  const view = { near: [q('smokeNear0', 0.8), q('smokeNear1', 2.2)], focus: null, veil: q('smokeVeil', 0.05) }, cp = new THREE.Vector3();
-  const seen = (x, y, z, r) => { const d = cp.set(x, y, z).distanceTo(camera.position); let k2 = sm(view.near[0], view.near[1], d - r * 0.5); if (view.focus) { const fd = view.focus.distanceTo(camera.position); k2 *= view.veil + (1 - view.veil) * sm(fd - 1.0, fd + 1.5, d + r * 0.6); } return k2; };
-  const write = () => { let n = 0; for (const p of P) { const u = p.age / p.life, r = p.r0 + (p.r1 - p.r0) * (1 - Math.exp(-2.6 * p.age)), y = p.y0 + r * 0.62 + p.lift * (1 - Math.exp(-1.5 * p.age)), ck = p.fixed ? 1 : (1 - sm(0.3, 0.75, u)) * p.core, see = seen(p.x, y, p.z, r); qt.setFromAxisAngle(up, p.turn);
+  // What the camera sees of a lump. Right at the camera: nothing. And when the page names the car it follows (`view.focus`, a point; null in the still):
+  // a lump that lies before the car, seen from the camera, stays small and low (smoke that creeps over the ground up to the bumper), so the car is never
+  // walled in by its own plume; beside and behind the car the lumps grow to their full size. (Thinning them to a veil instead adds up to a white-out
+  // when a hundred lie on one spot, as in a burnout.)
+  const view = { near: [q('smokeNear0', 0.8), q('smokeNear1', 2.2)], focus: null, low: q('smokeLow', 0.36) }, cp = new THREE.Vector3();
+  const seen = (x, y, z, r) => sm(view.near[0], view.near[1], cp.set(x, y, z).distanceTo(camera.position) - r * 0.5);
+  const grown = (x, z, r) => { if (!view.focus) return 1; const fd = view.focus.distanceTo(camera.position), d = cp.set(x, 0.6, z).distanceTo(camera.position); return view.low + (1 - view.low) * sm(fd - 0.5, fd + 1.2, d - r * 0.8); };
+  const write = () => { let n = 0; for (const p of P) { const u = p.age / p.life, r1 = p.r0 + (p.r1 - p.r0) * (1 - Math.exp(-2.6 * p.age)), gk = p.fixed ? 1 : grown(p.x, p.z, r1), r = r1 * gk, y = p.y0 + r * 0.62 + p.lift * (1 - Math.exp(-1.5 * p.age)) * (gk - view.low) / (1 - view.low + 1e-6), ck = p.fixed ? 1 : (1 - sm(0.3, 0.75, u)) * p.core, see = seen(p.x, y, p.z, r); qt.setFromAxisAngle(up, p.turn);
       core.setMatrixAt(n, m4.compose(pos.set(p.x, y, p.z), qt, sc.setScalar(Math.max(1e-4, r * ck * sm(0.8, 1, see))))); shell.setMatrixAt(n, m4.compose(pos, qt, sc.setScalar(r * SHELL))); aFade.array[n] = (p.fixed ? 1 : (1 - sm(0.5, 1, u)) * p.a) * see; aSeed.array[n] = p.seed; n++; }
     core.count = shell.count = n; core.instanceMatrix.needsUpdate = shell.instanceMatrix.needsUpdate = aFade.needsUpdate = aSeed.needsUpdate = true; };
   return { core, shell, view, get alive() { return P.length; },

@@ -40,7 +40,7 @@ const map = prepareMap({ bounds: h.bounds.map(mirror), walls: h.walls.map((pts) 
 const ENV = { ...FLAT, muW: [1, 1, 1, 1] }, minMu = [1, 1, 1, 1], PUDDLE_MU = 0.6;
 
 // ---- skid marks (as on the test page)
-const skids = new Skids(1500); skids.mesh.material.color.set('#0e0c14'); skids.mesh.material.opacity = 0.85; h.scene.add(skids.mesh);
+const skids = new Skids(1500); skids.mesh.material.color.set('#2a1f28'); skids.mesh.material.opacity = 0.4; h.scene.add(skids.mesh); h.flats.push(skids.mesh);   // (a flat picture: kept out of the ambient occlusion's shape pass, which darkened the marks to black bars)
 const skidIdx = [0, 1, 2, 3];
 function marksAndSmoke(s, steps) {
   const sh = Math.sin(s.h), ch = Math.cos(s.h), moving = s.speed > 3, C = drive.car, smokeNow = steps % 4 === 0;   // smoke every 1/30 s (4 steps of 1/120)
