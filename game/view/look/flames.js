@@ -14,12 +14,12 @@ export function makeFlames({ parent, flats = [], max = 6, light = true }) {
     fragmentShader: `uniform float uAge, uSeed, uK; varying vec2 vUv;
       float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
       float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
-      void main() { float along = 1.0 - vUv.y, across = abs(vUv.x - 0.5) * 2.0;                                  // 0 at the pipe's mouth, 1 at the tip
+      void main() { float along = vUv.y, across = abs(vUv.x - 0.5) * 2.0;                                  // 0 at the pipe's mouth, 1 at the tip
         float reach = mix(0.35, 1.0, smoothstep(0.0, 0.25, uAge)) * (1.0 - smoothstep(0.55, 1.0, uAge));          // it shoots out, then dies back
         float nz = vn(vec2(across * 3.0 + uSeed, along * 6.0 - uAge * 9.0 + uSeed)), width = (0.25 + 0.75 * sin(3.14159 * min(1.0, along / max(reach, 0.05)) * 0.8)) * (0.75 + 0.5 * nz);
         float body = (1.0 - smoothstep(width * 0.55, width, across)) * (1.0 - smoothstep(reach * 0.75, reach, along + (nz - 0.5) * 0.25));
-        vec3 col = mix(vec3(0.75, 0.85, 1.6), vec3(1.6, 1.2, 0.45), smoothstep(0.02, 0.22, along)); col = mix(col, vec3(1.5, 0.42, 0.08), smoothstep(0.3, 0.9, along / max(reach, 0.05)));
-        float fade = 1.0 - smoothstep(0.6, 1.0, uAge); gl_FragColor = vec4(col * body * fade * (0.55 + 0.6 * uK), 1.0); }` }); return m; };
+        vec3 col = mix(vec3(0.7, 0.8, 1.5), vec3(1.5, 0.95, 0.3), smoothstep(0.02, 0.18, along)); col = mix(col, vec3(1.5, 0.36, 0.06), smoothstep(0.2, 0.8, along / max(reach, 0.05)));
+        float fade = 1.0 - smoothstep(0.6, 1.0, uAge); gl_FragColor = vec4(col * body * fade * (0.42 + 0.4 * uK), 1.0); }` }); return m; };
   const pool = Array.from({ length: max }, () => { const m = new THREE.Mesh(geo, make()); m.visible = false; m.frustumCulled = false; m.renderOrder = 6; parent.add(m); flats.push(m); return { mesh: m, age: 1, life: 0.1, k: 0 }; });
   const lamp = light ? new THREE.PointLight(new THREE.Color(1, 0.55, 0.2), 0, 9, 1.8) : null; if (lamp) parent.add(lamp);
   const z = new THREE.Vector3(0, 0, 1), d = new THREE.Vector3(); let next = 0;
