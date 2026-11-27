@@ -60,7 +60,7 @@ export function rigCar(scene) {
 /**
  * The driving: `cfg`: { params, t, camera, rig ({ group, pivots, bodyLean }), wheelLocal, spawn(), env (the ground: FLAT with `muW`), map (prepareMap), groundAt(x, z), cover?(x, z),
  * lookCamera (the look's chase camera values), soundId, hooks: { beforeStep(s, wheelPts, muW), afterStep(s), fixed(s, simSteps), onReset(), key(code) -> true when handled, rows() -> [[k, v]],
- * overrideCamera(d, dt) -> true when the page placed the camera, afterPlace(d, ground) } }.
+ * driver(s, dt) -> { steer, gas, hand } or nothing, overrideCamera(d, dt) -> true when the page placed the camera, afterPlace(d, ground) } }.
  */
 export function createDrive(cfg) {
   const { params, t, camera, rig, wheelLocal, spawn, env, map, groundAt, hooks = {} } = cfg, group = rig.group;
@@ -173,10 +173,11 @@ export function createDrive(cfg) {
       if (autoPhase === 1) { autoSteer = 1; autoHand = autoT < 0.35 ? 1 : 0; if (autoT > 0.9) autoPhase = 2; }   // kick it round
       else if (autoPhase === 2) { autoHand = 0; autoSteer = Math.max(-1, Math.min(1, 2.2 * (s.beta + AUTO) + 0.1)); }
     }
-    inp.steer = AUTO > 0 ? autoSteer : ramp(inp.steer, steerKey, 5, steerKey === 0 ? 9 : 7, dt);
-    inp.throttle = ramp(inp.throttle, gas ? 1 : 0, 6, 12, dt);
+    const ai = hooks.driver?.(s, dt);   // a page's own measuring driver (`?drive=...`): { steer (-1..1), gas, hand }
+    inp.steer = ai ? ai.steer : AUTO > 0 ? autoSteer : ramp(inp.steer, steerKey, 5, steerKey === 0 ? 9 : 7, dt);
+    inp.throttle = ramp(inp.throttle, (ai ? ai.gas : gas) ? 1 : 0, 6, 12, dt);
     inp.brake = ramp(inp.brake, brake ? 1 : 0, 8, 14, dt);
-    inp.handbrake = AUTO > 0 ? autoHand : has('Space', 'hand') ? 1 : 0;
+    inp.handbrake = ai ? (ai.hand ? 1 : 0) : AUTO > 0 ? autoHand : has('Space', 'hand') ? 1 : 0;
     inp.clutch = has('ShiftLeft', 'clutch') || held.has('ShiftRight') ? 1 : 0;
     inp.manual = D.manual; inp.up = pending.up; inp.down = pending.down; pending.up = pending.down = false;
     const sh = Math.sin(s.h), ch = Math.cos(s.h);
