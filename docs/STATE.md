@@ -2,6 +2,16 @@
 
 Updated 2026-11-26 (evening) by the building session. Every session updates this page at the end of its work.
 
+
+## Car models (branch claude/car-s15-pipeline-3b95ba, 2026-11-25)
+
+- First real car model in the game: **Mazda RX-7 FD** (download, CC BY 4.0, `docs/ASSETS.md`, credit line in
+  `game/data/credits.json`), `game/assets/cars/rx7.glb` / `rx7-hi.glb`, try `?glb=rx7` on the game page or in the showroom.
+  Numbers and pictures in `docs/CAR-PIPELINE.md`. Not in `cars.json` yet (no car id), the credits are not shown in the game yet.
+- Pipeline: `tools/gpu/car_normalize.sh` for downloads (main way), `tools/gpu/car_variants.sh` for TRELLIS (emergency only).
+- Not checked: a real phone, frame time on a phone, the website's copy, the skid marks and smoke at the RX-7's own wheel
+  positions (the game still uses its fixed wheel layout for them).
+
 ## Done
 
 - **Scope agreed:** [SCOPE.md](SCOPE.md). **Architecture draft written:** [ARCHITECTURE.md](ARCHITECTURE.md) (waits for the orchestrator's reading and its 13 open points).
@@ -106,6 +116,17 @@ Per hour on a phone with 16 in the world: about 10 MB down, 1 MB up. With three 
 - Tests: `node --test game/` (20 tests, no packages): physics, collisions, score, loop, map file, car numbers. The numbers of how the cars drive: `node tools/measure.mjs`.
 - Play in headless Chromium and write numbers and a picture: `node tools/play.mjs <w> <h> <name> [--touch] [--tier=..] [--secs=8] [--dpr=2]` (software graphics; it picks its own free DevTools port and kills its browser). Single pictures: `chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist --window-size=W,H --virtual-time-budget=15000 --screenshot=out.png "http://127.0.0.1:8150/game/index.html?tier=high&demo=orbit&t=6"`.
 - The map JSON is written by `node tools/make-map.mjs`.
+
+## Public start 0.2, slices 1 to 4 (built 2026-11-26): the Juloc Games account
+
+Plan: [PLAN-0.2.md](PLAN-0.2.md), design: [ACCOUNTS-GAMES.md](ACCOUNTS-GAMES.md). Built:
+- **Module** `src/Drift/GameAccounts/` (own folder, namespace, tables `games_account*`, door `/api/games`, cookie `games`/`__Host-games`): sign-up, sign-in, sign-out, password change, delete (password asked, name reserved 30 days), data export, Argon2id through the base's hasher with the dummy hash for unknown names, the base's limiter (wait doubles), 8-character passwords with a common-password list. The game plugs in through `IAccountData`, `IAccountEvents`, `IPlayerDirectory` (`src/Drift/Owners.cs`). Migrations 008 and 009; the game's four tables no longer point at `users` (a sweep at start and the account's delete remove rows by owner).
+- **Protection (slice 2):** limits per address (3 a day, 10 a week) and 60 an hour in all; keyed hash of the address, kept 7 days; own proof of work (signed challenge, 60 s, once; base 17 bits, rising to 20); the puzzle runs in a worker (`wwwroot/games/pow.js`, own SHA-256).
+- **Names and admin (slice 3):** name rules (Latin letters only, no double spaces, reserved words), the folding filter (case, full-width, accents, look-alikes, repeats; the app runs with invariant globalization, so the folding is our own table), applied to account names, nicknames and guest names; the administrator's word list in `games-names.txt` next to the app; `/api/games-admin` (list, block, unblock, reset password, delete, reports, bans of address ranges, all audited); reports with fixed reasons.
+- **Emotes, delete, export, legal (slice 4):** ten fixed emotes (keys 1 to 0 or a button; one per 1.5 s; no free text; everything else is dropped and counted); pages `/games/` (account, small garage) and `/play/games.html`; `/legal/privacy.html` and `/legal/imprint.html` with the marker `[[OWNER-TEXT]]`: **sign-up stays closed while the marker is in a page** (a warning at start says so).
+- Tests: 56 new in `tests/Drift.Tests/GameAccountTests.cs` (the 1 000-attempt run, block closes the socket, delete leaves no row with the id in any table, export has nothing of others, the module stands alone), 5 in `tests/js/pow.test.mjs` (`node --test tests/js`).
+- Numbers: the page's puzzle did 542k hashes per second in Node on this desktop; 17 bits is 131 000 tries on average, so about 0.25 s here and about 1 s on a phone (estimate, not measured on a phone).
+- **Not done / not checked:** the tuning sliders have no page for games accounts (the garage there has car, colour, nickname; tuning is read from the account but cannot be set yet); the account page was not looked at in a browser at phone size yet; no invitation links for games accounts; the admin has API only, no page; the reset by the administrator has no page either (API); privacy and imprint texts are placeholders (the owner's).
 
 ## Real 3D models: the path is ready (test model only)
 

@@ -34,6 +34,23 @@ test('applySlots replaces by slot and sends unknown materials to plastic', () =>
   assert.equal(root.children[2].castShadow, false);   // the lamps (unlit) cast no shadow
 });
 
+test('applySlots keeps a texture and vertex colours of the file on a shared copy of the slot material', () => {
+  const tex = new THREE.Texture(), root = new THREE.Group();
+  const a = mesh('paint'), b = mesh('paint'), c = mesh('plastic'), d = mesh('rubber');
+  a.material.map = tex; b.material.map = tex;
+  c.geometry.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(c.geometry.attributes.position.count * 3).fill(0.5), 3));
+  d.geometry.setAttribute('color', c.geometry.attributes.color.clone());
+  const vcRubber = new THREE.MeshBasicMaterial({ name: 'game_rubber', vertexColors: true });
+  root.add(a, b, c, d);
+  applySlots(root, { ...mats, rubber: vcRubber });
+  assert.notEqual(a.material, mats.paint);
+  assert.equal(a.material, b.material);   // one copy for one texture
+  assert.equal(a.material.map, tex);
+  assert.equal(a.material.color.getHex(), mats.paint.color.getHex());   // the slot's colour stays (the garage paint)
+  assert.ok(c.material.vertexColors && c.material !== mats.plastic);
+  assert.equal(d.material, vcRubber);   // a slot that draws vertex colours anyway needs no copy
+});
+
 test('findWheels: pivot at the wheel centre, meshes below a spin group, nothing lost', () => {
   const root = fakeCar();
   const { wheels, missing } = findWheels(root);

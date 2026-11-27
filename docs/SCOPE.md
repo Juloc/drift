@@ -2,7 +2,7 @@
 
 One page, to keep us on track. **This file says what we build and wins whenever a wish and this page disagree.** A new idea goes into [IDEAS.md](IDEAS.md).
 
-Status: **agreed with the owner on 2026-11-25** (his request in his words below, his answers at the end). Nothing is built.
+Status: **agreed with the owner on 2026-11-25; direction changed 2026-11-26 (public start, PC first, real car models): the vision is [VISION.md](VISION.md), the order [ROADMAP.md](ROADMAP.md), the steps [PLAN-0.2.md](PLAN-0.2.md). Where this page and those differ, they win** (the original 1.0 table below is what was built so far) (his request in his words below, his answers at the end). Nothing is built.
 
 ## The owner's request (translated)
 
@@ -40,9 +40,13 @@ Status: **agreed with the owner on 2026-11-25** (his request in his words below,
 2. **Guests are limited:** a link works for a few hours, a guest has no account, sees only the game, and the owner can end all guest links at once.
 3. **Nothing private in the repository.**
 
-## Out of scope for 1.0
+## What is in and out now (changed 2026-11-26, after the interview)
 
-Teams and championships, tuning of cars, damage, a map editor, chat beyond a few quick reactions, voice, spectating from outside the lobby, public matchmaking with strangers, a native app, gamepads (later), steering by tilting the phone.
+**In scope, in this order** (details in the roadmap): the look probe; accounts (done); the **public open world** with a network for 32+ players; **tandem** drifting; **challenges with stars** (creative and story modes); the **driving-feel switch, controller and cameras**; **sound and music**; **collision and damage**; load test, review, legal texts, start. **Real cars** from the 3D pipeline in parallel when the owner's GPU PC runs.
+
+**After the public start:** shaping like Forza, weather and day/night, friends, private lobbies, crews, spectating, the career, steering wheel, stickers.
+
+**Out:** a map editor, teams and championships in the old sense, voice, free text chat (only emotes), a native app, steering by tilting the phone.
 
 ## Decisions of the owner (2026-11-25, asked one by one)
 
@@ -51,3 +55,10 @@ Teams and championships, tuning of cars, damage, a map editor, chat beyond a few
 - **Look:** 3D in the miniature style of the website (three.js, own models).
 - **Controls:** touch on the phone and the keyboard.
 - **To start with:** five maps and five cars.
+
+## Added 2026-11-26 (the owner, through the orchestrator)
+
+- **Public for everyone** from the first release; **one "Juloc Games" account** for all games, provided by Drift as a separable module ([ACCOUNTS-GAMES.md](ACCOUNTS-GAMES.md)).
+- **The game:** a public open world as the standard entry, in a low-poly sunset look, plus single tracks; real recognisable cars; 32+ players per world; everything on our own server. Full text: [VISION.md](VISION.md).
+- **PC first** (keyboard and controller), the phone runs along. First real car: the Silvia S15.
+- **Hosting:** the owner's small server through the usual deployment tool, behind the reverse proxy.

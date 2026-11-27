@@ -1,0 +1,19 @@
+{
+  "name": "test-foreign",
+  "about": "The code model's S15 disguised as a download (tools/blender/make_foreign_test.py): the test of car_normalize.py.",
+  "length": 4.445,
+  "width": 1.695,
+  "height": 1.285,
+  "wheelbase": 2.525,
+  "source": {
+    "file": "foreign.glb",
+    "licence": "own (made from the code model)",
+    "front": "+x",
+    "up": "+z",
+    "scale_by": "length",
+    "wheels": "game",
+    "slots": {},
+    "drop": [],
+    "targets": { "phone": 14000, "high": 40000 }
+  }
+}

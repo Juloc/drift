@@ -8,7 +8,7 @@ namespace Drift.Race;
 /// <summary>The race socket (only for the people who joined the race now) and the board of best times.</summary>
 public static class RaceEndpoints
 {
-    public const string Path = "/api/play/race/ws", GuestPath = "/api/guest/race/ws";
+    public const string Path = "/api/play/race/ws", GuestPath = "/api/guest/race/ws", GamesPath = "/api/games/play/race/ws";
 
     public static void MapRace(this WebApplication app)
     {
@@ -29,6 +29,7 @@ public static class RaceEndpoints
         }
         app.Map(Path, async (HttpContext ctx) => await RaceSocket(ctx));
         app.Map(GuestPath, async (HttpContext ctx) => await RaceSocket(ctx));
+        app.Map(GamesPath, async (HttpContext ctx) => await RaceSocket(ctx));
         RelayEndpoint.RunTicker(raceRelay, app.Lifetime.ApplicationStopping, app.Logger);
         _ = Task.Run(async () =>
         {
@@ -48,7 +49,7 @@ public static class RaceEndpoints
         async Task<IResult> Board(int? map, HttpContext ctx, RaceStore store, IReadOnlyDictionary<int, RaceTrack> tracks, CancellationToken ct)
         {
             var track = tracks.TryGetValue(map ?? 0, out var t) ? t : tracks[tracks.Keys.Min()];
-            Guid? me = ctx.Items.ContainsKey(Drift.Guests.GuestEndpoints.Key) ? null : ctx.Person().UserId;   // a guest has no place on the board
+            Guid? me = ctx.Items.ContainsKey(Drift.Guests.GuestEndpoints.Key) ? null : ctx.Owner();   // a guest has no place on the board
             async Task<object> One(int kind) => new
             {
                 top = (await store.TopAsync(track.MapId, kind, 10, me, ct)).Select(r => new { name = r.Name, value = r.Ms, car = r.Car, mine = r.Mine }),
@@ -62,5 +63,6 @@ public static class RaceEndpoints
         }
         app.MapGet("/api/times", Board);
         app.MapGet("/api/guest/times", Board);   // read only, for guests
+        app.MapGet("/api/games/times", Board);
     }
 }

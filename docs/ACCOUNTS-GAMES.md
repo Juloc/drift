@@ -1,6 +1,13 @@
-# One simple account for the games (draft, nothing built)
+# One simple account for the games (decided, nothing built)
 
-Status: **draft 2026-11-26** for the owner's decision "both": the family signs in through the hub (JulOS, as now), friends get a **simple game account: one name and one password, no authenticator, no mail**, valid for all games (Drift, later Block world and Battleship on juloc.de). Both kinds meet in the same lobbies and boards. Short on purpose; the open points are at the end.
+Status: **decisions of the owner, 2026-11-26** (changes against the first draft are in section 0). The family signs in through the hub (JulOS, as now); everyone else gets a **"Juloc Games" account: one name and one password, no authenticator, no mail, one account for all games** (Drift, Block world, Battleship on the owner's website). Both kinds meet in the same lobbies and boards.
+
+## 0. Decisions of 2026-11-26 (they win over the older text below where they differ)
+1. **Provider: Drift.** To the outside it is called **"Juloc Games account"**, not "Drift account".
+2. **Open registration from day one** (the public start, [ROADMAP.md](ROADMAP.md)), protected: limits per address and day, a proof of work of our own (section 3), a name filter, report and block by the administrator. Invitation links stay as a way in for friends but are not the only one.
+3. **A separable module.** All of it lives in its own folder and namespace, `src/Drift/GameAccounts/` / `Drift.GameAccounts`, with its own tables prefixed `games_account_`, its own door (`/api/games`, built as an `ApiDoor`: the base only allows doors under `/api/`) and its own cookie (`__Host-games`, `games` without HTTPS), and **no reference from it to Drift's game code** (the game plugs in through three small interfaces: `IAccountData` delete/export, `IAccountEvents` close sockets, `IPlayerDirectory` name to person; a test fails when the module uses a game namespace or table). The aim: it can be cut out as a service of its own later without a rewrite. Tests of the module live in their own file set and run without the game.
+4. **Family stays on the hub** (JulOS), as base users; their ids and the accounts' ids are both `Guid` and never collide (random v4 / v7), so lobby, races and boards take either.
+5. **Hosting:** the owner's small server through the usual deployment tool, public behind the reverse proxy; the address is the owner's.
 
 ## 1. Where the account lives: proposal A, Drift is the provider
 - **A (proposed):** the accounts are a table in Drift's database; the other games ask Drift to sign people in.
@@ -11,9 +18,12 @@ Status: **draft 2026-11-26** for the owner's decision "both": the family signs i
 ## 2. What a game account is
 `game_account(id uuid, name text unique (case-insensitive), password_hash, created_at, state active|blocked, created_by, name_changed_at)`, `game_session(id, hash, account_id, created_at, last_seen, user_agent)`. The identity a game gets is only `{ id, display name, kind: account|hub }`, never the password or an address. The lobby, the races and the boards already take any `Guid` as the person (`Player`, `LobbyMember`), so an account fits where a guest and a hub person fit today; boards show the same name for both kinds (nickname, a game account's name, or the neutral name of a hub person).
 
-## 3. Registration: invitation, not open
-- **Proposal:** the administrator makes an **invitation link** (like a guest link: hours, number of uses, shown once, only a hash kept; may be for several friends). Whoever opens it chooses a name and a password and has an account. **Open registration** exists as a setting, **off** by default (rate-limited per address and with a daily cap when on).
-- A guest session can be turned into an account on the same page ("keep my name") when the link allows it.
+## 3. Registration: open, with protection
+- **Open registration** on the sign-up page: a name, a password (twice), and a small puzzle. No mail, no real name, and the page says so.
+- **Limits:** per address (IPv4 itself, IPv6 the /64) at most 3 new accounts per day and 10 per week (`SignupGuard`), and a global cap per hour that the administrator can change; over the limit the page says "try again tomorrow". Counted in `games_account_signup_log` (address key hashed with a server secret, so no raw addresses are kept longer than 7 days).
+- **Proof of work of our own** instead of a foreign captcha: the server hands out a signed challenge `{ id, salt, difficulty, exp }` (60 s); the browser finds a nonce so that `SHA-256(salt + name + nonce)` has `difficulty` leading zero bits (the page's own SHA-256 in a worker, `games/pow.js`; base difficulty 17 bits, about 1 s on a phone, rising by one per sign-up from the same address within the hour up to 20); the server verifies with one hash and accepts each challenge once. The difficulty rises with recent sign-ups from the same address and with the global rate. It costs the server nothing and a script a little each time; it is **not** a guarantee against a determined attacker, and the document says so (the limits and the filter carry the rest).
+- **Invitation links** for games accounts are **not built** (open registration makes them unnecessary); guest links stay as they are.
+- A guest session can be turned into an account on the same page ("keep my name").
 
 ## 4. Passwords, limits, lock
 - **Argon2id** with the base's own parameters (`PasswordHasher`: 64 MiB, 3 passes, a salt per password); never logged; a login for an unknown name takes as long as for a known one (dummy hash), and says nothing about which part was wrong (AUTH-08).
@@ -21,13 +31,15 @@ Status: **draft 2026-11-26** for the owner's decision "both": the family signs i
 - Failed attempts: the base's own limiter pattern: per account and per address (the /64 for IPv6) with a wait that doubles from 30 s to 15 min; the wait is the lock, there is no permanent lock-out by strangers. The administrator can block an account.
 
 ## 5. Names
-3 to 16 characters, letters, digits, space, dot, dash, underscore, starting with a letter or digit; unique ignoring case; a short list of reserved words (admin, system, the games' own names); **no real name needed**, and the sign-up page says so. Shown only as text. A person may change the name once in 30 days (boards keep up because they join on the id). A hub person's shown name stays the nickname or a neutral name.
+3 to 16 characters, letters, digits, space, dot, dash, underscore, starting with a letter or digit; unique ignoring case; a short list of reserved words (admin, system, the games' own names); **no real name needed**, and the sign-up page says so. A **name filter** (a plain word list in a file the administrator can edit; letters folded: case, accents, lookalikes such as 0/o, 1/l/i, $/s, repeated letters) refuses insults, slurs and impersonation of the owner or the games; a refusal says only "this name is not allowed". Shown only as text. A person may change the name once in 30 days (boards keep up because they join on the id). A hub person's shown name stays the nickname or a neutral name.
 
 ## 6. Forgot the password
 **Only the administrator resets**: they set a one-time temporary password (shown once), the person must choose a new one at the next sign-in, all their sessions end. No mail, no questions. The page for it says "ask the one who invited you".
 
 ## 7. Roles: a game account reaches games only
-It has no role in the base, no access to `/api` of the base, the settings, the people or the guest links; its cookie is a different cookie on a different door. Administration stays with base admins (hub or own accounts).
+It has no role in the base, no access to `/api` of the base, the settings, the people or the guest links; its cookie is a different cookie on a different door. Administration stays with base admins (hub or own accounts): the list of game accounts, **reports** (a player can report another from the lobby, with a fixed reason; reports are rows, not text), **block** an account (sessions end at once), **ban an address range** for a time, reset a password, delete an account.
+
+**No free text anywhere:** a person's name is the only text; the rest of communication is a fixed set of emotes.
 
 ## 8. Guest links
 Stay as they are: a name, no account, times shown but not kept, for a few hours. They remain the "try it" door; an invitation link is the "stay" door. Both are made in the same card in the settings.
@@ -43,5 +55,8 @@ Cookies do not travel between two domains, and the base's cookie is host-only (`
 4. the game sets its own session cookie. Sign-out is per game, and Drift can tell the games (back channel, as the hub does) that an account was blocked or deleted, so their sessions end.
 This is the same code flow the base already implements as a *client* of the hub; Drift would be the *provider* for a very small set of fixed clients (not a general OpenID provider). The password is only ever typed on Drift's own page.
 
-## Open points for the owner
-1. **A or B?** Proposal A (Drift provides). 2. **Registration:** invitation links only, open registration off? 3. **Password length 8** (the base asks 12). 4. **Name change** once in 30 days? 5. Which domain does the sign-in page live on (a name that people recognise as "the games' sign-in")? 6. Build order proposal: the account table and sign-in inside Drift first (also used by Drift's own lobby), the ticket flow for the website's games after the first of them needs it.
+## Open points (after the decisions)
+1. The sign-in page's domain (a name people recognise as "the games' sign-in"); the owner settles the address.
+2. The exact limits (3 a day, 10 a week) are a first guess; tune them with the load test and the first week.
+3. Texts for privacy and imprint are the owner's; the sign-up page links them and cannot go live without them.
+4. The ticket flow for the website's games (section 10) is built when the first website game needs it, not in 0.2.

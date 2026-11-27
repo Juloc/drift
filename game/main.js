@@ -161,6 +161,24 @@ function lobbyMessage(j) {
   else if (j.t === 'race.joined') { show('invite', false); note(T.joined); }
   else if (j.t === 'race.busy') note(j.wait ? T.pause.replace('{s}', j.wait) : T.busy);
   else if (j.t === 'race.go') { show('invite', false); startRace(); }
+  else if (j.t === 'emote') remotes?.emote(j.id, EMOTES[j.e]);
+}
+
+// ----- emotes: ten fixed symbols (keys 1 to 0, or the little button), shown over the sender's car for three seconds; there is no free text anywhere
+const EMOTES = ['\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F525}', '\u{1F3C1}', '\u{1F44B}', '\u{1F60E}', '\u{1F64F}', '\u{1F4A8}', '\u{1F422}'];
+if (online && raceMode) {
+  const bar = Object.assign(document.createElement('div'), { id: 'emotes', hidden: true });
+  const open = Object.assign(document.createElement('button'), { id: 'emote-open', type: 'button', textContent: EMOTES[0], ariaLabel: 'Emotes' });
+  const send = (e) => {
+    if (racing || !net) return;
+    net.sendJson({ t: 'emote', e });
+    const span = Object.assign(document.createElement('span'), { className: 'emo', textContent: EMOTES[e] });
+    $('me').querySelector('.emo')?.remove(); $('me').append(span); setTimeout(() => span.remove(), 3000);
+  };
+  EMOTES.forEach((s, i) => bar.append(Object.assign(document.createElement('button'), { type: 'button', textContent: s, onclick: () => { send(i); bar.hidden = true; } })));
+  open.addEventListener('click', () => { bar.hidden = !bar.hidden; });
+  document.body.append(bar, open);
+  addEventListener('keydown', (ev) => { if (ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey || !/^[0-9]$/.test(ev.key)) return; send((+ev.key + 9) % 10); });
 }
 function startRace() {
   racing = true; locked = true;

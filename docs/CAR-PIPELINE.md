@@ -1,0 +1,141 @@
+# Car pipeline: picture -> TRELLIS.2 -> Blender -> game file
+
+Look decided by the owner (2026-11-25): the cars look like the mockup's car, **smooth shaded with glossy paint**, not hard
+faceted low-poly. Only the smooth files are made (`<car>.glb`, `<car>-hi.glb`); the flat low-poly variant was dropped.
+Input from now on: one clean template picture per car (white, three-quarter front, light grey background, no logos), not a
+crop of a mockup. Logos come later as stickers in the game; the models stay without.
+
+Status (first try, Silvia S15, from the mockup crop): **the pipeline runs end to end, the result is not good enough.** The cars come out recognisable
+but lumpy (a scan look), window and lamp edges follow triangles, and smoothing melts the mirrors and the wing. The owner wants
+clean cars that look real in a simple low-poly way; that needs a **new mesh built over the generated one** (retopology), not a
+thinned-out generated mesh. See "Next" at the end. The S15 files of this try are not in the repository (pictures and files are in
+the session notes, `car-s15/`).
+
+## The machines
+
+- Dev VM (here): scripts, the game, the headless browser for pictures (`tools/carshots.mjs`).
+- The GPU PC, SSH alias `gpu` (key login, user without admin). ComfyUI 0.46 with TRELLIS.2 (`C:\AI\ComfyUI`), Blender 4.5 LTS
+  (`C:\AI\Blender\blender.exe`, headless with `-b -P`), working folder `C:\AI\work\<car>`, scripts in `C:\AI\scripts\drift`.
+  Its address is not written anywhere in the repository; only the alias.
+
+## Steps and commands
+
+1. **Picture.** Copy the reference to the PC, crop the car with the PC's embedded Python (PIL), square, black margin:
+   `scp ref.webp gpu:C:/AI/in/` and `ssh gpu "C:\AI\ComfyUI\python_embeded\python.exe C:\AI\scripts\drift\crop_ref.py in.webp out.png L T R B"`
+   (the box is chosen by eye: manual). The background is removed inside the workflow (node 192 BiRefNet, node 312 crop to mask);
+   no extra nodes.
+2. **TRELLIS.2.** `ssh gpu "C:\AI\start-comfyui.cmd"`, tunnel `ssh -N -L 127.0.0.1:8188:127.0.0.1:8188 gpu`, then
+   `python3 tools/gpu/trellis_run.py trellis2_api.json crop.png <prefix> --out DIR` (uploads, sets nodes 122 and 322, queues,
+   polls `/history`, downloads the .glb and the previews). Workflow unchanged (INT8, shape 1024, texture 1024, 30 000 triangles).
+   S15: **81 s**, 4.3 MB .glb, the masked input was clean. `ssh gpu "C:\AI\stop-comfyui.cmd"` afterwards.
+3. **Look at the raw model:** `blender -b -P look.py -- raw.glb outdir` (Workbench, six orthographic views; works headless).
+4. **Game files:** `tools/gpu/car_variants.sh <car>` copies the scripts and `tools/blender/cars/<car>.json` to the PC and runs
+   `tools/blender/car_from_trellis.py` once per variant (smooth, smooth-hi), 4 to 8 s each. What the script does is in
+   its header: turn and scale to the real length, find the generated tyres by their contact patches (wheelbase and track),
+   centre, mirror one side, cut the generated wheels out with a boolean cylinder per wheel (a clean round wheel well),
+   erase lettering boxes in the texture, decimate symmetrically, cut the mesh along the edges of windows and lamps in the
+   texture (contour cut), sort faces into slots by colour and place (paint, glass, plastic, light_front, light_rear),
+   keep the texture on paint and plastic, put the code model's wheels at the found centres, check with `prepare_car.py`, export.
+5. **Pictures and numbers:** `node tools/carshots.mjs <glb name> <dir> front,rear,side,phone` (showroom, one headless browser,
+   nice 10) and `node tools/glbinfo.mjs file.glb` (triangles, vertices, bytes per primitive).
+
+Per car by hand (in `tools/blender/cars/<car>.json`): the crop box, which way the front points, which side to keep, the
+generated tyre's radius and axle height (one side slice, `cut`), the boxes for lamps and the belt line, lettering boxes to erase.
+
+## What came out for the S15
+
+| File | Triangles | Draw calls | Size | Load (headless, software) |
+|---|---|---|---|---|
+| smooth, phone (`s15.glb`) | 14 653 | 9 | 592 KB | 0.7 s |
+| smooth, high (`s15-hi.glb`, no decimation) | 29 191 | 13 | 954 KB | 2.9 to 3.9 s |
+| (dropped) lowpoly, flat, vertex colours | 6 265 | 9 | 506 KB | 1.1 to 3.9 s |
+
+Sizes from the scaled model: 4.445 m long, 1.26 m high (real 1.285), 1.91 m wide with mirrors, wheelbase 2.49 m (real 2.525),
+track 1.55 m. (The dropped flat variant needed three vertices per triangle, so its file was large for its triangles.)
+
+What went wrong and what was learnt:
+- Cutting the tyres face by face leaves a saw tooth; a boolean cylinder gives a clean wheel well (kept).
+- Slot borders on faces zigzag; cutting along the texture's edge (contour) helps but the generated shape itself is wavy.
+- Laplacian smoothing (3 rounds) melts mirrors and the wing; 1 round is the most it takes.
+- QuadriFlow (quad retopology in Blender 4.5) refuses the TRELLIS shell ("needs to be manifold") even after a voxel remesh
+  with no open edge; it works on a test object. A voxel remesh plus smoothing plus decimation was worse than plain decimation.
+- Blender writes a colour attribute twice unless `render_color_index` is set, and TRELLIS' own vertex colours must be removed.
+- The mockup had small lettering on the doors; it is painted over in the texture (`erase`).
+
+## Loading path change (kept)
+
+`game/view/carglb.js`: a base colour texture and vertex colours in a file are no longer thrown away; they multiply the slot's
+colour (so the garage paint still decides the paint), on one shared copy of the slot's material. Test in `carglb.test.mjs`.
+`docs/CAR-MODELS.md` still says "colours and textures in the file are ignored": to be changed once a model uses it for real.
+
+## Downloaded models (the normaliser)
+
+Plan of the owner (2026-11-25): free, well built models (for example from Sketchfab) instead of generated ones; TRELLIS
+template pictures only for a car without a usable free model. Before a file of a model is committed, its source, author and
+licence go into `docs/ASSETS.md` (CLAUDE.md rule 6) and into the car file's `source` block.
+
+`tools/blender/car_normalize.py` makes a game file of a download; `tools/gpu/car_normalize.sh <car> <model path on the PC> [phone high]`
+copies the scripts and `tools/blender/cars/<car>.json` to the PC, runs both tiers (1 to 2 s each for a 12 000 triangle car)
+and fetches `game/assets/cars/<car>.glb` and `<car>-hi.glb`. Put the download on the PC first (`scp model.fbx gpu:C:/AI/work/<car>/`).
+
+What it does (details in the script's header):
+- imports .glb, .gltf, .fbx, .obj or .blend; applies modifiers, bakes transforms, drops cameras, lights, empties, bones, hidden
+  objects and whatever `drop` names (driver, number plate, ground plane);
+- turns it by `up` and `front` (look at it first with `look.py`), scales it uniformly by the real length or wheelbase (`scale_by`);
+- finds the wheels by name (wheel, tyre, rim, Reifen, Felge ...) and by shape (round side, at a corner, near the ground); when the
+  wheels are inside bigger meshes, the loose parts are searched; brake calipers stay with the body;
+- centres it after the rules (origin in the middle of the wheelbase, tyres on y = 0, symmetric wheel positions);
+- gives every material a slot by name: first the car file's `slots` (regex -> slot), then a built-in list in English and German,
+  the rest becomes `plastic` and is marked UNKNOWN in the printed table; one merged mesh per slot, no textures, UVs only on carbon,
+  no interior in the phone file;
+- wheels: `"wheels": "game"` puts the game's (code model's) wheels at the model's centres, scaled to its tyre; `"model"` keeps the
+  model's own wheels as wheel_* nodes (phone: one mesh per wheel, at most about 800 triangles, the rim painted light grey into
+  the vertex colours; high: rubber + chrome);
+- decimates the big body slots (symmetric) to the tier's budget (`targets`, default 14 000 phone / 40 000 high, wheels included),
+  small slots (lamps) stay; smooth normals with hard edges at 35 degrees; checks with `prepare_car.py`; exports.
+
+**First real download: Mazda RX-7 FD** (Sketchfab, Lexyc16, CC BY 4.0, 36 000 triangles, glTF with 16 materials named
+only `Material.0xx`). Steps: unzip on the PC with the embedded Python (`zipfile`, into `C:\AI\work\rx7\src`), read
+`license.txt`; `blender -b -P tools/blender/materials.py -- scene.gltf` lists each material's colour, textures, triangles and
+place, `look.py` shows the car; loose parts of the small materials located the emblems and lettering (all in `Object_14`,
+dropped). The slots are a regex list in `cars/rx7.json` (manual: about 15 minutes). Wheels: the model's own (five spokes)
+look clearly better than the game's; kept. Results (`docs/screenshots/cars/rx7-*.png`):
+
+| File | Triangles | Draw calls | Size | Load in the showroom (headless, software) |
+|---|---|---|---|---|
+| `rx7.glb` (phone) | 13 995 | 10 | 428 KB | 0.8 to 1.0 s |
+| `rx7-hi.glb` (high, with interior) | 35 934 | 15 | 873 KB | 3.4 to 5.1 s |
+
+Scaled by the length 4.30 m: wheelbase 2.445 m (real 2.425), 1.27 m high with the wing (real 1.23), 1.86 m wide with
+mirrors, tyre radius 0.327 m. In the game (`?glb=rx7`, car park, headless): the garage colour works (red and light blue seen),
+it drifts, smoke and skid marks from the game's wheel layout; whole scene 48 862 triangles / 20 draw calls (phone tier),
+83 812 / 33 (high). Known: on the phone tier the rims, thinned to 800 triangles each, look like plain light discs.
+
+Tested with a made-up download: `tools/blender/make_foreign_test.py` turns the code model's S15 into foreign names, centimetres,
+front along +X and loose wheel objects, written as .glb, .fbx and .obj (`cars/test-foreign.json`: game wheels, scale by length;
+`cars/test-foreign-own.json`: the model's own wheels, scale by wheelbase). All three formats and both tiers came out after the
+rules and looked like the original in the showroom; a 5 000 triangle budget decimated the body 6 392 -> 3 106. Two naming traps
+were found and fixed on the way ("trim" contains "rim", "black" contains the German "lack"). **Not tried yet: a real download**
+(odd names, many parts, textures only, missing faces, non-symmetric details); expect to add names to `slots` and `drop` per car.
+
+## Emergency way for generated cars: the loft (tried once, S15)
+
+Only for a car without a usable free model. `car_variants.sh <car> loft` runs `car_from_trellis.py --variant loft`: TRELLIS is the
+blueprint, the body the game sees is new.
+- **Sections:** 56 stations along the car (denser at the ends), 36 rays per half section from the section's middle; rays
+  pointing up go from inside (first surface: not the wing, not a mirror), rays from 75 degrees down come from outside
+  (the outermost: flares, sills, tyres). Taken from the shell **before** the wheel wells are cut. A 3x3 median and a light blur,
+  mirrored to the other side, lofted into one closed quad mesh, the ends capped.
+- **Attachments:** faces of the generated mesh more than 3.5 cm outside the loft and above 0.75 m (mirrors, wing) are added,
+  thinned to 1 500 faces; crumbs under 60 faces dropped.
+- Wells cut again (boolean); no texture: plain slot colours. Slot edges are cut along the blurred texture (glass, lamps, and the
+  dark low parts as plastic), the well walls are plastic, a dark lip around a well is paint.
+- S15: 13 593 triangles, 9 draw calls, 334 KB, 6 s on the PC. Pictures in the session notes (`car-s15/s15-loft-*.png`).
+
+**Verdict (S15):** clearly better than the thinned-out scan: the big panels are smooth (no bumps), clean round wells, the wing
+and the mirrors stay. **Still far from the mockup:** the front is a soft lump (no grille, intakes or lamp shapes; a front face
+lies across the sections and is not caught by them), window and lamp edges still zigzag (they follow a blurred texture),
+no crisp creases or panel lines. Reaching the mockup would mean modelling lamps, grille and creases as parts: that is hand work
+per car. Good enough at most as a stand-in for a car nobody has a model of; downloads first.
+
+Not checked in this try: a drift on the car park with the files, a real phone, the website's copy.

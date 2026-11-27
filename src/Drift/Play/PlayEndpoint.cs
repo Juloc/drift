@@ -1,6 +1,7 @@
 using Base.Accounts;
 using Base.Web;
 using Base.Web.Auth;
+using Drift.GameAccounts;
 using Drift.Garage;
 using Drift.Guests;
 using Drift.Race;
@@ -25,7 +26,7 @@ public sealed record Player(Guid Id, string Name, int Car, int Colour, bool Gues
 /// </summary>
 public static class PlayEndpoint
 {
-    public const string Path = "/api/play/ws", GuestPath = "/api/guest/ws";
+    public const string Path = "/api/play/ws", GuestPath = "/api/guest/ws", GamesPath = "/api/games/play/ws";
 
     /// <summary>How often an open socket asks whether its session still lives (tests make it short).</summary>
     public static TimeSpan SessionCheck { get; set; } = TimeSpan.FromSeconds(30);
@@ -42,6 +43,14 @@ public static class PlayEndpoint
             var cookie = ctx.Request.Cookies[GuestEndpoints.CookieName(ctx.Request)];
             var guests = sp.GetRequiredService<GuestService>();
             return new Player(g.Id, g.Name, g.Car, g.Colour, true, async () => cookie is not null && await guests.ValidateAsync(cookie, CancellationToken.None) is not null);
+        }
+        if (ctx.IsGameAccount())
+        {
+            var a = ctx.GameAccount();
+            var accounts = sp.GetRequiredService<GameAccountService>();
+            var prof = await sp.GetRequiredService<GarageStore>().GetAsync(a.Id, ctx.RequestAborted);
+            return new Player(a.Id, GarageStore.DisplayName(a.Id, prof, a.Name), prof.Car, prof.Colour, false, () => accounts.AliveAsync(a.SessionId), prof.Glow,
+                await sp.GetRequiredService<TuningStore>().GetAsync(a.Id, prof.Car, ctx.RequestAborted));
         }
         var me = ctx.Person();
         var life = sp.GetRequiredService<SessionLife>();
@@ -65,6 +74,7 @@ public static class PlayEndpoint
                 left: s => { sockets.Unregister(p.Id, false, s); hub.LobbyLeft(p.Id, s); _ = stats.LeaveAsync(s); });
         app.Map(Path, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         app.Map(GuestPath, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
+        app.Map(GamesPath, async (HttpContext ctx) => await Lobby(ctx, await WhoAsync(ctx)));
         RelayEndpoint.RunTicker(relay, app.Lifetime.ApplicationStopping, app.Logger);
     }
 }

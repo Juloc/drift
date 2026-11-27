@@ -4,8 +4,19 @@ Rule: an outside file is committed only after it is listed here with source and 
 
 ## Models and pictures
 
-All models are **our own code** (rounded boxes, cylinders and blobs merged by `game/core/build.js`). No file, mesh,
-texture or sound from outside is in the repository. Pictures in `docs/screenshots/` are made by the game itself.
+The world and the five first cars are **our own code** (rounded boxes, cylinders and blobs merged by `game/core/build.js`).
+Pictures in `docs/screenshots/` are made by the game itself. Car models from outside are listed below; each one also has
+its line in `game/data/credits.json` (the text the game shows; CC BY needs the author named).
+
+### Downloaded car models
+
+| File | Title | Author | Source | Licence | Changed |
+|---|---|---|---|---|---|
+| `game/assets/cars/rx7.glb`, `rx7-hi.glb` | Mazda RX-7 FD | Lexyc16 (https://sketchfab.com/Lexyc16) | https://sketchfab.com/3d-models/mazda-rx-7-fd-d35ff630df614771b82e7b2f59035b1e (Sketchfab UID d35ff630df614771b82e7b2f59035b1e) | CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/), stated in the download's `license.txt` and in the glTF's `asset.extras` | verändert: verkleinert, Materialien ersetzt (scaled to the real car's length, all materials replaced by the game's slots, emblems and lettering removed, reduced to 14 000 / 36 000 triangles), by `tools/blender/car_normalize.py` with `tools/blender/cars/rx7.json` |
+
+Checked for the RX-7 (2026-11-25): the licence file and the glTF metadata both say CC-BY-4.0 with author and source; the
+scene looks self-made in Blender (default object names like Plane, Circle, Cylinder, own materials), no sign of a game rip;
+**not provable from the file alone**. The download itself (`mazda_rx-7_fd.zip`) stays on the GPU PC, not in the repository.
 
 ## Packs
 
@@ -19,7 +30,7 @@ three.js's addon).
 
 ## Cars and names (licences)
 
-The owner states that he holds licences for the vehicles and their names (2026-11-25); the proofs are with the owner, not in this repository. Brand and model names may appear in the garage. **No logos or emblems are drawn until the owner confirms that his licences cover them**: the models show shapes only. All car models remain our own code.
+The owner states that he holds licences for the vehicles and their names (2026-11-25); the proofs are with the owner, not in this repository. Brand and model names may appear in the garage. The owner confirmed (2026-11-25) that his licences also cover the marks; logos will come later as stickers drawn by the game. **The models stay without logos or emblems** (they are removed when a download has them).
 
 ## Libraries (not assets)
 

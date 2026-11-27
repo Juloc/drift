@@ -31,7 +31,7 @@ public sealed class GarageStore(NpgsqlDataSource db)
     /// The name the others see: the nickname, or a neutral name from the relay's fixed list (a colour word that follows the car's colour and an animal
     /// that follows the person's id): the same for one person every time, never the account name, which could be a real name.
     /// </summary>
-    public static string DisplayName(Guid userId, Profile p) => p.Nick ?? NeutralName(userId, p.Colour);
+    public static string DisplayName(Guid userId, Profile p, string? accountName = null) => p.Nick ?? accountName ?? NeutralName(userId, p.Colour);
 
     public static string NeutralName(Guid userId, int colour)
     {

@@ -1,8 +1,10 @@
 using Base.Accounts;
+using Drift;
 using Base.Core;
 using Base.Data;
 using Base.Web;
 using Base.Web.Settings;
+using Drift.GameAccounts;
 using Drift.Garage;
 using Drift.Guests;
 using Drift.Play;
@@ -27,11 +29,21 @@ builder.AddBase(new BaseAppOptions("drift", "Drift", typeof(Program).Assembly)
         new AppRole("member", new Localized("Driver", "Fahrer")),
     ],
     // guests: an own door (SEC-07): the check admits a live guest session, and the join path (which checks the link's secret itself)
-    Doors = [new ApiDoor("/api/guest", GuestEndpoints.Check, 4096)],
+    Doors = [new ApiDoor("/api/guest", GuestEndpoints.Check, 4096), new ApiDoor(GameAccountEndpoints.Prefix, GameAccountEndpoints.Check, 4096)],
     Migrations = [MigrationSet.FromAssembly(typeof(Program).Assembly, "app")],
 });
 builder.Services.AddSingleton<GarageStore>();
 builder.Services.AddSingleton<GuestService>();
+// the Juloc Games account: a module of its own (Drift.GameAccounts); the game plugs in through three small interfaces
+builder.Services.AddSingleton<GameAccountService>();
+builder.Services.AddSingleton(sp => new SignupGuard(sp.GetRequiredService<Npgsql.NpgsqlDataSource>(), TimeProvider.System));
+builder.Services.AddSingleton<Bans>();
+builder.Services.AddSingleton(sp => new LegalPages(sp.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>().WebRootFileProvider, sp.GetRequiredService<ILoggerFactory>().CreateLogger<LegalPages>()));
+builder.Services.AddSingleton(sp => new Reports(sp.GetRequiredService<Npgsql.NpgsqlDataSource>(), sp.GetServices<IPlayerDirectory>(), TimeProvider.System));
+builder.Services.AddSingleton<Owners>();
+builder.Services.AddSingleton<IAccountData>(sp => sp.GetRequiredService<Owners>());
+builder.Services.AddSingleton<IAccountEvents>(sp => sp.GetRequiredService<Owners>());
+builder.Services.AddSingleton<IPlayerDirectory>(sp => sp.GetRequiredService<Owners>());
 builder.Services.AddSingleton<TuningStore>();
 builder.Services.AddSingleton<StatsStore>();
 builder.Services.AddSingleton(sp => new StatsTracker(sp.GetRequiredService<StatsStore>(), TimeProvider.System));
@@ -46,6 +58,9 @@ builder.Services.AddSingleton(sp => new RaceHub(TimeProvider.System, sp.GetRequi
 
 var app = builder.Build();
 await app.StartBaseAsync();
+NameFilter.LoadFile(Path.Combine(AppContext.BaseDirectory, "games-names.txt"));   // the administrator's extra words (optional)
+await app.Services.GetRequiredService<Owners>().SweepAsync();
+app.Services.GetRequiredService<LegalPages>().WarnIfOpen();
 app.UseBase();
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(20) });
 // the game page's files: next to the app when published, in the repository when run from source (they are not in wwwroot)
@@ -73,6 +88,9 @@ app.MapTuning();
 app.MapPlay();
 { var t0 = app.Services.GetRequiredService<IReadOnlyDictionary<int, RaceTrack>>()[0]; app.Services.GetRequiredService<WorldRelay>().SetGeometry(t0.Segments, t0.Obstacles); }   // the lobby is the car park: its walls count for the checks
 app.MapGuests();
+app.MapGameAccounts();
+app.MapGameAdmin();
+app.MapReports();
 app.MapRace();
 app.MapStats();
 { var tr = app.Services.GetRequiredService<StatsTracker>(); tr.Follow(app.Services.GetRequiredService<WorldRelay>()); tr.Follow(app.Services.GetRequiredKeyedService<WorldRelay>("race")); }

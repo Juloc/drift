@@ -1,0 +1,67 @@
+{
+  "name": "s15",
+  "about": "Silvia S15 from the owner's garage mockup (TRELLIS.2, seed of the workflow). Sizes of the real car; see docs/CAR-PIPELINE.md.",
+  "length": 4.445,
+  "width": 1.695,
+  "height": 1.285,
+  "wheelbase": 2.525,
+  "front": "-y",
+  "keep_side": "+x",
+  "wheel_radius": 0.32,
+  "wheel_width": 0.215,
+  "regions": {
+    "belt": 0.86,
+    "headlamp": {
+      "from_front": 0.42,
+      "z": [
+        0.5,
+        0.78
+      ],
+      "min_abs_x": 0.28
+    },
+    "taillamp": {
+      "from_rear": 0.25,
+      "z": [
+        0.55,
+        0.95
+      ]
+    }
+  },
+  "targets": {
+    "smooth": 12000,
+    "smooth-hi": 0,
+    "loft": 0
+  },
+  "cut": {
+    "radius": 0.365,
+    "axle_z": 0.32,
+    "inboard": 0.12
+  },
+  "smooth_iterations": 1,
+  "erase": [
+    {
+      "about": "small lettering on the rear of the doors in the mockup (no lettering on a model)",
+      "y": [
+        0.45,
+        1.05
+      ],
+      "z": [
+        0.3,
+        0.62
+      ],
+      "min_abs_x": 0.7
+    }
+  ],
+  "loft": {
+    "stations": 56,
+    "angles": 36,
+    "blur": 1,
+    "attach": 0.035,
+    "attach_faces": 1500,
+    "outside_from_deg": 75,
+    "crumb_faces": 60,
+    "trim": 0.02,
+    "attach_above": 0.75,
+    "blur_passes": 3
+  }
+}

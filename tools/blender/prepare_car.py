@@ -1,6 +1,6 @@
 """Checks a Blender scene against docs/CAR-MODELS.md and exports it as .glb.
 
-Written without Blender at hand: NOT RUN YET. Expect to fix small API details on the first run.
+Used by car_from_trellis.py (check() before its export); run on its own it checks and exports the open scene.
 
 Usage (the car is the open scene; every object in it is part of the car):
     blender --background car.blend --python tools/blender/prepare_car.py -- --id 3 --out game/assets/cars [--tier phone|high] [--check-only]
@@ -179,4 +179,5 @@ def main():
         sys.exit(1)
 
 
-main()
+if __name__ == "__main__":
+    main()
