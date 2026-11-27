@@ -5,7 +5,7 @@
 // `still: true` adds what belongs to the still picture only: the car posed mid-drift with its smoke and the camera at the mockup's place.
 // `still: false` is the scene for driving: `walls` and `bounds` in the scene's own axes (no turn: `yaw` is 0, `toWorld` leaves a point as it is),
 // `smoke.emit(...)` for the tyres, `dressCar(model)` for the car's shadows and tail lights, `flats` for flat pictures the page adds.
-// Models: palms' trunks, barriers, fence and people are Sketchfab models (CC BY, see docs/ASSETS.md); crowns, stand, cranes, ship and lighthouse are made here.
+// Models (Sketchfab, CC BY, see docs/ASSETS.md): palms, barriers, fence, people, grandstand, cranes, container ship, lighthouse, containers. Made here: the sky, the stand's roof, banners and boards, the kerb, the far containers, the sail, the smoke.
 import * as THREE from '../../../vendor/three/three.module.js';
 import { GLTFLoader } from '../../../vendor/three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from '../../../vendor/three/addons/utils/BufferGeometryUtils.js';
@@ -190,48 +190,23 @@ function crowd(spots, parent = scene) { if (OFF.has('crowd')) return; const by =
   const t0 = 0.74, t1 = 2.2, railM = flat('#4a4458', 0.5, { metalness: 0.4 }), rg = []; for (const t of arcTs(R_QUAY - 0.5, t0, t1, 2)) { const [ax, az] = onArc(R_QUAY - 0.5, t), [bx, bz] = onArc(R_QUAY - 0.5, t + 2 / (R_QUAY - 0.5)); rg.push(beam([ax, 0, az], [ax, 1.1, az], 0.07), beam([ax, 1.1, az], [bx, 1.1, bz], 0.06), beam([ax, 0.6, az], [bx, 0.6, bz], 0.04)); }
   const m = new THREE.Mesh(mergeGeometries(rg), railM); m.castShadow = true; scene.add(m); }
 
-// a palm's crown: fronds from young (upright, light) to old (hanging, dark), each a drooping rib with slim leaflets hanging from both sides, and a few nuts
-const frondMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, side: THREE.DoubleSide, emissive: new THREE.Color(0.12, 0.14, 0.02), emissiveIntensity: q('frondGlow', 0.35) });
-function frondCrown(seed) { let s0 = seed; const R = () => { s0 = (s0 * 16807) % 2147483647; return s0 / 2147483647; }, pos = [], col = [], V = THREE.Vector3;
-  const dark = new THREE.Color('#245f2c'), light = new THREE.Color('#8fae36'), ribC = new THREE.Color('#b99a45'), c = new THREE.Color(), tri = (a, b2, d, ca, cb, cd) => { pos.push(a.x, a.y, a.z, b2.x, b2.y, b2.z, d.x, d.y, d.z); col.push(ca.r, ca.g, ca.b, cb.r, cb.g, cb.b, cd.r, cd.g, cd.b); };
-  const N = 30; for (let f = 0; f < N; f++) { const age = f / (N - 1), az = f * 2.39996 + R() * 0.5, L = 3.0 + 1.3 * Math.sin(Math.PI * Math.min(1, age * 1.15)) + R() * 0.4, droop = 1.1 + 0.9 * R() + age * 0.5; let el = 1.25 - 1.75 * age ** 0.85 + (R() - 0.5) * 0.2; const p = new V(0, 0, 0), SEG = 12, pts = [], tans = [];
-    for (let i = 0; i <= SEG; i++) { const t = new V(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az)); pts.push(p.clone()); tans.push(t); p.addScaledVector(t, L / SEG); el -= droop / SEG * (0.4 + 1.2 * i / SEG); }
-    const base = c.copy(dark).lerp(light, 0.25 + 0.6 * (1 - age) + R() * 0.15).clone();
-    for (let i = 0; i < SEG; i++) { const side = new V().crossVectors(tans[i], new V(0, 1, 0)).normalize().multiplyScalar(0.03 * (1 - i / SEG) + 0.012); tri(pts[i].clone().sub(side), pts[i].clone().add(side), pts[i + 1], ribC, ribC, ribC); }
-    const ST = 15; for (let k = 2; k <= ST; k++) { const u = k / ST, fi = u * SEG, i = Math.min(SEG - 1, Math.floor(fi)), at = pts[i].clone().lerp(pts[i + 1], fi - i), T = tans[i], S = new V().crossVectors(T, new V(0, 1, 0)).normalize(), ll = (0.25 + 1.05 * Math.sin(Math.PI * u ** 0.75) ** 0.7) * (0.9 + R() * 0.2), w = 0.13;
-      for (const sg of [-1, 1]) { const dir = new V().addScaledVector(T, 0.55).addScaledVector(S, sg).add(new V(0, -0.5 - 0.5 * u, 0)).normalize(), a = at.clone().addScaledVector(T, -w), b2 = at.clone().addScaledVector(T, w), m = at.clone().addScaledVector(dir, ll * 0.55), ma = m.clone().addScaledVector(T, -w * 0.8), mb = m.clone().addScaledVector(T, w * 0.8), tip = at.clone().addScaledVector(dir, ll).add(new V(0, -0.22 * ll, 0));
-        const c0 = base.clone().multiplyScalar(0.8), c1 = base, c2 = base.clone().lerp(light, 0.5); tri(a, b2, mb, c0, c0, c1); tri(a, mb, ma, c0, c1, c1); tri(ma, mb, tip, c1, c1, c2); } } }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
-  const nut = new THREE.SphereGeometry(0.17, 8, 6).toNonIndexed(), nuts = []; for (let i = 0; i < 6; i++) { const a = i * 1.05, n = nut.clone().translate(Math.cos(a) * 0.28, -0.3 - (i % 2) * 0.12, Math.sin(a) * 0.28), cc = new Float32Array(n.attributes.position.count * 3); for (let j = 0; j < cc.length; j += 3) { cc[j] = 0.2; cc[j + 1] = 0.11; cc[j + 2] = 0.04; } n.setAttribute('color', new THREE.BufferAttribute(cc, 3)); n.deleteAttribute('uv'); nuts.push(n); }
-  return mergeGeometries([g, ...nuts]); }
-// ---- palms (the set's straightest two, their trunks drawn out so they stand tall): a row behind the outside fence, more behind the stand and on the pier; they sway
-{ const sway = (src, top, crown) => { const m = src.clone(); m.envMapIntensity = 0.25; m.roughness = 0.9; m.metalness = 0; m.roughnessMap = null; m.metalnessMap = null; m.side = THREE.DoubleSide; if (crown && !m.vertexColors) m.color.multiply(new THREE.Color(1.0, 0.86, 0.6));
+// ---- palms: a row behind the outside fence, more behind the stand, on the pier and round the ring; they sway
+{ const sway = (src, top, crown) => { const m = src.clone(); m.envMapIntensity = 0.25; m.roughness = 0.9; m.metalness = 0; m.roughnessMap = null; m.metalnessMap = null; m.side = THREE.DoubleSide; 
     m.onBeforeCompile = (sh) => { sh.uniforms.uTime = time; sh.uniforms.uTop = { value: top }; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime; uniform vec3 uTop;').replace('#include <begin_vertex>', `#include <begin_vertex>\n{ float hh = max(transformed.y, 0.0) / 12.0; float ph = instanceMatrix[3][0] * 0.3 + instanceMatrix[3][2] * 0.2;${crown ? ' float tip = length(transformed.xz - uTop.xz); transformed.y += sin(uTime * 2.6 + ph + tip * 1.3) * 0.07 * tip;' : ''} transformed.x += sin(uTime * 1.1 + ph) * 0.35 * hh * hh; transformed.z += cos(uTime * 0.8 + ph) * 0.25 * hh * hh; }`); }; return m; };
   const spots = [[...onArc(35.6, 0.12), 13.5], [...onArc(36.4, -0.12), 12.5]];
   for (const t of [0.62, 0.86, 1.06, 1.24, 1.4, 1.56]) spots.push([...onArc(35.3 + rnd() * 1.2, t + (rnd() - 0.5) * 0.04), 8.5 + rnd() * 3]);
   for (let i = 0; i < 4; i++) spots.push([...onArc(54 + rnd() * 6, -0.05 + i * 0.22 + rnd() * 0.05), 12 + rnd() * 4]);
   for (let z = -52; z > -230; z -= 13 + rnd() * 10) spots.push([-5 - rnd() * 3, z, 10 + rnd() * 4]);
   for (let t = 1.9; t < 5.9; t += 0.34) spots.push([...onArc(36 + (t * 7 % 1) * 1.5, t), 9.5 + (t * 13 % 1) * 3.5]);   // and on round the rest of the ring
-  if (q('palmPack', 1)) {   // three tall palms from a pack (trunk, fronds as cards, root), each brought to 12 m in its own measure; the fronds a fresher green, and the low sun shines through them
+  {   // three tall palms from a pack (trunk, fronds as cards, root), each brought to 12 m in its own measure; the fronds a fresher green, and the low sun shines through them
     const g = await file('skfb/palm-pack.glb'), groups = new Map(); for (const o of meshesOf(g.scene)) { const key = o.parent.name; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(o); }
     const kinds = [...groups.values()].map((ms) => { const geos = ms.map((o) => o.geometry.clone().applyMatrix4(o.matrixWorld)), box = new THREE.Box3(); for (const gg of geos) { gg.computeBoundingBox(); box.union(gg.boundingBox); }
       const bi = Math.max(0, ms.findIndex((o) => /Base/i.test(o.name))), fi = ms.findIndex((o) => /Frond/i.test(o.name)), bc = geos[bi].boundingBox.getCenter(new THREE.Vector3()), fc = geos[Math.max(0, fi)].boundingBox.getCenter(new THREE.Vector3()), k = 12 / (box.max.y - box.min.y);
       const top = new THREE.Vector3((fc.x - bc.x) * k, (fc.y - box.min.y) * k, (fc.z - bc.z) * k);
       return ms.map((o, n) => { const m = sway(o.material, top, n === fi); if (n === fi) { m.transparent = false; m.alphaTest = q('frondCut', 0.35); m.depthWrite = true; m.color.setRGB(1.25, 1.6, 0.85); m.emissive = new THREE.Color(0.55, 0.75, 0.18); m.emissiveMap = m.map; m.emissiveIntensity = q('frondGlow', 0.55); } else m.color.multiplyScalar(1.5); return { geo: geos[n].translate(-bc.x, -box.min.y, -bc.z).scale(k, k, k), mat: m }; }); });
     if (!OFF.has('palms')) kinds.forEach((parts, n) => { const mine = spots.filter((_, k2) => k2 % kinds.length === n).map(([x, z, h]) => [x, z, rnd() * 6.28, h / 12]); for (const pt of parts) instances(pt.geo, pt.mat, mine); });
-  } else { const g = await file('skfb/palm-set.glb'), groups = new Map(); for (const o of meshesOf(g.scene)) { const key = o.parent.name; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(o); }
-  const kinds = ['PalmTreeSet_LP020', 'PalmTreeSet_LP024'].map((name, n) => { const ms = groups.get(name) ?? [...groups.values()][n], trunkM = ms.find((o) => /Palm\.001/.test(o.name)) ?? ms[0], crownM = ms.find((o) => /Plam\.002/.test(o.name)) ?? ms[1], K = n ? 1.6 : 1.45;
-    const trunk = trunkM.geometry.clone().applyMatrix4(trunkM.matrixWorld), crown = crownM.geometry.clone().applyMatrix4(crownM.matrixWorld); trunk.computeBoundingBox(); const b = trunk.boundingBox, p = trunk.attributes.position; let bx = 0, bz = 0, bn = 0, tx = 0, tz = 0, tn = 0;
-    for (let i = 0; i < p.count; i++) { if (p.getY(i) < b.min.y + 0.4) { bx += p.getX(i); bz += p.getZ(i); bn++; } if (p.getY(i) > b.max.y - 0.4) { tx += p.getX(i); tz += p.getZ(i); tn++; } }
-    const H = b.max.y - b.min.y, lx = tx / tn - bx / bn, lz = tz / tn - bz / bn, keep = q('lean', 0.25); trunk.translate(-bx / bn, -b.min.y, -bz / bn); crown.translate(-bx / bn, -b.min.y, -bz / bn);
-    { const tp = trunk.attributes.position; for (let i = 0; i < tp.count; i++) { const k = (tp.getY(i) / H) * (1 - keep); tp.setX(i, tp.getX(i) - lx * k); tp.setZ(i, tp.getZ(i) - lz * k); } }   // the set's palms lean far over: most of the lean is taken out, the curve stays
-    crown.translate(-lx * (1 - keep), -H, -lz * (1 - keep)).translate(-lx * keep, 0, -lz * keep).scale(1.3, 1.3, 1.3).translate(lx * keep, H * K, lz * keep); trunk.scale(1, K, 1);
-    const U = 12 / (H * K); trunk.scale(U, U, U); crown.scale(U, U, U);   // every palm 12 m high in its own measure, so the sway is in metres
-    const top = new THREE.Vector3(lx * keep * U, 12, lz * keep * U), own = q('ownCrown', 1) ? frondCrown(31 + n * 17).translate(top.x, top.y - 0.25, top.z) : null;
-    return { trunk, crown: own ?? crown, tm: sway(trunkM.material, top, false), cm: sway(own ? frondMat : crownM.material, top, true), H: 12 }; });
-  if (!OFF.has('palms')) kinds.forEach((kd, n) => { const mine = spots.filter((_, i) => (i % 3 === 2 ? 1 : 0) === n).map(([x, z, h]) => [x, z, rnd() * 6.28, h / kd.H]); instances(kd.trunk, kd.tm, mine); instances(kd.crown, kd.cm, mine); }); }
+  }
 }
-
 // ---- the harbour: containers on the pier, cranes and a ship across the basin, a lighthouse on its rock, a sail
 const rib = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 8; const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 16, 0); gr.addColorStop(0, '#8a8a8a'); gr.addColorStop(0.5, '#ffffff'); gr.addColorStop(1, '#8a8a8a'); x.fillStyle = gr; for (let i = 0; i < 4; i++) { x.save(); x.translate(i * 16, 0); x.fillRect(0, 0, 16, 8); x.restore(); } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 1); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 const boxCols = ['#c9564a', '#4f79a8', '#dcb25a', '#5b9a8c', '#c35f84', '#e9e1d8', '#7a62a8', '#d9773f'], boxGeo = new THREE.BoxGeometry(12.2, 2.6, 2.44), boxMats = boxCols.map((c) => new THREE.MeshStandardMaterial({ color: c, map: rib, roughness: 0.7, envMapIntensity: 0.4 }));
@@ -267,13 +242,13 @@ const glow = (x, y, z, size, col, k) => { const g = new THREE.Sprite(new THREE.S
 // lit like everything else: bright towards the sun and from above, pink-mauve underneath, a warm rim where the low sun shines through.
 // A lump is born small at a tyre, grows and rises, loses its core and then fades. `emit` is for the driving page, `pose` for the still.
 const flats = [];   // what stays out of the ambient occlusion's shape pass: flat pictures and the smoke's shells
-const smoke = (() => { const MAX = q('smokeMax', 240), K = q('smokeK', 0.82) / EXP, uni = { uTime: time, uSun: { value: sunLift }, uLit: { value: shown(1.0, 0.78, 0.78, K) }, uShade: { value: shown(0.86, 0.42, 0.6, K) }, uRim: { value: shown(1.0, 0.7, 0.45, K * q('smokeRim', 0.5)) } };
+const smoke = (() => { const MAX = q('smokeMax', 240), K = q('smokeK', 0.74) / EXP, uni = { uTime: time, uSun: { value: sunLift }, uLit: { value: shown(1.0, 0.74, 0.72, K) }, uShade: { value: shown(0.74, 0.36, 0.56, K) }, uRim: { value: shown(1.0, 0.7, 0.45, K * q('smokeRim', 0.5)) } };
   const geo = new THREE.IcosahedronGeometry(1, q('lumpDetail', tier === 'low' ? 4 : 6)), aFade = new THREE.InstancedBufferAttribute(new Float32Array(MAX).fill(1), 1), aSeed = new THREE.InstancedBufferAttribute(new Float32Array(MAX), 1); for (let i = 0; i < MAX; i++) aSeed.array[i] = (i * 0.6180339) % 1 * 40; geo.setAttribute('aFade', aFade); geo.setAttribute('aSeed', aSeed);
   const mat = (shell) => { const m = new THREE.MeshLambertMaterial({ transparent: shell, depthWrite: !shell }); m.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime; attribute float aFade, aSeed; varying float vFade;').replace('#include <begin_vertex>', `#include <begin_vertex>
       { vFade = aFade; vec3 p = position * 2.6 + aSeed; transformed *= 1.0 + 0.13 * (sin(p.x * 1.7 + p.y * 1.1) * sin(p.y * 1.9 - p.z * 1.3) + 0.5 * sin(p.z * 3.1 + p.x * 2.3 + uTime * 0.6)) + 0.03 * sin(uTime * 1.1 + aSeed); }`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uSun, uLit, uShade, uRim; varying float vFade;').replace('#include <opaque_fragment>', `
-      { vec3 nV = normalize(vNormal), nW = normalize((vec4(nV, 0.0) * viewMatrix).xyz), vD = normalize(vViewPosition); float fres = 1.0 - max(dot(nV, vD), 0.0), w = dot(nW, uSun) * 0.5 + 0.5, k = smoothstep(0.22, 0.86, 0.6 * (nW.y * 0.5 + 0.5) + 0.4 * w);
+      { vec3 nV = normalize(vNormal), nW = normalize((vec4(nV, 0.0) * viewMatrix).xyz), vD = normalize(vViewPosition); float fres = 1.0 - max(dot(nV, vD), 0.0), w = dot(nW, uSun) * 0.5 + 0.5, k = smoothstep(0.34, 0.84, 0.72 * (nW.y * 0.5 + 0.5) + 0.28 * w);
         outgoingLight = mix(uShade, uLit, k) + uRim * pow(fres, 2.5) * w; ${shell ? 'diffuseColor.a = (1.0 - smoothstep(0.3, 1.0, fres)) * 0.92 * vFade;' : ''} }
       #include <opaque_fragment>`); }; return m; };
   const core = new THREE.InstancedMesh(geo, mat(false), MAX), shell = new THREE.InstancedMesh(geo, mat(true), MAX); for (const m of [core, shell]) { m.count = 0; m.frustumCulled = false; scene.add(m); } core.castShadow = tier !== 'low'; shell.renderOrder = 5; flats.push(shell);
