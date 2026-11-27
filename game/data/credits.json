@@ -1483,25 +1483,6 @@
       }
     },
     {
-      "id": "skfb-palm-set",
-      "kind": "model",
-      "name": "Stylized Palm tree set",
-      "file": [
-        "game/assets/skfb/palm-set.glb"
-      ],
-      "author": "Parelaxel",
-      "authorUrl": "https://sketchfab.com/parelaxel",
-      "source": "https://sketchfab.com/3d-models/stylized-palm-tree-set-b84b734847344cb6a81b9102a64ac63b",
-      "licence": "CC BY 4.0",
-      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
-      "attribution": true,
-      "changes": "only the trunks of two palms of the set (the crowns are replaced by the game's own, a one-triangle stand-in stays), pictures made smaller (512 px, JPEG), made by tools/make-quay-assets.mjs",
-      "use": {
-        "en": "\"Stylized Palm tree set\" by Parelaxel, CC BY 4.0; changed: only the trunks of two palms of the set (the crowns are replaced by the game's own, a one-triangle stand-in stays), pictures made smaller (512 px, JPEG)",
-        "de": "„Stylized Palm tree set“ von Parelaxel, CC BY 4.0; verändert: only the trunks of two palms of the set (the crowns are replaced by the game's own, a one-triangle stand-in stays), pictures made smaller (512 px, JPEG)"
-      }
-    },
-    {
       "id": "skfb-barriers",
       "kind": "model",
       "name": "Stylized Concrete Barriers, Game Ready",
@@ -1556,6 +1537,120 @@
       "use": {
         "en": "\"Low Detail Animated Crowd\" by Shahriar Shahrabi, CC BY 4.0; changed: unchanged (the figures are frozen in a pose at load and drawn as copies)",
         "de": "„Low Detail Animated Crowd“ von Shahriar Shahrabi, CC BY 4.0; verändert: unchanged (the figures are frozen in a pose at load and drawn as copies)"
+      }
+    },
+    {
+      "id": "skfb-crane",
+      "kind": "model",
+      "name": "Ship To Shore Crane",
+      "file": [
+        "game/assets/skfb/crane.glb"
+      ],
+      "author": "JakeBradley",
+      "authorUrl": "https://sketchfab.com/JakeBradley",
+      "source": "https://sketchfab.com/3d-models/401069fccf814da7a4f9ce5a51487548",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "the camera and light nodes removed (no pictures in the file), made by tools/make-quay-assets.mjs",
+      "use": {
+        "en": "\"Ship To Shore Crane\" by JakeBradley, CC BY 4.0; changed: the camera and light nodes removed (no pictures in the file)",
+        "de": "„Ship To Shore Crane“ von JakeBradley, CC BY 4.0; verändert: the camera and light nodes removed (no pictures in the file)"
+      }
+    },
+    {
+      "id": "skfb-ship",
+      "kind": "model",
+      "name": "Container Ship",
+      "file": [
+        "game/assets/skfb/ship.glb"
+      ],
+      "author": "LavaWave",
+      "authorUrl": "https://sketchfab.com/lavawave",
+      "source": "https://sketchfab.com/3d-models/4f7cf10593824061bfe2e36ffd823cde",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "picture made smaller (512 px), made by tools/make-quay-assets.mjs",
+      "use": {
+        "en": "\"Container Ship\" by LavaWave, CC BY 4.0; changed: picture made smaller (512 px)",
+        "de": "„Container Ship“ von LavaWave, CC BY 4.0; verändert: picture made smaller (512 px)"
+      }
+    },
+    {
+      "id": "skfb-lighthouse",
+      "kind": "model",
+      "name": "Lighthouse",
+      "file": [
+        "game/assets/skfb/lighthouse.glb"
+      ],
+      "author": "Nabil Rahman",
+      "authorUrl": "https://sketchfab.com/stnabeal",
+      "source": "https://sketchfab.com/3d-models/9cc7e0ae47824e198ad5dd296644c125",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "pictures made smaller (512 px), material form kept, made by tools/make-quay-assets.mjs",
+      "use": {
+        "en": "\"Lighthouse\" by Nabil Rahman, CC BY 4.0; changed: pictures made smaller (512 px), material form kept",
+        "de": "„Lighthouse“ von Nabil Rahman, CC BY 4.0; verändert: pictures made smaller (512 px), material form kept"
+      }
+    },
+    {
+      "id": "skfb-palm-pack",
+      "kind": "model",
+      "name": "Palm Tree Pack LOWPOLY",
+      "file": [
+        "game/assets/skfb/palm-pack.glb"
+      ],
+      "author": "sixonetwo",
+      "authorUrl": "https://sketchfab.com/evan4129",
+      "source": "https://sketchfab.com/3d-models/fd439b0f82c34497aabb21c68ad2fb34",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "pictures made smaller (512 px, the fronds' alpha lossless), made by tools/make-quay-assets.mjs",
+      "use": {
+        "en": "\"Palm Tree Pack LOWPOLY\" by sixonetwo, CC BY 4.0; changed: pictures made smaller (512 px, the fronds' alpha lossless)",
+        "de": "„Palm Tree Pack LOWPOLY“ von sixonetwo, CC BY 4.0; verändert: pictures made smaller (512 px, the fronds' alpha lossless)"
+      }
+    },
+    {
+      "id": "skfb-container",
+      "kind": "model",
+      "name": "Free Ship Container",
+      "file": [
+        "game/assets/skfb/container.glb"
+      ],
+      "author": "JonhGillessen",
+      "authorUrl": "https://sketchfab.com/JonhGillessen",
+      "source": "https://sketchfab.com/3d-models/a6ac735a49054dd78c1d3a8a50235f0b",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "pictures made smaller (512 px), made by tools/make-quay-assets.mjs",
+      "use": {
+        "en": "\"Free Ship Container\" by JonhGillessen, CC BY 4.0; changed: pictures made smaller (512 px)",
+        "de": "„Free Ship Container“ von JonhGillessen, CC BY 4.0; verändert: pictures made smaller (512 px)"
+      }
+    },
+    {
+      "id": "skfb-stand",
+      "kind": "model",
+      "name": "Race Track/ Stadium Viewing Stand and Seating",
+      "file": [
+        "game/assets/skfb/stand.glb"
+      ],
+      "author": "william.p7",
+      "authorUrl": "https://sketchfab.com/william.p7",
+      "source": "https://sketchfab.com/3d-models/f47b51bcda6e449495795c66eb7089a9",
+      "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": true,
+      "changes": "pictures made smaller (256 px, the adverts 512 px), made by tools/make-quay-assets.mjs",
+      "use": {
+        "en": "\"Race Track/ Stadium Viewing Stand and Seating\" by william.p7, CC BY 4.0; changed: pictures made smaller (256 px, the adverts 512 px)",
+        "de": "„Race Track/ Stadium Viewing Stand and Seating“ von william.p7, CC BY 4.0; verändert: Bilder verkleinert (256 px, die Werbetafeln 512 px)"
       }
     }
   ]

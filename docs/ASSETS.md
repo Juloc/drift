@@ -161,11 +161,16 @@ From `~/projects/drift-mockups/assets-download/QUELLEN.md` (downloaded with the 
 
 ## The quay (Sketchfab models, CC BY 4.0)
 
-Downloaded with the owner's yes (2026-11-27), listed in `~/projects/drift-mockups/assets-download/QUELLEN.md`; the repository holds only what `view/look/quay.js` loads, made by `tools/make-quay-assets.mjs` from the raw downloads (18 MB -> 3.3 MB). CC BY 4.0: the authors are named in the game's credits (`game/data/credits.json`).
+Downloaded with the owner's yes (2026-11-27), listed in `~/projects/drift-mockups/assets-download/QUELLEN.md`; the repository holds only what `view/look/quay.js` loads, made by `tools/make-quay-assets.mjs` from the raw downloads (raw 50 MB of which the quay uses 39 MB; kept 8.0 MB). CC BY 4.0: the authors are named in the game's credits (`game/data/credits.json`).
 
 | File | Title | Author | Source | Licence | Changes |
 |---|---|---|---|---|---|
-| `game/assets/skfb/palm-set.glb` | Stylized Palm tree set | Parelaxel (https://sketchfab.com/parelaxel) | https://sketchfab.com/3d-models/stylized-palm-tree-set-b84b734847344cb6a81b9102a64ac63b | CC BY 4.0 | only the trunks of two palms of the set (the crowns are replaced by the game's own, a one-triangle stand-in stays), pictures made smaller (512 px, JPEG), made by tools/make-quay-assets.mjs |
 | `game/assets/skfb/barriers.glb` | Stylized Concrete Barriers, Game Ready | Skipperino (https://sketchfab.com/skipperino) | https://sketchfab.com/3d-models/stylized-concrete-barriers-game-ready-f6086995b6e94790b1932d8aa4e51275 | CC BY 4.0 | only one barrier of the set, pictures made smaller (1024 px, JPEG), made by tools/make-quay-assets.mjs |
 | `game/assets/skfb/fence-set.glb` | Modular Chain Link Fence Set | FrodoUndead (https://sketchfab.com/FrodoUndead) | https://sketchfab.com/3d-models/modular-chain-link-fence-set-bd85a8005ff0403cab2f1e9845016b8f | CC BY 4.0 | only the first panel (with barbed wire), pictures made smaller (1024 px, the alpha kept lossless), made by tools/make-quay-assets.mjs |
 | `game/assets/skfb/crowd.glb` | Low Detail Animated Crowd | Shahriar Shahrabi (https://sketchfab.com/shahriyarshahrabi) | https://sketchfab.com/3d-models/low-detail-animated-crowd-4fe76fdec12d456f9b0db06b45cc53d6 | CC BY 4.0 | unchanged (the figures are frozen in a pose at load and drawn as copies) |
+| `game/assets/skfb/crane.glb` | Ship To Shore Crane | JakeBradley (https://sketchfab.com/JakeBradley) | https://sketchfab.com/3d-models/401069fccf814da7a4f9ce5a51487548 | CC BY 4.0 | the camera and light nodes removed (no pictures in the file) |
+| `game/assets/skfb/ship.glb` | Container Ship | LavaWave (https://sketchfab.com/lavawave) | https://sketchfab.com/3d-models/4f7cf10593824061bfe2e36ffd823cde | CC BY 4.0 | picture made smaller (512 px) |
+| `game/assets/skfb/lighthouse.glb` | Lighthouse | Nabil Rahman (https://sketchfab.com/stnabeal) | https://sketchfab.com/3d-models/9cc7e0ae47824e198ad5dd296644c125 | CC BY 4.0 | pictures made smaller (512 px), material form kept |
+| `game/assets/skfb/palm-pack.glb` | Palm Tree Pack LOWPOLY | sixonetwo (https://sketchfab.com/evan4129) | https://sketchfab.com/3d-models/fd439b0f82c34497aabb21c68ad2fb34 | CC BY 4.0 | pictures made smaller (512 px, the fronds' alpha lossless) |
+| `game/assets/skfb/container.glb` | Free Ship Container | JonhGillessen (https://sketchfab.com/JonhGillessen) | https://sketchfab.com/3d-models/a6ac735a49054dd78c1d3a8a50235f0b | CC BY 4.0 | pictures made smaller (512 px) |
+| `game/assets/skfb/stand.glb` | Race Track/ Stadium Viewing Stand and Seating | william.p7 (https://sketchfab.com/william.p7) | https://sketchfab.com/3d-models/f47b51bcda6e449495795c66eb7089a9 | CC BY 4.0 | pictures made smaller (256 px, the adverts 512 px) |

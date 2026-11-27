@@ -1,7 +1,6 @@
 // Shrinks the four Sketchfab models of the quay (game/assets/skfb/*.glb, CC BY 4.0: docs/ASSETS.md) to what view/look/quay.js loads, with smaller pictures. Repeatable: it reads the raw
 // downloads (default ~/projects/drift-mockups/assets-download/sketchfab) and writes the files of the repository. What stays:
-//   palm-set.glb   the nodes PalmTreeSet_LP.020 and .024, each with its trunk (Palm.001) and a one-triangle stand-in for its crown (quay.js makes its own crowns, but its look-up reads
-//                  the set's second mesh of each palm, so a mesh of that name stays, as an empty shape). Pictures at most 512 px.
+//   crane, ship, lighthouse, container, palm-pack, stand   whole (every mesh and name), pictures at most 512 px (the stand's pictures 256: dropping its normal and roughness maps doubled the difference to the raw picture, so they stay).
 //   barriers.glb   the one mesh quay.js picks (of the meshes higher than 1 unit, sorted by their x size, the second: the look-up falls back to the first when only one is there). 1024 px.
 //   fence-set.glb  the first mesh (the long panel with barbed wire); the alpha stays. 1024 px.
 //   crowd.glb      as it is (skin and animation are needed: the figures are frozen at load).
@@ -46,23 +45,31 @@ async function write(g, keepNodes, { stand = new Set(), maxPx, alpha = new Set()
   const order = [...keep].sort((a, b) => a - b), nmap = new Map(order.map((n, i) => [n, i]));
   const chunks = [], views = [], accessors = [], meshes = [], mmap = new Map(), materials = [], matMap = new Map(), textures = [], texMap = new Map(), images = [];
   const addView = (data, target) => { const off = chunks.reduce((a, c) => a + c.length, 0); chunks.push(pad4(data)); views.push({ buffer: 0, byteOffset: off, byteLength: data.length, ...(target ? { target } : {}) }); return views.length - 1; };
-  const tex = async (ti) => {   // a texture of a material: the picture made smaller
-    if (ti === undefined) return undefined; if (texMap.has(ti)) return texMap.get(ti);
+  const tex = async (ti, px = typeof maxPx === 'function' ? maxPx('base', '') : maxPx, isAlpha = false) => {   // a texture of a material: the picture made smaller
+    const key = `${ti}:${px}`; if (ti === undefined) return undefined; if (texMap.has(key)) return texMap.get(key);
     const src = J.textures[ti].source, im = J.images[src], bv = J.bufferViews[im.bufferView], bytes = g.bin.subarray(bv.byteOffset ?? 0, (bv.byteOffset ?? 0) + bv.byteLength);
-    const a = alpha.has(src), pic = await smaller(bytes, im.mimeType, maxPx, a);
+    const a = alpha.has(src) || isAlpha, pic = await smaller(bytes, im.mimeType, px, a);
     images.push({ bufferView: addView(pic.bytes), mimeType: pic.mime }); textures.push(a ? { sampler: J.textures[ti].sampler ?? 0, extensions: { EXT_texture_webp: { source: images.length - 1 } } } : { sampler: J.textures[ti].sampler ?? 0, source: images.length - 1 });
-    texMap.set(ti, textures.length - 1); return textures.length - 1;
+    texMap.set(key, textures.length - 1); return textures.length - 1;
   };
   const material = async (mi, flat) => {
     if (mi === undefined) return undefined; const key = `${mi}${flat ? 'f' : ''}`; if (matMap.has(key)) return matMap.get(key);
     const m = structuredClone(J.materials[mi]), pb = m.pbrMetallicRoughness ?? {};
     if (flat) { delete pb.baseColorTexture; delete pb.metallicRoughnessTexture; delete m.normalTexture; delete m.occlusionTexture; delete m.emissiveTexture; }   // the crown's stand-in: the colour only
     else {
-      if (pb.baseColorTexture) pb.baseColorTexture = { ...pb.baseColorTexture, index: await tex(pb.baseColorTexture.index) };
-      if (pb.metallicRoughnessTexture) pb.metallicRoughnessTexture = { ...pb.metallicRoughnessTexture, index: await tex(pb.metallicRoughnessTexture.index) };
-      if (m.normalTexture) m.normalTexture = { ...m.normalTexture, index: await tex(m.normalTexture.index) };
-      if (m.occlusionTexture) m.occlusionTexture = { ...m.occlusionTexture, index: await tex(m.occlusionTexture.index) };
-      if (m.emissiveTexture) m.emissiveTexture = { ...m.emissiveTexture, index: await tex(m.emissiveTexture.index) };
+      const blend = (m.alphaMode ?? 'OPAQUE') !== 'OPAQUE', size = (role) => (typeof maxPx === 'function' ? maxPx(role, m.name ?? '') : maxPx);
+      // every texture reference of the material, also inside extensions (the lighthouse's old specular-glossiness form): the picture made smaller, or the map dropped when its size is 0
+      const walk = async (o, role) => { if (!o || typeof o !== 'object') return;
+        for (const [k, v] of Object.entries(o)) {
+          if (v && typeof v === 'object' && typeof v.index === 'number' && /Texture$/.test(k)) {
+            const r = /^(baseColor|diffuse)/.test(k) ? 'base' : /^normal/.test(k) ? 'normal' : /^(metallicRoughness|specularGlossiness|specular)/.test(k) ? 'rough' : /^occlusion/.test(k) ? 'occlusion' : 'other', px = size(r);
+            if (!px) { delete o[k]; continue; } o[k] = { ...v, index: await tex(v.index, px, blend && r === 'base') };
+          } else if (v && typeof v === 'object') await walk(v, role);
+        } };
+      await walk(pb, 'pbr');
+      for (const k of ['normalTexture', 'occlusionTexture', 'emissiveTexture']) if (m[k]) { const r = k === 'normalTexture' ? 'normal' : k === 'occlusionTexture' ? 'occlusion' : 'other', px = size(r); if (!px) delete m[k]; else m[k] = { ...m[k], index: await tex(m[k].index, px) }; }
+      if (m.extensions) await walk(m.extensions, 'ext');
+      if (m.normalTexture === undefined) delete m.normalTexture;
     }
     m.pbrMetallicRoughness = pb; materials.push(m); matMap.set(key, materials.length - 1); return materials.length - 1;
   };
@@ -86,7 +93,7 @@ async function write(g, keepNodes, { stand = new Set(), maxPx, alpha = new Set()
   const nodes = []; for (const n of order) { const o = { ...J.nodes[n] }; if (o.children) o.children = o.children.filter((c) => keep.has(c)).map((c) => nmap.get(c)); if (!o.children?.length) delete o.children; if (o.mesh !== undefined) o.mesh = await useMesh(o.mesh); nodes.push(o); }
   const scenes = J.scenes.map((s) => ({ ...s, nodes: s.nodes.filter((n) => keep.has(n)).map((n) => nmap.get(n)) }));
   const json = { asset: J.asset, scene: J.scene ?? 0, scenes, nodes, meshes, materials, ...(textures.length ? { textures, images, samplers: J.samplers ?? [{ magFilter: 9729, minFilter: 9987, wrapS: 10497, wrapT: 10497 }] } : {}), accessors, bufferViews: views, buffers: [{ byteLength: chunks.reduce((a, c) => a + c.length, 0) }],
-    ...(textures.some((t) => t.extensions) ? { extensionsUsed: ['EXT_texture_webp'], extensionsRequired: ['EXT_texture_webp'] } : {}) };
+    ...(() => { const used = new Set((J.extensionsUsed ?? []).filter((e) => e !== 'KHR_materials_pbrSpecularGlossiness' || JSON.stringify(materials).includes('pbrSpecularGlossiness'))), req = new Set(J.extensionsRequired ?? []); if (textures.some((t) => t.extensions)) { used.add('EXT_texture_webp'); req.add('EXT_texture_webp'); } return { ...(used.size ? { extensionsUsed: [...used] } : {}), ...(req.size ? { extensionsRequired: [...req] } : {}) }; })() };
   const jb = pad4(Buffer.from(JSON.stringify(json)), 0x20), bb = Buffer.concat(chunks), head = Buffer.alloc(12), jh = Buffer.alloc(8), bh = Buffer.alloc(8);
   head.writeUInt32LE(0x46546c67, 0); head.writeUInt32LE(2, 4); head.writeUInt32LE(12 + 8 + jb.length + 8 + bb.length, 8); jh.writeUInt32LE(jb.length, 0); jh.writeUInt32LE(0x4e4f534a, 4); bh.writeUInt32LE(bb.length, 0); bh.writeUInt32LE(0x004e4942, 4);
   const glb = Buffer.concat([head, jh, jb, bh, bb]); writeFileSync(`${OUT}${name}.glb`, glb); return glb.length;
@@ -94,10 +101,11 @@ async function write(g, keepNodes, { stand = new Set(), maxPx, alpha = new Set()
 const byName = (g, re) => g.json.nodes.map((n, i) => ({ n, i })).filter(({ n }) => re.test(n.name ?? '')).map(({ i }) => i);
 const report = [];
 
-{   // palms: the nodes LP.020 and LP.024, each with its trunk and a stand-in crown
-  const g = readGlb(`${RAW}/palm-set.glb`), J = g.json, groupNodes = byName(g, /^PalmTreeSet_LP\.0(20|24)$/), keepNodes = [], stand = new Set();
-  for (const gn of groupNodes) for (const c of J.nodes[gn].children) { keepNodes.push(c); if (/Plam\.002/.test(J.nodes[c].name)) stand.add(J.nodes[c].mesh); }
-  report.push(['palm-set', await write(g, keepNodes, { stand, maxPx: 512, name: 'palm-set' })]);
+{   // the models that stay whole (every mesh, every name; only the pictures get smaller, the camera and light nodes of a file go): the harbour's, the pack's palms and the stand
+  const whole = async (name, maxPx) => { const g = readGlb(`${RAW}/${name}.glb`), keep = g.json.nodes.map((n, i) => (n.mesh !== undefined ? i : -1)).filter((i) => i >= 0); report.push([name, await write(g, keep, { maxPx, name })]); };
+  await whole('crane', 512); await whole('ship', 512); await whole('lighthouse', 512); await whole('container', 512);
+  await whole('palm-pack', 512);   // (the fronds' alpha lossless)
+  { const base = +(opt.standBase ?? 256), maps = +(opt.standMaps ?? 256); await whole('stand', (role, mat) => (role === 'base' ? (/Adverts/.test(mat) ? Math.max(512, base) : base) : maps)); }   // plain colours: small colour pictures, no normal or roughness maps
 }
 {   // barriers: the second of the meshes higher than 1 unit sorted by their x size (what quay.js picks), alone
   const g = readGlb(`${RAW}/barriers.glb`), J = g.json, parts = J.nodes.map((n, i) => ({ i, mesh: n.mesh })).filter((p) => p.mesh !== undefined).map((p) => ({ ...p, s: sizeOfMesh(g, p.mesh) })).filter((p) => p.s[1] > 1).sort((a, b) => a.s[0] - b.s[0]);
