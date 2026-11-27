@@ -15,7 +15,7 @@ export function loadGlb(url) {
 const env = (name) => loadGlb(new URL(`../assets/env/${name}.glb`, import.meta.url).href);
 
 /** The meshes of a kit file as { geometry (in the file's own space, standing on y = 0), material (toon, with the file's picture), height }. */
-async function kit(name, tint, mono = false) {
+export async function kit(name, tint, mono = false) {
   const gltf = await env(name), out = [], box = new THREE.Box3().setFromObject(gltf.scene);
   gltf.scene.updateMatrixWorld(true);
   gltf.scene.traverse((o) => { if (!o.isMesh) return; const m = o.material, g = o.geometry.clone().applyMatrix4(o.matrixWorld); g.translate(0, -box.min.y, 0);
@@ -24,7 +24,7 @@ async function kit(name, tint, mono = false) {
 }
 
 /** places: [[x, y, z, ry, height]...] */
-function instances(k, places, name, shadow = false) {
+export function instances(k, places, name, shadow = false) {
   const group = new THREE.Group(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), p = new THREE.Vector3(), s = new THREE.Vector3();
   for (const part of k.parts) { const mesh = new THREE.InstancedMesh(part.geometry, part.material, places.length);
     places.forEach(([x, y, z, ry, h], i) => { const f = h / k.height; mesh.setMatrixAt(i, m.compose(p.set(x, y, z), q.setFromAxisAngle(up, ry), s.set(f, f, f))); });
@@ -32,12 +32,12 @@ function instances(k, places, name, shadow = false) {
   return group;
 }
 
-function faceted(g, r, amount) {   // moves every corner (the same way for all triangles that share it) and gives each triangle its own normal
+export function faceted(g, r, amount) {   // moves every corner (the same way for all triangles that share it) and gives each triangle its own normal
   const n = g.toNonIndexed(), p = n.attributes.position, seen = new Map();
   for (let v = 0; v < p.count; v++) { const key = `${p.getX(v).toFixed(3)}|${p.getY(v).toFixed(3)}|${p.getZ(v).toFixed(3)}`; let j = seen.get(key); if (!j) { j = 1 + (r() - 0.5) * amount; seen.set(key, j); } p.setXYZ(v, p.getX(v) * j, p.getY(v) * j, p.getZ(v) * j); }
   n.deleteAttribute('uv'); n.computeVertexNormals(); return n;
 }
-const paintGeo = (g, colour) => { const c = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < c.length; i += 3) colour.toArray(c, i); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g; };
+export const paintGeo = (g, colour) => { const c = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < c.length; i += 3) colour.toArray(c, i); g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g; };
 
 function guardrails() {
   const parts = [], posts = [], lamps = [], PROFILE = [[0.0, 0.42], [0.07, 0.5], [0.0, 0.58], [0.0, 0.62], [0.07, 0.7], [0.0, 0.78]];
@@ -56,11 +56,16 @@ function guardrails() {
   group.add(rail, post, lamp); group.name = 'rails'; return group;
 }
 
-function chevrons() {
+export function chevronTexture() {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128; const c = cv.getContext('2d');
   c.fillStyle = '#2a1436'; c.fillRect(0, 0, 256, 128); c.strokeStyle = '#ff4f9a'; c.lineWidth = 22; c.lineJoin = 'miter';
   for (const x of [52, 122, 192]) { c.beginPath(); c.moveTo(x - 24, 22); c.lineTo(x + 22, 64); c.lineTo(x - 24, 106); c.stroke(); }
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  return tex;
+}
+
+function chevrons() {
+  const tex = chevronTexture();
   const face = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(2.6, 2.2, 2.4), toneMapped: false }), back = toon({ color: '#4a3a5a' }), group = new THREE.Group();
   const board = (s, off, w, turn = 0) => { const p = at(s, off), g = new THREE.Group(), h = w / 2;
     const f = new THREE.Mesh(new THREE.PlaneGeometry(w, h), face); f.position.y = 0.95 + h / 2; const b = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, h + 0.12, 0.08), back); b.position.set(0, 0.95 + h / 2, -0.05); b.castShadow = true;

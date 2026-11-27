@@ -88,11 +88,9 @@ function landMesh() {
   return mesh;
 }
 
-function roadMesh() {
-  const pos = [], uv = [], idx = [], W = SHOULDER + 0.6;
-  path.forEach((p, i) => { for (const o of [-W, W]) { pos.push(p.x + p.tz * o, p.y + (Math.abs(o) > HALF ? -0.03 : 0), p.z - p.tx * o); uv.push(o, p.s); } if (i) { const k = i * 2; idx.push(k - 2, k, k - 1, k - 1, k, k + 1); } });
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-  const mat = toon({ color: 0xffffff, gloss: 0.4, rim: 0.0, soft: 0.5,
+/** The asphalt: `uv.x` is metres from the centre line, `uv.y` metres along the road. Lines, worn patches, wheel tracks and a gravel shoulder are painted from those. */
+export function roadMaterial() {
+  return toon({ color: 0xffffff, gloss: 0.4, rim: 0.0, soft: 0.5,
     pars: /* glsl */ `float rh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float rn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(rh(i), rh(i + vec2(1.0, 0.0)), f.x), mix(rh(i + vec2(0.0, 1.0)), rh(i + vec2(1.0, 1.0)), f.x), f.y); }`,
     paint: /* glsl */ `{ float u = vUv2.x, au = abs(u), s = vUv2.y;
@@ -106,6 +104,13 @@ function roadMesh() {
       c = mix(c, vec3(0.98, 0.7, 0.26), dash);
       c = mix(c, vec3(0.6, 0.5, 0.55) * (0.85 + 0.3 * grain), smoothstep(4.45, 4.75, au));         // the gravel shoulder
       diffuseColor.rgb = c; }` });
+}
+
+function roadMesh() {
+  const pos = [], uv = [], idx = [], W = SHOULDER + 0.6;
+  path.forEach((p, i) => { for (const o of [-W, W]) { pos.push(p.x + p.tz * o, p.y + (Math.abs(o) > HALF ? -0.03 : 0), p.z - p.tx * o); uv.push(o, p.s); } if (i) { const k = i * 2; idx.push(k - 2, k, k - 1, k - 1, k, k + 1); } });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const mat = roadMaterial();
   const mesh = new THREE.Mesh(g, mat); mesh.receiveShadow = true; mesh.name = 'road';
   return mesh;
 }
@@ -131,14 +136,14 @@ function tyreMarks(extra = []) {
 }
 
 /** Rings of faceted peaks round the valley; the haze makes the far ones pale. */
-function mountains() {
+export function mountains(cx = 0, cz = 0, base = VALLEY - 20) {
   const r = rnd(31), parts = [], RINGS = [[900, 1150, 34, 150, 300, '#5f4f98'], [1500, 1900, 40, 260, 520, '#5b4d96'], [2500, 3000, 44, 420, 760, '#584b93'], [3900, 4500, 46, 620, 1000, '#554990']];
   for (const [r0, r1, n, h0, h1, hex] of RINGS) for (let i = 0; i < n; i++) {
     const az = (i + r() * 0.8) / n * Math.PI * 2, R = r0 + r() * (r1 - r0), h = h0 + r() * r() * (h1 - h0) * 1.3, rad = h * (1.1 + r() * 0.9);
     if (Math.abs(az - 0.72) < 0.2 && R < 3500) continue;                                                   // the valley stays open towards the sun
     const g = new THREE.ConeGeometry(rad, h, 7, 3, true).toNonIndexed(), p = g.attributes.position, seen = new Map();
     for (let v = 0; v < p.count; v++) { const key = `${p.getX(v).toFixed(1)}|${p.getY(v).toFixed(1)}|${p.getZ(v).toFixed(1)}`; let j = seen.get(key); if (!j) { const top = p.getY(v) > h * 0.49; j = top ? [0, 0, 0] : [(r() - 0.5) * rad * 0.34, (r() - 0.5) * h * 0.16, (r() - 0.5) * rad * 0.34]; seen.set(key, j); } p.setXYZ(v, p.getX(v) + j[0], p.getY(v) + j[1], p.getZ(v) + j[2]); }
-    g.rotateY(r() * 6.28); g.translate(Math.sin(az) * R, VALLEY - 20 + h / 2, -Math.cos(az) * R); g.computeVertexNormals();
+    g.rotateY(r() * 6.28); g.translate(cx + Math.sin(az) * R, base + h / 2, cz - Math.cos(az) * R); g.computeVertexNormals();
     const k = new THREE.Color(hex).multiplyScalar(0.9 + r() * 0.2), col = new Float32Array(p.count * 3); for (let v = 0; v < p.count; v++) k.toArray(col, v * 3); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.deleteAttribute('uv');
     parts.push(g);
   }

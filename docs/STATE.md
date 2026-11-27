@@ -931,3 +931,31 @@ near rear wheel; clouds are faint; the car is the S14 (the mockup shows a kitted
 grass on the rock); no time-of-day blend yet (one key). **Not checked:** a real phone, the frame time, the app's content policy (the page was
 served by a plain file server), the C# tests. `node --test` on this Windows machine fails in 4 tests with and without this work (paths: `E:\E:\...`
 in the credits test, a `\r` in the page tests); the other 278 pass.
+
+## The touge uphill in the mock stage's look, to drive (2026-11-27; a test page, not the game yet)
+
+`game/lab-touge.html` (`lab-touge.js`, `mock/touge.js`, `mock/car.js`): the game's own touge map (`data/maps/06-touge.json`: its baked track for the
+ground, its walls for the collisions) driven **from the bottom of the pass up to the plaza**, with the new driving model (sim2) and the test pages'
+controls, cameras and sound (`lab-drive-core.js`). `?down=1` drives it downhill, `?s=<metres>` starts elsewhere, `?tier=low` is the phone's tier,
+H or the Data chip shows the test read-outs. What is new:
+- **The land follows the track** (`mock/touge.js makeField`): the flank's mean plane through the road's heights, pulled to every leg of the pass so
+  each lies on it as a bench, a short rock cut above the road and a drop below it, a valley floor under the pass, rolling land far out, rings of
+  peaks round it. The land is level with the road for a verge of 3.4 m beyond the shoulder, so no triangle of the land comes up through the road.
+- **Rails stand on the map's walls** (what the car hits is what is drawn), with posts and lamps; chevron boards round the outside of every hairpin,
+  their arrows pointing the way of the climb; pines as four tiers of faceted cones, cherry trees, rocks and grass tufts, **all made from code**
+  (no model file but the car's).
+- **The slope pulls on the car**: the surface's gradient as an acceleration into sim2 (`env.ax`, `env.az`); grass beside the road grips 0.62. The
+  car lies on the road as its four wheel points find it (nose up on the climb, leaning with the bank). The 2D walls are unchanged.
+- **Smoke that lives** (`mock/smoke.js emit`, `tick`): lumps from the sliding tyres that grow, rise and fade, each with its own ground height; skid
+  marks on the slope; the tail lamps brighten on the brake.
+- **The mockup's driving display, live** (`lab-touge.css`): run and time, best, drift score with multiplier and chain, the climb in per cent, the
+  pass as a map with the car's arrow, the drift angle, pedals, speed and gear.
+
+Numbers (desk PC with an RTX 5070 Ti; **not a phone**): high tier at 1600 x 900: 1.2 ms a picture (render and wait for the graphics card, best of
+20), 64 draw calls, 394k triangles. Low tier at 844 x 390: 1.0 ms, 80 draw calls, 296k triangles. Driven by simulated keys: full throttle from the
+bottom reaches 81 km/h in 6 s on the climb; a handbrake turn into the first hairpin slides at 26 to 33 degrees, lays marks and smoke and scores.
+Pictures: `docs/screenshots/mock/touge-uphill-drift.jpg`, `touge-uphill-hairpin.jpg`.
+
+Not done: the finish of a run only stops the clock (no result card); no other drivers, no network; the map's tyre stacks and cones are neither
+drawn nor hit; the plaza on top is bare; the car is the S14 with the AE86's driving numbers; one time of day. **Not checked:** the whole climb
+driven by a person, a real phone (frame time, touch layout by hand), the sound by ear, the app's content policy (served by a plain file server).
