@@ -1032,3 +1032,17 @@ file in the repository: a detailed model has to be downloaded by the owner); 6. 
   4 : 3: a lens 50 degrees high, the horizon a third from the top, the car 5.7 m away, the sun 23 degrees right of the view and 6 up). A page outside the
   repository shows the mockup and the stage side by side.
 - Numbers, touge page with the roadster (desk PC, RTX 5070 Ti): 2.0 ms a picture, 104 draw calls, 1.08 million triangles. Picture `docs/screenshots/mock/miata-touge-drift.jpg`.
+
+## The still: building after the picture, part by part (2026-11-27)
+
+`game/lab-still.html` (`lab-still.js`): the owner's picture of the pass without car and smoke (`game/assets/mock/pass-plate.png`, made by the owner with an
+image model; credited as his own work together with a panorama of the far land and a chevron board) lies behind a real 3D scene seen through the picture's
+own camera (frame 1671 x 941, a lens 27.4 degrees high, the eye 1.22 m over the road). B shows only what is really built, O lays the picture half
+see-through over it, 1 to 9 switch one part. Built so far: the roadster in the picture's car place, and a road (dark plum asphalt, lines, broad soft
+tyre marks) that does not sit where the painted road is.
+**A finding that limits "1 : 1":** the picture's perspective is not one real camera's. Its road outline, laid onto level ground through that camera, is a
+bend of about 9 m radius only 20 to 25 m from the eye, between 3 and 14 m wide; its guardrails are about a third of a real rail's size at that distance.
+The car is drawn large against a small world. So no world with real sizes can lie pixel on pixel under this picture: either the picture itself stays as
+the backdrop (one fixed camera: what the other tool's default view does), or the world is real and drivable and matches the picture in light, colours,
+materials and parts, with a framing that is close but not identical (the mock stage, `lab-mock.html`).
+Pictures: `docs/screenshots/mock/still-car-on-picture.jpg` (the real car on the picture), `still-road-built.jpg` (the built road over the picture's).

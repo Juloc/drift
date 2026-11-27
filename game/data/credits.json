@@ -1695,5 +1695,21 @@
         "de": "\"Palm tree\" von galaxxxy, CC BY 4.0"
       }
     }
+    ,{
+      "id": "mock-pictures",
+      "kind": "picture",
+      "name": "Pictures of the mountain pass at sunset (the scene without car and smoke, a panorama of the far land, a chevron board)",
+      "file": [
+        "game/assets/mock/pass-plate.png",
+        "game/assets/mock/sunset-panorama.png",
+        "game/assets/mock/chevron-right.png"
+      ],
+      "author": "the owner of the game",
+      "licence": "own work",
+      "use": {
+        "en": "the owner's pictures of the look, made with an image model: the far land behind the test scene and the picture the scene is built after",
+        "de": "Bilder des Besitzers zum Aussehen, mit einem Bildmodell erzeugt: das ferne Land hinter der Testszene und das Bild, nach dem die Szene gebaut wird"
+      }
+    }
   ]
 }

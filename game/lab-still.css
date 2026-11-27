@@ -1,0 +1,5 @@
+html, body { margin: 0; height: 100%; background: #0c0a10; overflow: hidden; }
+#view, #over { position: fixed; display: block; }
+#over { opacity: 0.5; pointer-events: none; }
+#over[hidden] { display: none; }
+#info { position: fixed; left: 8px; bottom: 6px; color: #fff; font: 11px/1.3 system-ui, sans-serif; opacity: 0.6; }
