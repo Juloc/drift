@@ -7,13 +7,14 @@ import { buildQuay } from './view/look/quay.js';
 import { Skids } from './view/fx.js';
 import { prepareMap } from './sim/map.js';
 import { createDrive, makeTexts, rigCar, $, FLAT, smokeOf, squealOf } from './lab-drive-core.js';
+import { makeHud } from './lab-drive-hud.js';
 import { X } from './view/space.js';
 
 window.__err = []; addEventListener('error', (e) => window.__err.push(String(e.message))); addEventListener('unhandledrejection', (e) => window.__err.push(String(e.reason?.message ?? e.reason)));
 const params = new URLSearchParams(location.search);
 const { t } = makeTexts({
-  en: { title: 'Drift: drive on the quay (test page)', hint: 'Arrows/WASD drive, Space handbrake, Shift clutch, Q/E gear, M manual, 1/2/3 Arcade/Sport/Sim, T stock/drift set-up, C camera, R back to the start. Burnout: hold the brake and full throttle' },
-  de: { title: 'Drift: Fahren auf dem Kai (Testseite)', hint: 'Pfeile/WASD fahren, Leertaste Handbremse, Shift Kupplung, Q/E Gang, M manuell, 1/2/3 Arcade/Sport/Sim, T Serie/Drift-Aufbau, C Kamera, R zurück zum Start. Burnout: Bremse halten und Vollgas' },
+  en: { lap: 'Lap', time: 'Time', best: 'Best', score: 'Drift score', angle: 'Drift angle', pGas: 'Gas', pBrake: 'Brake', pHand: 'Handbrake', title: 'Drift: drive on the quay (test page)', hint: 'Arrows/WASD drive, Space handbrake, Shift clutch, Q/E gear, M manual, 1/2/3 Arcade/Sport/Sim, T stock/drift set-up, C camera, R back to the start. Burnout: hold the brake and full throttle' },
+  de: { lap: 'Runde', time: 'Zeit', best: 'Beste', score: 'Drift-Score', angle: 'Driftwinkel', pGas: 'Gas', pBrake: 'Bremse', pHand: 'Handbremse', title: 'Drift: Fahren auf dem Kai (Testseite)', hint: 'Pfeile/WASD fahren, Leertaste Handbremse, Shift Kupplung, Q/E Gang, M manuell, 1/2/3 Arcade/Sport/Sim, T Serie/Drift-Aufbau, C Kamera, R zurück zum Start. Burnout: Bremse halten und Vollgas' },
 }, params);
 const coarse = matchMedia('(pointer: coarse)').matches || params.has('touch');
 
@@ -98,10 +99,15 @@ const hooks = {
   driver,
   beforeStep(s, wheelPts, muW) { for (let i = 0; i < 4; i++) { muW[i] = h.puddleAt(-wheelPts[i][0], wheelPts[i][1]) > 0.5 ? PUDDLE_MU : 1; if (muW[i] < minMu[i]) minMu[i] = muW[i]; } },
   fixed(s, steps) { if (steps % 2 === 0) marksAndSmoke(s, steps); const r = Math.hypot(-s.x - h.ring.cx, s.z - h.ring.cz); ring.min = Math.min(ring.min, r); ring.max = Math.max(ring.max, r); },
-  onReset() { h.smoke.clear(); skids.clear(); h.motion._prev = null; },   // (a cut: the streaks start again)
+  onReset() { h.smoke.clear(); skids.clear(); h.motion._prev = null; hud?.reset(); },
+  key(code) { if (code === 'KeyH') { document.body.classList.toggle('data-open'); return true; } return false; },   // H: the test read-outs instead of the driving display   // (a cut: the streaks start again)
 };
 let fpsNow = 0, fpsCount = 0, fpsSince = performance.now();
-const drive = createDrive({ params, t, camera, rig: car, wheelLocal: car.wheelLocal, spawn: () => ({ x: -start.x, z: start.z, h: -start.yaw }), env: ENV, map, groundAt: () => 0, lookCamera: { dist: 5.6, height: 1.2, side: 0, look: 14, lookY: 0.5, travel: 0.6, fov: 52, turn: 8, swing: 3, turnDrift: -24 }, soundId: 1, oldSound: false, hooks });
+// the chase camera, close and low as the mockup frames the car (tunable from the address while the look is being matched)
+const qn = (k, v) => (params.has(k) ? +params.get(k) : v), CAM = { dist: qn('cd', 4.3), height: qn('ch', 0.95), side: qn('cs', 0), look: qn('cl', 14), lookY: qn('cy', 0.85), travel: qn('ct', 0.6), fov: qn('cf', 56), turn: qn('cturn', 8), swing: qn('csw', 3), turnDrift: qn('ctd', -24) };
+// the driving display in the mockups' style (lab-drive-hud.js); ?hud=test keeps the test page's read-outs
+const hud = params.get('hud') === 'test' ? null : makeHud({ T: t, ring: h.ring });
+const drive = createDrive({ params, t, camera, rig: car, wheelLocal: car.wheelLocal, spawn: () => ({ x: -start.x, z: start.z, h: -start.yaw }), env: ENV, map, groundAt: () => 0, lookCamera: CAM, soundId: 1, oldSound: false, hooks });
 $('simhint').textContent = t('hint');
 
 // ---- the loop
@@ -112,6 +118,7 @@ function frame(now) {
   const { d, dt } = drive.frame(now);
   focusV.set(X(d.x), 0.6, d.z);   // the car's place in the scene's axes: the smoke in front of it thins out
   if (drive.camNo !== lastCam) { lastCam = drive.camNo; h.motion._prev = null; }   // (a camera cut)
+  if (hud) { const s = drive.s; hud.update({ dt, kmh: s.speed * 3.6, gear: s.gear === 0 ? 'N' : s.gear < 0 ? 'R' : String(s.gear), throttle: drive.inp.throttle, brake: drive.inp.brake, hand: drive.inp.handbrake, beta: s.beta, x: X(d.x), z: d.z, perf: `${fpsNow} fps · ${h.perf()}` }); }
   model.userData.lights?.set({ brake: drive.inp.brake });   // the brake pedal 0..1 lights the lamps (the handbrake does not)
   h.tick(dt);   // after the camera is placed: palms, flags, people, sea, clouds, smoke, flames and the streaks (from the camera's real movement)
   sunAt.set(X(d.x), 0, d.z); sun.target.position.copy(sunAt); sun.position.copy(sunAt).add(h.sunOffset);   // the sun's shadow box follows the car

@@ -1,0 +1,44 @@
+/* The driving display in the mockups' style: glass cards with a pink edge. Lap and time, the drift score with its chain, the ring as a small map,
+   the drift angle as an arc, the pedals and the speed. The test page's read-outs stay behind the Data chip (H on a keyboard). */
+#mhud { position: fixed; inset: 0; pointer-events: none; z-index: 3; font-family: var(--font); color: #fff; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+#mhud .mc { position: absolute; background: linear-gradient(160deg, rgba(92, 44, 104, 0.5), rgba(46, 24, 74, 0.55)); border: 1.5px solid rgba(255, 138, 196, 0.8); border-radius: 18px; box-shadow: 0 0 16px rgba(255, 96, 170, 0.35), inset 0 0 14px rgba(255, 150, 210, 0.12); backdrop-filter: blur(6px); text-shadow: 0 1px 3px rgba(40, 10, 50, 0.6); }
+#mh-lap { left: 14px; top: 12px; padding: 8px 14px; display: grid; grid-template-columns: auto auto; gap: 2px 18px; font-size: 15px; }
+#mh-lap b { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+#mh-lap .big { font-size: 19px; }
+#mh-score { left: 50%; top: 12px; transform: translateX(-50%); padding: 6px 16px 10px; min-width: 190px; }
+#mh-score small { display: block; font-size: 13px; opacity: 0.9; }
+#mh-score .row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+#mh-score .pts { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+#mh-score .mult { background: linear-gradient(180deg, #ff5fa8, #e0338a); border-radius: 12px; padding: 2px 10px; font-size: 18px; font-weight: 800; box-shadow: 0 0 10px rgba(255, 80, 160, 0.6); }
+#mh-score .chain { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); margin-top: 6px; overflow: hidden; }
+#mh-score .chain i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff5fa8, #ff9fc8); }
+#mh-score.live { border-color: #fff; box-shadow: 0 0 22px rgba(255, 96, 170, 0.7), inset 0 0 14px rgba(255, 150, 210, 0.2); }
+#mh-map { left: 14px; bottom: 14px; width: 132px; height: 96px; padding: 4px; }
+#mh-map svg { width: 100%; height: 100%; display: block; }
+#mh-angle { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); width: 230px; height: 96px; }
+#mh-angle svg { width: 100%; height: 100%; display: block; overflow: visible; }
+#mh-angle .val { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; font-size: 26px; font-weight: 800; line-height: 1; text-shadow: 0 2px 6px rgba(40, 10, 50, 0.8); }
+#mh-angle .lab { position: absolute; left: 0; right: 0; bottom: 40px; text-align: center; font-size: 13px; text-shadow: 0 1px 4px rgba(40, 10, 50, 0.9); }
+#mh-angle .end { position: absolute; bottom: 8px; font-size: 12px; opacity: 0.9; text-shadow: 0 1px 4px rgba(40, 10, 50, 0.9); }
+#mh-angle .end.a { left: 26px; } #mh-angle .end.b { right: 20px; }
+#mh-pedals { right: 168px; bottom: 14px; padding: 9px 12px 7px; display: flex; gap: 10px; }
+#mh-pedals .p { width: 44px; text-align: center; font-size: 10.5px; }
+#mh-pedals .p .slot { position: relative; height: 54px; border-radius: 8px; background: rgba(30, 14, 50, 0.6); border: 1px solid rgba(255, 255, 255, 0.25); overflow: hidden; margin-bottom: 3px; }
+#mh-pedals .p .slot i { position: absolute; inset: auto 0 0 0; height: 0; border-radius: 6px; }
+#mh-pedals .p.gas i { background: linear-gradient(180deg, #5ff0b0, #1fbf86); } #mh-pedals .p.brk i { background: linear-gradient(180deg, #ffffff, #cfc6dd); } #mh-pedals .p.hnd i { background: linear-gradient(180deg, #ff6fb0, #e0338a); }
+#mh-speed { right: 14px; bottom: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; min-width: 118px; min-height: 66px; }
+#mh-speed .n { font-size: 38px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; text-align: center; }
+#mh-speed .n small { display: block; font-size: 12px; font-weight: 500; opacity: 0.9; margin-top: 2px; }
+#mh-speed .g { border: 1.5px solid rgba(255, 255, 255, 0.85); border-radius: 9px; padding: 4px 9px; font-size: 20px; font-weight: 800; }
+#mh-perf { position: absolute; right: 14px; top: 46px; font-size: 10px; opacity: 0.55; text-shadow: 0 1px 2px #000; }
+body.mock-hud:not(.data-open) #simhud, body.mock-hud:not(.data-open) #simhint { display: none; }
+body.mock-hud.data-open #mhud { display: none; }
+/* a touch screen: the thumbs have the lower corners, so the map and the speed move up */
+body.touch.mock-hud #mh-map { left: 196px; top: 12px; bottom: auto; width: 96px; height: 70px; }
+body.touch.mock-hud #mh-pedals { display: none; }
+body.touch.mock-hud #mh-speed { top: 46px; bottom: auto; transform: scale(0.86); transform-origin: top right; }
+body.touch.mock-hud #mh-perf { top: auto; bottom: 2px; right: 50%; transform: translateX(50%); }
+body.touch.mock-hud #mh-angle { width: 190px; height: 80px; bottom: 12px; }
+body.touch.mock-hud #simtouch .pad.mid { top: 92px; flex-direction: column; }
+body.touch.mock-hud #simtouch .pad.mid [data-key='KeyQ'], body.touch.mock-hud #simtouch .pad.mid [data-key='KeyE'], body.touch.mock-hud #simtouch .pad.mid [data-key='KeyM'], body.touch.mock-hud #simtouch .pad.mid [data-key='KeyT'] { display: none; }
+@media (max-height: 420px) { #mh-lap { font-size: 12px; padding: 6px 10px; } #mh-lap .big { font-size: 15px; } #mh-score .pts { font-size: 22px; } #mh-score { min-width: 160px; } body.touch.mock-hud #mh-map { left: 164px; } }
