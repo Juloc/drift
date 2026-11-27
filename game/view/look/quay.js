@@ -75,7 +75,10 @@ const SEA_WALL = q('seaWall', 0.6), seaward = (t) => { const u = ((t % (2 * Math
 const ringTs = (r, step, even = 1) => { const n = Math.round(2 * Math.PI * r / step / even) * even, out = []; for (let i = 0; i < n; i++) out.push(-0.9 + i * 2 * Math.PI / n); return out; };   // a whole ring of pieces without a gap (`even`: a count that divides by it)
 const tex = new THREE.TextureLoader(), wrap = (t, rep, srgb) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
 const REP = 1 / 4.5;
-const asphalt = new THREE.MeshStandardMaterial({ map: wrap(await tex.loadAsync('assets/tex/asphalt_02_diff_1k.jpg'), REP, true), normalMap: wrap(await tex.loadAsync('assets/tex/asphalt_02_nor_gl_1k.jpg'), REP), roughnessMap: wrap(await tex.loadAsync('assets/tex/asphalt_02_rough_1k.jpg'), REP), color: new THREE.Color(params.get('asph') || '#d0b0a8').multiplyScalar(q('asphK', 1.7)), roughness: 1, envMapIntensity: 0.7 });
+// ?road=paint is the painted road of the mockups (being tried: a style sheet for the owner): smooth, no photograph, many curved tyre marks, white edge
+// lines and the kerb as flat painted stripes instead of blocks.
+const PAINT = params.get('road') === 'paint';
+const asphalt = PAINT ? new THREE.MeshStandardMaterial({ color: new THREE.Color(params.get('asph') || '#4a3d52'), roughness: 0.8, envMapIntensity: 0.6 }) : new THREE.MeshStandardMaterial({ map: wrap(await tex.loadAsync('assets/tex/asphalt_02_diff_1k.jpg'), REP, true), normalMap: wrap(await tex.loadAsync('assets/tex/asphalt_02_nor_gl_1k.jpg'), REP), roughnessMap: wrap(await tex.loadAsync('assets/tex/asphalt_02_rough_1k.jpg'), REP), color: new THREE.Color(params.get('asph') || '#d0b0a8').multiplyScalar(q('asphK', 1.7)), roughness: 1, envMapIntensity: 0.7 });
 // The road's patterns (the rubber of earlier slides, the hollows that hold water, the large light and dark) cost about thirty noise look-ups a pixel
 // when computed in the road's shader, on most of the screen. They never change: they are drawn once into a picture round the ring, and the shader reads it.
 const MASK_HALF = 46, maskRT = new THREE.WebGLRenderTarget(tier === 'low' ? 1024 : 2048, tier === 'low' ? 1024 : 2048, { depthBuffer: false, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter });
@@ -88,24 +91,50 @@ const MASK_HALF = 46, maskRT = new THREE.WebGLRenderTarget(tier === 'low' ? 1024
       void main() { vec2 w = vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)}) + (vUv * 2.0 - 1.0) * ${MASK_HALF.toFixed(1)};
         float big = fbm(w * 0.05), hollow = fbm(w * 0.16 + 31.0);
         float rr = distance(w, vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)})), lane = smoothstep(${(R_KERB + 1.2).toFixed(1)}, ${(R_KERB + 2.2).toFixed(1)}, rr) * (1.0 - smoothstep(${(R_OUT - 1.2).toFixed(1)}, ${(R_OUT - 0.4).toFixed(1)}, rr)), rub = 0.0;
-        for (int j = 0; j < 7; j++) { float fj = float(j); vec2 cj = vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)}) + vec2(sin(fj * 2.4), cos(fj * 1.7)) * 2.6; float rj = 23.6 + fj * 1.15 + sin(fj * 5.1) * 0.6, dj = distance(w, cj) - rj, gap = 0.72, wj = 0.035 + 0.02 * sin(fj * 3.3);   // seven slides, each two tyre lines
-          float on = smoothstep(0.35, 0.6, fbm(w * 0.11 + fj * 9.0)); rub += (exp(-(dj - gap) * (dj - gap) / wj) + exp(-(dj + gap) * (dj + gap) / wj)) * on * (0.45 + 0.3 * sin(fj * 1.9)); }
+        for (int j = 0; j < ${PAINT ? 13 : 7}; j++) { float fj = float(j); vec2 cj = vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)}) + vec2(sin(fj * 2.4), cos(fj * 1.7)) * ${PAINT ? '3.4' : '2.6'}; float rj = ${PAINT ? '22.6 + fj * 0.72' : '23.6 + fj * 1.15'} + sin(fj * 5.1) * 0.6, dj = distance(w, cj) - rj, gap = 0.72, wj = ${PAINT ? '0.06' : '0.035'} + 0.02 * sin(fj * 3.3);   // slides of earlier cars, each two tyre lines
+          float on = smoothstep(0.35, 0.6, fbm(w * 0.11 + fj * 9.0)); rub += (exp(-(dj - gap) * (dj - gap) / wj) + exp(-(dj + gap) * (dj + gap) / wj)) * on * (${PAINT ? '0.62' : '0.45'} + 0.3 * sin(fj * 1.9)); }
         rub += exp(-(rr - 26.6) * (rr - 26.6) / 9.0) * 0.14;                                                     // and the line itself a shade darker
         float wet = smoothstep(${q('wet0', 0.6).toFixed(3)}, ${q('wet1', 0.74).toFixed(3)}, hollow) * 0.95 + 0.06 * smoothstep(0.35, 0.6, big);
         gl_FragColor = vec4(clamp(rub, 0.0, 0.8) * lane, wet, big, 1.0); }` }));
   sc.add(quad); const before = renderer.getRenderTarget(); renderer.setRenderTarget(maskRT); renderer.render(sc, cam); renderer.setRenderTarget(before); quad.geometry.dispose(); quad.material.dispose(); }
-asphalt.onBeforeCompile = (sh) => { sh.uniforms.uMask = { value: maskRT.texture };
+const paintRT = PAINT ? new THREE.WebGLRenderTarget(2048, 2048, { depthBuffer: false, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter }) : null;
+if (PAINT) { const KR = R_IN + 1.55, sc = new THREE.Scene(), cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({ depthTest: false, depthWrite: false, toneMapped: false,
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    // the paint on the road: the kerb inside the bend as red and white stripes that follow it, a white line beside it and one along the outside wall; a little worn
+    fragmentShader: `varying vec2 vUv;
+      float h21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+      float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+      void main() { vec2 w = vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)}) + (vUv * 2.0 - 1.0) * ${MASK_HALF.toFixed(1)}, dv = w - vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)}); float rr = length(dv), along = atan(dv.y, dv.x) * ${KR.toFixed(2)};
+        float kerb = 1.0 - smoothstep(0.52, 0.58, abs(rr - ${KR.toFixed(2)})), red = step(0.5, fract(along / ${q('kerbLen', 4.2).toFixed(2)}));
+        float lineIn = 1.0 - smoothstep(0.07, 0.11, abs(rr - ${(KR + 0.86).toFixed(2)})), lineOut = 1.0 - smoothstep(0.07, 0.11, abs(rr - ${(R_OUT - 0.95).toFixed(2)}));
+        vec3 col = mix(vec3(0.9, 0.87, 0.86), vec3(0.8, 0.07, 0.14), kerb * red); float amt = max(kerb, max(lineIn, lineOut)) * (0.86 + 0.14 * vn(w * 1.3));
+        gl_FragColor = vec4(col, amt); }` }));
+  sc.add(quad); const before = renderer.getRenderTarget(); renderer.setRenderTarget(paintRT); renderer.render(sc, cam); renderer.setRenderTarget(before); quad.geometry.dispose(); quad.material.dispose(); }
+asphalt.onBeforeCompile = (sh) => { sh.uniforms.uMask = { value: maskRT.texture }; sh.uniforms.uPaint = { value: paintRT?.texture ?? null };
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWp = (modelMatrix * vec4(position, 1.0)).xyz;');
-  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp; uniform sampler2D uMask; float wetK;')
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp; uniform sampler2D uMask, uPaint; float wetK;')
     .replace('#include <map_fragment>', `#include <map_fragment>
     vec2 mu = (vWp.xz - vec2(${CX.toFixed(1)}, ${CZ.toFixed(1)})) / ${(2 * MASK_HALF).toFixed(1)} + 0.5; vec3 mk = (mu.x > 0.0 && mu.x < 1.0 && mu.y > 0.0 && mu.y < 1.0) ? texture2D(uMask, mu).rgb : vec3(0.0, 0.0, 0.5);   // (rubber, water, light and dark; away from the ring: plain)
-    diffuseColor.rgb *= 0.86 + 0.26 * mk.b; diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.022, 0.035), mk.r); wetK = mk.g; diffuseColor.rgb *= mix(1.0, 0.62, wetK);`)
+    diffuseColor.rgb *= 0.86 + 0.26 * mk.b; diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.022, 0.035), ${PAINT ? 'min(0.92, mk.r * 1.5)' : 'mk.r'}); wetK = mk.g; diffuseColor.rgb *= mix(1.0, 0.62, wetK);${PAINT ? ' { vec4 pt = texture2D(uPaint, mu); diffuseColor.rgb = mix(diffuseColor.rgb, pt.rgb * (1.0 - 0.35 * mk.r), pt.a * step(0.0, mu.x) * step(mu.x, 1.0)); }' : ''}`)
     .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, ${q('wetR', 0.66).toFixed(2)}, wetK);`)
-    .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = normalize(mix(normal, nonPerturbedNormal, wetK));');
+    .replace('#include <normal_fragment_maps>', PAINT ? '#include <normal_fragment_maps>' : '#include <normal_fragment_maps>\nnormal = normalize(mix(normal, nonPerturbedNormal, wetK));');
 };
 { const pts = [[-260, 90], [69, 90], [69, CZ]]; for (let t = Math.PI; t > 0.72; t -= 0.04) pts.push(onArc(R_QUAY, t)); pts.push([-2, -37], [-2, -300], [-260, -300]);
   const land = new THREE.Shape(); pts.forEach(([x, z], i) => (i ? land.lineTo(x, -z) : land.moveTo(x, -z)));
   const m = new THREE.Mesh(new THREE.ExtrudeGeometry(land, { depth: 3, bevelEnabled: false }).rotateX(-Math.PI / 2).translate(0, -3, 0), asphalt); m.receiveShadow = true; scene.add(m); }
+// ?toon=<softness> is the drawn shading of the mockups (being tried: a style sheet for the owner): the sun's light falls in two soft steps instead of a
+// smooth run, shadows are violet, lit sides warm, and the low sun puts a warm rim on what turns away. It replaces the diffuse light of a material and keeps
+// its shine. 0.2 is soft, 0.03 hard; 0 (the default) is off.
+const TOON = q('toon', 0), toonU = { uToonSun: { value: sunLift }, uToonLit: { value: new THREE.Color(1.16, 0.88, 0.7).multiplyScalar(q('toonLit', 1)) }, uToonShade: { value: new THREE.Color(0.44, 0.31, 0.56).multiplyScalar(q('toonShade', 1)) }, uToonRim: { value: new THREE.Color(1.0, 0.62, 0.36).multiplyScalar(q('toonRim', 0.5)) }, uToonRef: { value: 1 }, uToonW: { value: Math.max(0.01, TOON) }, uToonSpec: { value: q('toonSpec', 0.8) } }, toonIds = new Map();
+function toon(m) { if (!TOON || !m || m.userData.noToon || m.userData.toon || !(m.isMeshStandardMaterial || m.isMeshLambertMaterial)) return m; m.userData.toon = true; const old = m.onBeforeCompile; if (!toonIds.has(old)) toonIds.set(old, toonIds.size);
+  m.onBeforeCompile = (sh, r) => { old?.call(m, sh, r); Object.assign(sh.uniforms, toonU);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uToonSun, uToonLit, uToonShade, uToonRim; uniform float uToonRef, uToonW, uToonSpec;').replace('#include <opaque_fragment>', `{ vec3 alb = diffuseColor.rgb, rest = max(outgoingLight - reflectedLight.directDiffuse - reflectedLight.indirectDiffuse, vec3(0.0));
+      float d = dot(reflectedLight.directDiffuse, vec3(0.3333)) / max(dot(alb, vec3(0.3333)) * uToonRef, 1e-3), b = 0.55 * smoothstep(0.1 - uToonW, 0.1 + uToonW, d) + 0.45 * smoothstep(0.5 - uToonW, 0.5 + uToonW, d);
+      vec3 nn = normalize(normal), sunV = normalize((viewMatrix * vec4(uToonSun, 0.0)).xyz); float fres = pow(clamp(1.0 - dot(nn, normalize(vViewPosition)), 0.0, 1.0), 3.0), rim = fres * clamp(dot(nn, sunV) * 0.5 + 0.6, 0.0, 1.0);
+      outgoingLight = alb * mix(uToonShade, uToonLit, b) + uToonRim * rim * (0.35 + 0.65 * b) + rest * uToonSpec; }
+    #include <opaque_fragment>`); };
+  m.customProgramCacheKey = () => `toon${toonIds.get(old)}`; m.needsUpdate = true; return m; }
+function toonAll(root) { root.traverse((o) => { if (!o.isMesh) return; if (Array.isArray(o.material)) o.material.forEach(toon); else toon(o.material); }); }
 const seaMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(params.get('seaC') || '#8a5f96'), roughness: 0.16, metalness: 0, envMapIntensity: 2.0 });
 seaMat.onBeforeCompile = (sh) => { sh.uniforms.uTime = time; sh.uniforms.uSeaSky = { value: shown(1.0, 0.66, 0.5) };   // ripples without a pattern (moving noise, two sizes); towards the horizon the water takes the sky's colour
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWp;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWp = (modelMatrix * vec4(position, 1.0)).xyz;');
@@ -162,7 +191,7 @@ const along = (g) => { const s = sizeOf(g); return s.x >= s.z ? 0 : Math.PI / 2;
   const tall = standing(parts[q('fence', 0)], 4.5), low = standing(parts[q('fence2', 0)], 2.9);
   instances(tall, mat, ringTs(R_INF, lengthOf(tall) - 0.04).map((t) => [...onArc(R_INF, t), facing(t) + along(tall) + Math.PI]), { shadow: false });
   instances(low, mat, ringTs(R_OUTF, lengthOf(low) - 0.04).filter((t) => !seaward(t + 0.06) && !seaward(t - 0.06)).map((t) => [...onArc(R_OUTF, t), facing(t) + along(low)]), { shadow: false }); }
-{ const shape = new THREE.Shape(); shape.moveTo(-1.2, 0); shape.lineTo(1.2, 0); shape.lineTo(1.2, 0.14); shape.lineTo(-1.2, 0.02); shape.closePath();   // low at the road, higher at the wall
+if (!PAINT) { const shape = new THREE.Shape(); shape.moveTo(-1.2, 0); shape.lineTo(1.2, 0); shape.lineTo(1.2, 0.14); shape.lineTo(-1.2, 0.02); shape.closePath();   // low at the road, higher at the wall
   const geo = new THREE.ExtrudeGeometry(shape, { depth: 1.2, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 2 }).translate(0, 0, -0.6).rotateY(Math.PI / 2);
   const ts = ringTs(R_KERB, 1.24, 2), spot = (t) => [...onArc(R_KERB, t), facing(t) + Math.PI / 2];   // the block's own x points at the middle
   instances(geo, flat('#cf3640', 1), ts.filter((_, i) => i % 2 === 0).map(spot), { shadow: false }); instances(geo, flat('#d8cdc8', 1), ts.filter((_, i) => i % 2 === 1).map(spot), { shadow: false }); }
@@ -232,7 +261,7 @@ function crowd(spots, parent = scene) { if (OFF.has('crowd')) return; const by =
       const ti = Math.max(0, ms.findIndex((o) => /trunk/i.test(o.name))), fi = ms.findIndex((o) => /Frond/i.test(o.name)), tp = geos[ti].attributes.position, bc = new THREE.Vector3(); { let n2 = 0; for (let v2 = 0; v2 < tp.count; v2++) if (tp.getY(v2) < box.min.y + 0.12 * (box.max.y - box.min.y)) { bc.x += tp.getX(v2); bc.z += tp.getZ(v2); n2++; } bc.multiplyScalar(1 / Math.max(1, n2)); }   // the trunk's foot
       const fc = geos[Math.max(0, fi)].boundingBox.getCenter(new THREE.Vector3()), k = 12 / (box.max.y - box.min.y);
       const top = new THREE.Vector3((fc.x - bc.x) * k, (fc.y - box.min.y) * k, (fc.z - bc.z) * k);
-      return ms.map((o, n) => { const m = sway(o.material, top, n === fi); if (n === fi) { m.transparent = false; m.alphaTest = q('frondCut', 0.35); m.depthWrite = true; m.color.setRGB(1.25, 1.6, 0.85); m.emissive = new THREE.Color(0.55, 0.75, 0.18); m.emissiveMap = m.map; m.emissiveIntensity = q('frondGlow', 0.55); } else m.color.multiplyScalar(1.5); return { geo: geos[n].translate(-bc.x, -box.min.y, -bc.z).scale(k, k, k), mat: m }; }); });
+      return ms.map((o, n) => { const m = sway(o.material, top, n === fi); if (n === fi) { m.transparent = false; m.alphaTest = q('frondCut', 0.35); m.depthWrite = true; if (TOON) m.color.setRGB(0.8, 1.02, 0.56); else m.color.setRGB(1.25, 1.6, 0.85); m.emissive = new THREE.Color(0.55, 0.75, 0.18); m.emissiveMap = m.map; m.emissiveIntensity = q('frondGlow', TOON ? 0.2 : 0.55); } else m.color.multiplyScalar(1.5); return { geo: geos[n].translate(-bc.x, -box.min.y, -bc.z).scale(k, k, k), mat: m }; }); });
     if (!OFF.has('palms')) kinds.forEach((parts, n) => { const mine = spots.filter((_, k2) => k2 % kinds.length === n).map(([x, z, h]) => [x, z, rnd() * 6.28, h / 12]); for (const pt of parts) instances(pt.geo, pt.mat, mine); });
   }
 }
@@ -277,7 +306,7 @@ const glow = (x, y, z, size, col, k) => { const g = new THREE.Sprite(new THREE.S
 const flats = [];   // what stays out of the ambient occlusion's shape pass: flat pictures and the smoke's shells
 const smoke = (() => { const MAX = q('smokeMax', 240), K = q('smokeK', 0.74) / EXP, uni = { uTime: time, uSun: { value: sunLift }, uLit: { value: shown(1.0, 0.74, 0.72, K) }, uShade: { value: shown(0.74, 0.36, 0.56, K) }, uRim: { value: shown(1.0, 0.7, 0.45, K * q('smokeRim', 0.5)) } };
   const geo = new THREE.IcosahedronGeometry(1, q('lumpDetail', tier === 'low' ? 4 : 6)), aFade = new THREE.InstancedBufferAttribute(new Float32Array(MAX).fill(1), 1), aSeed = new THREE.InstancedBufferAttribute(new Float32Array(MAX), 1); for (let i = 0; i < MAX; i++) aSeed.array[i] = (i * 0.6180339) % 1 * 40; geo.setAttribute('aFade', aFade); geo.setAttribute('aSeed', aSeed);
-  const mat = (shell) => { const m = new THREE.MeshLambertMaterial({ transparent: shell, depthWrite: !shell }); m.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, uni);
+  const mat = (shell) => { const m = new THREE.MeshLambertMaterial({ transparent: shell, depthWrite: !shell }); m.userData.noToon = true; m.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime; attribute float aFade, aSeed; varying float vFade;').replace('#include <begin_vertex>', `#include <begin_vertex>
       { vFade = aFade; vec3 p = position * 2.0 + aSeed; transformed *= 1.0 + 0.13 * (sin(p.x * 1.7 + p.y * 1.1) * sin(p.y * 1.9 - p.z * 1.3) + 0.5 * sin(p.z * 3.1 + p.x * 2.3 + uTime * 0.6)) + 0.03 * sin(uTime * 1.1 + aSeed); }`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uSun, uLit, uShade, uRim; varying float vFade;').replace('#include <opaque_fragment>', `
@@ -315,7 +344,7 @@ function exhaustOf(model, local = [q('exX', 0.33), q('exY', 0.24), q('exZ', -2.0
 function dressCar(model) { model.traverse((o) => { if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true;
     // the paint under clear lacquer, so the body mirrors the evening sky (the phone keeps the plain paint); glass, chrome and rims mirror a little more
     if (o.material.name === 'paint' && tier !== 'low' && q('paint', 1)) { const old = o.material; o.material = new THREE.MeshPhysicalMaterial({ name: 'paint', color: old.color.clone().multiplyScalar(q('paintK', 1.12)), map: old.map, roughness: q('paintR', 0.42), metalness: 0, clearcoat: 1, clearcoatRoughness: q('coatR', 0.07), envMapIntensity: q('paintEnv', 1.25) }); }
-    else if (/own_palette/.test(o.material.name) && q('paint', 1)) { o.material = o.material.clone(); o.material.envMapIntensity = 1.3; } }); carLights(model, { flats, beam: tier !== 'low' }).set({ brake: q('brake', 0), head: q('head', 1) }); return model; }
+    else if (/own_palette/.test(o.material.name) && q('paint', 1)) { o.material = o.material.clone(); o.material.envMapIntensity = 1.3; } }); toonAll(model); carLights(model, { flats, beam: tier !== 'low' }).set({ brake: q('brake', 0), head: q('head', 1) }); return model; }
 
 // ---- the still: the car sliding through the bend with its smoke, the camera at the mockup's place
 const CAR_T = q('carT', 0.09), carAt = (([x, z]) => new THREE.Vector3(x, 0, z))(onArc(q('carR', 26.6), CAR_T)), bearing = CAR_T + q('slip', 0.3), carYaw = Math.PI - bearing;
@@ -333,6 +362,8 @@ if (still) { car = dressCar((await loader.loadAsync('assets/cars/ae86-hi.glb')).
 if (q('top', 0)) { scene.fog = null; camera.position.set(q('cx', 10), q('cy', 190), q('cz', -60)); camera.lookAt(q('cx', 10), 0, q('cz', -60) - 0.01); }
 else { const tan = new THREE.Vector3(Math.sin(CAR_T), 0, -Math.cos(CAR_T)), inside = new THREE.Vector3(Math.cos(CAR_T), 0, Math.sin(CAR_T)), cam = carAt.clone().addScaledVector(tan, -q('back', 4.5)).addScaledVector(inside, q('in', 1.25));
   camera.position.set(q('cx', cam.x), q('cy', 1.55), q('cz', cam.z)); const aim = camera.position.clone().addScaledVector(tan, 15).addScaledVector(inside, q('aim', -1.5)); camera.lookAt(q('lx', aim.x), q('ly', 1.0), q('lz', aim.z)); }
+seaMat.userData.noToon = true; toonU.uToonRef.value = sun.intensity * (sun.color.r + sun.color.g + sun.color.b) / 3 / Math.PI;
+toonAll(scene);
 // The picture's finish (look/finish.js): one scene render, a small glow, and one pass for streaks, drawn outlines, a contact shade, the film curve, soft
 // colour steps and colour: the drawn look of the mockups at a fraction of a pass chain's cost. `composer` stays the thing the page renders with.
 // For comparison: ?chain=1 is the old chain of ready-made passes, ?direct=1 draws straight to the screen with no finish at all.
