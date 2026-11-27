@@ -68,6 +68,7 @@ scene.fog = new THREE.FogExp2(shown(1.0, 0.62, 0.42), q('fogD', 0.0034));
 const CX = 30, CZ = -4, R_INF = 17.95, R_IN = 18.4, R_KERB = 20.1, R_OUT = 33.2, R_OUTF = 33.8, R_QUAY = 40;
 const onArc = (r, t) => [CX - r * Math.cos(t), CZ - r * Math.sin(t)], facing = (t) => -Math.PI / 2 - t;   // `facing`: the turn that points an object's own -z at the bend's middle (its x along the wall)
 const arcTs = (r, t0, t1, step) => { const out = []; for (let t = t0; t < t1; t += step / r) out.push(t); return out; };
+const SEA_WALL = q('seaWall', 0.6), seaward = (t) => { const u = ((t % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); return u > q('sea0', 1.08) && u < q('sea1', 2.5); };   // the stretch of the ring that faces the open water
 const ringTs = (r, step, even = 1) => { const n = Math.round(2 * Math.PI * r / step / even) * even, out = []; for (let i = 0; i < n; i++) out.push(-0.9 + i * 2 * Math.PI / n); return out; };   // a whole ring of pieces without a gap (`even`: a count that divides by it)
 const tex = new THREE.TextureLoader(), wrap = (t, rep, srgb) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
 const REP = 1 / 4.5;
@@ -137,11 +138,13 @@ const along = (g) => { const s = sizeOf(g); return s.x >= s.z ? 0 : Math.PI / 2;
 // ---- the walls of the bend: concrete barriers outside and inside, chain-link fences with barbed wire on both, the kerb inside
 { const g = await file('skfb/barriers.glb'), parts = meshesOf(g.scene).map((o) => ({ o, s: sizeOf(o.geometry) })).filter((p) => p.s.y > 1).sort((a, b) => a.s.x - b.s.x);
   const pick = parts[q('barrier', 1)] ?? parts[0], geo = standing(pick.o, 1.05), len = lengthOf(geo), a = along(geo), mat = pick.o.material.clone(); mat.envMapIntensity = 0.2; mat.roughness = 1; mat.color.multiplyScalar(q('barK', 0.85));
-  instances(geo, mat, [...ringTs(R_OUT, len + 0.05).map((t) => [...onArc(R_OUT, t), facing(t) + a]), ...ringTs(R_IN, len + 0.05).map((t) => [...onArc(R_IN, t), facing(t) + a])]); }
+  // (towards the sea the outside wall is lower and carries no fence, so the water shows over it)
+  const outer = []; for (let t = -0.9; t < -0.9 + 2 * Math.PI - 0.01;) { const sc = seaward(t) ? SEA_WALL : 1; outer.push([...onArc(R_OUT, t), facing(t) + a, sc]); t += (len * sc + 0.05) / R_OUT; }
+  instances(geo, mat, [...outer, ...ringTs(R_IN, len + 0.05).map((t) => [...onArc(R_IN, t), facing(t) + a])]); }
 { const g = await file('skfb/fence-set.glb'), parts = meshesOf(g.scene), mat = parts[0].material.clone(); mat.side = THREE.DoubleSide; mat.alphaTest = 0.02; mat.transparent = true; mat.depthWrite = false; mat.envMapIntensity = 0.3; mat.color.multiplyScalar(0.6); mat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.a = min(1.0, diffuseColor.a * 1.9);'); };   // blended, not cut out: a far chain-link fence is a grey veil, a cut-out one vanishes
   const tall = standing(parts[q('fence', 0)], 4.5), low = standing(parts[q('fence2', 0)], 2.9);
   instances(tall, mat, ringTs(R_INF, lengthOf(tall) - 0.04).map((t) => [...onArc(R_INF, t), facing(t) + along(tall) + Math.PI]), { shadow: false });
-  instances(low, mat, ringTs(R_OUTF, lengthOf(low) - 0.04).map((t) => [...onArc(R_OUTF, t), facing(t) + along(low)]), { shadow: false }); }
+  instances(low, mat, ringTs(R_OUTF, lengthOf(low) - 0.04).filter((t) => !seaward(t + 0.06) && !seaward(t - 0.06)).map((t) => [...onArc(R_OUTF, t), facing(t) + along(low)]), { shadow: false }); }
 { const shape = new THREE.Shape(); shape.moveTo(-1.2, 0); shape.lineTo(1.2, 0); shape.lineTo(1.2, 0.14); shape.lineTo(-1.2, 0.02); shape.closePath();   // low at the road, higher at the wall
   const geo = new THREE.ExtrudeGeometry(shape, { depth: 1.2, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 2 }).translate(0, 0, -0.6).rotateY(Math.PI / 2);
   const ts = ringTs(R_KERB, 1.24, 2), spot = (t) => [...onArc(R_KERB, t), facing(t) + Math.PI / 2];   // the block's own x points at the middle
