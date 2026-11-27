@@ -324,12 +324,12 @@ const grade = new ShaderPass({ uniforms: { tDiffuse: { value: null }, uSat: { va
   fragmentShader: `const int TAPS = ${tier === 'low' ? 3 : 5};   // (samples each way along the streak)
     uniform sampler2D tDiffuse; uniform float uSat, uCon, uVig, uBlur; uniform mat4 uInvVP, uPrevVP; uniform vec3 uCam; uniform vec2 uCarC, uCarR; varying vec2 vUv;
     void main() { vec3 c = texture2D(tDiffuse, vUv).rgb;
-      if (uBlur > 0.0) { vec4 w = uInvVP * vec4(vUv * 2.0 - 1.0, 0.5, 1.0); vec3 dir = normalize(w.xyz / w.w - uCam); float t = dir.y < -0.004 ? min(-uCam.y / dir.y, 300.0) : 300.0; vec4 pc = uPrevVP * vec4(uCam + dir * t, 1.0);
-        if (pc.w > 0.05) { vec2 vel = (vUv - (pc.xy / pc.w * 0.5 + 0.5)) * uBlur; vec2 e2 = (vUv - uCarC) / max(uCarR, vec2(1e-4)); vel *= smoothstep(1.0, 1.7, length(e2)); float len = length(vel);
-          if (len > 0.0008) { vel *= min(1.0, 0.05 / len); vec3 a = c; for (int i = 1; i <= TAPS; i++) { float f = float(i) / float(TAPS); a += texture2D(tDiffuse, vUv - vel * f).rgb + texture2D(tDiffuse, vUv + vel * f * 0.6).rgb; } c = a / float(2 * TAPS + 1); } } }
+      if (uBlur > 0.0) { vec4 w = uInvVP * vec4(vUv * 2.0 - 1.0, 0.5, 1.0); vec3 dir = normalize(w.xyz / w.w - uCam); float ground = dir.y < -0.004 ? 1.0 : 0.0, t = ground > 0.5 ? min(-uCam.y / dir.y, 300.0) : 300.0; vec4 pc = uPrevVP * vec4(uCam + dir * t, 1.0);
+        if (pc.w > 0.05) { vec2 vel = (vUv - (pc.xy / pc.w * 0.5 + 0.5)) * uBlur; vec2 e2 = (vUv - uCarC) / max(uCarR, vec2(1e-4)); vel *= smoothstep(1.0, 1.7, length(e2)) * mix(0.3, 1.0, ground * (1.0 - smoothstep(40.0, 140.0, t))); float len = length(vel);   // (the far world and the sky streak little: a spinning car must not smear the whole picture)
+          if (len > 0.0008) { vel *= min(1.0, 0.032 / len); vec3 a = c; for (int i = 1; i <= TAPS; i++) { float f = float(i) / float(TAPS); a += texture2D(tDiffuse, vUv - vel * f).rgb + texture2D(tDiffuse, vUv + vel * f * 0.6).rgb; } c = a / float(2 * TAPS + 1); } } }
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat); c = (c - 0.5) * uCon + 0.5; vec2 e = vUv - 0.5; c *= 1.0 - uVig * dot(e, e) * 1.6; gl_FragColor = vec4(c, 1.0); }` });
 /** The streaks at speed. `strength` 0 switches them off; `car` is what stays sharp (any object: its box on the screen); `shutter` the share of a frame's way that streaks. */
-const motion = { strength: q('blur', 1), shutter: q('shutter', 0.5), car: null, _vp: new THREE.Matrix4(), _prev: null, _box: new THREE.Box3(), _v: new THREE.Vector3(),
+const motion = { strength: q('blur', 1), shutter: q('shutter', 0.4), car: null, _vp: new THREE.Matrix4(), _prev: null, _box: new THREE.Box3(), _v: new THREE.Vector3(),
   update(dt, fakeStep) { const u = grade.uniforms; camera.updateMatrixWorld(); this._vp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     if (fakeStep) { const back = camera.clone(); back.position.sub(fakeStep); back.updateMatrixWorld(); u.uPrevVP.value.multiplyMatrices(back.projectionMatrix, back.matrixWorldInverse); }   // the still: as if the camera had just come from there
     else if (this._prev) u.uPrevVP.value.copy(this._prev); else u.uPrevVP.value.copy(this._vp);
