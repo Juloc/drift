@@ -16,6 +16,7 @@ import { UnrealBloomPass } from '../../../vendor/three/addons/postprocessing/Unr
 import { OutputPass } from '../../../vendor/three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from '../../../vendor/three/addons/postprocessing/ShaderPass.js';
 import { hollowAt } from './harbour.js';
+import { makeFlames } from './flames.js';
 
 export async function buildQuay({ renderer, params = new URLSearchParams(), still = true, tier = 'high' }) {
 const q = (k, d) => (params.has(k) ? +params.get(k) : d), OFF = new Set((params.get('off') || '').split(','));   // ?off=crowd,smoke,palms,shadow,ao,bloom switches a part off, to see what it costs
@@ -275,6 +276,10 @@ const smoke = (() => { const MAX = q('smokeMax', 240), K = q('smokeK', 0.74) / E
     update(dt) { if (!P.length) { if (core.count) write(); return; } for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; if (p.fixed) continue; p.age += dt; if (p.age >= p.life) { P.splice(i, 1); continue; } const d = Math.exp(-3 * p.age); p.x += p.vx * d * dt; p.z += p.vz * d * dt; } write(); },
     clear() { P.length = 0; write(); } }; })();
 
+// flames at the tail pipe (look/flames.js): the page calls `flames.fire(...)` when the engine pops, with `exhaustOf(carModel)` for where and which way
+const flames = makeFlames({ parent: scene, flats });
+/** The tail pipe's mouth and the way it points, in the scene's axes (the AE86: low on the left under the bumper; other cars get their own place later). */
+function exhaustOf(model, local = [q('exX', 0.33), q('exY', 0.24), q('exZ', -2.02)]) { model.updateWorldMatrix(true, false); const pos = new THREE.Vector3(...local).applyMatrix4(model.matrixWorld), dir = new THREE.Vector3(0, -0.08, -1).transformDirection(model.matrixWorld); return { pos, dir }; }
 /** The car's look in this light: it casts and takes shadows, its tail lamps glow a deep red that stays red through the film curve. */
 function dressCar(model) { model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (/lamp_rear/.test(o.material.name)) { o.material = o.material.clone(); o.material.color = new THREE.Color(0.4, 0.0, 0.02); o.material.emissive = new THREE.Color(1, 0.0, 0.04); o.material.emissiveIntensity = q('tail', 1.5); } } }); return model; }
 
@@ -288,7 +293,7 @@ if (still) { car = dressCar((await loader.loadAsync('assets/cars/ae86-hi.glb')).
   for (let i = 0; i < (OFF.has('smoke') ? 0 : q('fan', 34)); i++) { const d = 0.2 + rnd() ** 1.2 * 3.0, a = back + q('fanA', -0.6) + (rnd() - 0.5) * 1.1; lump(wheels[i % 2].clone().addScaledVector(dirOf(a), d), 0.16 + d * 0.07 + rnd() * 0.1); }   // low smoke creeping over the ground behind both wheels
   const trail = dirOf(q('trail', -1.25)), side = new THREE.Vector3(trail.z, 0, -trail.x), N = OFF.has('smoke') ? 0 : q('smoke', 110);                                                       // the plume: off to the outside of the bend, growing and rising
   for (let i = 0; i < N; i++) { const t = (i / N) ** 1.15, r = 0.3 + 1.9 * t ** 1.05 + rnd() * (0.12 + t * 0.6); lump(wheels[0].clone().addScaledVector(trail, 1.5 + t * 9.5).addScaledVector(side, (rnd() - 0.5) * (0.5 + t * 4.2)), r, rnd() * (0.15 + t * 2.6)); }
-  smoke.pose(lumps); stillCar = carHold; stillStep = new THREE.Vector3(Math.sin(CAR_T), 0, -Math.cos(CAR_T)).multiplyScalar(q('stillStep', 0.45)); }   // (0.45 m a frame: about 100 km/h)
+  smoke.pose(lumps); stillCar = carHold; if (q('flame', 0)) { const ex = exhaustOf(car); flames.hold(ex.pos, ex.dir, 1, q('flameAt', 0.3)); } stillStep = new THREE.Vector3(Math.sin(CAR_T), 0, -Math.cos(CAR_T)).multiplyScalar(q('stillStep', 0.45)); }   // (0.45 m a frame: about 100 km/h)
 
 // ---- the camera's place and the picture's finish
 if (q('top', 0)) { scene.fog = null; camera.position.set(q('cx', 10), q('cy', 190), q('cz', -60)); camera.lookAt(q('cx', 10), 0, q('cz', -60) - 0.01); }
@@ -328,13 +333,13 @@ composer.addPass(grade);
 const circle = (r) => { const pts = []; for (let i = 0; i <= 96; i++) pts.push(onArc(r, i * Math.PI / 48).map((v) => +v.toFixed(2))); return pts; };
 const walls = [circle(R_OUT - 0.32), circle(R_IN + 0.32)], bounds = [[CX - 36, CZ - 36], [CX + 36, CZ - 36], [CX + 36, CZ + 36], [CX - 36, CZ + 36]];
 const sunOffset = sun.position.clone().sub(sun.target.position);
-const api = { scene, root: scene, camera, composer, sun, sunOffset, yaw: 0, toWorld: (x, y, z) => new THREE.Vector3(x, y, z), still: still ? { car } : null, motion, walls, bounds, cones: [], coneSpots: [], flats, smoke, dressCar,
+const api = { scene, root: scene, camera, composer, sun, sunOffset, yaw: 0, toWorld: (x, y, z) => new THREE.Vector3(x, y, z), still: still ? { car } : null, motion, walls, bounds, cones: [], coneSpots: [], flats, smoke, flames, exhaustOf, dressCar,
   /** The ring: its middle, the walls' radii, the line a car slides on, and where the still's car stands (start there, heading along the ring). */
   ring: { cx: CX, cz: CZ, inner: R_IN, outer: R_OUT, line: 26.6, start: { x: carAt.x, z: carAt.z, yaw: Math.PI - CAR_T } },   // (`yaw` as three.js turns a model whose nose is +z: here along the ring, clockwise seen from above, a right-hand bend)
   /** how deep the puddle is at a point (0 dry .. 1 water): the asphalt shader's own noise */
   puddleAt: (x, z) => hollowAt(x, z, q('wet0', 0.6), q('wet1', 0.74)),
   /** Once a frame before the render (after the page has placed the camera): the time of everything that moves, the smoke's lumps, the streaks at speed. */
-  tick(dt) { time.value += dt; smoke.update(dt); motion.update(dt, stillStep); },
+  tick(dt) { time.value += dt; smoke.update(dt); flames.update(dt); motion.update(dt, stillStep); },
   resize(w, h) { renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); },
   /** 'high' or 'low' (the phone): low has no ambient occlusion, a smaller shadow map, a pixel ratio of at most 1.5, four people in ten. */
   async setTier(name) { const low = name === 'low'; if (aoPass) aoPass.enabled = !low;
