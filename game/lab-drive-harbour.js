@@ -30,7 +30,8 @@ const { root, camera, sun } = h;
 addEventListener('resize', () => h.resize(innerWidth, innerHeight));
 
 // ---- the car: the AE86 file as the still shows it, its wheels and body made movable
-const car = rigCar((await new GLTFLoader().loadAsync('assets/cars/ae86-hi.glb')).scene);
+const carLoader = new GLTFLoader(); carLoader.register((parser) => { parser.textureLoader = new THREE.TextureLoader(parser.options.manager); return { name: 'drift_plain_images' }; });   // (the app's content policy, see quay.js)
+const car = rigCar((await carLoader.loadAsync('assets/cars/ae86-hi.glb')).scene);
 car.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 root.add(car.group);
 
