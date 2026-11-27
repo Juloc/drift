@@ -294,7 +294,10 @@ const flames = makeFlames({ parent: scene, flats });
 /** The tail pipe's mouth and the way it points, in the scene's axes (the AE86: low on the left under the bumper; other cars get their own place later). */
 function exhaustOf(model, local = [q('exX', 0.33), q('exY', 0.24), q('exZ', -2.02)]) { model.updateWorldMatrix(true, false); const pos = new THREE.Vector3(...local).applyMatrix4(model.matrixWorld), dir = new THREE.Vector3(0, -0.08, -1).transformDirection(model.matrixWorld); return { pos, dir }; }
 /** The car's look in this light: it casts and takes shadows, and its lamps are lit (look/carlights.js): `model.userData.lights.set({ brake, head })`. */
-function dressCar(model) { model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); carLights(model, { flats, beam: tier !== 'low' }).set({ brake: q('brake', 0), head: q('head', 1) }); return model; }
+function dressCar(model) { model.traverse((o) => { if (!o.isMesh) return; o.castShadow = true; o.receiveShadow = true;
+    // the paint under clear lacquer, so the body mirrors the evening sky (the phone keeps the plain paint); glass, chrome and rims mirror a little more
+    if (o.material.name === 'paint' && tier !== 'low' && q('paint', 1)) { const old = o.material; o.material = new THREE.MeshPhysicalMaterial({ name: 'paint', color: old.color.clone().multiplyScalar(q('paintK', 1.12)), map: old.map, roughness: q('paintR', 0.42), metalness: 0, clearcoat: 1, clearcoatRoughness: q('coatR', 0.07), envMapIntensity: q('paintEnv', 1.25) }); }
+    else if (/own_palette/.test(o.material.name) && q('paint', 1)) { o.material = o.material.clone(); o.material.envMapIntensity = 1.3; } }); carLights(model, { flats, beam: tier !== 'low' }).set({ brake: q('brake', 0), head: q('head', 1) }); return model; }
 
 // ---- the still: the car sliding through the bend with its smoke, the camera at the mockup's place
 const CAR_T = q('carT', 0.09), carAt = (([x, z]) => new THREE.Vector3(x, 0, z))(onArc(q('carR', 26.6), CAR_T)), bearing = CAR_T + q('slip', 0.3), carYaw = Math.PI - bearing;
