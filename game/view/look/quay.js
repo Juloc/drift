@@ -111,6 +111,9 @@ const sea = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000).rotateX(-Math.PI 
 
 // ---- helpers: each file once; a part of a model as geometry standing on the ground; copies as instances
 const loader = new GLTFLoader(), files = new Map();
+// the app's content policy (connect-src 'self') forbids fetching the blob: addresses the loader's image bitmaps come from: read the models' pictures
+// through ordinary images instead (img-src allows blob:). Without this every model is black in the app, and only there.
+loader.register((parser) => { parser.textureLoader = new THREE.TextureLoader(parser.options.manager); return { name: 'drift_plain_images' }; });
 const file = (name) => { if (!files.has(name)) files.set(name, loader.loadAsync(`assets/${name}`)); return files.get(name); };
 /** Files in the older "specular-glossiness" material format come out without their colour picture: fetch it from the file's own description. */
 async function oldMaterials(gltf) { const defs = gltf.parser.json.materials ?? []; for (const [obj, ref] of gltf.parser.associations) { const ext = obj.isMaterial && ref.materials !== undefined ? defs[ref.materials]?.extensions?.KHR_materials_pbrSpecularGlossiness : null; if (!ext) continue;
@@ -350,7 +353,7 @@ composer.addPass(grade);
 const circle = (r) => { const pts = []; for (let i = 0; i <= 96; i++) pts.push(onArc(r, i * Math.PI / 48).map((v) => +v.toFixed(2))); return pts; };
 const walls = [circle(R_OUT - 0.32), circle(R_IN + 0.32)], bounds = [[CX - 36, CZ - 36], [CX + 36, CZ - 36], [CX + 36, CZ + 36], [CX - 36, CZ + 36]];
 const sunOffset = sun.position.clone().sub(sun.target.position);
-const api = { scene, root: scene, camera, composer, sun, sunOffset, yaw: 0, toWorld: (x, y, z) => new THREE.Vector3(x, y, z), still: still ? { car } : null, motion, walls, bounds, cones: [], coneSpots: [], flats, smoke, flames, exhaustOf, dressCar,
+const api = { scene, root: scene, camera, composer, sun, sunOffset, yaw: 0, toWorld: (x, y, z) => new THREE.Vector3(x, y, z), still: still ? { car } : null, motion, walls, bounds, cones: [], coneSpots: [], flats, smoke, flames, exhaustOf, dressCar, loadModel: (path) => loader.loadAsync(path),   // (`loadModel`: a model file read the way the app's content policy allows)
   /** The ring: its middle, the walls' radii, the line a car slides on, and where the still's car stands (start there, heading along the ring). */
   ring: { cx: CX, cz: CZ, inner: R_IN, outer: R_OUT, line: 26.6, start: { x: carAt.x, z: carAt.z, yaw: Math.PI - CAR_T } },   // (`yaw` as three.js turns a model whose nose is +z: here along the ring, clockwise seen from above, a right-hand bend)
   /** how deep the puddle is at a point (0 dry .. 1 water): the asphalt shader's own noise */

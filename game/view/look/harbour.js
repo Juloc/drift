@@ -65,6 +65,7 @@ scene.fog = new THREE.FogExp2(new THREE.Color(params.get('fog') || '#e9a98f'), q
 
 // ---- models: each file once; many copies as instances (one draw call per material of a model)
 const loader = new GLTFLoader(), cache = new Map();
+loader.register((parser) => { parser.textureLoader = new THREE.TextureLoader(parser.options.manager); return { name: 'drift_plain_images' }; });   // (the app's content policy: pictures through ordinary images, see quay.js)
 const load = (path) => { if (!cache.has(path)) cache.set(path, loader.loadAsync(`assets/${path}`).then((g) => g.scene)); return cache.get(path); };
 const up = new THREE.Vector3(0, 1, 0);
 /** Places a model at many spots: [[x, z, turn, scale, y?]...]. */

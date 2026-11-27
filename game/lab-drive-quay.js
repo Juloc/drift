@@ -3,7 +3,6 @@
 // the sun's shadow following the car, smoke from the tyres (`h.smoke.emit` every 1/30 s while `smokeOf > 0`), skid marks. There are no cones on the ring.
 // The simulation runs in x mirrored against the scene (view/space.js X): the scene's x is -x of the simulation, as on every other page. The scene has no turn (yaw 0).
 import * as THREE from '../vendor/three/three.module.js';
-import { GLTFLoader } from '../vendor/three/addons/loaders/GLTFLoader.js';
 import { buildQuay } from './view/look/quay.js';
 import { Skids } from './view/fx.js';
 import { prepareMap } from './sim/map.js';
@@ -28,7 +27,7 @@ const { camera, sun } = h;
 addEventListener('resize', () => h.resize(innerWidth, innerHeight));
 
 // ---- the car: the AE86 file as the still shows it, its wheels and body made movable, dressed by the scene (shadows, tail lamps)
-const model = h.dressCar((await new GLTFLoader().loadAsync('assets/cars/ae86-hi.glb')).scene), car = rigCar(model);   // (dressCar also lights the lamps: `model.userData.lights`)
+const model = h.dressCar((await h.loadModel('assets/cars/ae86-hi.glb')).scene), car = rigCar(model);   // (dressCar also lights the lamps: `model.userData.lights`)
 h.scene.add(car.group);
 h.motion.car = car.group;   // the streaks at speed leave the car sharp
 
