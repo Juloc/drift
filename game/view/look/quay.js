@@ -256,7 +256,7 @@ const glow = (x, y, z, size, col, k) => { const g = new THREE.Sprite(new THREE.S
 // A lump is born small at a tyre, grows and rises, loses its core and then fades. `emit` is for the driving page, `pose` for the still.
 const flats = [];   // what stays out of the ambient occlusion's shape pass: flat pictures and the smoke's shells
 const smoke = (() => { const MAX = q('smokeMax', 240), K = q('smokeK', 0.74) / EXP, uni = { uTime: time, uSun: { value: sunLift }, uLit: { value: shown(1.0, 0.74, 0.72, K) }, uShade: { value: shown(0.74, 0.36, 0.56, K) }, uRim: { value: shown(1.0, 0.7, 0.45, K * q('smokeRim', 0.5)) } };
-  const geo = new THREE.IcosahedronGeometry(1, q('lumpDetail', tier === 'low' ? 3 : 6)), aFade = new THREE.InstancedBufferAttribute(new Float32Array(MAX).fill(1), 1), aSeed = new THREE.InstancedBufferAttribute(new Float32Array(MAX), 1); for (let i = 0; i < MAX; i++) aSeed.array[i] = (i * 0.6180339) % 1 * 40; geo.setAttribute('aFade', aFade); geo.setAttribute('aSeed', aSeed);
+  const geo = new THREE.IcosahedronGeometry(1, q('lumpDetail', tier === 'low' ? 4 : 6)), aFade = new THREE.InstancedBufferAttribute(new Float32Array(MAX).fill(1), 1), aSeed = new THREE.InstancedBufferAttribute(new Float32Array(MAX), 1); for (let i = 0; i < MAX; i++) aSeed.array[i] = (i * 0.6180339) % 1 * 40; geo.setAttribute('aFade', aFade); geo.setAttribute('aSeed', aSeed);
   const mat = (shell) => { const m = new THREE.MeshLambertMaterial({ transparent: shell, depthWrite: !shell }); m.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uTime; attribute float aFade, aSeed; varying float vFade;').replace('#include <begin_vertex>', `#include <begin_vertex>
       { vFade = aFade; vec3 p = position * 2.0 + aSeed; transformed *= 1.0 + 0.13 * (sin(p.x * 1.7 + p.y * 1.1) * sin(p.y * 1.9 - p.z * 1.3) + 0.5 * sin(p.z * 3.1 + p.x * 2.3 + uTime * 0.6)) + 0.03 * sin(uTime * 1.1 + aSeed); }`);
@@ -306,17 +306,18 @@ let aoPass = null; const AOS = q('aoScale', 0.5);   // the ambient occlusion at 
 if (q('ao', 1) && !OFF.has('ao')) { const ao = aoPass = new GTAOPass(scene, camera, SIZE.x, SIZE.y), size = ao.setSize.bind(ao); ao.setSize = (w, h) => size(Math.ceil(w * AOS), Math.ceil(h * AOS));
   const hide = ao._overrideVisibility.bind(ao), show = ao._restoreVisibility.bind(ao), was = []; ao._overrideVisibility = () => { hide(); was.length = 0; for (const o of flats) { was.push(o.visible); o.visible = false; } }; ao._restoreVisibility = () => { show(); flats.forEach((o, i) => { o.visible = was[i]; }); };
   ao.updateGtaoMaterial({ radius: q('aoR', 0.9), distanceExponent: 1.4, thickness: 1.2, scale: q('aoS', 1.3), samples: q('aoN', 8) }); ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: q('aoN', 8) }); composer.addPass(ao); }
-const bloom = OFF.has('bloom') ? null : new UnrealBloomPass(new THREE.Vector2(SIZE.x, SIZE.y), q('bloom', 0.26), 0.6, q('bloomT', 1.6)); if (bloom) composer.addPass(bloom);
+const bloom = OFF.has('bloom') ? null : new UnrealBloomPass(new THREE.Vector2(SIZE.x, SIZE.y), q('bloom', 0.26), 0.6, q('bloomT', 1.6)); let bloomScale = tier === 'low' ? 0.5 : 1; if (bloom) { const size = bloom.setSize.bind(bloom); bloom.setSize = (w, h) => size(Math.ceil(w * bloomScale), Math.ceil(h * bloomScale)); composer.addPass(bloom); }   // (the glow at half size on the phone)
 composer.addPass(new OutputPass());
 // the picture's finish: at speed the world streaks the way it really moves past the camera (each point is taken as lying on the ground, which is right for the
 // road and near enough for the rest), the car left sharp (an ellipse round it); then colour and a soft dark edge
 const grade = new ShaderPass({ uniforms: { tDiffuse: { value: null }, uSat: { value: q('sat', 1.12) }, uCon: { value: q('con', 1.04) }, uVig: { value: q('vig', 0.2) }, uBlur: { value: 0 }, uInvVP: { value: new THREE.Matrix4() }, uPrevVP: { value: new THREE.Matrix4() }, uCam: { value: new THREE.Vector3() }, uCarC: { value: new THREE.Vector2(0.5, 0.5) }, uCarR: { value: new THREE.Vector2(0, 0) } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uSat, uCon, uVig, uBlur; uniform mat4 uInvVP, uPrevVP; uniform vec3 uCam; uniform vec2 uCarC, uCarR; varying vec2 vUv;
+  fragmentShader: `const int TAPS = ${tier === 'low' ? 3 : 5};   // (samples each way along the streak)
+    uniform sampler2D tDiffuse; uniform float uSat, uCon, uVig, uBlur; uniform mat4 uInvVP, uPrevVP; uniform vec3 uCam; uniform vec2 uCarC, uCarR; varying vec2 vUv;
     void main() { vec3 c = texture2D(tDiffuse, vUv).rgb;
       if (uBlur > 0.0) { vec4 w = uInvVP * vec4(vUv * 2.0 - 1.0, 0.5, 1.0); vec3 dir = normalize(w.xyz / w.w - uCam); float t = dir.y < -0.004 ? min(-uCam.y / dir.y, 300.0) : 300.0; vec4 pc = uPrevVP * vec4(uCam + dir * t, 1.0);
         if (pc.w > 0.05) { vec2 vel = (vUv - (pc.xy / pc.w * 0.5 + 0.5)) * uBlur; vec2 e2 = (vUv - uCarC) / max(uCarR, vec2(1e-4)); vel *= smoothstep(1.0, 1.7, length(e2)); float len = length(vel);
-          if (len > 0.0008) { vel *= min(1.0, 0.05 / len); vec3 a = c; for (int i = 1; i <= 5; i++) { float f = float(i) / 5.0; a += texture2D(tDiffuse, vUv - vel * f).rgb + texture2D(tDiffuse, vUv + vel * f * 0.6).rgb; } c = a / 11.0; } } }
+          if (len > 0.0008) { vel *= min(1.0, 0.05 / len); vec3 a = c; for (int i = 1; i <= TAPS; i++) { float f = float(i) / float(TAPS); a += texture2D(tDiffuse, vUv - vel * f).rgb + texture2D(tDiffuse, vUv + vel * f * 0.6).rgb; } c = a / float(2 * TAPS + 1); } } }
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat); c = (c - 0.5) * uCon + 0.5; vec2 e = vUv - 0.5; c *= 1.0 - uVig * dot(e, e) * 1.6; gl_FragColor = vec4(c, 1.0); }` });
 /** The streaks at speed. `strength` 0 switches them off; `car` is what stays sharp (any object: its box on the screen); `shutter` the share of a frame's way that streaks. */
 const motion = { strength: q('blur', 1), shutter: q('shutter', 0.5), car: null, _vp: new THREE.Matrix4(), _prev: null, _box: new THREE.Box3(), _v: new THREE.Vector3(),
@@ -342,8 +343,8 @@ const api = { scene, root: scene, camera, composer, sun, sunOffset, yaw: 0, toWo
   /** Once a frame before the render (after the page has placed the camera): the time of everything that moves, the smoke's lumps, the streaks at speed. */
   tick(dt) { time.value += dt; smoke.update(dt); flames.update(dt); motion.update(dt, stillStep); },
   resize(w, h) { renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); },
-  /** 'high' or 'low' (the phone): low has no ambient occlusion, a smaller shadow map, a pixel ratio of at most 1.5, four people in ten. */
-  async setTier(name) { const low = name === 'low'; if (aoPass) aoPass.enabled = !low;
+  /** 'high' or 'low' (the phone): low has no ambient occlusion, a smaller shadow map, the glow at half size, a pixel ratio of at most 1.5, four people in ten (and, fixed when the scene is built: shorter streaks, plainer smoke, ribbed boxes for all containers, no head-lamp beam). */
+  async setTier(name) { const low = name === 'low'; if (aoPass) aoPass.enabled = !low; bloomScale = low ? 0.5 : 1;
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1.5 : 2)); composer.setPixelRatio(renderer.getPixelRatio()); const s = renderer.getSize(new THREE.Vector2()); composer.setSize(s.x, s.y);
     sun.shadow.mapSize.set(low ? 1024 : 2048, low ? 1024 : 2048); sun.shadow.map?.dispose(); sun.shadow.map = null;
     for (const m of crowdMeshes) { m.userData.full ??= m.count; m.count = low ? Math.ceil(m.userData.full * 0.4) : m.userData.full; }
