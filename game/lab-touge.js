@@ -8,7 +8,7 @@ import { KEY, shared } from './mock/toon.js';
 import { makeSky, skyEnv } from './mock/sky.js';
 import { mountains } from './mock/land.js';
 import { buildTouge } from './mock/touge.js';
-import { loadCar, groundPatch } from './mock/car.js';
+import { loadCarSource, MX5, groundPatch } from './mock/car.js';
 import { Smoke } from './mock/smoke.js';
 import { makeFinish } from './mock/finish.js';
 import { loadTrack, surfaceAt, frameAt } from './sim/track.js';
@@ -47,7 +47,7 @@ const world = buildTouge(mapJson, T, { tier: low ? 'low' : 'high', down: DOWN })
 scene.add(world.group, mountains(-world.field.cx, world.field.cz, world.field.lo - 30));
 
 // ---- the car
-const { scene: model, lamps } = await loadCar(new URL('./assets/cars/s14-hi.glb', import.meta.url).href, skyEnv(renderer));
+const { scene: model, lamps } = await loadCarSource(MX5, skyEnv(renderer));
 const car = rigCar(model); car.group.add(groundPatch()); scene.add(car.group);
 
 // ---- smoke and skid marks from the tyres

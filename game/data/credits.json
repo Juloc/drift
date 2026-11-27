@@ -196,7 +196,11 @@
       "name": "Mazda Miata MX-5 NA",
       "file": [
         "game/assets/cars/mx5.glb",
-        "game/assets/cars/mx5-hi.glb"
+        "game/assets/cars/mx5-hi.glb",
+        "game/assets/cars/mx5-full/scene.gltf",
+        "game/assets/cars/mx5-full/scene.bin",
+        "game/assets/cars/mx5-full/license.txt",
+        "game/assets/cars/mx5-full/textures/Material.012_baseColor.png"
       ],
       "author": "Lexyc16",
       "authorUrl": "https://sketchfab.com/Lexyc16",

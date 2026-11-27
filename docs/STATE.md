@@ -1020,3 +1020,15 @@ Pictures: `docs/screenshots/mock/evening-*.jpg`.
 Open, in the agreed order: 2. take the grass tufts and the busy detail back, large clean faces; 3. road, rail and boards with textures and relief
 (the asphalt texture in `game/assets/tex` is not used yet; two thick arrows flush in the board); 4. smoke as solid faceted lumps; 5. the car (no S15
 file in the repository: a detailed model has to be downloaded by the owner); 6. the far land (silhouette trees, mist between the ridges, cloud shapes).
+
+## The roadster and the mockup's camera (2026-11-27)
+
+- **Car:** the owner's choice, the Mazda MX-5 NA as its author uploaded it (`game/assets/cars/mx5-full/`, 51k triangles, with the lamp picture; CC BY 4.0,
+  credited). The file is not changed: `mock/car.js loadCarSource` brings it into the game's space when it loads (3.95 m long, on y = 0, nose to +z; found
+  by where the tail lamps lie in the lamp picture), dresses it by material name (`MX5.parts`) and names the four wheels by where they are, so `rigCar`
+  and later kits (other wheels, lamps, paints) have clean parts to work on. The lamp picture lights the lamps; it gets brighter on the brake as a whole
+  (**to do:** only the brake lamp's part of the picture). Both pages use it. Not checked for emblems or lettering.
+- **Mock stage:** the bend is tighter (30 m), the car sits in it and the camera is the mockup's, read off the picture (the mockup with the roadster,
+  4 : 3: a lens 50 degrees high, the horizon a third from the top, the car 5.7 m away, the sun 23 degrees right of the view and 6 up). A page outside the
+  repository shows the mockup and the stage side by side.
+- Numbers, touge page with the roadster (desk PC, RTX 5070 Ti): 2.0 ms a picture, 104 draw calls, 1.08 million triangles. Picture `docs/screenshots/mock/miata-touge-drift.jpg`.

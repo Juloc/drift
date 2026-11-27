@@ -35,7 +35,7 @@ export const path = (() => {
   const pts = [], STEP = 2; let x = 0, z = 70, th = 0, s = -70;
   const push = () => pts.push({ x, z, s, tx: Math.sin(th), tz: -Math.cos(th), y: yAt(s) });
   for (; z > -16; z -= STEP, s += STEP) push();
-  const R = 66; for (let a = 0; a < 1.3; a += STEP / R, s += STEP) { th = a; push(); x += Math.sin(th) * STEP; z -= Math.cos(th) * STEP; }
+  const R = 30; for (let a = 0; a < 1.3; a += STEP / R, s += STEP) { th = a; push(); x += Math.sin(th) * STEP; z -= Math.cos(th) * STEP; }
   for (let i = 0; i < 150; i++, s += STEP) { th = 1.3 - 0.5 * ss(10, 90, i) + 0.3 * ss(100, 150, i); push(); x += Math.sin(th) * STEP; z -= Math.cos(th) * STEP; }
   return pts;
 })();
@@ -51,14 +51,14 @@ export const at = (s, off = 0) => { const f = Math.min(path.length - 1.001, Math
   return { x: p.x + (q.x - p.x) * t + tz * off, z: p.z + (q.z - p.z) * t - tx * off, y: p.y + (q.y - p.y) * t, tx, tz, th: Math.atan2(tx, -tz) }; };
 
 // ---- the height of the land
-const VALLEY = -44;
+const VALLEY = -30;
 const HILLS = [[-150, -560, 180, 130, 60], [260, -700, 200, 150, 70], [640, -800, 220, 160, 80], [-430, -720, 220, 170, 96], [1000, -940, 260, 200, 110], [60, -960, 240, 170, 90], [1320, -620, 240, 180, 90], [470, -470, 120, 90, 28]];
 /** The river runs across the view, a few hundred metres beyond the bend: its z at x, and a place's distance from it. */
 export const riverZ = (x) => -340 - 0.4 * x + 70 * Math.sin(x / 170 + 0.9) + 26 * Math.sin(x / 67);
 export const riverAway = (x, z) => Math.abs(z - riverZ(x)) * 0.93;
 /** The land away from the road: a rock flank on the left as far as the bend; from there the outside of the bend looks into the valley. Inside the bend lies a low bank. */
 function wild(x, z, dR, right, s) {
-  const flank = right ? 0 : 1 - ss(34, 74, s);
+  const flank = right ? 0 : 1 - ss(27, 46, s);
   let h = flank * (30 * ss(3, 46, dR) + 34 * ss(46, 190, dR) + 60 * ss(190, 600, dR));
   if (right) h += -1.6 * ss(0, 5, dR - SHOULDER) - 7 * ss(12, 60, dR) + 5 * Math.exp(-(((dR - 26) / 14) ** 2)) + VALLEY * 0.85 * ss(70, 240, dR);
   else { const v = 1 - flank; h += v * (VALLEY * ss(4, 78, dR) - 2.4 * ss(0, 5, dR - SHOULDER));
@@ -156,9 +156,9 @@ function tyreMarks(extra = []) {
 
 /** Rings of faceted peaks round the valley; the haze makes the far ones pale. */
 export function mountains(cx = 0, cz = 0, base = VALLEY - 20) {
-  const r = rnd(31), parts = [], RINGS = [[900, 1150, 34, 150, 300, '#7a6c74'], [1500, 1900, 40, 260, 520, '#766972'], [2500, 3000, 44, 420, 760, '#73666f'], [3900, 4500, 46, 620, 1000, '#70636c']];
+  const r = rnd(31), parts = [], RINGS = [[1100, 1400, 30, 60, 170, '#7a6c74'], [1800, 2300, 36, 110, 260, '#766972'], [2900, 3500, 40, 160, 380, '#73666f'], [4200, 5000, 44, 200, 520, '#70636c']];
   for (const [r0, r1, n, h0, h1, hex] of RINGS) for (let i = 0; i < n; i++) {
-    const az = (i + r() * 0.8) / n * Math.PI * 2, R = r0 + r() * (r1 - r0), h = h0 + r() * r() * (h1 - h0) * 1.3, rad = h * (1.1 + r() * 0.9);
+    const az = (i + r() * 0.8) / n * Math.PI * 2, R = r0 + r() * (r1 - r0), h = h0 + r() * r() * (h1 - h0) * 1.3, rad = h * (1.7 + r() * 1.4);
     if (Math.abs(az - 0.72) < 0.2 && R < 3500) continue;                                                   // the valley stays open towards the sun
     const g = new THREE.ConeGeometry(rad, h, 7, 3, true).toNonIndexed(), p = g.attributes.position, seen = new Map();
     for (let v = 0; v < p.count; v++) { const key = `${p.getX(v).toFixed(1)}|${p.getY(v).toFixed(1)}|${p.getZ(v).toFixed(1)}`; let j = seen.get(key); if (!j) { const top = p.getY(v) > h * 0.49; j = top ? [0, 0, 0] : [(r() - 0.5) * rad * 0.34, (r() - 0.5) * h * 0.16, (r() - 0.5) * rad * 0.34]; seen.set(key, j); } p.setXYZ(v, p.getX(v) + j[0], p.getY(v) + j[1], p.getZ(v) + j[2]); }

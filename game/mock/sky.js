@@ -4,7 +4,7 @@
 import * as THREE from '../../vendor/three/three.module.js';
 import { KEY } from './toon.js';
 
-export const SKY = {
+export const SKY = { sunSize: 0.05,   // the sun's radius in radians (three times the real one, as the mockup draws it)
   top: new THREE.Color('#d98fba'), mid: new THREE.Color('#f599a5'), warm: new THREE.Color('#fba27e'), cool: new THREE.Color('#ee8f9a'),
   sun: new THREE.Color(2.6, 2.2, 1.45), glow: new THREE.Color('#ffc48a'), cloudLit: new THREE.Color('#ffb98e'), cloudShade: new THREE.Color('#b56f8e'),
 };
@@ -12,10 +12,10 @@ export const SKY = {
 export function makeSky(radius = 6000) {
   const mat = new THREE.ShaderMaterial({
     uniforms: { uTop: { value: SKY.top }, uMid: { value: SKY.mid }, uWarm: { value: SKY.warm }, uCool: { value: SKY.cool }, uSunCol: { value: SKY.sun }, uGlow: { value: SKY.glow },
-      uLit: { value: SKY.cloudLit }, uShade: { value: SKY.cloudShade }, uSun: { value: KEY.sunDir }, uTime: { value: 0 } },
+      uLit: { value: SKY.cloudLit }, uShade: { value: SKY.cloudShade }, uSun: { value: KEY.sunDir }, uTime: { value: 0 }, uSunSize: { value: SKY.sunSize } },
     vertexShader: 'varying vec3 vDir; void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position.z = gl_Position.w; }',
     fragmentShader: /* glsl */ `
-      uniform vec3 uTop, uMid, uWarm, uCool, uSunCol, uGlow, uLit, uShade, uSun; uniform float uTime; varying vec3 vDir;
+      uniform vec3 uTop, uMid, uWarm, uCool, uSunCol, uGlow, uLit, uShade, uSun; uniform float uTime, uSunSize; varying vec3 vDir;
       float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0, 1.0)), f.x), f.y); }
       float fbm(vec2 p) { float a = 0.5, v = 0.0; for (int i = 0; i < 5; i++) { v += a * vn(p); p = p * 2.02 + 11.3; a *= 0.5; } return v; }
@@ -40,7 +40,7 @@ export function makeSky(radius = 6000) {
         vec2 p2 = vec2(az * 4.4 - uTime * 0.002, e * 30.0); float wisp = smoothstep(0.55, 0.7, fbm(p2 + fbm(p2 * 0.5))) * smoothstep(0.2, 0.32, e) * (1.0 - smoothstep(0.6, 0.8, e));
         col = mix(col, mix(uLit, uMid, 0.45), wisp * 0.4 * (1.0 - dens));
         float ang = acos(clamp(dot(d, uSun), -1.0, 1.0));
-        col = mix(col, uSunCol, (1.0 - smoothstep(0.050, 0.056, ang)) * (1.0 - dens * 0.5));
+        col = mix(col, uSunCol, (1.0 - smoothstep(uSunSize * 0.93, uSunSize * 1.04, ang)) * (1.0 - dens * 0.5));
         gl_FragColor = vec4(col, 1.0);
       }`,
     side: THREE.BackSide, depthWrite: false, depthTest: true, fog: false, toneMapped: false,
