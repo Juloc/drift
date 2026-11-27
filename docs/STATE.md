@@ -858,3 +858,6 @@ A static page with sample data, no server logic, no inline script; every text th
 - Download: the drive page loads 56 files, 14.1 MB; the still page 40 files, 13.9 MB (nothing is compressed on the test server: these are the file sizes).
 - Smoke while sliding: about 82 lumps alive (one lump per wheel every 1/30 s lives 1.3 to 2.2 s: the pool of 240 is not reached at that rate).
 - Over 16.7 ms: the still in high at both sizes (25.6, 19.7), the slide in high at 1280x720 (17.1, just over). The still is dearer than the slide (the posed smoke, a camera that sees the whole stand). Memory is an estimate of the uploaded pictures. Not measured: a real phone; the black-frame flicker (part 2) was present in these runs and is not in the numbers.
+
+### Quay: chef/quay2 newest head (5bde1b2) merged on top; the drive page follows its interface
+- Adds `look/flames.js`, `look/carlights.js`, streaks at speed (`h.motion`), cheaper parts; only `quay.js` changed otherwise. The quay drive page: `h.motion.car = car.group`, `h.motion._prev = null` on R and on a camera cut (C), `h.tick(dt)` after the camera is placed (the core's frame places it first), `model.userData.lights.set({ brake: pedal })` every frame (the handbrake does not light the lamps). Slide proof repeated: 46-48 km/h, no page error, the car's middle inside the walls.

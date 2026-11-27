@@ -228,6 +228,6 @@ export function createDrive(cfg) {
   return {
     frame, reset, setMode, toggleCar, toggleManual, cycleCam, setCam, syncChips, key, held, camera, snapshot,
     get s() { return s; }, get drawn() { return drawn; }, get frames() { return frames; }, get mode() { return D.mode; }, get carNo() { return D.carNo; }, get camNo() { return camNo; }, get car() { return CARS[D.carNo]; },
-    get steps() { return simSteps; }, activeCam, readout,
+    get steps() { return simSteps; }, activeCam, readout, inp,
   };
 }

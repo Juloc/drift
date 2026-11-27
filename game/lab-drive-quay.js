@@ -28,8 +28,9 @@ const { camera, sun } = h;
 addEventListener('resize', () => h.resize(innerWidth, innerHeight));
 
 // ---- the car: the AE86 file as the still shows it, its wheels and body made movable, dressed by the scene (shadows, tail lamps)
-const car = rigCar(h.dressCar((await new GLTFLoader().loadAsync('assets/cars/ae86-hi.glb')).scene));
+const model = h.dressCar((await new GLTFLoader().loadAsync('assets/cars/ae86-hi.glb')).scene), car = rigCar(model);   // (dressCar also lights the lamps: `model.userData.lights`)
 h.scene.add(car.group);
+h.motion.car = car.group;   // the streaks at speed leave the car sharp
 
 // ---- the walls (two closed rings of points, first = last) and the square round them, in the simulation's axes (x mirrored); no cones here
 const mirror = ([x, z]) => [-x, z];
@@ -70,15 +71,18 @@ const hooks = {
   driver,
   beforeStep(s, wheelPts, muW) { for (let i = 0; i < 4; i++) { muW[i] = h.puddleAt(-wheelPts[i][0], wheelPts[i][1]) > 0.5 ? PUDDLE_MU : 1; if (muW[i] < minMu[i]) minMu[i] = muW[i]; } },
   fixed(s, steps) { if (steps % 2 === 0) marksAndSmoke(s, steps); const r = Math.hypot(-s.x - h.ring.cx, s.z - h.ring.cz); ring.min = Math.min(ring.min, r); ring.max = Math.max(ring.max, r); },
-  onReset() { h.smoke.clear(); skids.clear(); },
+  onReset() { h.smoke.clear(); skids.clear(); h.motion._prev = null; },   // (a cut: the streaks start again)
 };
 const drive = createDrive({ params, t, camera, rig: car, wheelLocal: car.wheelLocal, spawn: () => ({ x: -start.x, z: start.z, h: -start.yaw }), env: ENV, map, groundAt: () => 0, lookCamera: { dist: 5.6, height: 1.2, side: 0, look: 14, lookY: 0.5, travel: 0.6, fov: 52, turn: 8, swing: 3, turnDrift: -24 }, soundId: 1, hooks });
 $('simhint').textContent = t('hint');
 
 // ---- the loop
+let lastCam = drive.camNo;
 function frame(now) {
   const { d, dt } = drive.frame(now);
-  h.tick(dt);   // palms, flags, people, sea, clouds and the smoke's lumps move
+  if (drive.camNo !== lastCam) { lastCam = drive.camNo; h.motion._prev = null; }   // (a camera cut)
+  model.userData.lights?.set({ brake: drive.inp.brake });   // the brake pedal 0..1 lights the lamps (the handbrake does not)
+  h.tick(dt);   // after the camera is placed: palms, flags, people, sea, clouds, smoke, flames and the streaks (from the camera's real movement)
   sunAt.set(X(d.x), 0, d.z); sun.target.position.copy(sunAt); sun.position.copy(sunAt).add(h.sunOffset);   // the sun's shadow box follows the car
   if (innerWidth !== frame.w || innerHeight !== frame.h) { frame.w = innerWidth; frame.h = innerHeight; h.resize(innerWidth, innerHeight); }
   renderer.info.reset(); h.composer.render();   // (one picture is several renders: the passes are counted together)
