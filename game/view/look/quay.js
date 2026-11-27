@@ -299,7 +299,8 @@ const smoke = (() => { const MAX = q('smokeMax', 240), K = q('smokeK', 0.74) / E
     core.count = shell.count = n; core.instanceMatrix.needsUpdate = shell.instanceMatrix.needsUpdate = aFade.needsUpdate = aSeed.needsUpdate = true; };
   return { core, shell, view, get alive() { return P.length; },
     /** A new lump at a tyre: the place in the scene's axes, `k` 0..1 how hard the tyre smokes, the car's speed there (m/s; the lump keeps a little of it). */
-    emit(x, z, k = 1, vx = 0, vz = 0) { if (OFF.has('smoke') || k <= 0.02 || rnd() > 0.15 + 0.85 * k) return; if (P.length >= MAX) P.shift();   // (a faint slide: few lumps, small, pale, soon gone; a hard one: all of it)
+    emit(x, z, k = 1, vx = 0, vz = 0) { if (OFF.has('smoke') || k <= 0.02) return; k = Math.min(1, k) ** q('smokeCurve', 0.55);   // what the eye wants: a slide that smokes a little already shows (the mockups' cars trail thick smoke)
+      if (rnd() > 0.15 + 0.85 * k) return; if (P.length >= MAX) P.shift();   // (a faint slide: few lumps, small, pale, soon gone; a hard one: all of it)
       P.push({ x, z, y0: 0, vx: vx * 0.15, vz: vz * 0.15, r0: 0.1 + 0.12 * k, r1: 0.28 + 1.55 * k + rnd() * 0.3, lift: 0.15 + 1.2 * k * rnd(), life: 0.7 + 1.4 * k, age: 0, turn: rnd() * 6.28, seed: rnd() * 40, a: 0.3 + 0.7 * Math.min(1, k * 1.4), core: sm(0.25, 0.6, k) }); },
     /** Lumps that stand still, for the still picture: [x, z, radius, lift]. */
     pose(list) { for (const [x, z, r, lift] of list) P.push({ x, z, y0: 0, vx: 0, vz: 0, r0: r, r1: r, lift: 0, life: 1, age: 0, turn: rnd() * 6.28, seed: rnd() * 40, fixed: true, }), (P[P.length - 1].y0 = lift); write(); },
