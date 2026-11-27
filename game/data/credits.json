@@ -1685,7 +1685,7 @@
       "licence": "CC BY 4.0",
       "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
       "attribution": true,
-      "changes": "unchanged file (to be shrunk); in the scene its trunk is drawn out and its crown enlarged",
+      "changes": "colour pictures shrunk to 512 px, normal, roughness and occlusion maps dropped (tools/make-quay-assets.mjs); in the scene its trunk is drawn out and its crown enlarged",
       "use": {
         "en": "\"Palm tree\" by galaxxxy, CC BY 4.0",
         "de": "\"Palm tree\" von galaxxxy, CC BY 4.0"

@@ -40,12 +40,12 @@ test('every outside model, picture or sound file under game/assets has its entry
   for (const f of files) assert.ok(credits.entries.some((e) => [].concat(e.file ?? []).includes(f)), `${f} is not in game/data/credits.json`);
 });
 
-test('the quay\'s Sketchfab models (CC BY 4.0): each has its entry with attribution, and the files together stay under 8 MB', () => {
+test('the quay\'s Sketchfab models (CC BY 4.0): each has its entry with attribution, and the files together stay under 8.5 MB', () => {
   let total = 0;
-  for (const f of ['barriers', 'fence-set', 'crowd', 'crane', 'ship', 'lighthouse', 'palm-pack', 'container', 'stand']) {
+  for (const f of ['barriers', 'fence-set', 'crowd', 'crane', 'ship', 'lighthouse', 'palm-pack', 'palm-chunky', 'container', 'stand']) {
     const path = `game/assets/skfb/${f}.glb`, e = credits.entries.find((c) => (c.file ?? []).includes(path));
     assert.ok(e, `${path} is in the credits`); assert.equal(e.licence, 'CC BY 4.0'); assert.equal(e.attribution, true); assert.ok(/^https:\/\/sketchfab\.com\//.test(e.source) && e.author && e.changes);
     total += statSync(join(root, path)).size;
   }
-  assert.ok(total < 8 * 1024 * 1024, `${(total / 1048576).toFixed(2)} MB`);
+  assert.ok(total < 8.5 * 1024 * 1024, `${(total / 1048576).toFixed(2)} MB`);
 });

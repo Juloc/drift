@@ -104,6 +104,7 @@ const report = [];
 {   // the models that stay whole (every mesh, every name; only the pictures get smaller, the camera and light nodes of a file go): the harbour's, the pack's palms and the stand
   const whole = async (name, maxPx) => { const g = readGlb(`${RAW}/${name}.glb`), keep = g.json.nodes.map((n, i) => (n.mesh !== undefined ? i : -1)).filter((i) => i >= 0); report.push([name, await write(g, keep, { maxPx, name })]); };
   await whole('crane', 512); await whole('ship', 512); await whole('lighthouse', 512); await whole('container', 512);
+  await whole('palm-chunky', (role) => (role === 'base' ? 512 : 0));   // the owner's palm of the mockup look: colour pictures only (quay.js reads no normal, roughness or occlusion map); both meshes and names stay
   await whole('palm-pack', 512);   // (the fronds' alpha lossless)
   { const base = +(opt.standBase ?? 256), maps = +(opt.standMaps ?? 256); await whole('stand', (role, mat) => (role === 'base' ? (/Adverts/.test(mat) ? Math.max(512, base) : base) : maps)); }   // plain colours: small colour pictures, no normal or roughness maps
 }
