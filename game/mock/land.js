@@ -90,19 +90,19 @@ function landMesh() {
 
 /** The asphalt: `uv.x` is metres from the centre line, `uv.y` metres along the road. Lines, worn patches, wheel tracks and a gravel shoulder are painted from those. */
 export function roadMaterial() {
-  return toon({ color: 0xffffff, gloss: 0.4, rim: 0.0, soft: 0.5,
+  return toon({ color: 0xffffff, gloss: 0.5, rim: 0.0, soft: 0.5,
     pars: /* glsl */ `float rh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float rn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(rh(i), rh(i + vec2(1.0, 0.0)), f.x), mix(rh(i + vec2(0.0, 1.0)), rh(i + vec2(1.0, 1.0)), f.x), f.y); }`,
     paint: /* glsl */ `{ float u = vUv2.x, au = abs(u), s = vUv2.y;
       float big = rn(vec2(u * 0.35, s * 0.08)), grain = rn(vec2(u * 9.0, s * 9.0)), wear = rn(vec2(u * 1.7, s * 0.5));
-      vec3 c = vec3(0.335, 0.285, 0.38) * (0.92 + 0.12 * big + 0.05 * grain);
+      vec3 c = vec3(0.262, 0.222, 0.318) * (0.9 + 0.16 * big + 0.05 * grain);
       c *= 1.0 - 0.07 * (smoothstep(0.75, 0.15, abs(au - 2.3)) );                                   // the lanes' wheel tracks, a shade darker
-      c = mix(c, vec3(0.42, 0.36, 0.45), 0.5 * smoothstep(0.62, 0.8, rn(vec2(u * 0.22 + 3.0, s * 0.045))));   // lighter patches
+      c = mix(c, vec3(0.35, 0.3, 0.4), 0.5 * smoothstep(0.62, 0.8, rn(vec2(u * 0.22 + 3.0, s * 0.045))));   // lighter patches
       float edge = smoothstep(0.1, 0.06, abs(au - 4.12)) * (0.55 + 0.45 * smoothstep(0.25, 0.55, wear));
       c = mix(c, vec3(0.93, 0.88, 0.9), edge);
       float dash = smoothstep(0.085, 0.055, abs(u)) * step(fract(s / 9.0), 0.36) * (0.6 + 0.4 * smoothstep(0.2, 0.5, wear));
       c = mix(c, vec3(0.98, 0.7, 0.26), dash);
-      c = mix(c, vec3(0.6, 0.5, 0.55) * (0.85 + 0.3 * grain), smoothstep(4.45, 4.75, au));         // the gravel shoulder
+      c = mix(c, vec3(0.56, 0.47, 0.52) * (0.9 + 0.2 * rn(vec2(u * 2.3, s * 2.3))), smoothstep(4.45, 4.75, au));         // the gravel shoulder
       diffuseColor.rgb = c; }` });
 }
 
@@ -150,17 +150,22 @@ export function mountains(cx = 0, cz = 0, base = VALLEY - 20) {
   const mesh = new THREE.Mesh(mergeGeometries(parts), toon({ vertexColors: true, soft: 0.25, rim: 0.2 })); mesh.name = 'mountains'; return mesh;
 }
 
+/** Still water: it takes the sky's colour (cool away from the sun, bright gold towards it) and long soft ripples break the glitter. */
+export function waterMaterial() {
+  return new THREE.ShaderMaterial({ uniforms: { ...shared, uA: { value: new THREE.Color('#c79ad2') }, uB: { value: new THREE.Color('#ffe2b8') } }, toneMapped: false,
+    vertexShader: 'varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+    fragmentShader: `varying vec3 vW; uniform vec3 uA, uB; ${HAZE_PARS}
+      void main() { vec3 v = normalize(vW - cameraPosition); float t = pow(max(dot(normalize(vec3(v.x, 0.0, v.z)), normalize(vec3(uSun.x, 0.0, uSun.z))), 0.0), 5.0);
+        float rip = sin(vW.x * 0.05 + sin(vW.z * 0.021) * 3.0) * sin(vW.z * 0.13 + vW.x * 0.017); t *= 0.7 + 0.3 * rip; vec3 c = mix(uA, uB * 1.3, clamp(t, 0.0, 1.0)); c = mix(c, uA * 0.82, 0.12 * smoothstep(0.2, 0.9, rip)); gl_FragColor = vec4(hazed(c, vW, 0.55), 1.0); }` });
+}
+
 /** The river and the lake: flat sheets that take the sky's colour and glitter towards the sun. */
 function water() {
   const pos = [], idx = [];
   let k = 0; for (let x = -700; x < 1700; x += 14, k++) { const z = riverZ(x), w = 16 + 10 * Math.sin(x / 210); pos.push(x, VALLEY - 1.2, z - w, x, VALLEY - 1.2, z + w); if (k) { const i = k * 2; idx.push(i - 2, i - 1, i, i - 1, i + 1, i); } }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
   const lake = new THREE.CircleGeometry(1, 40).rotateX(-Math.PI / 2); lake.scale(560, 1, 250); lake.translate(1050, VALLEY - 1.2, -1380); lake.deleteAttribute('uv'); lake.deleteAttribute('normal');
-  const mat = new THREE.ShaderMaterial({ uniforms: { ...shared, uA: { value: new THREE.Color('#c79ad2') }, uB: { value: new THREE.Color('#ffe2b8') } }, toneMapped: false,
-    vertexShader: 'varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
-    fragmentShader: `varying vec3 vW; uniform vec3 uA, uB; ${HAZE_PARS}
-      void main() { vec3 v = normalize(vW - cameraPosition); float t = pow(max(dot(normalize(vec3(v.x, 0.0, v.z)), normalize(vec3(uSun.x, 0.0, uSun.z))), 0.0), 6.0);
-        vec3 c = mix(uA, uB * 1.25, t) ; gl_FragColor = vec4(hazed(c, vW, 0.55), 1.0); }` });
+  const mat = waterMaterial();
   const mesh = new THREE.Mesh(mergeGeometries([g, lake]), mat); mesh.name = 'water'; return mesh;
 }
 

@@ -32,9 +32,10 @@ const coarse = matchMedia('(pointer: coarse)').matches || params.has('touch'), l
 const canvas = $('view'), info = $('info'), renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1.25 : 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.info.autoReset = false;
 const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(56, innerWidth / innerHeight, 0.3, 9000), finish = makeFinish(renderer, { low });
-const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.74, 0.52), 3.2); sun.castShadow = true; sun.shadow.mapSize.set(low ? 1024 : 2048, low ? 1024 : 2048);
+KEY.sunDir.set(0.9, 0.2, -0.4).normalize();   // the low sun stands across the pass: every second leg drives into it
+const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.8, 0.6), 4.2); sun.castShadow = true; sun.shadow.mapSize.set(low ? 1024 : 2048, low ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -38, right: 38, top: 38, bottom: -38, near: 10, far: 260 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05; sun.shadow.radius = 3;
-scene.add(sun, sun.target, new THREE.HemisphereLight(new THREE.Color('#d9b3ee'), new THREE.Color('#7a5a7a'), 1.5), makeSky());
+scene.add(sun, sun.target, new THREE.HemisphereLight(new THREE.Color('#cfc0f2'), new THREE.Color('#6c5a78'), 1.25), makeSky());
 const size = () => { const w = innerWidth, h = innerHeight, r = renderer.getPixelRatio(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); finish.setSize(Math.floor(w * r), Math.floor(h * r)); };
 size(); addEventListener('resize', size);
 
@@ -42,7 +43,7 @@ size(); addEventListener('resize', size);
 const mapJson = await (await fetch(new URL('./data/maps/06-touge.json', import.meta.url))).json(), T = loadTrack(mapJson.track), q = {};
 const map = prepareMap({ bounds: mapJson.bounds, walls: mapJson.walls, obstacles: [], zones: [], ground: 'asphalt' });
 const groundAt = (x, z) => surfaceAt(T, x, z, q).y;
-const world = buildTouge(mapJson, T, { tier: low ? 'low' : 'high' });
+const world = buildTouge(mapJson, T, { tier: low ? 'low' : 'high', down: DOWN });
 scene.add(world.group, mountains(-world.field.cx, world.field.cz, world.field.lo - 30));
 
 // ---- the car

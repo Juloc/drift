@@ -5,8 +5,8 @@
 import * as THREE from '../../vendor/three/three.module.js';
 import { mergeGeometries } from '../../vendor/three/addons/utils/BufferGeometryUtils.js';
 import { surfaceAt, frameAt } from '../sim/track.js';
-import { toon } from './toon.js';
-import { roadMaterial, fbm, rnd } from './land.js';
+import { toon, shared } from './toon.js';
+import { roadMaterial, waterMaterial, fbm, rnd } from './land.js';
 import { faceted, paintGeo, chevronTexture } from './props.js';
 
 const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -76,6 +76,15 @@ function roadMesh(T) {
   return group;
 }
 
+/** Many small meshes into one per material (a group of boards or lanterns is then a few draw calls instead of hundreds). */
+function mergedByMaterial(group, name) {
+  group.updateMatrixWorld(true); const by = new Map(), shadow = new Set();
+  group.traverse((o) => { if (!o.isMesh) return; const g = o.geometry.clone().applyMatrix4(o.matrixWorld); if (!by.has(o.material)) by.set(o.material, []); by.get(o.material).push(g); if (o.castShadow) shadow.add(o.material); });
+  const out = new THREE.Group(); out.name = name;
+  for (const [m, list] of by) { const mesh = new THREE.Mesh(mergeGeometries(list), m); mesh.castShadow = shadow.has(m); if (m.isMeshLambertMaterial) m.side = THREE.DoubleSide; out.add(mesh); }
+  return out;
+}
+
 /** Rails on the map's walls (what the car hits is what stands there), with posts and small lamps. */
 function rails(T, walls) {
   const parts = [], posts = [], lamps = [], PROFILE = [[0.0, 0.42], [0.07, 0.5], [0.0, 0.58], [0.0, 0.62], [0.07, 0.7], [0.0, 0.78]], out = {}, np = PROFILE.length;
@@ -96,7 +105,7 @@ function rails(T, walls) {
 }
 
 /** Chevron boards round the outside of every hairpin, their arrows pointing the way of the climb. */
-function chevrons(T, F, hairpins) {
+function chevrons(T, F, hairpins, down) {
   const tex = chevronTexture(), face = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(2.6, 2.2, 2.4), toneMapped: false, side: THREE.DoubleSide }), back = toon({ color: '#4a3a5a' }), group = new THREE.Group();
   for (const hp of hairpins) for (const ds of [-21, -14, -7, 0, 7, 14, 21]) {
     const s = hp.s + ds; if (s < 0 || s > T.len) continue; const i = Math.min(T.x.length - 1, Math.round(s / T.ds)), lat = (hp.right ? -1 : 1) * ((hp.right ? T.hwL[i] : T.hwR[i]) + 2.6), f = frameAt(T, s, lat);
@@ -105,10 +114,49 @@ function chevrons(T, F, hairpins) {
     const board = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, h + 0.12, 0.08), back); board.position.set(0, 1.0 + h / 2, -0.05);
     const legs = [-0.36, 0.36].map((k) => { const l = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.0 + h / 2, 0.09), back); l.position.set(k * w, (1.0 + h / 2) / 2, -0.09); return l; });
     g.add(plate, board, ...legs); g.position.set(-f.x, F.at(f.x, f.z), f.z); const th = Math.atan2(-inX, inZ); g.rotation.y = th;
-    if (Math.cos(th) * f.t[0] + Math.sin(th) * f.t[2] < 0) plate.scale.x = -1;                                           // the plate's own right against the climb's direction (the climb runs against the track's): mirror it
+    if ((Math.cos(th) * f.t[0] + Math.sin(th) * f.t[2] < 0) !== down) plate.scale.x = -1;                                           // the plate's own right against the climb's direction (the climb runs against the track's): mirror it
     group.add(g);
   }
-  group.name = 'chevrons'; return group;
+  return mergedByMaterial(group, 'chevrons');
+}
+
+/** Old tyre marks through every hairpin: pairs of thin dark lines that swing from the inside of the bend out to its edge. */
+function oldMarks(T, hairpins, r) {
+  const pos = [], al = [], idx = [];
+  for (const hp of hairpins) for (let m = 0; m < 6; m++) { const len = 34 + r() * 30, s0 = hp.s - len / 2 + (r() - 0.5) * 16, i0 = Math.min(T.x.length - 1, Math.max(0, Math.round(hp.s / T.ds))), hw = T.hwL[i0], out = hp.right ? -1 : 1, amp = 1.2 + r() * 2.2, mid = (r() - 0.5) * 2.6, a = 0.22 + r() * 0.4;
+    for (const tw of [-0.75, 0.75]) { const base = pos.length / 3; let k = 0;
+      for (let d = 0; d <= len; d += 1.5, k++) { const s = s0 + d; if (s < 1 || s > T.len - 1) { k--; continue; } const u = d / len, lat = Math.max(-hw + 0.4, Math.min(hw - 0.4, mid + tw + out * amp * Math.sin(u * Math.PI))), f = frameAt(T, s, lat), w = 0.11, fade = Math.min(1, u * 5, (1 - u) * 5) * a;
+        pos.push(-(f.x + f.r[0] * w), f.y + 0.014, f.z + f.r[2] * w, -(f.x - f.r[0] * w), f.y + 0.014, f.z - f.r[2] * w); al.push(fade, fade);
+        if (k) { const q = base + k * 2; idx.push(q - 2, q, q - 1, q - 1, q, q + 1); } } } }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('alpha', new THREE.Float32BufferAttribute(al, 1)); g.setIndex(idx);
+  const mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, toneMapped: false,
+    vertexShader: 'attribute float alpha; varying float vA; void main() { vA = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: 'varying float vA; void main() { gl_FragColor = vec4(0.06, 0.04, 0.09, vA); }' }));
+  mesh.name = 'old-marks'; mesh.renderOrder = 1; return mesh;
+}
+
+/** Where the pass reaches the plaza: a red gate over the road and stone lanterns with a warm light, up the last stretch. */
+function plazaGate(T, F) {
+  const group = new THREE.Group(), red = toon({ color: '#d8483f', soft: 0.4, rim: 0.4 }), stone = toon({ color: '#9b8a9c', flat: true }), glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(5.0, 2.9, 0.9), toneMapped: false });
+  const box = (w, h, d, x, y, z, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; return b; };
+  { const f = frameAt(T, 16, 0), gate = new THREE.Group(), half = T.hwL[8] + 1.6;
+    for (const k of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 7.4, 8), red); post.position.set(k * half, 3.7, 0); post.castShadow = true; gate.add(post, box(1.1, 0.5, 1.1, k * half, 0.25, 0, stone)); }
+    gate.add(box(half * 2 + 3.4, 0.5, 0.75, 0, 7.5, 0, red), box(half * 2 + 4.6, 0.36, 1.0, 0, 7.95, 0, toon({ color: '#3a2a3c' })), box(half * 2 + 1.2, 0.42, 0.5, 0, 6.2, 0, red), box(0.5, 0.9, 0.55, 0, 6.85, 0, red));
+    gate.position.set(-f.x, f.y, f.z); gate.rotation.y = -f.head; group.add(gate); }
+  for (let s = 40; s < Math.min(T.len, 330); s += 26) for (const side of [-1, 1]) { const i = Math.round(s / T.ds), f = frameAt(T, s, side * ((side > 0 ? T.hwR[i] : T.hwL[i]) + F.VERGE - 1.1)), l = new THREE.Group();
+    l.add(box(0.5, 0.2, 0.5, 0, 0.1, 0, stone), box(0.2, 0.9, 0.2, 0, 0.65, 0, stone), box(0.5, 0.12, 0.5, 0, 1.14, 0, stone), box(0.34, 0.34, 0.34, 0, 1.37, 0, glow), box(0.66, 0.1, 0.66, 0, 1.6, 0, stone), box(0.3, 0.14, 0.3, 0, 1.72, 0, stone));
+    l.position.set(-f.x, F.at(f.x, f.z), f.z); l.rotation.y = -f.head; group.add(l); }
+  return mergedByMaterial(group, 'gate');
+}
+
+/** Mist: soft flat sheets over the lake and low land round the pass. */
+function mistBanks(F, r) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const cx = cv.getContext('2d'), gr = cx.createRadialGradient(64, 64, 4, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); cx.fillStyle = gr; cx.fillRect(0, 0, 128, 128);
+  const parts = [];
+  for (let i = 0; i < 400 && parts.length < 34; i++) { const a = r() * 6.28, d = 260 + r() * 1300, x = F.cx + Math.cos(a) * d, z = F.cz + Math.sin(a) * d; if (F.base(x, z) > F.lo + 22) continue;
+    const g = new THREE.PlaneGeometry(240 + r() * 460, 80 + r() * 150).rotateX(-Math.PI / 2); g.rotateY(r() * 3.14); g.translate(-x, F.lo + 7 + r() * 16, z); parts.push(g); }
+  const mesh = new THREE.Mesh(parts.length ? mergeGeometries(parts) : new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), color: new THREE.Color(1.2, 1.0, 1.06), transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+  mesh.name = 'mist'; mesh.renderOrder = 2; return mesh;
 }
 
 /** A pine as the mockup draws it: a trunk and four tiers of faceted cones. */
@@ -122,10 +170,12 @@ function pineGeometry(r) {
  * Builds the touge's world. `map`: the map file, `T`: its baked track, `tier`: 'high' or 'low'.
  * Returns { group, field }. Everything is made here from code: no model file is read.
  */
-export function buildTouge(map, T, { tier = 'high' } = {}) {
+export function buildTouge(map, T, { tier = 'high', down = false } = {}) {
   const F = makeField(T), group = new THREE.Group(), r = rnd(5151), low = tier === 'low'; group.name = 'touge';
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(8000, 48).rotateX(-Math.PI / 2), toon({ color: C.floor })); floor.position.set(-F.cx, F.lo - 6, F.cz);
-  group.add(floor, landMesh(T, F), roadMesh(T), rails(T, map.walls ?? []), chevrons(T, F, map.track?.hairpins ?? []));
+  shared.uHazeLow.value = F.lo + 24;                                                                                    // the valley's mist lies under the pass, not on it
+  // a lake fills the valley's floor; mist banks lie over it and in the hollows of the far land
+  const lake = new THREE.Mesh(new THREE.CircleGeometry(8000, 48).rotateX(-Math.PI / 2), waterMaterial()); lake.position.set(-F.cx, F.lo + 2.2, F.cz); lake.name = 'lake';
+  group.add(lake, mistBanks(F, r), landMesh(T, F), roadMesh(T), rails(T, map.walls ?? []), chevrons(T, F, map.track?.hairpins ?? [], down), oldMarks(T, map.track?.hairpins ?? [], r), plazaGate(T, F));
 
   // ---- where things may stand: beside the road (by the road's own distance and side), never on a verge of any leg
   const free = (x, z, clear = 1.2) => F.road(x, z).edge > F.VERGE + clear;

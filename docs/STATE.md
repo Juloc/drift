@@ -959,3 +959,23 @@ Pictures: `docs/screenshots/mock/touge-uphill-drift.jpg`, `touge-uphill-hairpin.
 Not done: the finish of a run only stops the clock (no result card); no other drivers, no network; the map's tyre stacks and cones are neither
 drawn nor hit; the plaza on top is bare; the car is the S14 with the AE86's driving numbers; one time of day. **Not checked:** the whole climb
 driven by a person, a real phone (frame time, touch layout by hand), the sound by ear, the app's content policy (served by a plain file server).
+
+## Touge look, round 2 (2026-11-27): colour, sky, lake, gate
+
+Against the mockups the page was one rose-violet tone, without clouds, the valley a haze, the car pink. Changed (`game/mock/`):
+- **Colour:** the valley mist's height follows the map (`shared.uHazeLow` = the field's floor + 24 m; before it lay at a fixed height and washed half
+  the pass out); darker asphalt with stronger gloss, more contrast and colour in the finish, a little gold in the lights and violet in the darks.
+- **Sky:** cloud banks with a clear edge, a lit rim towards the sun and a violet body, thin wisps higher up; on this page the sun stands across
+  the pass (`KEY.sunDir`), so every second leg drives into the sunset.
+- **Car:** white paint (less of the sky mirrored in it), a stronger warm sun and a cooler sky light on it; tail lamps dark red, bright on the brake.
+- **Valley:** a lake fills the valley's floor (`waterMaterial`: the sky's colour, a glitter towards the sun broken by long ripples), mist banks over it.
+- **On the road:** old tyre marks through every hairpin (`oldMarks`), a red gate where the pass reaches the plaza and stone lanterns with a warm
+  light up the last 300 m (`plazaGate`), chevron arrows that follow the driving direction (`?down=1` turns them).
+- Boards, gate and lanterns are merged per material (`mergedByMaterial`): 218 draw calls back to 67.
+
+Numbers (desk PC, RTX 5070 Ti, **not a phone**): high tier 1600 x 900: 1.9 ms a picture, 67 draw calls, 392k triangles; low tier 844 x 390: 0.9 ms,
+57 draw calls, 304k triangles. Pictures: `docs/screenshots/mock/touge-r2-*.jpg`.
+
+Open against the mockups: the lake is hardly seen from the road (it lies 35 m under the lowest leg); the car's rear lamp is one full-width panel
+(the S14 file), the mockups show two lamps; no roadside props beyond trees, rocks, rails, boards and lanterns (no power poles, huts, bridge);
+the smoke is greyer and smaller than the mockups' banks. Not checked: a real phone, a whole run by a person, the lake seen from above.

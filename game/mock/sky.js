@@ -6,7 +6,7 @@ import { KEY } from './toon.js';
 
 export const SKY = {
   top: new THREE.Color('#9d86d8'), mid: new THREE.Color('#ee93b4'), warm: new THREE.Color('#ffc890'), cool: new THREE.Color('#e9a0bd'),
-  sun: new THREE.Color(3.6, 3.1, 2.0), glow: new THREE.Color('#ffd9a0'), cloudLit: new THREE.Color('#ffc2a8'), cloudShade: new THREE.Color('#b77fc0'),
+  sun: new THREE.Color(3.6, 3.1, 2.0), glow: new THREE.Color('#ffd9a0'), cloudLit: new THREE.Color('#ffdcb4'), cloudShade: new THREE.Color('#9a76c4'),
 };
 
 export function makeSky(radius = 6000) {
@@ -26,15 +26,19 @@ export function makeSky(radius = 6000) {
         vec3 col = mix(hor, uMid, smoothstep(0.0, 0.2, e)); col = mix(col, uTop, smoothstep(0.16, 0.62, e));
         col = mix(col, hor * 0.86, smoothstep(0.0, -0.12, e));
         col += uGlow * (pow(c, 6.0) * 0.16 + pow(c, 50.0) * 0.3);
-        // cloud bands: long shapes with a flat underside, gathered in two belts; lit from the sun's side and from below
+        // clouds as the mockup paints them: banks with a clear edge, a bright side towards the sun and below, a violet body; a second, thin layer high up
         float az = atan(d.x, -d.z);
-        vec2 p = vec2(az * 2.6 + uTime * 0.004, e * 13.0);
-        float n = fbm(p + vec2(0.0, fbm(p * 0.6) * 0.7));
-        float belt = smoothstep(0.05, 0.11, e) * (1.0 - smoothstep(0.34, 0.5, e));
-        float dens = smoothstep(0.47, 0.56, n) * belt;
-        float under = smoothstep(0.56, 0.47, fbm(p + vec2(0.02, 0.22) + vec2(0.0, fbm(p * 0.6) * 0.7)));   // the same shape a little lower: where it ends, the underside shows
-        vec3 cc = mix(uShade, uLit, clamp(under * 0.75 + pow(toSun, 2.0) * 0.5, 0.0, 1.0)) + uGlow * pow(c, 10.0) * 0.5;
-        col = mix(col, cc, dens * 0.92);
+        vec2 p = vec2(az * 1.9 + uTime * 0.003, e * 9.5);
+        float warp = fbm(p * 0.7) * 0.9, n = fbm(p + vec2(0.0, warp));
+        float belt = smoothstep(0.045, 0.1, e) * (1.0 - smoothstep(0.36, 0.56, e));
+        float dens = smoothstep(0.455, 0.49, n) * belt;
+        float low = fbm(p + vec2(0.035, 0.3) + vec2(0.0, warp));                                    // the same shape a little lower and towards the sun: where it is thin, the lit rim shows
+        float rim = 1.0 - smoothstep(0.44, 0.5, low);
+        vec3 cc = mix(uShade, uLit, clamp(rim * 0.85 + pow(toSun, 3.0) * 0.35, 0.0, 1.0));
+        cc = mix(cc, uShade * 0.86, smoothstep(0.53, 0.63, n) * 0.6) + uGlow * pow(c, 8.0) * 0.6;   // a darker heart in the thick of a bank
+        col = mix(col, cc, dens * 0.95);
+        vec2 p2 = vec2(az * 4.4 - uTime * 0.002, e * 30.0); float wisp = smoothstep(0.55, 0.7, fbm(p2 + fbm(p2 * 0.5))) * smoothstep(0.2, 0.32, e) * (1.0 - smoothstep(0.6, 0.8, e));
+        col = mix(col, mix(uLit, uMid, 0.45), wisp * 0.4 * (1.0 - dens));
         float ang = acos(clamp(dot(d, uSun), -1.0, 1.0));
         col = mix(col, uSunCol, (1.0 - smoothstep(0.050, 0.056, ang)) * (1.0 - dens * 0.5));
         gl_FragColor = vec4(col, 1.0);
