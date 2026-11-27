@@ -42,3 +42,4 @@ body.touch.mock-hud #mh-angle { width: 190px; height: 80px; bottom: 12px; }
 body.touch.mock-hud #simtouch .pad.mid { top: 92px; flex-direction: column; }
 body.touch.mock-hud #simtouch .pad.mid [data-key='KeyQ'], body.touch.mock-hud #simtouch .pad.mid [data-key='KeyE'], body.touch.mock-hud #simtouch .pad.mid [data-key='KeyM'], body.touch.mock-hud #simtouch .pad.mid [data-key='KeyT'] { display: none; }
 @media (max-height: 420px) { #mh-lap { font-size: 12px; padding: 6px 10px; } #mh-lap .big { font-size: 15px; } #mh-score .pts { font-size: 22px; } #mh-score { min-width: 160px; } body.touch.mock-hud #mh-map { left: 164px; } }
+@media (max-width: 700px) { body.touch.mock-hud #mh-angle { left: 36%; } }   /* 667 wide: the arc sat under the clutch button; it moves left, between the steering arrows and the pedals */

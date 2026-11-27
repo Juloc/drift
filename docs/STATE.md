@@ -898,3 +898,6 @@ Sliding (`lab-drive.html?drive=13&angle=0.55&adapt=0`, after 9 s, best of 40 ren
 | low 844x390 | 10.2 ms | **7.9 ms** | 104 | 319 k |
 - With `adapt=0` `h.adapt.k` stays 1 (the resolution is not touched). With it on (low, 1280x720, headless, 20 s sliding) it went down to 0.85 (1088x612) and the run held 56 fps; this machine's headless run is slower than a phone-less desktop would be, so the share is only a sign that the loop works.
 - Not measured: a real phone; the chief's numbers (high 19.1, low 9.2 at 1280x720) are for his own scene (still), not the slide. Premerge (with the policy step) passed on the merge.
+
+### Quay drive display (0.7.21, merge 5fe67b2): touch check
+- Pictures `docs/screenshots/sim2/hud-844x390.png`, `hud-667x375.png` (`simdrive --sim --touch`, low tier). 844x390: nothing overlaps or is cut. 667x375: the drift-angle arc sat under the clutch button; fixed by moving it (`left: 36%` under 700 px, `lab-drive-hud.css`). Left as is: the map card and the drift-score card touch with no gap at 667; the fps line (test row) runs over the arc's foot and the steering arrows (only with the test read-out). Not seen on a real phone.
